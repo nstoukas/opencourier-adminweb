@@ -74,10 +74,15 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       return
     }
 
+    const courierId = eventType === EnumDeliveryEventType.ACCEPTED
+      ? (getDeliveryResponse.data.matchedCourierId || getDeliveryResponse.data.courierId || undefined)
+      : undefined
+
     try {
       await submitDeliveryEvent({
         deliveryId: getDeliveryResponse.data.id,
         eventType: eventType,
+        courierId,
       }).unwrap()
     } catch (error) {
       toast({
