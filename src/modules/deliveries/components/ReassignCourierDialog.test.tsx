@@ -199,8 +199,8 @@ describe('ReassignCourierDialog component', () => {
     fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
 
     expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
-    // 800 cents * 50% = 400 cents => 4.00 EUR
-    expect(screen.getByText(/4\.00 EUR/i)).toBeInTheDocument()
+    // 800 cents * 50% = 400 cents => €4.00
+    expect(screen.getByText('€4.00')).toBeInTheDocument()
     expect(screen.queryByText(/\$4\.00/i)).toBeNull()
   })
 

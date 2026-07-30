@@ -23,6 +23,7 @@ import { useReassignDeliveryMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { useGetInstanceConfigQuery } from '@/api/configApi'
 import { listPayoutPolicies, previewReassignmentPayout } from '@/utils/reassignmentPayout'
+import { formatMoney } from '@/utils/formatMoney'
 import type { ReassignmentRecord } from './ReassignmentRecord'
 
 const ONGOING_DELIVERY_STATUSES: string[] = [
@@ -108,11 +109,9 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
     delivery.totalCompensation,
   )
 
-  const currencyCode = delivery.currencyCode || 'USD'
-  const formattedAmount = preview.ok ? (preview.amount / 100).toFixed(2) : '0.00'
-  const formattedTotal = delivery.totalCompensation
-    ? (delivery.totalCompensation / 100).toFixed(2)
-    : '0.00'
+  const currencyCode = delivery.currencyCode
+  const formattedAmount = formatMoney(preview.ok ? preview.amount : 0, currencyCode) ?? ''
+  const formattedTotal = formatMoney(delivery.totalCompensation ?? 0, currencyCode) ?? ''
 
   const handleReassign = async () => {
     if (!newCourierId || !preview.ok) return
@@ -125,7 +124,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
         message: message.trim() || undefined,
       }).unwrap()
 
-      const amountText = `${formattedAmount} ${currencyCode}`
+      const amountText = formattedAmount
       toast({
         title: `Delivery reassigned — ${currentCourierName} awarded ${amountText}`,
       })
@@ -139,7 +138,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
           policy: preview.policy,
           percent: preview.percent,
           amount: preview.amount,
-          currencyCode,
+          currencyCode: currencyCode ?? '',
           message: message.trim() || null,
           submittedAt: new Date(),
         })
@@ -223,7 +222,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
               ) : (
                 <div>
                   {currentCourierName} will be awarded{' '}
-                  <span className="font-semibold">{formattedAmount} {currencyCode}</span> ({preview.percent}% of the {formattedTotal} {currencyCode} piece-rate).
+                  <span className="font-semibold">{formattedAmount}</span> ({preview.percent}% of the {formattedTotal} piece-rate).
                 </div>
               )}
             </div>

@@ -4,6 +4,7 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
 import { ReassignmentRecordCard, type ReassignmentRecord } from '@/modules/deliveries/components/ReassignmentRecord'
+import { formatMoney } from '@/utils/formatMoney'
 import { StatusBadge } from '@/modules/deliveries/components/StatusBadge'
 import {
   Button,
@@ -20,14 +21,9 @@ import {
 } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryEventType, EnumDeliveryStatus, STATE_MACHINE } from '../../../shared-types'
-import { cn, formatDate, formatPennies } from '../../../ui-shared-utils'
+import { cn, formatDate } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
 import { ArrowLeftIcon } from 'lucide-react'
-
-function formatMoney(pennies: number | null | undefined): string | null {
-  if (pennies == null) return null
-  return `$${formatPennies(pennies)}`
-}
 
 function displayText(value: string | object | null | undefined): string {
   if (value == null || value === '') return '—'
@@ -200,37 +196,37 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             <Label className="flex flex-col space-y-1">
               <span>Order total</span>
               <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.orderTotalValue) ?? '—'}
+                {formatMoney(delivery.orderTotalValue, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
               <span>Total cost</span>
               <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.totalCost) ?? '—'}
+                {formatMoney(delivery.totalCost, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
               <span>Fee</span>
               <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.fee) ?? '—'}
+                {formatMoney(delivery.fee, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
               <span>Pay</span>
               <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.pay) ?? '—'}
+                {formatMoney(delivery.pay, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
               <span>Tips</span>
               <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.tips) ?? '—'}
+                {formatMoney(delivery.tips, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
               <span>Total compensation</span>
               <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.totalCompensation) ?? '—'}
+                {formatMoney(delivery.totalCompensation, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">

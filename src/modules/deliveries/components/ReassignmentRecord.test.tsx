@@ -25,7 +25,7 @@ describe('ReassignmentRecordCard component', () => {
     expect(screen.getByText('Nikos Papadopoulos')).toBeInTheDocument()
     expect(screen.getByText('Eleni Georgiou')).toBeInTheDocument()
     expect(screen.getByText('HALF_COMPENSATION (50%)')).toBeInTheDocument()
-    expect(screen.getByText('4.00 EUR')).toBeInTheDocument()
+    expect(screen.getByText('€4.00')).toBeInTheDocument()
     expect(screen.getByText('Moped flat tire mid-flight')).toBeInTheDocument()
   })
 

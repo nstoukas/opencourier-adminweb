@@ -1,6 +1,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
 import { formatDate } from '@/ui-shared-utils'
+import { formatMoney } from '@/utils/formatMoney'
 
 export type ReassignmentRecord = {
   droppedCourierId: string
@@ -21,7 +22,7 @@ interface ReassignmentRecordProps {
 
 // In-memory receipt card displaying the submission details of a rider reassignment.
 export const ReassignmentRecordCard: React.FC<ReassignmentRecordProps> = ({ record }) => {
-  const formattedAmount = (record.amount / 100).toFixed(2)
+  const formattedAmount = formatMoney(record.amount, record.currencyCode) ?? '—'
 
   return (
     <Card className="mt-4 border-amber-200 bg-amber-50/40">
@@ -47,7 +48,7 @@ export const ReassignmentRecordCard: React.FC<ReassignmentRecordProps> = ({ reco
 
           <div>
             <span className="text-xs text-muted-foreground block">Compensation Awarded</span>
-            <span className="font-semibold text-emerald-700">{formattedAmount} {record.currencyCode}</span>
+            <span className="font-semibold text-emerald-700">{formattedAmount}</span>
           </div>
 
           <div>
