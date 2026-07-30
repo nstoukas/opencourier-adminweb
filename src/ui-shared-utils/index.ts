@@ -21,8 +21,6 @@ export * from './utils/order'
 export * from './utils/catalog'
 export * from './utils/slug'
 export * from './utils/deliveryOptions'
-export * from './utils/cart/flattenModifiers'
-export * from './utils/cart/formatModifier'
 export * from './utils/numbers'
 
 // hooks
