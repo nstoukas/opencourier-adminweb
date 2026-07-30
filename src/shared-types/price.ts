@@ -13,8 +13,6 @@ export function penniesToFloat(pennyPrice: number): number {
   return roundToTwoDecimals(pennyPrice / 100)
 }
 
-export const parsePrice = (price: number | undefined) => {
-  if (!price) return '$0'
-
-  return `$${(price / 100).toFixed(2)}`
-}
+// A parsePrice() lived here that hardcoded '$'. Formatting belongs in
+// src/utils/formatMoney.ts, which uses the record's own currencyCode and omits the
+// symbol rather than inventing one. These two converters do no formatting, so they stay.
