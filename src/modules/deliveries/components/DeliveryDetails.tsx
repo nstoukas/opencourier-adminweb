@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
-import { ReassignmentRecordCard, type ReassignmentRecord } from '@/modules/deliveries/components/ReassignmentRecord'
+import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { formatMoney } from '@/utils/formatMoney'
 import { StatusBadge } from '@/modules/deliveries/components/StatusBadge'
 import {
@@ -62,7 +62,6 @@ type DeliveryDetailsProps = {
 
 export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { goToDeliveries } = useAdminPageNavigator()
-  const [reassignment, setReassignment] = useState<ReassignmentRecord | null>(null)
 
   const getDeliveryResponse = useGetDeliveryQuery({ id: props.deliveryId })
 
@@ -148,7 +147,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             </div>
           ) : null}
 
-          <ReassignCourierDialog delivery={delivery} onReassigned={setReassignment} />
+          <ReassignCourierDialog delivery={delivery} />
 
           {possibleEvents.length ? (
             <Menu>
@@ -164,7 +163,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
           ) : null}
         </div>
 
-        {reassignment ? <ReassignmentRecordCard record={reassignment} /> : null}
+        <DeliveryEventTimeline deliveryId={delivery.id} />
 
         <Card>
           <CardHeader>

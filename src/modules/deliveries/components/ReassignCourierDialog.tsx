@@ -24,7 +24,6 @@ import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { useGetInstanceConfigQuery } from '@/api/configApi'
 import { listPayoutPolicies, previewReassignmentPayout } from '@/utils/reassignmentPayout'
 import { formatMoney } from '@/utils/formatMoney'
-import type { ReassignmentRecord } from './ReassignmentRecord'
 
 const ONGOING_DELIVERY_STATUSES: string[] = [
   'ACCEPTED',
@@ -46,13 +45,11 @@ export function canReassignDelivery(delivery: DeliveryAdminDto): boolean {
 
 interface ReassignCourierDialogProps {
   delivery: DeliveryAdminDto
-  onReassigned?: (record: ReassignmentRecord) => void
 }
 
 // Modal dialog allowing admins to reassign an ongoing delivery to a new rider and calculate compensation.
 export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
   delivery,
-  onReassigned,
 }) => {
   const [open, setOpen] = useState(false)
   const [newCourierId, setNewCourierId] = useState<string>('')
@@ -95,11 +92,6 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
     ? `${currentCourier.firstName} ${currentCourier.lastName}`.trim()
     : (delivery.courierId ?? '')
 
-  const newCourierObj = couriers.find((c) => c.id === newCourierId)
-  const newCourierName = newCourierObj
-    ? `${newCourierObj.firstName} ${newCourierObj.lastName}`.trim()
-    : newCourierId
-
   const availableCouriers = couriers.filter((c) => c.id !== delivery.courierId)
 
   const preview = previewReassignmentPayout(
@@ -128,21 +120,6 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
       toast({
         title: `Delivery reassigned — ${currentCourierName} awarded ${amountText}`,
       })
-
-      if (onReassigned && preview.ok) {
-        onReassigned({
-          droppedCourierId: delivery.courierId!,
-          droppedCourierName: currentCourierName,
-          newCourierId,
-          newCourierName,
-          policy: preview.policy,
-          percent: preview.percent,
-          amount: preview.amount,
-          currencyCode: currencyCode ?? '',
-          message: message.trim() || null,
-          submittedAt: new Date(),
-        })
-      }
 
       setOpen(false)
     } catch (err: any) {

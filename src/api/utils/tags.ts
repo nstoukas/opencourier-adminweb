@@ -9,6 +9,7 @@ const tagTypes = {
   payment: 'Payment',
   config: 'Config',
   partners: 'Partners',
+  deliveryEvents: 'DeliveryEvents',
 }
 
 export const Tags = {
@@ -26,4 +27,5 @@ export const Tags = {
   payment: tagTypes['payment'],
   config: tagTypes['config'],
   partners: tagTypes['partners'],
+  deliveryEvents: tagTypes['deliveryEvents'],
 }

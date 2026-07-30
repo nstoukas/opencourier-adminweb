@@ -9,6 +9,7 @@ import {
   useSubmitDeliveryEventMutation,
   useReassignDeliveryMutation,
   useAssignDeliveryToCourierMutation,
+  useGetDeliveryEventsQuery,
 } from '../../../api/deliveriesApi'
 import { useGetAllCouriersQuery } from '../../../api/couriersApi'
 import { useGetInstanceConfigQuery } from '../../../api/configApi'
@@ -97,6 +98,7 @@ jest.mock('../../../api/deliveriesApi', () => ({
   useSubmitDeliveryEventMutation: jest.fn(),
   useReassignDeliveryMutation: jest.fn(),
   useAssignDeliveryToCourierMutation: jest.fn(),
+  useGetDeliveryEventsQuery: jest.fn(),
 }))
 
 jest.mock('../../../api/couriersApi', () => ({
@@ -126,6 +128,7 @@ const mockUseGetDeliveryQuery = useGetDeliveryQuery as jest.Mock
 const mockUseSubmitDeliveryEventMutation = useSubmitDeliveryEventMutation as jest.Mock
 const mockUseReassignDeliveryMutation = useReassignDeliveryMutation as jest.Mock
 const mockUseAssignDeliveryToCourierMutation = useAssignDeliveryToCourierMutation as jest.Mock
+const mockUseGetDeliveryEventsQuery = useGetDeliveryEventsQuery as jest.Mock
 const mockUseGetAllCouriersQuery = useGetAllCouriersQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 const mockUseAdminPageNavigator = useAdminPageNavigator as jest.Mock
@@ -184,6 +187,22 @@ describe('DeliveryDetails component', () => {
     ])
     mockUseReassignDeliveryMutation.mockReturnValue([jest.fn(), { isLoading: false }])
     mockUseAssignDeliveryToCourierMutation.mockReturnValue([jest.fn(), { isLoading: false }])
+    mockUseGetDeliveryEventsQuery.mockReturnValue({
+      data: [
+        {
+          id: 'e1',
+          type: 'CREATED',
+          actor: 'PARTNER',
+          eventSource: 'PARTNER_APP',
+          oldStatus: null,
+          newStatus: 'CREATED',
+          transitionSuccessful: true,
+          message: 'Delivery created',
+          createdAt: new Date('2026-07-30T10:00:00Z'),
+        },
+      ],
+      isLoading: false,
+    })
     mockUseGetAllCouriersQuery.mockReturnValue({ data: [], isLoading: false })
     mockUseGetInstanceConfigQuery.mockReturnValue({ data: {}, isLoading: false })
     mockUseAdminPageNavigator.mockReturnValue({
@@ -322,6 +341,24 @@ describe('DeliveryDetails component', () => {
       expect(screen.getByText('Failed to change delivery status')).toBeInTheDocument()
 
       confirmSpy.mockRestore()
+    })
+  })
+
+  describe('DeliveryEventTimeline integration & regression guards (Test Plan C)', () => {
+    it('renders the DeliveryEventTimeline component with stubbed event history', () => {
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText('Delivery events')).toBeInTheDocument()
+      expect(screen.getByText('Created')).toBeInTheDocument()
+    })
+
+    it('does not contain obsolete receipt card strings (regression guard)', () => {
+      const { container } = render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(container.textContent).not.toContain(
+        "This panel is this browser's copy of what was submitted and is lost on reload"
+      )
+      expect(container.textContent).not.toMatch(/adminweb has no endpoint/i)
     })
   })
 })

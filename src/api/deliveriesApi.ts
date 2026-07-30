@@ -1,6 +1,7 @@
 import {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
+  DeliveryEventAdminDto,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
 import { api as baseApi, prepareAdminSdk } from '.'
@@ -42,6 +43,21 @@ export const deliveriesApi = baseApi.injectEndpoints({
       },
       providesTags: [Tags.deliveries],
     }),
+    /** A Delivery's DeliveryEvent history, oldest first
+     *  (opencourier-backend GET /api/admin/v1/deliveries/:deliveryId/events). */
+    getDeliveryEvents: build.query<DeliveryEventAdminDto[], { deliveryId: string }>({
+      queryFn: async ({ deliveryId }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().getDeliveryEvents({ deliveryId })
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      providesTags: [Tags.deliveryEvents],
+    }),
     submitDeliveryEvent: build.mutation<
       DeliveryAdminDto,
       { deliveryId: string; eventType: EnumDeliveryEventType; courierId?: string }
@@ -65,7 +81,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
           }
         }
       },
-      invalidatesTags: [Tags.deliveries],
+      invalidatesTags: [Tags.deliveries, Tags.deliveryEvents],
     }),
     /** Manual assign: admin ACCEPTED with courierId (opencourier-backend POST /api/admin/v1/deliveries/:id/submit-event). */
     assignDeliveryToCourier: build.mutation<
@@ -91,7 +107,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
           }
         }
       },
-      invalidatesTags: [Tags.deliveries],
+      invalidatesTags: [Tags.deliveries, Tags.deliveryEvents],
     }),
     /** Admin rider reassignment (opencourier-backend POST /api/admin/v1/deliveries/:id/reassign).
      *  Writes a CourierCompensation row for the dropped rider and emits a REASSIGNED DeliveryEvent.
@@ -119,7 +135,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
           }
         }
       },
-      invalidatesTags: [Tags.deliveries],
+      invalidatesTags: [Tags.deliveries, Tags.deliveryEvents],
     }),
   }),
 })
@@ -127,6 +143,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
 export const {
   useGetDeliveriesQuery,
   useGetDeliveryQuery,
+  useGetDeliveryEventsQuery,
   useSubmitDeliveryEventMutation,
   useAssignDeliveryToCourierMutation,
   useReassignDeliveryMutation,

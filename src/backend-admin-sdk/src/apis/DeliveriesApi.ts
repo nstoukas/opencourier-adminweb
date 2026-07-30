@@ -17,6 +17,7 @@ import * as runtime from '../runtime';
 import type {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
+  DeliveryEventAdminDto,
   DeliveryReassignAdminInput,
   DeliverySubmitEventAdminInput,
   ForbiddenException,
@@ -27,6 +28,8 @@ import {
     DeliveryAdminDtoToJSON,
     DeliveryAdminPaginatedDtoFromJSON,
     DeliveryAdminPaginatedDtoToJSON,
+    DeliveryEventAdminDtoFromJSON,
+    DeliveryEventAdminDtoToJSON,
     DeliveryReassignAdminInputFromJSON,
     DeliveryReassignAdminInputToJSON,
     DeliverySubmitEventAdminInputFromJSON,
@@ -44,6 +47,10 @@ export interface DeliveriesApiGetDeliveriesRequest {
 }
 
 export interface DeliveriesApiGetDeliveryRequest {
+    deliveryId: string;
+}
+
+export interface DeliveriesApiGetDeliveryEventsRequest {
     deliveryId: string;
 }
 
@@ -143,6 +150,41 @@ export class DeliveriesApi extends runtime.BaseAPI {
      */
     async getDelivery(requestParameters: DeliveriesApiGetDeliveryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<DeliveryAdminDto> {
         const response = await this.getDeliveryRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Get a Delivery's DeliveryEvent history, oldest first
+     */
+    async getDeliveryEventsRaw(requestParameters: DeliveriesApiGetDeliveryEventsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<DeliveryEventAdminDto>>> {
+        if (requestParameters.deliveryId === null || requestParameters.deliveryId === undefined) {
+            throw new runtime.RequiredError('deliveryId','Required parameter requestParameters.deliveryId was null or undefined when calling getDeliveryEvents.');
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const response = await this.request({
+            path: `/api/admin/v1/deliveries/{deliveryId}/events`.replace(`{${"deliveryId"}}`, encodeURIComponent(String(requestParameters.deliveryId))),
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(DeliveryEventAdminDtoFromJSON));
+    }
+
+    async getDeliveryEvents(requestParameters: DeliveriesApiGetDeliveryEventsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<DeliveryEventAdminDto>> {
+        const response = await this.getDeliveryEventsRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

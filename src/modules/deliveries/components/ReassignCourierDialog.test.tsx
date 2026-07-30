@@ -298,40 +298,4 @@ describe('ReassignCourierDialog component', () => {
     // Dialog remains open for retry
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
-
-  it('calls onReassigned callback with exact expected record on success', async () => {
-    const onReassignedMock = jest.fn()
-    mockReassignDeliveryMutation.mockReturnValue({
-      unwrap: () => Promise.resolve({ ...sampleDelivery, courierId: 'c2' }),
-    })
-
-    render(
-      <ReassignCourierDialog delivery={sampleDelivery} onReassigned={onReassignedMock} />
-    )
-    fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
-
-    expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
-
-    const option = screen.getByText(/Eleni Georgiou/)
-    fireEvent.click(option)
-
-    const submitButton = screen.getByRole('button', { name: /reassign rider/i })
-    fireEvent.click(submitButton)
-
-    await waitFor(() => {
-      expect(onReassignedMock).toHaveBeenCalledTimes(1)
-      const record = onReassignedMock.mock.calls[0][0]
-      expect(record).toMatchObject({
-        droppedCourierId: 'c1',
-        droppedCourierName: 'Nikos Papadopoulos',
-        newCourierId: 'c2',
-        newCourierName: 'Eleni Georgiou',
-        policy: 'HALF',
-        percent: 50,
-        amount: 400,
-        currencyCode: 'EUR',
-        message: null,
-      })
-    })
-  })
 })
