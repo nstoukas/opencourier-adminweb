@@ -14,6 +14,7 @@ import {
   CarTaxiFrontIcon,
   LayoutDashboardIcon,
   ScrollTextIcon,
+  StoreIcon,
 } from 'lucide-react'
 import React, { useContext, useState } from 'react'
 import { Nav, NavLink } from '../Nav'
@@ -31,6 +32,11 @@ const sidebarNavItems: NavLink[] = [
     title: 'Deliveries',
     icon: BuildingIcon,
     href: EAdminRoutes.DELIVERIES,
+  },
+  {
+    title: 'Restaurants',
+    icon: StoreIcon,
+    href: EAdminRoutes.PARTNERS,
   },
   {
     title: 'Couriers',

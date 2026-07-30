@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, LocationsApi } from "./apis";
+import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, LocationsApi, PartnerApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -71,6 +71,10 @@ export class BackendAdminSdk {
 
   couriers(): CourierApi {
     return this.getOrCreateApi(CourierApi)
+  }
+
+  partners(): PartnerApi {
+    return this.getOrCreateApi(PartnerApi)
   }
 
   courierSettings(): CourierSettingsApi {

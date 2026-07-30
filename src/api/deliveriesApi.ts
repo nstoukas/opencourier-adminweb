@@ -93,6 +93,34 @@ export const deliveriesApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [Tags.deliveries],
     }),
+    /** Admin rider reassignment (opencourier-backend POST /api/admin/v1/deliveries/:id/reassign).
+     *  Writes a CourierCompensation row for the dropped rider and emits a REASSIGNED DeliveryEvent.
+     *  NOT the same as submit-event: submit-event would move the status and pay nobody. */
+    reassignDelivery: build.mutation<
+      DeliveryAdminDto,
+      { deliveryId: string; courierId: string; payoutPolicy?: string; message?: string }
+    >({
+      queryFn: async ({ deliveryId, courierId, payoutPolicy, message }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().reassignDelivery({
+            id: deliveryId,
+            deliveryReassignAdminInput: {
+              courierId,
+              payoutPolicy,
+              message,
+            },
+          })
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      invalidatesTags: [Tags.deliveries],
+    }),
   }),
 })
 
@@ -101,4 +129,5 @@ export const {
   useGetDeliveryQuery,
   useSubmitDeliveryEventMutation,
   useAssignDeliveryToCourierMutation,
+  useReassignDeliveryMutation,
 } = deliveriesApi

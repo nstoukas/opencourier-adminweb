@@ -110,7 +110,12 @@ export interface LocationAdminDto {
  * @export
  */
 export const LocationAdminDtoCountryCodeEnum = {
-    Us: 'US'
+    Us: 'US',
+    Gr: 'GR',
+    Ca: 'CA',
+    Gb: 'GB',
+    Au: 'AU',
+    Mx: 'MX'
 } as const;
 export type LocationAdminDtoCountryCodeEnum = typeof LocationAdminDtoCountryCodeEnum[keyof typeof LocationAdminDtoCountryCodeEnum];
 

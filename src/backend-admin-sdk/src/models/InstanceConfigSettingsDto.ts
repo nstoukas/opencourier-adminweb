@@ -127,6 +127,18 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   registeredRegistries?: string[];
+  /**
+   *
+   * @type {{ [key: string]: number }}
+   * @memberof InstanceConfigSettingsDto
+   */
+  reassignmentPayoutPolicies?: { [key: string]: number };
+  /**
+   *
+   * @type {string}
+   * @memberof InstanceConfigSettingsDto
+   */
+  reassignmentPayoutDefaultPolicy?: string;
 }
 
 /**
@@ -277,6 +289,12 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     registeredRegistries: !exists(json, "registeredRegistries")
       ? undefined
       : (json["registeredRegistries"] as string[]),
+    reassignmentPayoutPolicies: !exists(json, "reassignmentPayoutPolicies")
+      ? {}
+      : json["reassignmentPayoutPolicies"],
+    reassignmentPayoutDefaultPolicy: !exists(json, "reassignmentPayoutDefaultPolicy")
+      ? ""
+      : json["reassignmentPayoutDefaultPolicy"],
   };
 }
 
@@ -309,5 +327,7 @@ export function InstanceConfigSettingsDtoToJSON(
     details: value.details,
     updatedAt: value.updatedAt,
     registeredRegistries: value.registeredRegistries,
+    reassignmentPayoutPolicies: value.reassignmentPayoutPolicies,
+    reassignmentPayoutDefaultPolicy: value.reassignmentPayoutDefaultPolicy,
   };
 }

@@ -17,6 +17,7 @@ import * as runtime from '../runtime';
 import type {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
+  DeliveryReassignAdminInput,
   DeliverySubmitEventAdminInput,
   ForbiddenException,
   NotFoundException,
@@ -26,6 +27,8 @@ import {
     DeliveryAdminDtoToJSON,
     DeliveryAdminPaginatedDtoFromJSON,
     DeliveryAdminPaginatedDtoToJSON,
+    DeliveryReassignAdminInputFromJSON,
+    DeliveryReassignAdminInputToJSON,
     DeliverySubmitEventAdminInputFromJSON,
     DeliverySubmitEventAdminInputToJSON,
     ForbiddenExceptionFromJSON,
@@ -47,6 +50,11 @@ export interface DeliveriesApiGetDeliveryRequest {
 export interface DeliveriesApiSubmitOrderEventRequest {
     id: string;
     deliverySubmitEventAdminInput: DeliverySubmitEventAdminInput;
+}
+
+export interface DeliveriesApiReassignDeliveryRequest {
+    id: string;
+    deliveryReassignAdminInput: DeliveryReassignAdminInput;
 }
 
 /**
@@ -178,6 +186,49 @@ export class DeliveriesApi extends runtime.BaseAPI {
      */
     async submitOrderEvent(requestParameters: DeliveriesApiSubmitOrderEventRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<DeliveryAdminDto> {
         const response = await this.submitOrderEventRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Reassign delivery rider
+     */
+    async reassignDeliveryRaw(requestParameters: DeliveriesApiReassignDeliveryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<DeliveryAdminDto>> {
+        if (requestParameters.id === null || requestParameters.id === undefined) {
+            throw new runtime.RequiredError('id', 'Required parameter requestParameters.id was null or undefined when calling reassignDelivery.');
+        }
+
+        if (requestParameters.deliveryReassignAdminInput === null || requestParameters.deliveryReassignAdminInput === undefined) {
+            throw new runtime.RequiredError('deliveryReassignAdminInput', 'Required parameter requestParameters.deliveryReassignAdminInput was null or undefined when calling reassignDelivery.');
+        }
+
+        const queryParameters: any = {};
+        const headerParameters: runtime.HTTPHeaders = {};
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const response = await this.request({
+            path: `/api/admin/v1/deliveries/{id}/reassign`.replace(`{${"id"}}`, encodeURIComponent(String(requestParameters.id))),
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: DeliveryReassignAdminInputToJSON(requestParameters.deliveryReassignAdminInput),
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => DeliveryAdminDtoFromJSON(jsonValue));
+    }
+
+    /**
+     * Reassign delivery rider
+     */
+    async reassignDelivery(requestParameters: DeliveriesApiReassignDeliveryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<DeliveryAdminDto> {
+        const response = await this.reassignDeliveryRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
