@@ -3,15 +3,13 @@ import { NotificationEventType, adminBroadcastNotificationChannel } from '../sha
 import { useWebSocket } from '../admin-web-components'
 
 import useAppSelector from '@/hooks/useAppSelector'
-import { useAppDispatch } from '../ui-shared-utils'
 
 import { DeliveryAdminDto } from '../backend-admin-sdk'
 
-const GlobalEventListener = (props: any) => {
-  const { accessToken, user } = useAppSelector((state) => state.auth)
+const GlobalEventListener = () => {
+  const { accessToken } = useAppSelector((state) => state.auth)
 
   const { ably, connectWebSocket, disconnectWebSocket, subscribeToEvent } = useWebSocket()
-  const dispatch = useAppDispatch()
 
   useEffect(() => {
     if (accessToken) {

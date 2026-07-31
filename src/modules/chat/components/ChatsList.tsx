@@ -50,7 +50,7 @@ export default function ChatsList({ chat, className }: ChatsListProps) {
                   'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
                   chat.openedConversation?.id === conversation.id && 'bg-muted'
                 )}
-                onClick={async () => goToChatDetails(conversation.id)}
+                onClick={() => goToChatDetails(conversation.id)}
               >
                 <div className="flex w-full flex-col gap-1">
                   <div className="flex w-full items-center justify-between">

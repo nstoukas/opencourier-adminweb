@@ -16,9 +16,8 @@ import {
   ScrollTextIcon,
   StoreIcon,
 } from 'lucide-react'
-import React, { useContext, useState } from 'react'
+import React, { useState } from 'react'
 import { Nav, NavLink } from '../Nav'
-import { ChatContext } from '@/modules/chat/components/ChatProvider'
 
 interface ghostLayoutProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -54,11 +53,7 @@ export function DefaultLayout({ children, className }: ghostLayoutProps) {
   const screen = useScreenSize()
   const [isCollapsed, setIsCollapsed] = React.useState(screen.width < 400)
   const dispatch = useAppDispatch()
-  const chat = useContext(ChatContext)
-  const [navItems, setNavItems] = useState<NavLink[]>(sidebarNavItems)
-
-  // useEffect(() => {
-  // }, [chat?.allUnreadMessagesCount])
+  const [navItems] = useState<NavLink[]>(sidebarNavItems)
 
   return (
     <div className="flex flex-col lg:flex-row">

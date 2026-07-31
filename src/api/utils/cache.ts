@@ -1,9 +1,13 @@
 import { AnyAction, ThunkDispatch } from '@reduxjs/toolkit'
-import { DeliveryAdminDtoFromJSON, DeliveryAdminDto } from '../../backend-admin-sdk'
+import { DeliveryAdminDto } from '../../backend-admin-sdk'
 
-export const handleDeliveryStatusUpdateEvent = (data: DeliveryAdminDto, dispatch: ThunkDispatch<any, any, AnyAction>) => {
-  const updatedDelivery = DeliveryAdminDtoFromJSON(data)
-
+// Both parameters keep the exported signature intact while the cache-update body below
+// stays commented out; the leading underscore is how this repo's lint config marks a
+// parameter as deliberately unused. Uncommenting the body means dropping both underscores.
+export const handleDeliveryStatusUpdateEvent = (
+  _data: DeliveryAdminDto,
+  _dispatch: ThunkDispatch<any, any, AnyAction>,
+) => {
   // if (ACTIVE_STATUSES.includes(data.status)) {
   //   return dispatch(
   //     deliveriesApi.util.updateQueryData('getDelivery', { view: 'ACTIVE' }, (draft) => {

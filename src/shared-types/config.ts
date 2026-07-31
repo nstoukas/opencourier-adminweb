@@ -9,7 +9,7 @@ import { EnumCurrency } from './currency'
 export enum EnumDistanceUnit {
   KILOMETERS = 'KILOMETERS',
   MILES = 'MILES'
-};
+}
 
 export type InstanceConfigSettings = {
   courierMatcherType: EnumCourierMatcherType

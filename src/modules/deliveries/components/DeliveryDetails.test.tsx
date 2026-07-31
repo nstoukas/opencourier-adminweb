@@ -1,4 +1,3 @@
-import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DeliveryDetails } from './DeliveryDetails'
 import { Toaster } from '../../../admin-web-components'
@@ -17,14 +16,23 @@ import { useAdminPageNavigator } from '../../../hooks/useAdminPageNavigator'
 
 // Mock Radix DropdownMenu primitive so dropdown menu content renders cleanly in JSDOM environment
 jest.mock('@radix-ui/react-dropdown-menu', () => {
-  const DummyComponent = ({ children, onClick, asChild, sideOffset, align, ...props }: any) => (
+  // Renamed with a leading underscore, not deleted: this pulls the prop out of ...props so it
+  // is never spread onto the DOM.
+  const DummyComponent = ({
+    children,
+    onClick,
+    asChild: _asChild,
+    sideOffset: _sideOffset,
+    align: _align,
+    ...props
+  }: any) => (
     <div onClick={onClick} {...props}>
       {children}
     </div>
   )
   return {
     Root: ({ children }: any) => <div>{children}</div>,
-    Trigger: ({ children, asChild, ...props }: any) => (
+    Trigger: ({ children, asChild: _asChild, ...props }: any) => (
       <div role="button" {...props}>
         {children}
       </div>

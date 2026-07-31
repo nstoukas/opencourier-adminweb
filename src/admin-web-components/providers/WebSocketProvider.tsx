@@ -32,7 +32,8 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
   const connectWebSocket = (accessToken: string) => {
     if (!ably) {
       const newWebSocket = new Realtime.Promise({
-        authCallback: async (tokenParams, callback) => {
+        // Not `async`: Ably reports the result through `callback`, never through a returned promise.
+        authCallback: (tokenParams, callback) => {
           try {
             console.log(`WebSocket: Requesting refreshed token`)
             // const tokenRequest = await 

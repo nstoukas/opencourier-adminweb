@@ -18,24 +18,20 @@ import {
   QUOTE_CALCULATION_TYPE_TO_HUMAN,
 } from "@/shared-types";
 import { normalizeRegionForPostGIS } from "@/utils/geoJsonUtils";
-import {
-  openModal,
-  closeModal,
-} from "@/admin-web-components/components/molecules/modal";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { featureCollection } from "@turf/turf";
 import ReactMarkdown from "react-markdown";
 
+// `node` is pulled out so react-markdown's AST node is never spread onto the DOM element.
 const MARKDOWN_COMPONENTS = {
-  ul: ({ node, ...props }: any) => (
+  ul: ({ node: _node, ...props }: any) => (
     <ul className="list-disc list-inside ml-4" {...props} />
   ),
-  ol: ({ node, ...props }: any) => (
+  ol: ({ node: _node, ...props }: any) => (
     <ol className="list-decimal list-inside ml-4" {...props} />
   ),
-  li: ({ node, ...props }: any) => <li className="mb-1" {...props} />,
+  li: ({ node: _node, ...props }: any) => <li className="mb-1" {...props} />,
   h1: ({ children }: any) => (
     <h1 className="text-2xl font-bold mt-6 mb-3">{children}</h1>
   ),
@@ -678,7 +674,9 @@ const InstanceConfigurationPage: NextPage = () => {
   // Load registry statuses when component mounts or registries change
   useEffect(() => {
     config.registeredRegistries.forEach((registryUrl) => {
-      fetchRegistryStatus(registryUrl);
+      // `void` = "start this and deliberately don't await it"; fetchRegistryStatus
+      // swallows its own errors, so there is nothing here to catch.
+      void fetchRegistryStatus(registryUrl);
     });
   }, [config.registeredRegistries, fetchRegistryStatus]);
 

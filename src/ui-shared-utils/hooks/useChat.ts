@@ -94,19 +94,6 @@ const toNoshParticipant = (participant: Participant): NoshParticipant => ({
   lastReadMessageIndex: participant.lastReadMessageIndex,
 })
 
-type NoshUser = {
-  id: string
-  attributes: JSONValue
-  identity: string | null
-  friendlyName: string | null
-}
-const toNoshUser = (user: User): NoshUser => ({
-  id: user.identity,
-  attributes: user.attributes,
-  friendlyName: user.friendlyName,
-  identity: user.identity,
-})
-
 const conversationsMap = new Map<string, Conversation>()
 
 type UseChatArgs = {
