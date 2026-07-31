@@ -241,6 +241,58 @@ describe('PartnerFormDialog component', () => {
     })
   })
 
+  it('submits update payload with countryCode GR when adding pickup address to a partner with null pickupAddress', async () => {
+    mockUpdatePartnerMutation.mockReturnValue({
+      unwrap: () => Promise.resolve(samplePartnerDto),
+    })
+
+    const partnerNoAddress: PartnerAdminDto = {
+      ...samplePartnerDto,
+      pickupAddress: null,
+    }
+
+    render(
+      <PartnerFormDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        mode="update"
+        partner={partnerNoAddress}
+      />
+    )
+
+    // Admin fills pickup address fields without interacting with the Country dropdown
+    fireEvent.change(screen.getByLabelText(/street/i), { target: { value: 'Ermou' } })
+    fireEvent.change(screen.getByLabelText(/house number/i), { target: { value: '120' } })
+    fireEvent.change(screen.getByLabelText(/city/i), { target: { value: 'Volos' } })
+    fireEvent.change(screen.getByLabelText(/latitude/i), { target: { value: '39.3628' } })
+    fireEvent.change(screen.getByLabelText(/longitude/i), { target: { value: '22.9435' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(mockUpdatePartnerMutation).toHaveBeenCalledTimes(1)
+      expect(mockUpdatePartnerMutation).toHaveBeenCalledWith({
+        id: 'p1',
+        data: {
+          pickupAddress: {
+            street: 'Ermou',
+            houseNumber: '120',
+            city: 'Volos',
+            state: undefined,
+            zipCode: undefined,
+            countryCode: 'GR',
+            latitude: 39.3628,
+            longitude: 22.9435,
+            formattedAddress: 'Ermou 120, Volos, GR',
+          },
+        },
+      })
+    })
+
+    // Confirm no validation error text is displayed
+    expect(screen.queryByText(/Country code is required/i)).not.toBeInTheDocument()
+  })
+
   it('does not call window.confirm during form interaction or submission', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockImplementation(() => true)
     mockCreatePartnerMutation.mockReturnValue({

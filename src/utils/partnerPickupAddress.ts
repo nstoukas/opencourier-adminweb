@@ -52,7 +52,9 @@ export function mapLocationToPickupFormValues(location: LocationAdminDto | null)
       city: '',
       state: '',
       zipCode: '',
-      countryCode: '',
+      // Match what the Country dropdown shows for a blank address (PickupAddressFields.tsx
+      // falls back to 'GR' for display) so the value the form holds is the value the admin sees.
+      countryCode: 'GR',
       latitude: '',
       longitude: '',
     }
@@ -64,7 +66,7 @@ export function mapLocationToPickupFormValues(location: LocationAdminDto | null)
     city: location.city ?? '',
     state: location.state ?? '',
     zipCode: location.zipCode ?? '',
-    countryCode: location.countryCode ?? 'GR',
+    countryCode: location.countryCode,
     latitude: location.latitude !== null && location.latitude !== undefined ? String(location.latitude) : '',
     longitude: location.longitude !== null && location.longitude !== undefined ? String(location.longitude) : '',
   }

@@ -4,6 +4,7 @@ import {
   buildPartnerUpdateInput,
   PickupAddressFormValues,
 } from './partnerFormInput'
+import { mapLocationToPickupFormValues } from './partnerPickupAddress'
 
 describe('partnerFormInput utilities', () => {
   describe('buildPickupAddressInput', () => {
@@ -20,6 +21,31 @@ describe('partnerFormInput utilities', () => {
         longitude: '',
       }
       expect(buildPickupAddressInput(emptyFormValues)).toEqual({ ok: true, value: undefined })
+    })
+
+    it('treats a form block holding only a default countryCode as no address', () => {
+      // mapLocationToPickupFormValues(null) returns blank fields with countryCode: 'GR'
+      const nullLocationValues = mapLocationToPickupFormValues(null)
+      expect(buildPickupAddressInput(nullLocationValues)).toEqual({ ok: true, value: undefined })
+    })
+
+    it('accepts filled address fields keeping default countryCode GR without explicit dropdown change', () => {
+      // Admin fills street, houseNumber, city, lat/lng on a null-address partner without touching country dropdown
+      const formValues: PickupAddressFormValues = {
+        ...mapLocationToPickupFormValues(null),
+        street: 'Ermou',
+        houseNumber: '120',
+        city: 'Volos',
+        latitude: '39.3628',
+        longitude: '22.9435',
+      }
+
+      const res = buildPickupAddressInput(formValues)
+      expect(res.ok).toBe(true)
+      if (res.ok) {
+        expect(res.value?.countryCode).toBe('GR')
+        expect(res.value?.formattedAddress).toBe('Ermou 120, Volos, GR')
+      }
     })
 
     it('returns ok: false listing missing required fields when address is partially filled', () => {

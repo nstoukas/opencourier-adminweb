@@ -95,5 +95,32 @@ describe('partnerPickupAddress utilities', () => {
         longitude: '22.9435',
       })
     })
+
+    it('returns default empty string fields and countryCode "GR" when location is null', () => {
+      // Form must hold countryCode: 'GR' when location is null so form value matches dropdown display
+      const formValues = mapLocationToPickupFormValues(null)
+
+      expect(formValues).toEqual({
+        street: '',
+        houseNumber: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        countryCode: 'GR',
+        latitude: '',
+        longitude: '',
+      })
+    })
+
+    it('preserves non-GR countryCode verbatim from stored location', () => {
+      // Proves removing redundant nullish coalesce does not hard-code GR for existing non-GR locations
+      const usLocation = {
+        ...volosFixtureLocation,
+        countryCode: 'US' as any,
+      }
+      const formValues = mapLocationToPickupFormValues(usLocation)
+
+      expect(formValues.countryCode).toBe('US')
+    })
   })
 })

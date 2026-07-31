@@ -54,8 +54,9 @@ export function buildPickupAddressInput(
   const rawLat = v.latitude.trim()
   const rawLng = v.longitude.trim()
 
-  const isEmpty =
-    !street && !houseNumber && !city && !state && !zipCode && !countryCode && !rawLat && !rawLng
+  // The Country dropdown always holds a value (it defaults to GR), so a country code on its
+  // own never means the admin is adding an address — judge emptiness on the other fields.
+  const isEmpty = !street && !houseNumber && !city && !state && !zipCode && !rawLat && !rawLng
 
   if (isEmpty) {
     return { ok: true, value: undefined }
