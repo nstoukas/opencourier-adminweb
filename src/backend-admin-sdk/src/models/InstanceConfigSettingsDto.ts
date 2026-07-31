@@ -170,6 +170,7 @@ export const InstanceConfigSettingsDtoGeoCalculationTypeEnum = {
   Haversine: "HAVERSINE",
   GoogleMatrixApi: "GOOGLE_MATRIX_API",
   Random: "RANDOM",
+  Osrm: "OSRM",
 } as const;
 export type InstanceConfigSettingsDtoGeoCalculationTypeEnum =
   (typeof InstanceConfigSettingsDtoGeoCalculationTypeEnum)[keyof typeof InstanceConfigSettingsDtoGeoCalculationTypeEnum];
@@ -179,6 +180,7 @@ export type InstanceConfigSettingsDtoGeoCalculationTypeEnum =
  */
 export const InstanceConfigSettingsDtoDeliveryDurationCalculationTypeEnum = {
   Simple: "SIMPLE",
+  Osrm: "OSRM",
 } as const;
 export type InstanceConfigSettingsDtoDeliveryDurationCalculationTypeEnum =
   (typeof InstanceConfigSettingsDtoDeliveryDurationCalculationTypeEnum)[keyof typeof InstanceConfigSettingsDtoDeliveryDurationCalculationTypeEnum];
