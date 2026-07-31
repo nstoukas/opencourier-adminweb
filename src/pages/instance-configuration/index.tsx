@@ -6,6 +6,9 @@ import {
 import { useGetUserCountQuery } from "@/api/userApi";
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
 import type { NextPage } from "next";
+// `import type` = these names are used only in type positions and vanish at build time.
+// The GeoJSON shapes come from @types/geojson (already installed).
+import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { Input, Label, useToast } from "@/admin-web-components";
 import {
   COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
@@ -121,7 +124,11 @@ const InstanceConfigurationPage: NextPage = () => {
     link: "",
     websocketLink: "",
     imageUrl: "",
-    region: null,
+    // `as …` tells TypeScript what this field will hold later; without it the type is
+    // inferred as literally `null` and no use of config.region can ever be checked.
+    // The map hands back an array of drawn Features; the server hands back a
+    // FeatureCollection (saved by this page) or a bare geometry (seeded instances).
+    region: null as FeatureCollection | Feature[] | Geometry | null,
     courierMatcherType: "",
     quoteCalculationType: "",
     geoCalculationType: "",

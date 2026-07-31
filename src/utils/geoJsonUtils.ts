@@ -7,9 +7,17 @@ export function normalizeRegionForPostGIS(region: any): any {
     return region;
   }
 
-  // Handle FeatureCollection - extract and merge geometries
-  if (region.type === "FeatureCollection" && region.features?.length > 0) {
-    const geometries = region.features
+  // The map hands back a bare array of Features (Map.tsx:75), and the instance-configuration
+  // page can pass that straight here before it has been wrapped for saving. Treat it as the
+  // feature list it is, otherwise the raw array reaches ST_GeomFromGeoJSON, which rejects it.
+  const features = Array.isArray(region)
+    ? region
+    : region.type === "FeatureCollection"
+      ? region.features ?? []
+      : null;
+
+  if (features) {
+    const geometries = features
       .map((f: any) => f.geometry)
       .filter((g: any) => g); // Filter out null geometries
 

@@ -1,7 +1,9 @@
 import { normalizeRegionForPostGIS } from "./geoJsonUtils";
 
-// PostGIS columns hold a Geometry, never a FeatureCollection — the registry hit exactly
-// this and failed at setup time. These cases pin each branch of the conversion.
+// PostGIS columns hold a Geometry (Polygon/MultiPolygon), never a FeatureCollection or Feature wrapper.
+// The instance registry hit this and failed during database setup.
+// These tests verify that normalizeRegionForPostGIS correctly handles the region shapes
+// used across the application: bare geometries, single/multiple Feature collections, and empty or null values.
 
 const polygon = (x: number) => ({
   type: "Polygon",
@@ -17,6 +19,34 @@ const polygon = (x: number) => ({
 });
 
 describe("normalizeRegionForPostGIS", () => {
+  // Case 1 from Test Plan: null input returns null
+  it("returns null when passed null (no region configured)", () => {
+    // Null indicates no operating region has been set for the instance.
+    expect(normalizeRegionForPostGIS(null)).toBeNull();
+  });
+
+  // Case 2 from Test Plan: bare Polygon from createVolosInstance.ts returned unchanged
+  it("passes seeded live bare Polygon geometry from createVolosInstance.ts untouched", () => {
+    // Seeded Volos instance polygon coordinates (lon 22.88-23.02, lat 39.33-39.41)
+    const volosPolygon = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [22.88, 39.33],
+          [23.02, 39.33],
+          [23.02, 39.41],
+          [22.88, 39.41],
+          [22.88, 39.33],
+        ],
+      ],
+    };
+    const result = normalizeRegionForPostGIS(volosPolygon);
+    // toBe, not toEqual: this path promises to hand back the very same object, so identity is
+    // the assertion that would catch a future version that copied it instead.
+    expect(result).toBe(volosPolygon);
+  });
+
+  // Case 3 from Test Plan: FeatureCollection with one Polygon feature
   it("unwraps a single-feature FeatureCollection to its bare geometry", () => {
     const result = normalizeRegionForPostGIS({
       type: "FeatureCollection",
@@ -26,7 +56,8 @@ describe("normalizeRegionForPostGIS", () => {
     expect(result).toEqual(polygon(0));
   });
 
-  it("merges several polygons into one MultiPolygon", () => {
+  // Case 4 from Test Plan: FeatureCollection with two Polygon features
+  it("merges a FeatureCollection with two polygon features into a single MultiPolygon", () => {
     const result = normalizeRegionForPostGIS({
       type: "FeatureCollection",
       features: [
@@ -42,7 +73,69 @@ describe("normalizeRegionForPostGIS", () => {
     ]);
   });
 
-  it("drops features whose geometry is null", () => {
+  // Case 5 from Test Plan. Both of these mean "a collection holding no geometry", and both
+  // must answer null — a FeatureCollection is not valid input for ST_GeomFromGeoJSON.
+  it("returns null when a FeatureCollection has an empty features array", () => {
+    const result = normalizeRegionForPostGIS({
+      type: "FeatureCollection",
+      features: [],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when every feature carries a null geometry", () => {
+    const result = normalizeRegionForPostGIS({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: null, properties: {} }],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  // The map hands back a bare Feature[] (Map.tsx:75) and the registration path can pass it
+  // straight in, so arrays must normalise exactly like the equivalent FeatureCollection.
+  it("normalises a bare array of Features the same as a FeatureCollection", () => {
+    const asArray = normalizeRegionForPostGIS([
+      { type: "Feature", geometry: polygon(0), properties: {} },
+      { type: "Feature", geometry: polygon(10), properties: {} },
+    ]);
+    const asCollection = normalizeRegionForPostGIS({
+      type: "FeatureCollection",
+      features: [
+        { type: "Feature", geometry: polygon(0), properties: {} },
+        { type: "Feature", geometry: polygon(10), properties: {} },
+      ],
+    });
+
+    expect(asArray).toEqual(asCollection);
+    expect(asArray.type).toBe("MultiPolygon");
+  });
+
+  it("unwraps a single-element Feature array to its bare geometry", () => {
+    const result = normalizeRegionForPostGIS([
+      { type: "Feature", geometry: polygon(3), properties: {} },
+    ])
+
+    expect(result).toEqual(polygon(3));
+  });
+
+  it("returns null for an empty Feature array (the map's cleared-map shape)", () => {
+    expect(normalizeRegionForPostGIS([])).toBeNull();
+  });
+
+  // Case 6 from Test Plan: single Feature wrapping a Polygon
+  it("unwraps a single Feature wrapping a Polygon to its bare geometry", () => {
+    const result = normalizeRegionForPostGIS({
+      type: "Feature",
+      geometry: polygon(3),
+    });
+
+    expect(result).toEqual(polygon(3));
+  });
+
+  // Edge / failure cases
+  it("drops features whose geometry is null in a FeatureCollection", () => {
     const result = normalizeRegionForPostGIS({
       type: "FeatureCollection",
       features: [
@@ -54,7 +147,7 @@ describe("normalizeRegionForPostGIS", () => {
     expect(result).toEqual(polygon(0));
   });
 
-  it("returns null when a FeatureCollection carries no usable geometry", () => {
+  it("returns null when a FeatureCollection contains only null geometries", () => {
     const result = normalizeRegionForPostGIS({
       type: "FeatureCollection",
       features: [{ type: "Feature", geometry: null }],
@@ -63,26 +156,7 @@ describe("normalizeRegionForPostGIS", () => {
     expect(result).toBeNull();
   });
 
-  it("unwraps a lone Feature", () => {
-    const result = normalizeRegionForPostGIS({
-      type: "Feature",
-      geometry: polygon(3),
-    });
-
-    expect(result).toEqual(polygon(3));
-  });
-
-  it("passes an existing geometry through untouched", () => {
-    const geometry = polygon(5);
-    expect(normalizeRegionForPostGIS(geometry)).toBe(geometry);
-  });
-
-  it("passes non-objects through rather than throwing", () => {
-    expect(normalizeRegionForPostGIS(null)).toBeNull();
-    expect(normalizeRegionForPostGIS(undefined)).toBeUndefined();
-  });
-
-  it("falls back to the first geometry when types are mixed", () => {
+  it("falls back to the first geometry when feature types are mixed", () => {
     const point = { type: "Point", coordinates: [1, 2] };
     const result = normalizeRegionForPostGIS({
       type: "FeatureCollection",
@@ -93,5 +167,10 @@ describe("normalizeRegionForPostGIS", () => {
     });
 
     expect(result).toEqual(polygon(0));
+  });
+
+  it("passes non-object values through untouched", () => {
+    expect(normalizeRegionForPostGIS(undefined)).toBeUndefined();
+    expect(normalizeRegionForPostGIS("invalid")).toBe("invalid");
   });
 });
