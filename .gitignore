@@ -41,3 +41,7 @@ next-env.d.ts
 # aiflow pipeline artifacts (see ../aiflow.sh) — working files, not source
 .aiflow/
 plan.md
+
+# eslint --cache writes this; the lint script uses --cache, so leaving it
+# untracked would dirty the tree and block aiflow's EXECUTE phase.
+.eslintcache
