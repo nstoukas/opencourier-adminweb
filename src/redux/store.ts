@@ -13,6 +13,25 @@ const rootReducer = combineReducers({
   [sheetsSlice.name]: sheetsSlice.reducer,
 })
 
+// Options for redux-toolkit's dev-only state checks. Exported so they can be unit-tested.
+// The RTK Query cache under `api` holds Date objects (the admin SDK parses every timestamp
+// into one), and Dates are not "plain" values — so both checks are told to skip that subtree.
+// Safe because the api cache is never persisted: persistConfig.whitelist is ['auth'] below.
+export const serializableCheckOptions = {
+  // redux-persist's own actions carry non-plain internals — unchanged from before.
+  ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+  // 'meta.arg' and 'meta.baseQueryMeta' are RTK's own defaults; listing them here is required
+  // because supplying this option replaces the defaults rather than adding to them.
+  // 'payload' covers the fulfilled RTK Query actions, whose payload is the parsed DTO.
+  ignoredActionPaths: ['meta.arg', 'meta.baseQueryMeta', 'payload'],
+  // Exact-match path: skips the whole api.* subtree in one entry.
+  ignoredPaths: [api.reducerPath],
+}
+
+export const immutableCheckOptions = {
+  ignoredPaths: [api.reducerPath],
+}
+
 export const makeStore = () => {
   const isServer = typeof window === 'undefined'
   if (isServer) {
@@ -36,9 +55,8 @@ export const makeStore = () => {
     reducer: persistedReducer,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
-        serializableCheck: {
-          ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-        },
+        serializableCheck: serializableCheckOptions,
+        immutableCheck: immutableCheckOptions,
       }).concat(api.middleware) as any,
     devTools: process.env.NODE_ENV !== 'production',
   })
