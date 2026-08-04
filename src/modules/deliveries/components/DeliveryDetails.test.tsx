@@ -292,6 +292,38 @@ describe('DeliveryDetails component', () => {
     })
   })
 
+  describe('Schedule date formatting & epoch trap guard', () => {
+    it('renders em dash (—) and not "January 1, 1970" for epoch dates across all five schedule rows', () => {
+      const epochDelivery = {
+        ...sampleEurDelivery,
+        pickupReadyAt: new Date(0),
+        pickupDeadlineAt: new Date(0),
+        dropoffReadyAt: new Date(0),
+        dropoffEta: new Date(0),
+        dropoffDeadlineAt: new Date(0),
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: epochDelivery, isLoading: false })
+
+      const { container } = render(<DeliveryDetails deliveryId="d100" />)
+
+      const scheduleLabels = [
+        'Pickup ready',
+        'Pickup deadline',
+        'Drop-off ready',
+        'Drop-off ETA',
+        'Drop-off deadline',
+      ]
+
+      for (const labelText of scheduleLabels) {
+        const label = screen.getByText(labelText).closest('label')
+        expect(label).toHaveTextContent('—')
+        expect(label).not.toHaveTextContent('January 1, 1970')
+      }
+
+      expect(container.textContent).not.toContain('January 1, 1970')
+    })
+  })
+
   describe('Delivery Event action menu & error handling', () => {
     it('submits delivery event when confirmed by user on menu trigger', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)

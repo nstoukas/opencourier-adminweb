@@ -21,7 +21,7 @@ import {
 } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryEventType, EnumDeliveryStatus, transitionsForStatus } from '../../../shared-types'
-import { cn, formatDate } from '../../../ui-shared-utils'
+import { cn, formatDate, formatOptionalDate } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
 import { ArrowLeftIcon } from 'lucide-react'
 
@@ -335,13 +335,13 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               <Label className="flex flex-col space-y-1">
                 <span>Pickup ready</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  {formatDate(delivery.pickupReadyAt)}
+                  {formatOptionalDate(delivery.pickupReadyAt)}
                 </span>
               </Label>
               <Label className="flex flex-col space-y-1">
                 <span>Pickup deadline</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  {formatDate(delivery.pickupDeadlineAt)}
+                  {formatOptionalDate(delivery.pickupDeadlineAt)}
                 </span>
               </Label>
             </div>
@@ -387,19 +387,19 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               <Label className="flex flex-col space-y-1">
                 <span>Drop-off ready</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  {formatDate(delivery.dropoffReadyAt)}
+                  {formatOptionalDate(delivery.dropoffReadyAt)}
                 </span>
               </Label>
               <Label className="flex flex-col space-y-1">
                 <span>Drop-off ETA</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  {delivery.dropoffEta ? formatDate(delivery.dropoffEta) : '—'}
+                  {formatOptionalDate(delivery.dropoffEta)}
                 </span>
               </Label>
               <Label className="flex flex-col space-y-1">
                 <span>Drop-off deadline</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  {formatDate(delivery.dropoffDeadlineAt)}
+                  {formatOptionalDate(delivery.dropoffDeadlineAt)}
                 </span>
               </Label>
               <Label className="flex flex-col space-y-1">

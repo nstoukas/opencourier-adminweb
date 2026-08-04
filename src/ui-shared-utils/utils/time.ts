@@ -9,6 +9,20 @@ export function formatDate(date: Date | string) {
   return dayjs(date).format('MMMM D, YYYY h:mm A')
 }
 
+// For dates the API can legitimately leave unset. The generated SDK types several of them
+// as a required `Date` and deserializes with a bare `new Date(json[...])` — and
+// `new Date(null)` is the Unix epoch, which is why an unset date rendered as
+// "January 1, 1970". A real delivery timestamp is never the epoch, so treat that
+// value — like null, undefined or an unparseable date — as "not set".
+export function formatOptionalDate(date: Date | string | null | undefined) {
+  if (date == null) return '—'
+
+  const parsed = dayjs(date)
+  if (!parsed.isValid() || parsed.valueOf() === 0) return '—'
+
+  return parsed.format('MMMM D, YYYY h:mm A')
+}
+
 export function formatDateTime(dateTime: DateTimeDto) {
   const { year, month, day, hour, minute } = dateTime
   const date = new Date()
