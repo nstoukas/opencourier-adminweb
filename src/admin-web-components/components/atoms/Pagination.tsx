@@ -29,20 +29,20 @@ type PaginationLinkProps = {
 } & Pick<ButtonProps, 'size'> &
   React.ComponentProps<'button'>
 
+// Upstream shadcn leaves the <li> to the caller. Every call site in Table.tsx already wraps
+// this in its own PaginationItem, so wrapping again nested an <li> inside an <li>.
 const PaginationLink = ({ className, isActive, size = 'icon', ...props }: PaginationLinkProps) => (
-  <PaginationItem>
-    <button
-      aria-current={isActive ? 'page' : undefined}
-      className={cn(
-        buttonVariants({
-          variant: isActive ? 'outline' : 'ghost',
-          size,
-        }),
-        className
-      )}
-      {...props}
-    />
-  </PaginationItem>
+  <button
+    aria-current={isActive ? 'page' : undefined}
+    className={cn(
+      buttonVariants({
+        variant: isActive ? 'outline' : 'ghost',
+        size,
+      }),
+      className
+    )}
+    {...props}
+  />
 )
 PaginationLink.displayName = 'PaginationLink'
 

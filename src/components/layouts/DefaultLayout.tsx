@@ -21,6 +21,14 @@ import { Nav, NavLink } from '../Nav'
 
 interface ghostLayoutProps extends React.HTMLAttributes<HTMLDivElement> {}
 
+// react-resizable-panels sizes panels as a PERCENTAGE of the group (0-100), not in pixels,
+// so these must add up to 100. Passing pixels here made the library discard both values.
+export const SIDEBAR_MIN_SIZE = 12
+export const SIDEBAR_MAX_SIZE = 14
+export const SIDEBAR_DEFAULT_SIZE = 13
+export const CONTENT_MIN_SIZE = 30
+export const CONTENT_DEFAULT_SIZE = 100 - SIDEBAR_DEFAULT_SIZE
+
 const sidebarNavItems: NavLink[] = [
   {
     title: 'Overview',
@@ -60,11 +68,11 @@ export function DefaultLayout({ children, className }: ghostLayoutProps) {
       <ResizablePanelGroup direction="horizontal" className="items-stretch">
         <TooltipProvider delayDuration={0}>
           <ResizablePanel
-            defaultSize={240}
+            defaultSize={SIDEBAR_DEFAULT_SIZE}
             collapsedSize={4}
             collapsible={true}
-            minSize={12}
-            maxSize={14}
+            minSize={SIDEBAR_MIN_SIZE}
+            maxSize={SIDEBAR_MAX_SIZE}
             onCollapse={(collapsed) => {
               setIsCollapsed(collapsed)
             }}
@@ -83,7 +91,7 @@ export function DefaultLayout({ children, className }: ghostLayoutProps) {
 
         <ResizableHandle withHandle />
 
-        <ResizablePanel defaultSize={1080} minSize={30}>
+        <ResizablePanel defaultSize={CONTENT_DEFAULT_SIZE} minSize={CONTENT_MIN_SIZE}>
           <div className={cn('flex-1 max-h-screen md:overflow-auto p-4', className)}>{children}</div>
         </ResizablePanel>
       </ResizablePanelGroup>
