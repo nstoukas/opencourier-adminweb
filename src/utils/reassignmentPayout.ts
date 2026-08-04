@@ -41,7 +41,10 @@ export function previewReassignmentPayout(
   policies: Record<string, number> | null | undefined,
   defaultPolicy: string | null | undefined,
   requestedPolicy: string | undefined,
-  totalCompensation: number | null,
+  // `| undefined` like the three above: the SDK's FromJSON copies totalCompensation with no
+  // default, so a response that omits it reaches callers as undefined. The `?? 0` below
+  // already handled that case; this is the signature catching up.
+  totalCompensation: number | null | undefined,
 ): PayoutPreview {
   const policyKey = requestedPolicy ?? defaultPolicy ?? ''
   if (!policies || !(policyKey in policies)) {

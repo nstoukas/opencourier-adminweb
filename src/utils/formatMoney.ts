@@ -6,8 +6,14 @@ const plainAmountFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 })
 
-/** True only for a trimmed 3-ASCII-letter code such as "EUR" — what Intl can accept. */
-export function isUsableCurrencyCode(code: string | null | undefined): boolean {
+/**
+ * True only for a trimmed 3-ASCII-letter code such as "EUR" — what Intl can accept.
+ *
+ * `code is string` makes this a type predicate: a plain `boolean` return tells TypeScript
+ * nothing, so callers inside the `if` still saw `string | null | undefined` and needed a
+ * `!` to use it. This hands the narrowing over properly.
+ */
+export function isUsableCurrencyCode(code: string | null | undefined): code is string {
   // Regex test checks that string consists of exactly 3 ASCII alphabetical characters.
   return typeof code === 'string' && /^[A-Za-z]{3}$/.test(code.trim())
 }
@@ -42,7 +48,7 @@ export function formatMoney(
       // Formats currency string according to en-US locale rules and ISO currency code.
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: currencyCode!.trim().toUpperCase(),
+        currency: currencyCode.trim().toUpperCase(),
       }).format(major)
     } catch {
       // Fall through to plain amount formatter if Intl.NumberFormat throws a RangeError.

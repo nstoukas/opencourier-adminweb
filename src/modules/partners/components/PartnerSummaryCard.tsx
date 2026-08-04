@@ -51,9 +51,9 @@ export const PartnerSummaryCard: React.FC<PartnerSummaryCardProps> = ({ partner 
           <div>
             <span className="text-muted-foreground block text-xs">Coordinates (Lat, Lng)</span>
             <span className="font-mono">
-              {loc?.latitude !== undefined && loc?.longitude !== undefined
-                ? `${loc.latitude}, ${loc.longitude}`
-                : '—'}
+              {/* Coordinates are non-null on Location, so having the address is the only
+                  question worth asking here. */}
+              {loc ? `${loc.latitude}, ${loc.longitude}` : '—'}
             </span>
           </div>
 
@@ -64,7 +64,9 @@ export const PartnerSummaryCard: React.FC<PartnerSummaryCardProps> = ({ partner 
 
           <div>
             <span className="text-muted-foreground block text-xs">Created</span>
-            <span>{partner.createdAt ? formatDate(partner.createdAt) : '—'}</span>
+            {/* The SDK builds createdAt with `new Date(...)`, which always yields a Date
+                object — so there was never a case where the '—' fallback could show. */}
+            <span>{formatDate(partner.createdAt)}</span>
           </div>
         </div>
       </CardContent>

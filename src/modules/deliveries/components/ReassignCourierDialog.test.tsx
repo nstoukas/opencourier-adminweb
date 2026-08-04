@@ -48,18 +48,7 @@ jest.mock('@radix-ui/react-select', () => {
   }
 })
 
-// Polyfills for Radix UI primitives in JSDOM environment
-if (typeof window !== 'undefined') {
-  window.ResizeObserver =
-    window.ResizeObserver ||
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-  window.HTMLElement.prototype.scrollIntoView =
-    window.HTMLElement.prototype.scrollIntoView || function () {}
-}
+// The Radix UI JSDOM polyfills this suite needs now live in jest.setup.js.
 
 jest.mock('../../../api/deliveriesApi', () => ({
   useReassignDeliveryMutation: jest.fn(),

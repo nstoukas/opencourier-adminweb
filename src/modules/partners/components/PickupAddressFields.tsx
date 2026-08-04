@@ -59,7 +59,10 @@ export const PickupAddressFields: React.FC<PickupAddressFieldsProps> = ({ form }
                   if (typeof selected === 'string') return
                   const transformed = transformAddress(selected)
                   if (transformed) {
-                    const streetVal = transformed.addressLine1?.replace(/undefined\s*/g, '').trim() || ''
+                    // transformAddress builds addressLine1 as `${streetNumber} ${route}`, so it
+                    // is always a string — but either half may be missing, which is what the
+                    // literal "undefined" this strips out comes from.
+                    const streetVal = transformed.addressLine1.replace(/undefined\s*/g, '').trim() || ''
                     form.setValue('pickupAddress.street', streetVal, { shouldValidate: true })
                     form.setValue('pickupAddress.city', transformed.locality || '', { shouldValidate: true })
                     form.setValue('pickupAddress.state', transformed.administrativeDistrictLevel1 || '', { shouldValidate: true })
@@ -67,12 +70,10 @@ export const PickupAddressFields: React.FC<PickupAddressFieldsProps> = ({ form }
                     if (transformed.country) {
                       form.setValue('pickupAddress.countryCode', transformed.country.toUpperCase(), { shouldValidate: true })
                     }
-                    if (transformed.latitude !== undefined) {
-                      form.setValue('pickupAddress.latitude', String(transformed.latitude), { shouldValidate: true })
-                    }
-                    if (transformed.longitude !== undefined) {
-                      form.setValue('pickupAddress.longitude', String(transformed.longitude), { shouldValidate: true })
-                    }
+                    // transformAddress returns early unless geometry.location exists, so by
+                    // here both coordinates are numbers.
+                    form.setValue('pickupAddress.latitude', String(transformed.latitude), { shouldValidate: true })
+                    form.setValue('pickupAddress.longitude', String(transformed.longitude), { shouldValidate: true })
                   }
                 }}
               />

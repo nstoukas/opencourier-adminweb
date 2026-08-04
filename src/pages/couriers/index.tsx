@@ -17,7 +17,11 @@ function deliverySettingLabel(value: CourierAdminDto['deliverySetting']): string
     MANUAL: 'Manual',
     NONE: 'None',
   }
-  return labels[value] ?? value
+  // `value` is whatever the API sent. A delivery setting added server-side is not a key this
+  // build has a label for, so the lookup can miss; reading it through a string index is what
+  // admits that, and the fallback shows the raw code rather than "undefined".
+  const label = (labels as Partial<Record<string, string>>)[value]
+  return label ?? value
 }
 
 const columns: ColumnDef<CourierAdminDto>[] = [

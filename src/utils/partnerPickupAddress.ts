@@ -67,7 +67,9 @@ export function mapLocationToPickupFormValues(location: LocationAdminDto | null)
     state: location.state ?? '',
     zipCode: location.zipCode ?? '',
     countryCode: location.countryCode,
-    latitude: location.latitude !== null && location.latitude !== undefined ? String(location.latitude) : '',
-    longitude: location.longitude !== null && location.longitude !== undefined ? String(location.longitude) : '',
+    // Prisma declares Location.longitude/latitude as non-null Float and the DTO matches, so
+    // a location that exists always has coordinates — no nullish check to make here.
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
   }
 }

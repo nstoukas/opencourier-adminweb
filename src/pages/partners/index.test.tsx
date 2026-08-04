@@ -5,16 +5,7 @@ import type { PartnerAdminDto, PartnerPaginatedAdminDto } from '../../backend-ad
 import { useGetPartnersQuery } from '../../api/partnersApi'
 import { useAdminPageNavigator } from '../../hooks/useAdminPageNavigator'
 
-// Polyfills for Radix UI primitives in JSDOM environment
-if (typeof window !== 'undefined') {
-  window.ResizeObserver =
-    window.ResizeObserver ||
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-}
+// The Radix UI JSDOM polyfills this suite needs now live in jest.setup.js.
 
 // Mock DefaultLayout to avoid requiring full Redux store provider in page unit tests
 jest.mock('../../components/layouts/DefaultLayout', () => ({

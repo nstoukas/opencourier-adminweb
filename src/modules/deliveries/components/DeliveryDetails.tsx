@@ -20,7 +20,7 @@ import {
   useToast,
 } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
-import { EnumDeliveryEventType, EnumDeliveryStatus, STATE_MACHINE } from '../../../shared-types'
+import { EnumDeliveryEventType, EnumDeliveryStatus, transitionsForStatus } from '../../../shared-types'
 import { cn, formatDate } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
 import { ArrowLeftIcon } from 'lucide-react'
@@ -98,8 +98,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { data: delivery } = getDeliveryResponse
 
   const DISALLOWED_EVENTS: EnumDeliveryEventType[] = [EnumDeliveryEventType.FAILED]
-  const transitions = STATE_MACHINE[delivery.status as EnumDeliveryStatus]?.on
-  const possibleEvents = (Object.keys(transitions ?? {}) as EnumDeliveryEventType[]).filter(
+  const transitions = transitionsForStatus(delivery.status)
+  const possibleEvents = (Object.keys(transitions) as EnumDeliveryEventType[]).filter(
     (eventType) => !DISALLOWED_EVENTS.includes(eventType)
   )
 

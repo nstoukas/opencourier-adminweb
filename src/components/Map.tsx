@@ -10,8 +10,10 @@ import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 // --- FIX: Leaflet Icons in Next.js ---
 // Leaflet's default icon paths break in Next.js/Webpack. This fixes it.
 const iconFix = () => {
-  // @ts-ignore
-  delete L.Icon.Default.prototype._getIconUrl;
+  // `_getIconUrl` is Leaflet's private cache of the icon path and is absent from its type
+  // definitions, so the property has to be named in a cast to be deleted. This replaces a
+  // `@ts-ignore`, which would have hidden any *other* error on this line as well.
+  delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl:
       "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
@@ -102,15 +104,15 @@ const GeomanControls = ({
         }
       });
 
-      // Fit bounds without animation to avoid timing issues
-      if (featureGroupRef.current) {
-        const bounds = featureGroupRef.current.getBounds();
-        if (bounds.isValid()) {
-          map.fitBounds(bounds, {
-            padding: fitPadding ?? [50, 50],
-            animate: false,
-          });
-        }
+      // Fit bounds without animation to avoid timing issues. No null check on
+      // featureGroupRef.current: the effect already returned above if it was null, and
+      // nothing between here and there can clear it.
+      const bounds = featureGroupRef.current.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, {
+          padding: fitPadding ?? [50, 50],
+          animate: false,
+        });
       }
     } catch (error) {
       console.error("Error loading initial GeoJSON:", error);
@@ -123,8 +125,8 @@ const GeomanControls = ({
 
     if (readOnly) return; // Skip controls in read-only mode
 
-    // Initialize Geoman
-    // @ts-ignore
+    // Initialize Geoman. No suppression needed: the plugin ships a `declare module 'leaflet'`
+    // that adds `pm` to L.Map, and the side-effect import above is what loads it.
     map.pm.addControls({
       position: "topleft",
       drawCircle: true,

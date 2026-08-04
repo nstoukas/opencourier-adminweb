@@ -53,7 +53,6 @@ export const configApi = baseApi.injectEndpoints({
         api,
       ) => {
         try {
-          if (!instanceConfigSettingsAdminInput) return { error: null };
           const { accessToken } = (api.getState() as AppState).auth;
           const sdk = prepareAdminSdk(accessToken || "");
           const data = await sdk

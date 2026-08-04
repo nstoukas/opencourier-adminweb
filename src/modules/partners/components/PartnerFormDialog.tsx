@@ -55,7 +55,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
       setCreatedPasswordNotice(null)
       if (mode === 'update' && partner) {
         updateForm.reset({
-          name: partner.name ?? '',
+          // Partner.name is a required column in Prisma, so unlike the three fields below
+          // it never arrives null — the others are all `String?`.
+          name: partner.name,
           phoneNumber: partner.phoneNumber ?? '',
           logo: partner.logo ?? '',
           webhookUrl: partner.webhookUrl ?? '',

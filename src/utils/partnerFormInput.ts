@@ -96,7 +96,10 @@ export function buildPickupAddressInput(
     }
   }
 
-  if (errors.length > 0) {
+  // The two `=== undefined` tests are how TypeScript learns what the branches above already
+  // guarantee: every path that leaves a coordinate unset also pushes an error. Without them
+  // it cannot narrow latNum/lngNum to `number` for the returned value below.
+  if (errors.length > 0 || latNum === undefined || lngNum === undefined) {
     return { ok: false, errors }
   }
 
@@ -118,8 +121,8 @@ export function buildPickupAddressInput(
       state: state || undefined,
       zipCode: zipCode || undefined,
       countryCode: countryCode as EnumCountryCodeAdmin,
-      latitude: latNum!,
-      longitude: lngNum!,
+      latitude: latNum,
+      longitude: lngNum,
       formattedAddress: formattedAddress || undefined,
     },
   }

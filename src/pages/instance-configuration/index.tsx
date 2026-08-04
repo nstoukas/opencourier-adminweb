@@ -4,6 +4,7 @@ import {
   useSetInstanceConfigMutation,
 } from "@/api/configApi";
 import { useGetUserCountQuery } from "@/api/userApi";
+import type { InstanceConfigSettingsDto } from "@/backend-admin-sdk";
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
 import type { NextPage } from "next";
 // `import type` = these names are used only in type positions and vanish at build time.
@@ -162,7 +163,14 @@ const InstanceConfigurationPage: NextPage = () => {
 
   // Sync server data to local state
   useEffect(() => {
-    const data = instanceConfigResponse.data;
+    // `Partial<…>` = same object, every field optional. The SDK declares these fields as
+    // always present and never null, and both halves of that are untrue at runtime: its
+    // FromJSON copies each key with no default (an omitted key stays `undefined`), and the
+    // backend DTO casts away nulls that InstanceConfigSettings really allows — `currency`
+    // and `distanceUnit` are `| null` at the source. This annotation is what keeps the
+    // `?? ""` defaults below both necessary and checked.
+    const data: Partial<InstanceConfigSettingsDto> | undefined =
+      instanceConfigResponse.data;
     console.log(data);
     if (data) {
       const details = (data.details as any) || {};
@@ -1378,7 +1386,9 @@ const InstanceConfigurationPage: NextPage = () => {
             </button>
           </div>
         </div>
-      ) : currentView === "registration" ? (
+      ) : (
+        // Only "registration" is left — the five other views are handled above and the
+        // union has no seventh member. A new view goes into this chain, not after it.
         <div className="mt-4">
           <h3 className="text-lg font-semibold pb-2">Instance Registration</h3>
           <p className="text-gray-600 mb-4 text-sm">
@@ -1695,7 +1705,7 @@ const InstanceConfigurationPage: NextPage = () => {
             </button>
           </div>
         </div>
-      ) : null}
+      )}
     </DefaultLayout>
   );
 };

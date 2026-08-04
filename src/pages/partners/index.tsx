@@ -35,7 +35,9 @@ const columns: ColumnDef<PartnerAdminDto>[] = [
   {
     id: 'createdAt',
     header: 'Created',
-    accessorFn: (row) => (row.createdAt ? formatDate(row.createdAt) : '—'),
+    // No nullish fallback: the SDK builds createdAt with `new Date(...)`, so it is always
+    // a Date object here (see PartnerSummaryCard).
+    accessorFn: (row) => formatDate(row.createdAt),
   },
 ]
 

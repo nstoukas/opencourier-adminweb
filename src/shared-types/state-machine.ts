@@ -106,3 +106,17 @@ export const STATE_MACHINE: Record<EnumDeliveryStatus, DeliveryStateNode> = {
 	},
 	[EnumDeliveryStatus.FAILED]: { on: {} },
 }
+
+/**
+ * The transitions this build knows for a Delivery's current status.
+ *
+ * STATE_MACHINE is typed `Record<EnumDeliveryStatus, …>`, which tells TypeScript every
+ * lookup succeeds — but `status` arrives as a string the *backend* chose, and this file is a
+ * hand-mirrored copy of the backend's machine. A status added there is an unknown key here
+ * and reads back as `undefined`. Casting through a string index is what admits that, so the
+ * callers get an empty transition list instead of a crash on `.on` of undefined.
+ */
+export function transitionsForStatus(status: string): DeliveryStateTransitions {
+	const node = (STATE_MACHINE as Partial<Record<string, DeliveryStateNode>>)[status]
+	return node?.on ?? {}
+}

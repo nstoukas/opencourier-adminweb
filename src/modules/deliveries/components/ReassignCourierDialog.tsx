@@ -37,7 +37,7 @@ const ONGOING_DELIVERY_STATUSES: string[] = [
 // Mirrors DELIVERY_ONGOING_STATUSES in opencourier-backend/src/shared-types/stateMachine.ts:98.
 // ASSIGNING_COURIER is deliberately absent — AssignCourierCell already covers that state.
 export function canReassignDelivery(delivery: DeliveryAdminDto): boolean {
-  if (!delivery || !delivery.courierId) {
+  if (!delivery.courierId) {
     return false
   }
   return ONGOING_DELIVERY_STATUSES.includes(delivery.status as string)
@@ -94,16 +94,22 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
 
   const availableCouriers = couriers.filter((c) => c.id !== delivery.courierId)
 
+  // The SDK types this `number | null`, but its FromJSON copies the key with no default, so a
+  // response that omits it leaves `undefined` here. This is the piece-rate a dropped rider is
+  // paid from: both cases stay checked, and the `as` widening is what keeps TypeScript
+  // agreeing the `=== undefined` test below is real.
+  const totalCompensation = delivery.totalCompensation as number | null | undefined
+
   const preview = previewReassignmentPayout(
     config?.reassignmentPayoutPolicies,
     config?.reassignmentPayoutDefaultPolicy,
     selectedPolicy || undefined,
-    delivery.totalCompensation,
+    totalCompensation,
   )
 
   const currencyCode = delivery.currencyCode
   const formattedAmount = formatMoney(preview.ok ? preview.amount : 0, currencyCode) ?? ''
-  const formattedTotal = formatMoney(delivery.totalCompensation ?? 0, currencyCode) ?? ''
+  const formattedTotal = formatMoney(totalCompensation ?? 0, currencyCode) ?? ''
 
   const handleReassign = async () => {
     if (!newCourierId || !preview.ok) return
@@ -194,7 +200,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
               <Label className="text-xs text-muted-foreground block mb-1">Compensation Preview</Label>
               {!preview.ok ? (
                 <div className="text-destructive font-medium">{preview.reason}</div>
-              ) : delivery.totalCompensation === null || delivery.totalCompensation === undefined ? (
+              ) : totalCompensation === null || totalCompensation === undefined ? (
                 <div>This Delivery has no recorded piece-rate, so the award is 0.</div>
               ) : (
                 <div>

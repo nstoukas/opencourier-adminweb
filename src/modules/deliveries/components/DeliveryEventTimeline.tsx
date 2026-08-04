@@ -10,10 +10,13 @@ interface DeliveryEventTimelineProps {
 
 // Renders the recorded DeliveryEvent history of a delivery, oldest first.
 export function DeliveryEventTimeline({ deliveryId }: DeliveryEventTimelineProps) {
-  const { data: events, isLoading, isError, error } = useGetDeliveryEventsQuery(
-    { deliveryId },
-    { skip: !deliveryId }
-  )
+  const eventsQuery = useGetDeliveryEventsQuery({ deliveryId }, { skip: !deliveryId })
+  const { data: events, isLoading, isError } = eventsQuery
+  // Typed `unknown` deliberately. The base query is declared through a `@ts-expect-error`
+  // (src/api/index.ts:7), which leaves this inferred as a type that can never hold a value —
+  // so TypeScript reads the `error` checks below as dead code. At runtime RTK Query really
+  // does put the rejected request's ApiError here.
+  const error: unknown = eventsQuery.error
 
   return (
     <Card className="mt-4">

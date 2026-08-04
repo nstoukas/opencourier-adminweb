@@ -23,7 +23,7 @@ import {
   SelectValue,
   useToast,
 } from '../../../admin-web-components'
-import { EnumDeliveryStatus, STATE_MACHINE } from '../../../shared-types'
+import { transitionsForStatus } from '../../../shared-types'
 import { omit } from 'lodash'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
@@ -111,7 +111,7 @@ const OrderStatusPage: NextPage = () => {
                           </FormControl>
                           <SelectContent>
                             {Object.keys(
-                              STATE_MACHINE[data.status as EnumDeliveryStatus]?.on ?? {},
+                              transitionsForStatus(data.status),
                             ).map((eventType) => (
                               <SelectItem value={eventType} key={eventType}>
                                 {eventType}
