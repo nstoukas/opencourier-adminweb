@@ -103,6 +103,8 @@ The test suite went from **no test runner** to **141 passing tests**, and lint w
   `7eeed9d`
 - `.run-dev.sh`, a local helper that pins Node 20. It contains an absolute home path, so it
   is only useful on the author's machine. `82513f1`
+- `AGENTS.md`, context for AI coding tools that points at the co-op workspace rulebook, and a
+  `CLAUDE.md` that imports it.
 
 ---
 
