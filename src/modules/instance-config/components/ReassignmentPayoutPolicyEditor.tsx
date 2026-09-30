@@ -1,5 +1,5 @@
 import { Button, Input } from '@/admin-web-components'
-import { buildPayoutPolicyInput, policiesToRows } from '@/utils/payoutPolicyForm'
+import { buildPayoutPolicyInput, normalizePolicyKey, policiesToRows } from '@/utils/payoutPolicyForm'
 import type { PayoutPolicyRow } from '@/utils/payoutPolicyForm'
 import { useEffect, useRef, useState } from 'react'
 
@@ -77,46 +77,59 @@ export function ReassignmentPayoutPolicyEditor({
         Renaming or removing a policy does not change past reassignments — a <code>CourierCompensation</code> row and its <code>DeliveryEvent</code> keep the name that was in force when it happened.
       </p>
       <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.id} className="flex items-center gap-3">
-            <Input
-              value={row.key}
-              onChange={(e) => handleKeyChange(row.id, e.target.value)}
-              placeholder="Policy name (e.g. FULL_COMPENSATION)"
-              className="flex-1"
-            />
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={row.percent}
-                onChange={(e) => handlePercentChange(row.id, e.target.value)}
-                placeholder="0"
-                className="w-20"
-              />
-              <span className="text-sm text-gray-600">%</span>
+        {rows.map((row) => {
+          // Save sends each name through normalizePolicyKey (upper cased, spaces become
+          // underscores), so show that stored name whenever it differs from what was typed.
+          const storedKey = normalizePolicyKey(row.key)
+          const showStoredKey = storedKey !== '' && storedKey !== row.key
+          return (
+            <div key={row.id} className="space-y-1">
+              <div className="flex items-center gap-3">
+                <Input
+                  value={row.key}
+                  onChange={(e) => handleKeyChange(row.id, e.target.value)}
+                  placeholder="Policy name (e.g. FULL_COMPENSATION)"
+                  className="flex-1"
+                />
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={row.percent}
+                    onChange={(e) => handlePercentChange(row.id, e.target.value)}
+                    placeholder="0"
+                    className="w-20"
+                  />
+                  <span className="text-sm text-gray-600">%</span>
+                </div>
+                <label className="flex items-center gap-1 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payout-default-policy"
+                    checked={row.id === defaultRowId}
+                    onChange={() => setDefaultRowId(row.id)}
+                    aria-label={`Make ${row.key || 'this policy'} the default`}
+                  />
+                  Default
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleRemoveRow(row.id)}
+                >
+                  Remove
+                </Button>
+              </div>
+              {showStoredKey && (
+                <p className="text-sm text-gray-600">
+                  Will be saved as <code>{storedKey}</code>
+                </p>
+              )}
             </div>
-            <label className="flex items-center gap-1 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="radio"
-                name="payout-default-policy"
-                checked={row.id === defaultRowId}
-                onChange={() => setDefaultRowId(row.id)}
-                aria-label={`Make ${row.key || 'this policy'} the default`}
-              />
-              Default
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleRemoveRow(row.id)}
-            >
-              Remove
-            </Button>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <div>
         <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>

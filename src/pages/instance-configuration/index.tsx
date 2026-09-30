@@ -265,7 +265,9 @@ const InstanceConfigurationPage: NextPage = () => {
           ...existingDetails,
           privacyPolicyContent: privacyPolicyContent.trim(),
         },
-      } as any);
+        // .unwrap() makes a refused save throw, so the catch below reports it as a failure
+        // instead of showing "saved". Every save on this page follows the same rule.
+      } as any).unwrap();
       // PRINT OUT DATA!
       console.log(config);
       toast({
@@ -273,10 +275,11 @@ const InstanceConfigurationPage: NextPage = () => {
         description: "Privacy policy saved successfully.",
       });
       setCurrentView("main");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save privacy policy. Please try again.",
+        description:
+          error?.message || "Failed to save privacy policy. Please try again.",
         variant: "destructive",
       });
       console.error("Failed to save privacy policy:", error);
@@ -296,7 +299,7 @@ const InstanceConfigurationPage: NextPage = () => {
           ...existingDetails,
           termsOfServiceContent: termsOfServiceContent.trim(),
         },
-      } as any);
+      } as any).unwrap();
       toast({
         title: "Success!",
         description: "Terms of service saved successfully.",
@@ -304,10 +307,11 @@ const InstanceConfigurationPage: NextPage = () => {
       // PRINT OUT DATA!
       console.log(config);
       setCurrentView("main");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save terms of service. Please try again.",
+        description:
+          error?.message || "Failed to save terms of service. Please try again.",
         variant: "destructive",
       });
       console.error("Failed to save terms of service:", error);
@@ -327,7 +331,7 @@ const InstanceConfigurationPage: NextPage = () => {
           ...existingDetails,
           rulesContent: rulesContent.trim(),
         },
-      } as any);
+      } as any).unwrap();
       toast({
         title: "Success!",
         description: "Rules saved successfully.",
@@ -335,10 +339,11 @@ const InstanceConfigurationPage: NextPage = () => {
       // PRINT OUT DATA!
       console.log(config);
       setCurrentView("main");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save rules. Please try again.",
+        description:
+          error?.message || "Failed to save rules. Please try again.",
         variant: "destructive",
       });
       console.error("Failed to save rules:", error);
@@ -358,7 +363,7 @@ const InstanceConfigurationPage: NextPage = () => {
           ...existingDetails,
           descriptionContent: descriptionContent.trim(),
         },
-      } as any);
+      } as any).unwrap();
       toast({
         title: "Success!",
         description: "Description saved successfully.",
@@ -366,10 +371,11 @@ const InstanceConfigurationPage: NextPage = () => {
       // PRINT OUT DATA!
       console.log(config);
       setCurrentView("main");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save description. Please try again.",
+        description:
+          error?.message || "Failed to save description. Please try again.",
         variant: "destructive",
       });
       console.error("Failed to save description:", error);
@@ -613,7 +619,7 @@ const InstanceConfigurationPage: NextPage = () => {
       // Save to database following the pattern of details
       await setInstanceConfigMutation({
         registeredRegistries: updatedRegistries,
-      } as any);
+      } as any).unwrap();
 
       // Update local config
       setConfig({ ...config, registeredRegistries: updatedRegistries });
@@ -684,7 +690,7 @@ const InstanceConfigurationPage: NextPage = () => {
 
       await setInstanceConfigMutation({
         registeredRegistries: updatedRegistries,
-      } as any);
+      } as any).unwrap();
 
       setConfig({ ...config, registeredRegistries: updatedRegistries });
       setRegistryStatusMap((prev) => {
