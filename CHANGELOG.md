@@ -11,9 +11,13 @@ its commit, and the commit message has the full reasoning and verification notes
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
 **impossible to run** to **74 problems, then 2**.
 
-The editable pay settings (the first entry under Added) sit on the branch
-`feat/editable-pay-settings`, three commits on top of that branch. With them the suite is at
-**233 passing tests**, and lint and typecheck are unchanged.
+The editable pay settings (the first entry under Added) were built on the branch
+`feat/editable-pay-settings` and merged into `fix/accepted-event-courier-id` on 30 September.
+With them the suite is at **233 passing tests**, and lint and typecheck are unchanged.
+
+Scope row 49 (zero is a valid value for every co-op setting) sits on the branch
+`fix/zero-valid-settings`, four commits on top of that. With it the suite is at **261 passing
+tests**, and lint and typecheck are unchanged.
 
 ---
 
@@ -80,6 +84,20 @@ The editable pay settings (the first entry under Added) sit on the branch
 ---
 
 ## Fixed
+
+- **Instance configuration no longer invents zeros** (scope row 49). A setting that was
+  never stored loaded as `0`, and clearing a number box made it `0` (`Number("")` is `0`).
+  Once the backend started keeping zeros, "Save All Changes" would have saved those as real
+  votes. An empty box now means "no value": it is sent as empty, and the backend refuses it
+  with a message naming the setting. `f3c591e`
+- **A refused "Save All Changes" shows the backend's reason**, for example "maxAssignmentDistance
+  cannot be 0: the matcher reads 0 as "no limit" …", instead of "Failed to save instance
+  configuration". `f3c591e`
+- **The coverage test now catches a missing field.** It used to pass as long as a setting's
+  name appeared anywhere in the page, even in a comment. It now needs an input wired to the
+  setting's value, keeps a written list of the settings that deliberately have no field, and
+  is skipped with a loud warning (instead of failing the whole suite) when the backend
+  checkout is not beside adminweb. `f3c591e`, `0b51f35`, `34ea279`
 
 - **"Save All Changes" no longer reports success when the save fails.** The API call returns
   its error instead of throwing, so the page showed "saved successfully" either way. It now
@@ -149,3 +167,6 @@ The editable pay settings (the first entry under Added) sit on the branch
   edits in other fields are lost. Both the payout menu and quote rate Save buttons do this.
 - "Save All Changes" logs the whole config to the browser console when it succeeds
   (`console.log(config, computedURLs)`, from upstream).
+- "Save All Changes" stays disabled while the logo image URL is empty, and the page does not
+  say why. On the dev instance that means the number settings cannot be saved from this page
+  at all (scope row 50).
