@@ -236,6 +236,25 @@ export interface DeliveryAdminDto {
      */
     totalCompensation: number | null;
     /**
+     * Base fee part of the rider's pay, from the delivery's quote (spec 0001). Hand edited.
+     * Only the get by id endpoint sends it; elsewhere it is null.
+     * @type {number}
+     * @memberof DeliveryAdminDto
+     */
+    baseFee?: number | null;
+    /**
+     * Distance part of the rider's pay, from the delivery's quote (spec 0001). Hand edited.
+     * @type {number}
+     * @memberof DeliveryAdminDto
+     */
+    distanceFee?: number | null;
+    /**
+     * The co-op fee % this delivery was priced with. Hand edited.
+     * @type {number}
+     * @memberof DeliveryAdminDto
+     */
+    feePercentage?: number | null;
+    /**
      * 
      * @type {Array<string>}
      * @memberof DeliveryAdminDto
@@ -477,6 +496,9 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'pay': json['pay'],
         'tips': json['tips'],
         'totalCompensation': json['totalCompensation'],
+        'baseFee': !exists(json, 'baseFee') ? null : json['baseFee'],
+        'distanceFee': !exists(json, 'distanceFee') ? null : json['distanceFee'],
+        'feePercentage': !exists(json, 'feePercentage') ? null : json['feePercentage'],
         'pickupTypes': json['pickupTypes'],
         'imageType': json['imageType'],
         'imageName': json['imageName'],
@@ -541,6 +563,9 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'pay': value.pay,
         'tips': value.tips,
         'totalCompensation': value.totalCompensation,
+        'baseFee': value.baseFee,
+        'distanceFee': value.distanceFee,
+        'feePercentage': value.feePercentage,
         'pickupTypes': value.pickupTypes,
         'imageType': value.imageType,
         'imageName': value.imageName,

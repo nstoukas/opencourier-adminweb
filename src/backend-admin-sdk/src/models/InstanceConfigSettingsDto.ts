@@ -98,17 +98,17 @@ export interface InstanceConfigSettingsDto {
    */
   quoteRatePerDistanceUnit?: number | null;
   /**
-   *
+   * Base fee per delivery, in whole cents (spec 0001). Hand edited.
    * @type {number}
    * @memberof InstanceConfigSettingsDto
    */
-  defaultCourierPayRate: number | null;
+  quoteBaseFee?: number | null;
   /**
    *
    * @type {number}
    * @memberof InstanceConfigSettingsDto
    */
-  defaultMinimumCourierPay: number | null;
+  defaultCourierPayRate: number | null;
   /**
    *
    * @type {number}
@@ -256,7 +256,6 @@ export function instanceOfInstanceConfigSettingsDto(value: object): boolean {
   isInstance = isInstance && "quoteExpirationMinutes" in value;
   isInstance = isInstance && "feePercentageAmount" in value;
   isInstance = isInstance && "defaultCourierPayRate" in value;
-  isInstance = isInstance && "defaultMinimumCourierPay" in value;
   isInstance = isInstance && "defaultMaxWorkingHours" in value;
 
   return isInstance;
@@ -292,8 +291,8 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     quoteRatePerDistanceUnit: !exists(json, "quoteRatePerDistanceUnit")
       ? null
       : json["quoteRatePerDistanceUnit"],
+    quoteBaseFee: !exists(json, "quoteBaseFee") ? null : json["quoteBaseFee"],
     defaultCourierPayRate: json["defaultCourierPayRate"],
-    defaultMinimumCourierPay: json["defaultMinimumCourierPay"],
     defaultMaxWorkingHours: json["defaultMaxWorkingHours"],
     details: json["details"],
     updatedAt: !exists(json, "updatedAt") ? undefined : json["updatedAt"],
@@ -333,8 +332,8 @@ export function InstanceConfigSettingsDtoToJSON(
     quoteExpirationMinutes: value.quoteExpirationMinutes,
     feePercentageAmount: value.feePercentageAmount,
     quoteRatePerDistanceUnit: value.quoteRatePerDistanceUnit,
+    quoteBaseFee: value.quoteBaseFee,
     defaultCourierPayRate: value.defaultCourierPayRate,
-    defaultMinimumCourierPay: value.defaultMinimumCourierPay,
     defaultMaxWorkingHours: value.defaultMaxWorkingHours,
     details: value.details,
     updatedAt: value.updatedAt,

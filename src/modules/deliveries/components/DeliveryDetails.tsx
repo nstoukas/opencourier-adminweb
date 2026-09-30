@@ -55,6 +55,49 @@ function OrderItemsSection({ items }: { items: DeliveryAdminDto['orderItems'] })
   )
 }
 
+// One row of the price breakdown: a label and an amount in minor currency units.
+function MoneyRow({ label, amount, currencyCode }: { label: string; amount: number | null | undefined; currencyCode: string }) {
+  return (
+    <Label className="flex flex-col space-y-1">
+      <span>{label}</span>
+      <span className="font-normal leading-snug text-muted-foreground">{formatMoney(amount, currencyCode) ?? '—'}</span>
+    </Label>
+  )
+}
+
+// How this delivery's price and the rider's pay were built (spec 0001), so members can audit
+// it without reading the database. The base and distance fees come from the delivery's quote;
+// the rest is written when the delivery is first offered to a rider. Total cost, fee and total
+// compensation are shown here only, under clearer names, rather than twice on the page.
+function PriceBreakdownCard({ delivery }: { delivery: DeliveryAdminDto }) {
+  const feeLabel = delivery.feePercentage != null ? `Co-op fee (${delivery.feePercentage}%)` : 'Co-op fee'
+  const notOfferedYet = delivery.totalCompensation == null
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Price breakdown</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
+        <MoneyRow label="Base fee" amount={delivery.baseFee} currencyCode={delivery.currencyCode} />
+        <MoneyRow label="Distance fee" amount={delivery.distanceFee} currencyCode={delivery.currencyCode} />
+        <MoneyRow
+          label="Rider pay (base fee + distance fee)"
+          amount={delivery.totalCompensation}
+          currencyCode={delivery.currencyCode}
+        />
+        <MoneyRow label={feeLabel} amount={delivery.fee} currencyCode={delivery.currencyCode} />
+        <MoneyRow label="Customer total" amount={delivery.totalCost} currencyCode={delivery.currencyCode} />
+        {notOfferedYet ? (
+          <p className="text-muted-foreground sm:col-span-2">
+            Rider pay, co-op fee and customer total are set when the delivery is first offered to a rider.
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 type DeliveryDetailsProps = {
   deliveryId: string
   isSheet?: boolean
@@ -199,18 +242,6 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
-              <span>Total cost</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.totalCost, delivery.currencyCode) ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Fee</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.fee, delivery.currencyCode) ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
               <span>Pay</span>
               <span className="font-normal leading-snug text-muted-foreground">
                 {formatMoney(delivery.pay, delivery.currencyCode) ?? '—'}
@@ -220,12 +251,6 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               <span>Tips</span>
               <span className="font-normal leading-snug text-muted-foreground">
                 {formatMoney(delivery.tips, delivery.currencyCode) ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Total compensation</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.totalCompensation, delivery.currencyCode) ?? '—'}
               </span>
             </Label>
             <Label className="flex flex-col space-y-1">
@@ -296,6 +321,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             </Label>
           </CardContent>
         </Card>
+
+        <PriceBreakdownCard delivery={delivery} />
 
         <Card>
           <CardHeader>

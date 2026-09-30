@@ -23,8 +23,9 @@ export type InstanceConfigSettings = {
   feePercentageAmount: number | null
   // Minor currency units per distanceUnit
   quoteRatePerDistanceUnit: number | null
+  // Base fee per delivery, in whole cents, paid to the rider on top of the distance part
+  quoteBaseFee: number | null
   defaultCourierPayRate: number | null
-  defaultMinimumCourierPay: number | null
   defaultMaxWorkingHours: number | null
   defaultDietaryRestrictions: EnumCourierDietaryRestrictions | null
   distanceUnit: EnumDistanceUnit | null
@@ -36,7 +37,6 @@ export type InstanceConfigSettings = {
 
 export type InstanceCourierDefaults = {
   defaultCourierPayRate: number | null
-  defaultMinimumCourierPay: number | null
   defaultMaxWorkingHours: number | null
   defaultDietaryRestrictions: EnumCourierDietaryRestrictions | null
 }
@@ -63,10 +63,10 @@ export enum ConfigKey {
   COURIER_COMPENSATION_CALCULATION_TYPE = 'courierCompensationCalculationType',
   FEE_PERCENTAGE_AMOUNT = 'feePercentageAmount',
   QUOTE_RATE_PER_DISTANCE_UNIT = 'quoteRatePerDistanceUnit',
+  QUOTE_BASE_FEE = 'quoteBaseFee',
   MAX_ASSIGNMENT_DISTANCE = 'maxAssignmentDistance',
   QUOTE_EXPIRATION_MINUTES = 'quoteExpirationMinutes',
   DEFAULT_COURIER_PAY_RATE = 'defaultCourierPayRate',
-  DEFAULT_MINIMUM_COURIER_PAY = 'defaultMinimumCourierPay',
   DEFAULT_MAX_WORKING_HOURS = 'defaultMaxWorkingHours',
   DEFAULT_DIETARY_RESTRICTIONS = 'defaultDietaryRestrictions',
   DISTANCE_UNIT = 'distanceUnit',

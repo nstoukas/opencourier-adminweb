@@ -10,7 +10,7 @@ import type { NextPage } from "next";
 // `import type` = these names are used only in type positions and vanish at build time.
 // The GeoJSON shapes come from @types/geojson (already installed).
 import type { Feature, FeatureCollection, Geometry } from "geojson";
-import { Input, Label, useToast } from "@/admin-web-components";
+import { Button, Input, Label, useToast } from "@/admin-web-components";
 import {
   COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
   COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
@@ -27,6 +27,7 @@ import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { featureCollection } from "@turf/turf";
 import ReactMarkdown from "react-markdown";
 import { parseQuoteRateInput } from "@/utils/quoteRate";
+import { describeBaseFee, parseBaseFeeInput } from "@/utils/baseFee";
 import { parseNumberInput } from "@/utils/numberInput";
 import { QuoteRateEditor } from "@/modules/instance-config/components/QuoteRateEditor";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
@@ -148,7 +149,6 @@ const InstanceConfigurationPage: NextPage = () => {
     maxDriftDistance: null as number | null,
     quoteExpirationMinutes: null as number | null,
     defaultCourierPayRate: null as number | null,
-    defaultMinimumCourierPay: null as number | null,
     defaultMaxWorkingHours: null as number | null,
     feePercentageAmount: null as number | null,
     quoteRatePerDistanceUnit: 0,
@@ -159,6 +159,12 @@ const InstanceConfigurationPage: NextPage = () => {
   const [quoteRateError, setQuoteRateError] = useState("");
   const [isSavingPayoutPolicies, setIsSavingPayoutPolicies] = useState(false);
   const [isSavingQuoteRate, setIsSavingQuoteRate] = useState(false);
+  // The base fee lives outside `config` on purpose: only its own Save button sends it, so
+  // "Save All Changes" can never send an empty or half typed base fee. It holds the text in
+  // the box (a string), and is named after the setting so the coverage guard test finds it.
+  const [quoteBaseFee, setQuoteBaseFee] = useState("");
+  const [baseFeeError, setBaseFeeError] = useState("");
+  const [isSavingBaseFee, setIsSavingBaseFee] = useState(false);
 
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
@@ -209,7 +215,6 @@ const InstanceConfigurationPage: NextPage = () => {
         maxDriftDistance: data.maxDriftDistance ?? null,
         quoteExpirationMinutes: data.quoteExpirationMinutes ?? null,
         defaultCourierPayRate: data.defaultCourierPayRate ?? null,
-        defaultMinimumCourierPay: data.defaultMinimumCourierPay ?? null,
         defaultMaxWorkingHours: data.defaultMaxWorkingHours ?? null,
         feePercentageAmount: data.feePercentageAmount ?? null,
         quoteRatePerDistanceUnit: data.quoteRatePerDistanceUnit ?? 0,
@@ -219,6 +224,14 @@ const InstanceConfigurationPage: NextPage = () => {
       });
       setQuoteRateText(String(data.quoteRatePerDistanceUnit ?? 0));
       setQuoteRateError("");
+      // An empty box (not "0") when the backend sends no value, so a missing setting is
+      // never shown, or saved, as a base fee of 0.
+      setQuoteBaseFee(
+        data.quoteBaseFee === null || data.quoteBaseFee === undefined
+          ? ""
+          : String(data.quoteBaseFee),
+      );
+      setBaseFeeError("");
       setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
       setTermsOfServiceContent(details.termsOfServiceContent ?? "");
       setRulesContent(details.rulesContent ?? "");
@@ -559,7 +572,6 @@ const InstanceConfigurationPage: NextPage = () => {
         quoteExpirationMinutes: config.quoteExpirationMinutes,
         feePercentageAmount: config.feePercentageAmount,
         defaultCourierPayRate: config.defaultCourierPayRate,
-        defaultMinimumCourierPay: config.defaultMinimumCourierPay,
         defaultMaxWorkingHours: config.defaultMaxWorkingHours,
         defaultDietaryRestrictions: config.defaultDietaryRestrictions,
         distanceUnit: config.distanceUnit,
@@ -785,6 +797,46 @@ const InstanceConfigurationPage: NextPage = () => {
       console.error("Failed to save quote rate:", error);
     } finally {
       setIsSavingQuoteRate(false);
+    }
+  };
+
+  const BASE_FEE_INPUT_ERROR =
+    "Base fee: enter a whole number of cents, zero or more.";
+
+  // Same shape as the quote rate handlers above: keep what was typed, flag it if it is not a
+  // valid base fee, and send only what is in the box when Save is pressed.
+  const handleBaseFeeChange = (value: string) => {
+    setQuoteBaseFee(value);
+    setBaseFeeError(parseBaseFeeInput(value) === null ? BASE_FEE_INPUT_ERROR : "");
+  };
+
+  const handleSaveBaseFee = async () => {
+    const fee = parseBaseFeeInput(quoteBaseFee);
+    if (fee === null) {
+      setBaseFeeError(BASE_FEE_INPUT_ERROR);
+      return;
+    }
+    setIsSavingBaseFee(true);
+    try {
+      // .unwrap() makes a refused save throw, so the catch below shows the backend's reason.
+      // Only this one key is sent, so nothing else in the instance config is touched.
+      await setInstanceConfigMutation({
+        quoteBaseFee: fee,
+      }).unwrap();
+      toast({
+        title: "Success!",
+        description: "Base fee saved successfully. It applies to the next quote.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message || "Failed to save the base fee. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save base fee:", error);
+    } finally {
+      setIsSavingBaseFee(false);
     }
   };
 
@@ -1023,6 +1075,39 @@ const InstanceConfigurationPage: NextPage = () => {
               onSave={handleSaveQuoteRate}
             />
             <div>
+              <Label className="text-right" htmlFor="quoteBaseFee">
+                Base Fee Per Delivery
+              </Label>
+              <p className="text-sm text-gray-600 mb-1">
+                {describeBaseFee(parseBaseFeeInput(quoteBaseFee), config.currency)}
+              </p>
+              <Input
+                id="quoteBaseFee"
+                key="quoteBaseFee"
+                type="number"
+                min={0}
+                step={1}
+                value={quoteBaseFee}
+                onChange={(event) => handleBaseFeeChange(event.target.value)}
+                className={`max-w-[120px] ${baseFeeError ? "border-red-500 border-2" : ""}`}
+              />
+              {baseFeeError && (
+                <p className="text-red-500 text-sm mt-1">{baseFeeError}</p>
+              )}
+              <div>
+                <Button
+                  type="button"
+                  disabled={
+                    isSavingBaseFee || parseBaseFeeInput(quoteBaseFee) === null
+                  }
+                  onClick={handleSaveBaseFee}
+                  className="mt-2"
+                >
+                  {isSavingBaseFee ? "Saving…" : "Save base fee"}
+                </Button>
+              </div>
+            </div>
+            <div>
               <Label className="text-right">Geo Calculation Type</Label>
               <br />
               <select
@@ -1204,21 +1289,6 @@ const InstanceConfigurationPage: NextPage = () => {
                   setConfig({
                     ...config,
                     defaultCourierPayRate: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">Default Minimum Courier Pay</Label>
-              <Input
-                key="defaultMinimumCourierPay"
-                type="number"
-                value={config.defaultMinimumCourierPay ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    defaultMinimumCourierPay: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1757,12 +1827,6 @@ const InstanceConfigurationPage: NextPage = () => {
                     Default Courier Pay Rate
                   </Label>
                   <p className="text-sm">{config.defaultCourierPayRate}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Default Minimum Courier Pay
-                  </Label>
-                  <p className="text-sm">{config.defaultMinimumCourierPay}</p>
                 </div>
                 <div>
                   <Label className="text-gray-600">

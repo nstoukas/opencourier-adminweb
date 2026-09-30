@@ -24,7 +24,7 @@ export function describeQuoteRate(
     return 'Enter a whole number of cents, zero or more.'
   }
   if (rate === 0) {
-    return '0 — the distance part of every DeliveryQuote is zero. Riders are then paid only the minimum courier pay floor.'
+    return '0: the distance part of every DeliveryQuote is zero. Riders are then paid only the base fee.'
   }
   const money = formatMoney(rate, currencyCode) ?? String(rate)
   const unit = distanceUnit === 'MILES' ? 'mile' : 'kilometre'

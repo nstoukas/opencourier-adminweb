@@ -92,17 +92,17 @@ export interface InstanceConfigSettingsAdminInput {
    */
   quoteRatePerDistanceUnit?: number;
   /**
-   *
+   * Base fee per delivery, in whole cents (spec 0001). Hand edited.
    * @type {number}
    * @memberof InstanceConfigSettingsAdminInput
    */
-  defaultCourierPayRate?: number;
+  quoteBaseFee?: number;
   /**
    *
    * @type {number}
    * @memberof InstanceConfigSettingsAdminInput
    */
-  defaultMinimumCourierPay?: number;
+  defaultCourierPayRate?: number;
   /**
    *
    * @type {number}
@@ -302,9 +302,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     defaultCourierPayRate: !exists(json, "defaultCourierPayRate")
       ? undefined
       : json["defaultCourierPayRate"],
-    defaultMinimumCourierPay: !exists(json, "defaultMinimumCourierPay")
+    quoteBaseFee: !exists(json, "quoteBaseFee")
       ? undefined
-      : json["defaultMinimumCourierPay"],
+      : json["quoteBaseFee"],
     defaultMaxWorkingHours: !exists(json, "defaultMaxWorkingHours")
       ? undefined
       : json["defaultMaxWorkingHours"],
@@ -350,12 +350,12 @@ export function InstanceConfigSettingsAdminInputToJSON(
     quoteExpirationMinutes: value.quoteExpirationMinutes,
     feePercentageAmount: value.feePercentageAmount,
     defaultCourierPayRate: value.defaultCourierPayRate,
-    defaultMinimumCourierPay: value.defaultMinimumCourierPay,
     defaultMaxWorkingHours: value.defaultMaxWorkingHours,
     defaultDietaryRestrictions: value.defaultDietaryRestrictions,
     details: value.details,
     registeredRegistries: value.registeredRegistries,
     quoteRatePerDistanceUnit: value.quoteRatePerDistanceUnit,
+    quoteBaseFee: value.quoteBaseFee,
     reassignmentPayoutPolicies: value.reassignmentPayoutPolicies,
     reassignmentPayoutDefaultPolicy: value.reassignmentPayoutDefaultPolicy,
   };
