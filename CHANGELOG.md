@@ -23,6 +23,10 @@ Scope row 51 (the delivery fee as a base fee plus a per km fee, spec 0001) was b
 `feat/base-fee-per-km` and merged in on 1 October. With it the suite is at **277 passing tests**, and lint
 and typecheck are unchanged.
 
+Scope row 50 (Instance configuration reports saves honestly) was built on the branch
+`fix/honest-config-saves` and merged in on 1 October. With it the suite is at **296 passing tests**, and
+lint and typecheck are unchanged.
+
 ---
 
 ## Added
@@ -107,6 +111,18 @@ and typecheck are unchanged.
 ---
 
 ## Fixed
+
+- **Every save on Instance configuration now reports a refusal** (scope row 50). The privacy
+  policy, terms of service, rules and description editors, and the two registry saves, showed
+  "saved" even when the backend refused the change, because they never called `.unwrap()`. They
+  now show the error toast, the four text editors show the backend's own reason (with the old
+  generic line only as a fallback), and a refused text save keeps the editor open so nothing
+  typed is lost. All 10 saves on the page now unwrap. `46024bf`
+- **The payout policy editor shows the name that will be stored.** Save upper cases a policy
+  name and turns spaces into underscores, while the box kept showing what was typed. A row now
+  shows "Will be saved as `HALF_COMP`" whenever the two differ. `46024bf`
+- **Tests for both** (19 new, written by agy from the row, each checked to fail with its bug put
+  back). `12e8d82`
 
 - **Instance configuration no longer invents zeros** (scope row 49). A setting that was
   never stored loaded as `0`, and clearing a number box made it `0` (`Number("")` is `0`).
@@ -199,4 +215,4 @@ and typecheck are unchanged.
   (`console.log(config, computedURLs)`, from upstream).
 - "Save All Changes" stays disabled while the logo image URL is empty, and the page does not
   say why. On the dev instance that means the number settings cannot be saved from this page
-  at all (scope row 50).
+  at all (scope row 55, which removes the dropped registry's fields from this page).
