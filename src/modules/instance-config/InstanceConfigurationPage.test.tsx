@@ -130,9 +130,11 @@ const NUMERIC_SETTINGS = [
 
 describe('InstanceConfigurationPage zero-valid settings', () => {
   const mockSetInstanceConfig = jest.fn()
+  const originalFetch = global.fetch
 
   beforeEach(() => {
     jest.clearAllMocks()
+    global.fetch = jest.fn()
     mockUseGetInstanceConfigOptionsQuery.mockReturnValue({
       data: mockOptionsData,
       isLoading: false,
@@ -145,6 +147,10 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       mockSetInstanceConfig,
       { isLoading: false },
     ])
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
   })
 
   describe.each(NUMERIC_SETTINGS)('numeric setting: $key ($label)', ({ key, label }) => {
@@ -438,4 +444,310 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       })
     })
   })
+
+  describe('Honest configuration save reporting (Scope Row 50)', () => {
+    describe.each([
+      {
+        name: 'Privacy Policy',
+        editButtonText: 'Edit Privacy Policy',
+        editorHeading: 'Editing Privacy Policy',
+        successToastDescription: 'Privacy policy saved successfully.',
+        genericErrorMessage: 'Failed to save privacy policy. Please try again.',
+        detailsKey: 'privacyPolicyContent',
+      },
+      {
+        name: 'Terms of Service',
+        editButtonText: 'Edit Terms of Service',
+        editorHeading: 'Editing Terms of Service',
+        successToastDescription: 'Terms of service saved successfully.',
+        genericErrorMessage: 'Failed to save terms of service. Please try again.',
+        detailsKey: 'termsOfServiceContent',
+      },
+      {
+        name: 'Rules',
+        editButtonText: 'Edit Rules',
+        editorHeading: 'Editing Rules',
+        successToastDescription: 'Rules saved successfully.',
+        genericErrorMessage: 'Failed to save rules. Please try again.',
+        detailsKey: 'rulesContent',
+      },
+      {
+        name: 'Description',
+        editButtonText: 'Edit Description',
+        editorHeading: 'Editing Description',
+        successToastDescription: 'Description saved successfully.',
+        genericErrorMessage: 'Failed to save description. Please try again.',
+        detailsKey: 'descriptionContent',
+      },
+    ])(
+      '$name text editor save',
+      ({
+        editButtonText,
+        editorHeading,
+        successToastDescription,
+        genericErrorMessage,
+        detailsKey,
+      }) => {
+        it('shows success toast and returns to main view when save mutation succeeds', async () => {
+          mockUseGetInstanceConfigQuery.mockReturnValue({
+            data: baseMockConfigData,
+            isLoading: false,
+            refetch: jest.fn().mockResolvedValue({}),
+          })
+          mockSetInstanceConfig.mockReturnValue({
+            unwrap: () => Promise.resolve({}),
+          })
+
+          render(<InstanceConfigurationPage />)
+
+          fireEvent.click(screen.getByText(editButtonText))
+          expect(screen.getByText(editorHeading)).toBeInTheDocument()
+
+          const saveButton = screen.getByRole('button', { name: /^Save$/i })
+          fireEvent.click(saveButton)
+
+          await waitFor(() => {
+            expect(mockSetInstanceConfig).toHaveBeenCalledWith(
+              expect.objectContaining({
+                details: expect.objectContaining({
+                  [detailsKey]: expect.any(String),
+                }),
+              })
+            )
+            expect(mockToast).toHaveBeenCalledWith(
+              expect.objectContaining({
+                title: 'Success!',
+                description: successToastDescription,
+              })
+            )
+            expect(screen.queryByText(editorHeading)).toBeNull()
+          })
+        })
+
+        it('shows destructive error toast with backend reason and stays on editor view when save mutation is refused', async () => {
+          mockUseGetInstanceConfigQuery.mockReturnValue({
+            data: baseMockConfigData,
+            isLoading: false,
+            refetch: jest.fn().mockResolvedValue({}),
+          })
+
+          const backendErrorMessage = `${detailsKey} content violates policy format`
+          mockSetInstanceConfig.mockReturnValue({
+            unwrap: () => Promise.reject({ message: backendErrorMessage }),
+          })
+
+          render(<InstanceConfigurationPage />)
+
+          fireEvent.click(screen.getByText(editButtonText))
+          expect(screen.getByText(editorHeading)).toBeInTheDocument()
+
+          const saveButton = screen.getByRole('button', { name: /^Save$/i })
+          fireEvent.click(saveButton)
+
+          await waitFor(() => {
+            expect(mockToast).toHaveBeenCalledWith(
+              expect.objectContaining({
+                title: 'Error',
+                description: backendErrorMessage,
+                variant: 'destructive',
+              })
+            )
+            expect(mockToast).not.toHaveBeenCalledWith(
+              expect.objectContaining({
+                title: 'Success!',
+              })
+            )
+            expect(screen.getByText(editorHeading)).toBeInTheDocument()
+          })
+        })
+
+        it('falls back to generic error text when error has no message', async () => {
+          mockUseGetInstanceConfigQuery.mockReturnValue({
+            data: baseMockConfigData,
+            isLoading: false,
+            refetch: jest.fn().mockResolvedValue({}),
+          })
+
+          mockSetInstanceConfig.mockReturnValue({
+            unwrap: () => Promise.reject({}),
+          })
+
+          render(<InstanceConfigurationPage />)
+
+          fireEvent.click(screen.getByText(editButtonText))
+          const saveButton = screen.getByRole('button', { name: /^Save$/i })
+          fireEvent.click(saveButton)
+
+          await waitFor(() => {
+            expect(mockToast).toHaveBeenCalledWith(
+              expect.objectContaining({
+                title: 'Error',
+                description: genericErrorMessage,
+                variant: 'destructive',
+              })
+            )
+          })
+        })
+      }
+    )
+
+    describe('Registry save reporting', () => {
+      it('register: shows success toast when registry post and instance config mutation succeed', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: baseMockConfigData,
+          isLoading: false,
+          refetch: jest.fn().mockResolvedValue({}),
+        })
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+        ;(global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ message: 'Registered successfully' }),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
+
+        const registryInput = screen.getByPlaceholderText('https://registry.example.com')
+        fireEvent.change(registryInput, { target: { value: 'https://registry.example.com' } })
+
+        const registerButton = screen.getByRole('button', { name: /^Register$/i })
+        fireEvent.click(registerButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            registeredRegistries: ['https://registry.example.com'],
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Success!',
+              description: 'Registered successfully',
+            })
+          )
+        })
+      })
+
+      it('register: shows destructive error toast and no success toast when setInstanceConfigMutation is refused', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: baseMockConfigData,
+          isLoading: false,
+          refetch: jest.fn().mockResolvedValue({}),
+        })
+        const backendErrorMessage = 'registeredRegistries validation failed: invalid url'
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.reject({ message: backendErrorMessage }),
+        })
+        ;(global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ message: 'Registry accepted POST' }),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
+
+        const registryInput = screen.getByPlaceholderText('https://registry.example.com')
+        fireEvent.change(registryInput, { target: { value: 'https://registry.example.com' } })
+
+        const registerButton = screen.getByRole('button', { name: /^Register$/i })
+        fireEvent.click(registerButton)
+
+        await waitFor(() => {
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Registration failed',
+              description: backendErrorMessage,
+              variant: 'destructive',
+            })
+          )
+          expect(mockToast).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Success!',
+            })
+          )
+        })
+      })
+
+      it('unregister: shows success toast when registry delete and instance config mutation succeed', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            registeredRegistries: ['https://registry.example.com'],
+          },
+          isLoading: false,
+          refetch: jest.fn().mockResolvedValue({}),
+        })
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+        ;(global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
+
+        const unregisterButton = screen.getByRole('button', { name: /^Unregister$/i })
+        fireEvent.click(unregisterButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            registeredRegistries: [],
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Unregistered',
+              description: 'Instance removed from registry.',
+            })
+          )
+        })
+      })
+
+      it('unregister: shows destructive error toast and no success toast when setInstanceConfigMutation is refused', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            registeredRegistries: ['https://registry.example.com'],
+          },
+          isLoading: false,
+          refetch: jest.fn().mockResolvedValue({}),
+        })
+        const backendErrorMessage = 'Failed to unregister in database'
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.reject({ message: backendErrorMessage }),
+        })
+        ;(global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
+
+        const unregisterButton = screen.getByRole('button', { name: /^Unregister$/i })
+        fireEvent.click(unregisterButton)
+
+        await waitFor(() => {
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Unregister failed',
+              description: backendErrorMessage,
+              variant: 'destructive',
+            })
+          )
+          expect(mockToast).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Unregistered',
+            })
+          )
+        })
+      })
+    })
+  })
 })
+

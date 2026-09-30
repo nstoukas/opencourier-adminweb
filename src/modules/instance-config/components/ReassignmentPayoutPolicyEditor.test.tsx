@@ -265,4 +265,51 @@ describe('ReassignmentPayoutPolicyEditor component', () => {
       screen.getByText(/Renaming or removing a policy does not change past reassignments/i)
     ).toBeInTheDocument()
   })
+
+  describe('Stored policy name preview hint (AC-3)', () => {
+    it('shows "Will be saved as <STORED_NAME>" hint when typed policy name differs from stored normalized key', () => {
+      render(
+        <ReassignmentPayoutPolicyEditor
+          policies={{ 'half comp': 50 }}
+          defaultPolicy="half comp"
+          isSaving={false}
+          onSave={jest.fn()}
+        />
+      )
+
+      expect(screen.getByText(/Will be saved as/i)).toBeInTheDocument()
+      expect(screen.getByText('HALF_COMP')).toBeInTheDocument()
+    })
+
+    it('does not show stored name hint when typed policy name already equals stored key or is empty', () => {
+      render(
+        <ReassignmentPayoutPolicyEditor
+          policies={{ FULL_COMPENSATION: 100 }}
+          defaultPolicy="FULL_COMPENSATION"
+          isSaving={false}
+          onSave={jest.fn()}
+        />
+      )
+
+      expect(screen.queryByText(/Will be saved as/i)).toBeNull()
+    })
+
+    it('typing in policy name input alone never calls onSave', () => {
+      const onSaveMock = jest.fn()
+      render(
+        <ReassignmentPayoutPolicyEditor
+          policies={initialPolicies}
+          defaultPolicy={defaultPolicy}
+          isSaving={false}
+          onSave={onSaveMock}
+        />
+      )
+
+      const fullKeyInput = screen.getByDisplayValue('FULL_COMPENSATION')
+      fireEvent.change(fullKeyInput, { target: { value: 'NEW_KEY_NAME' } })
+
+      expect(onSaveMock).not.toHaveBeenCalled()
+    })
+  })
 })
+
