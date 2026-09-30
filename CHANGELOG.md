@@ -11,9 +11,36 @@ its commit, and the commit message has the full reasoning and verification notes
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
 **impossible to run** to **74 problems, then 2**.
 
+The editable pay settings (the first entry under Added) sit on the branch
+`feat/editable-pay-settings`, three commits on top of that branch. With them the suite is at
+**233 passing tests**, and lint and typecheck are unchanged.
+
 ---
 
 ## Added
+
+### Editable pay settings on Instance configuration (scope row 4): `83d0786`, `a96573e`
+- **The quote rate per kilometre and the reassignment payout menu can now be changed from
+  admin.** The backend already accepted them, but adminweb never showed them, so they could
+  only be changed in the database. `83d0786`
+  - The checked in admin SDK builds each request from a fixed list of fields, and all three
+    were missing from it. A form field alone would have said "saved" and sent nothing, so
+    both SDK models now carry them.
+  - Quote rate: a number box with a live preview, such as "€1.50 per kilometre of travel".
+    Only whole cents, zero or more, are accepted. An empty box, a negative number or a
+    fraction (like `1.50` typed as euros, which would cut every quote by about 99%) shows an
+    error and cannot be saved.
+  - Payout menu: its own editor (add, remove and rename policies, set each percentage, pick
+    the default) with its own Save button. The backend rejects the whole menu when the
+    default is not one of its policies, so a typo there cannot block saving anything else.
+- **The quote rate has its own Save button.** "Save All Changes" stays disabled while any
+  required field is empty (on the dev instance, the logo URL), which locked a pay setting
+  behind a branding field. The new button sends only the rate; "Save All Changes" still
+  includes it too. `a96573e`
+- **A coverage test** reads every setting from the backend's `InstanceConfigSettingsInput`
+  and fails if the SDK drops one or the page never mentions it, so the next backend setting
+  cannot land without an admin field. It needs the backend checked out beside adminweb, and
+  fails rather than skips without it. `83d0786`
 
 ### Restaurants screen and courier reassignment (Unit 5) — `43ff011`
 - **Restaurants page**: list, create and edit restaurants, set the one fixed pickup
@@ -54,6 +81,9 @@ The test suite went from **no test runner** to **141 passing tests**, and lint w
 
 ## Fixed
 
+- **"Save All Changes" no longer reports success when the save fails.** The API call returns
+  its error instead of throwing, so the page showed "saved successfully" either way. It now
+  shows the failure. `83d0786`
 - **Accepting a delivery from the admin UI now sends `courierId`**, so the delivery
   advances instead of being re-offered. This is the client half of backend `2f47613`.
   `82513f1`
@@ -104,7 +134,8 @@ The test suite went from **no test runner** to **141 passing tests**, and lint w
 - `.run-dev.sh`, a local helper that pins Node 20. It contains an absolute home path, so it
   is only useful on the author's machine. `82513f1`
 - `AGENTS.md`, context for AI coding tools that points at the co-op workspace rulebook, and a
-  `CLAUDE.md` that imports it.
+  `CLAUDE.md` that imports it. Since `8dcfa81` it names the skill workflow rather than
+  `aiflow.sh`.
 
 ---
 
@@ -114,3 +145,7 @@ The test suite went from **no test runner** to **141 passing tests**, and lint w
   unreachable and a candidate for deletion.
 - About 110 typecheck errors predate this fork.
 - The checked-in admin SDK misreports nullability. Treat it with care.
+- After any save on Instance configuration, the whole form reloads from the server, so unsaved
+  edits in other fields are lost. Both the payout menu and quote rate Save buttons do this.
+- "Save All Changes" logs the whole config to the browser console when it succeeds
+  (`console.log(config, computedURLs)`, from upstream).
