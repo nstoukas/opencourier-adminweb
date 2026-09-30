@@ -101,10 +101,11 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
   const pageFilePath = path.resolve(__dirname, '../../../pages/instance-configuration/index.tsx')
   const rawPageSourceText = backendExists ? fs.readFileSync(pageFilePath, 'utf-8') : ''
 
-  // Strip block comments (/* ... */) and line comments (// ...) so prose/comment mentions don't count
+  // Strip block comments (/* ... */) and line comments (// ...) so prose/comment mentions don't count.
+  // Use negative lookbehind (?<!:) so URL strings like "https://registry.example.com" are preserved intact.
   const commentStrippedPageSource = rawPageSourceText
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*/g, '')
+    .replace(/(?<!:)\/\/.*/g, '')
 
   // Extract all opening tags of input-like form elements across the page source
   const inputTags = extractInputTags(commentStrippedPageSource)
@@ -117,9 +118,12 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
       return
     }
 
-    // Must be bound within an opening tag of an input-like element (Input, select, textarea, QuoteRateEditor, ReassignmentPayoutPolicyEditor)
-    // matching key="<key>" or an attribute bound to an expression ending in .<key> or ?.<key>
-    const bindingRegex = new RegExp(`(key=["']${key}["']|\\.${key}\\b|\\?\\.\\b${key}\\b)`)
+    // Must be bound as a value or editor prop within an input-like tag:
+    // value={...<key>...}, rate={...<key>...}, policies={...<key>...}, or defaultPolicy={...<key>...}.
+    // React key="<key>" alone does NOT count as a rendered input binding.
+    const bindingRegex = new RegExp(
+      `\\b(value|rate|policies|defaultPolicy)\\s*=\\s*\\{[^}]*\\b${key}\\b`
+    )
 
     const hasInputBinding = inputTags.some((tag) => bindingRegex.test(tag))
     expect(hasInputBinding).toBe(true)

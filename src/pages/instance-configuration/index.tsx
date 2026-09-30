@@ -448,7 +448,8 @@ const InstanceConfigurationPage: NextPage = () => {
       toast({
         title: "Error",
         // The backend's own reason (e.g. "maxAssignmentDistance cannot be 0: ..."), which
-        // the SDK puts on the thrown ApiError. The generic text is only for network errors.
+        // the SDK puts on the thrown ApiError. The generic text is the fallback for an error
+        // that carries no message at all.
         description:
           error?.message ||
           "Failed to save instance configuration. Please try again.",

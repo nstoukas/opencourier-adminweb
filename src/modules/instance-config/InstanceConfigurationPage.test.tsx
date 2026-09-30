@@ -108,14 +108,26 @@ const baseMockConfigData = {
 
 // Helper function to find input element adjacent to its label text
 const getInputByLabel = (labelText: string): HTMLInputElement => {
-  const labelElement = screen.getByText(labelText)
-  const container = labelElement.parentElement ?? labelElement
-  const input = container.querySelector('input')
-  if (!input) {
-    throw new Error(`Input for label "${labelText}" not found`)
+  const elements = screen.getAllByText(labelText)
+  for (const el of elements) {
+    const container = el.parentElement ?? el
+    const input = container.querySelector('input')
+    if (input) {
+      return input as HTMLInputElement
+    }
   }
-  return input as HTMLInputElement
+  throw new Error(`Input for label "${labelText}" not found`)
 }
+
+const NUMERIC_SETTINGS = [
+  { key: 'maxAssignmentDistance', label: 'Max Assignment Distance' },
+  { key: 'maxDriftDistance', label: 'Max Drift Distance' },
+  { key: 'quoteExpirationMinutes', label: 'Quote Expiration Minutes' },
+  { key: 'defaultCourierPayRate', label: 'Default Courier Pay Rate' },
+  { key: 'defaultMinimumCourierPay', label: 'Default Minimum Courier Pay' },
+  { key: 'defaultMaxWorkingHours', label: 'Default Max Working Hours' },
+  { key: 'feePercentageAmount', label: 'Fee Percentage Amount' },
+] as const
 
 describe('InstanceConfigurationPage zero-valid settings', () => {
   const mockSetInstanceConfig = jest.fn()
@@ -136,67 +148,61 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     ])
   })
 
-  it('renders an empty input box when API returns a setting as null (does not invent zeros)', () => {
-    // Return null for maxAssignmentDistance and feePercentageAmount
-    mockUseGetInstanceConfigQuery.mockReturnValue({
-      data: {
-        ...baseMockConfigData,
-        maxAssignmentDistance: null,
-        feePercentageAmount: null,
-      },
-      isLoading: false,
+  describe.each(NUMERIC_SETTINGS)('numeric setting: $key ($label)', ({ key, label }) => {
+    it(`renders an empty input box when API returns ${key} as null`, () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          [key]: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      expect(getInputByLabel(label).value).toBe('')
     })
 
-    render(<InstanceConfigurationPage />)
+    it(`renders "0" in input box when API returns ${key} as 0`, () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          [key]: 0,
+        },
+        isLoading: false,
+      })
 
-    // Assert that null backend values render as empty boxes, never as 0
-    expect(getInputByLabel('Max Assignment Distance').value).toBe('')
-    expect(getInputByLabel('Fee Percentage Amount').value).toBe('')
-  })
+      render(<InstanceConfigurationPage />)
 
-  it('renders "0" in input box when API returns setting as 0 (0 is a valid setting value)', () => {
-    // Return 0 for feePercentageAmount (0% fee)
-    mockUseGetInstanceConfigQuery.mockReturnValue({
-      data: {
-        ...baseMockConfigData,
-        feePercentageAmount: 0,
-      },
-      isLoading: false,
+      expect(getInputByLabel(label).value).toBe('0')
     })
 
-    render(<InstanceConfigurationPage />)
+    it(`sends null (not 0) for cleared ${key} box when "Save All Changes" is submitted`, async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: baseMockConfigData,
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
 
-    expect(getInputByLabel('Fee Percentage Amount').value).toBe('0')
-  })
+      render(<InstanceConfigurationPage />)
 
-  it('sends null (not 0) for a cleared number box when "Save All Changes" is submitted', async () => {
-    mockUseGetInstanceConfigQuery.mockReturnValue({
-      data: baseMockConfigData,
-      isLoading: false,
-    })
-    mockSetInstanceConfig.mockReturnValue({
-      unwrap: () => Promise.resolve({}),
-    })
+      const inputElement = getInputByLabel(label)
+      fireEvent.change(inputElement, { target: { value: '' } })
+      expect(inputElement.value).toBe('')
 
-    render(<InstanceConfigurationPage />)
+      const saveButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveButton)
 
-    // Clear Default Max Working Hours box
-    const workingHoursInput = getInputByLabel('Default Max Working Hours')
-    fireEvent.change(workingHoursInput, { target: { value: '' } })
-    expect(workingHoursInput.value).toBe('')
-
-    // Click Save All Changes button
-    const saveButton = screen.getByRole('button', { name: /save all changes/i })
-    fireEvent.click(saveButton)
-
-    await waitFor(() => {
-      expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-      // Assert payload contains defaultMaxWorkingHours: null (never 0)
-      expect(mockSetInstanceConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          defaultMaxWorkingHours: null,
-        })
-      )
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith(
+          expect.objectContaining({
+            [key]: null,
+          })
+        )
+      })
     })
   })
 
