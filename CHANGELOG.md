@@ -19,9 +19,32 @@ Scope row 49 (zero is a valid value for every co-op setting) was built on the br
 `fix/zero-valid-settings` and merged in on 30 September. With it the suite is at **261 passing
 tests**, and lint and typecheck are unchanged.
 
+Scope row 51 (the delivery fee as a base fee plus a per km fee, spec 0001) is on the branch
+`feat/base-fee-per-km`, not merged yet. With it the suite is at **277 passing tests**, and lint
+and typecheck are unchanged.
+
 ---
 
 ## Added
+
+### Base fee and price breakdown (scope row 51): `a618c97`, `87313d5`, `0061662`
+- **A "Base Fee Per Delivery" field on Instance configuration**, in whole cents, with a live
+  description such as "€2.00 per delivery, paid to the rider in full on top of the distance
+  part". It has its own Save button and sends only `{ quoteBaseFee }`; "Save All Changes"
+  never includes it, so an empty or half typed box can't be saved by accident. `a618c97`
+  - `0` saves and reads back as `0`. A negative, a fraction or an empty box shows an error
+    and disables Save. It uses the same parser as the quote rate, so the two fields can't
+    drift apart.
+  - A missing base fee (the backend sends `null` for a bad stored value) shows an empty box
+    with Save disabled, never `0`, so one click can't save a base fee nobody chose. `0061662`
+- **A price breakdown on each delivery's page**: base fee, distance fee, rider pay, co-op fee
+  with its %, and customer total, so members can audit a delivery's pay without the database.
+  Amounts not written yet show a dash, with a note that they are set when the delivery is
+  first offered to a rider. `a618c97`
+- The checked in admin SDK models carry `quoteBaseFee`, and `baseFee`, `distanceFee` and
+  `feePercentage` on the delivery. `a618c97`
+- Tests by agy cover the field, its refusals, the exact save payload, "Save All Changes"
+  leaving it out, and the breakdown. `87313d5`, `0061662`
 
 ### Editable pay settings on Instance configuration (scope row 4): `83d0786`, `a96573e`
 - **The quote rate per kilometre and the reassignment payout menu can now be changed from
@@ -138,6 +161,10 @@ tests**, and lint and typecheck are unchanged.
 
 ## Removed
 
+- **The "Default Minimum Courier Pay" field**, and the setting from the SDK models, shared
+  types and "Save All Changes". The backend no longer has a pay floor; the base fee replaces
+  it. The compensation type's description now says the rider is paid the base fee plus the
+  distance fee. `a618c97`
 - `package-lock.json` (this repo uses Yarn 1). `82513f1`
 - Dead Stripe transfer and refund UIs. They were unreachable, didn't compile, and
   hard-coded `$`. `7153ca0`
@@ -159,6 +186,9 @@ tests**, and lint and typecheck are unchanged.
 
 ## Known open items
 
+- On deliveries priced before row 51, the breakdown's "Rider pay (base fee + distance fee)"
+  does not add up: base 0 plus the old price, next to the old pay (which included the old
+  floor). The spec accepts this for old dev data.
 - Lint still reports 2 `no-img-element` hits in `merchant-card-images.tsx`, which is
   unreachable and a candidate for deletion.
 - About 110 typecheck errors predate this fork.
