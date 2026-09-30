@@ -19,8 +19,8 @@ Scope row 49 (zero is a valid value for every co-op setting) was built on the br
 `fix/zero-valid-settings` and merged in on 30 September. With it the suite is at **261 passing
 tests**, and lint and typecheck are unchanged.
 
-Scope row 51 (the delivery fee as a base fee plus a per km fee, spec 0001) is on the branch
-`feat/base-fee-per-km`, not merged yet. With it the suite is at **277 passing tests**, and lint
+Scope row 51 (the delivery fee as a base fee plus a per km fee, spec 0001) was built on the branch
+`feat/base-fee-per-km` and merged in on 1 October. With it the suite is at **277 passing tests**, and lint
 and typecheck are unchanged.
 
 ---
