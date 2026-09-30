@@ -266,6 +266,25 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       expect((screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement).value).toBe('0')
     })
 
+    it('renders base fee input as empty (not "0") and disables "Save base fee" when API returns quoteBaseFee as null', () => {
+      // Mock API returning null for quoteBaseFee (e.g. when unconfigured or corrupted)
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement
+      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
+
+      expect(baseFeeInput.value).toBe('')
+      expect(saveBaseFeeButton).toBeDisabled()
+    })
+
     it('shows an error naming base fee and disables "Save base fee" when typing -1, 12.5 or clearing box', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
