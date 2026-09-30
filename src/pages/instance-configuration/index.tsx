@@ -26,6 +26,8 @@ import dynamic from "next/dynamic";
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { featureCollection } from "@turf/turf";
 import ReactMarkdown from "react-markdown";
+import { describeQuoteRate, parseQuoteRateInput } from "@/utils/quoteRate";
+import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
 
 // `node` is pulled out so react-markdown's AST node is never spread onto the DOM element.
 const MARKDOWN_COMPONENTS = {
@@ -145,8 +147,13 @@ const InstanceConfigurationPage: NextPage = () => {
     defaultMinimumCourierPay: 0,
     defaultMaxWorkingHours: 0,
     feePercentageAmount: 0,
+    quoteRatePerDistanceUnit: 0,
     registeredRegistries: [] as string[],
   });
+
+  const [quoteRateText, setQuoteRateText] = useState("");
+  const [quoteRateError, setQuoteRateError] = useState("");
+  const [isSavingPayoutPolicies, setIsSavingPayoutPolicies] = useState(false);
 
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
@@ -171,7 +178,6 @@ const InstanceConfigurationPage: NextPage = () => {
     // `?? ""` defaults below both necessary and checked.
     const data: Partial<InstanceConfigSettingsDto> | undefined =
       instanceConfigResponse.data;
-    console.log(data);
     if (data) {
       const details = (data.details as any) || {};
       setConfig({
@@ -201,10 +207,13 @@ const InstanceConfigurationPage: NextPage = () => {
         defaultMinimumCourierPay: data.defaultMinimumCourierPay ?? 0,
         defaultMaxWorkingHours: data.defaultMaxWorkingHours ?? 0,
         feePercentageAmount: data.feePercentageAmount ?? 0,
+        quoteRatePerDistanceUnit: data.quoteRatePerDistanceUnit ?? 0,
         registeredRegistries: Array.isArray(data.registeredRegistries)
           ? data.registeredRegistries
           : [],
       });
+      setQuoteRateText(String(data.quoteRatePerDistanceUnit ?? 0));
+      setQuoteRateError("");
       setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
       setTermsOfServiceContent(details.termsOfServiceContent ?? "");
       setRulesContent(details.rulesContent ?? "");
@@ -406,6 +415,9 @@ const InstanceConfigurationPage: NextPage = () => {
         }
       }
 
+      // .unwrap() is what makes a rejected save actually throw. configApi's queryFn returns
+      // `{ error }` instead of throwing, so without it the catch below never runs and a 400
+      // would be reported as success.
       await setInstanceConfigMutation({
         ...restConfig,
         details: {
@@ -420,7 +432,7 @@ const InstanceConfigurationPage: NextPage = () => {
           descriptionUrl: computedURLs.descriptionUrl,
           region: processedRegion,
         },
-      } as any);
+      } as any).unwrap();
       toast({
         title: "Success!",
         description: "Instance configuration saved successfully.",
@@ -719,6 +731,52 @@ const InstanceConfigurationPage: NextPage = () => {
     }
   };
 
+  // Mirrors handleURLFieldChange: keep what was typed, then set or clear the inline error that
+  // gates the save button. Only a valid rate reaches `config`, so an emptied or negative box can
+  // never be sent by "Save All Changes" (an empty box would otherwise become 0 via Number('')).
+  const handleQuoteRateChange = (value: string) => {
+    setQuoteRateText(value);
+    const rate = parseQuoteRateInput(value);
+    if (rate === null) {
+      setQuoteRateError("Enter a whole number of cents, zero or more.");
+      return;
+    }
+    setConfig({ ...config, quoteRatePerDistanceUnit: rate });
+    setQuoteRateError("");
+  };
+
+  const handleSavePayoutPolicies = async (
+    policies: Record<string, number>,
+    defaultPolicy: string,
+  ) => {
+    setIsSavingPayoutPolicies(true);
+    try {
+      // .unwrap() is what makes a rejected save actually throw. configApi's queryFn returns
+      // `{ error }` instead of throwing, so without it the catch below never runs and a 400
+      // would be reported as success. Both keys go in one request: the backend rejects a menu
+      // whose default policy is not one of its own keys.
+      await setInstanceConfigMutation({
+        reassignmentPayoutPolicies: policies,
+        reassignmentPayoutDefaultPolicy: defaultPolicy,
+      }).unwrap();
+      toast({
+        title: "Success!",
+        description: "Reassignment payout policies saved successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message ||
+          "Failed to save reassignment payout policies. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save reassignment payout policies:", error);
+    } finally {
+      setIsSavingPayoutPolicies(false);
+    }
+  };
+
   const getStatusBadgeClasses = (status: string) => {
     const normalized = (status || "").toLowerCase();
     if (normalized === "verified") return "bg-green-100 text-green-800";
@@ -910,6 +968,27 @@ const InstanceConfigurationPage: NextPage = () => {
                   ),
                 )}
               </select>
+            </div>
+            <div>
+              <Label className="text-right">Quote Rate Per Distance Unit</Label>
+              <p className="text-sm text-gray-600 mb-1">
+                {describeQuoteRate(
+                  config.quoteRatePerDistanceUnit,
+                  config.currency,
+                  config.distanceUnit,
+                )}
+              </p>
+              <Input
+                key="quoteRatePerDistanceUnit"
+                type="number"
+                min={0}
+                value={quoteRateText}
+                onChange={(event) => handleQuoteRateChange(event.target.value)}
+                className={`max-w-[120px] ${quoteRateError ? "border-red-500 border-2" : ""}`}
+              />
+              {quoteRateError && (
+                <p className="text-red-500 text-sm mt-1">{quoteRateError}</p>
+              )}
             </div>
             <div>
               <Label className="text-right">Geo Calculation Type</Label>
@@ -1143,13 +1222,20 @@ const InstanceConfigurationPage: NextPage = () => {
                 className="max-w-[120px]"
               />
             </div>
+            <ReassignmentPayoutPolicyEditor
+              policies={instanceConfigResponse.data?.reassignmentPayoutPolicies}
+              defaultPolicy={instanceConfigResponse.data?.reassignmentPayoutDefaultPolicy}
+              isSaving={isSavingPayoutPolicies}
+              onSave={handleSavePayoutPolicies}
+            />
           </div>
           <button
             onClick={handleSaveAllChanges}
             disabled={
               isSaving ||
               Object.keys(urlErrors).length > 0 ||
-              !isAllFieldsFilled
+              !isAllFieldsFilled ||
+              quoteRateError !== ""
             }
             className="mt-4 bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >

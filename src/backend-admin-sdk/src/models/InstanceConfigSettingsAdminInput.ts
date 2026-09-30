@@ -90,6 +90,12 @@ export interface InstanceConfigSettingsAdminInput {
    * @type {number}
    * @memberof InstanceConfigSettingsAdminInput
    */
+  quoteRatePerDistanceUnit?: number;
+  /**
+   *
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
   defaultCourierPayRate?: number;
   /**
    *
@@ -121,6 +127,18 @@ export interface InstanceConfigSettingsAdminInput {
    * @memberof InstanceConfigSettingsAdminInput
    */
   registeredRegistries?: string[];
+  /**
+   *
+   * @type {{ [key: string]: number }}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  reassignmentPayoutPolicies?: { [key: string]: number };
+  /**
+   *
+   * @type {string}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  reassignmentPayoutDefaultPolicy?: string;
 }
 
 /**
@@ -278,6 +296,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     feePercentageAmount: !exists(json, "feePercentageAmount")
       ? undefined
       : json["feePercentageAmount"],
+    quoteRatePerDistanceUnit: !exists(json, "quoteRatePerDistanceUnit")
+      ? undefined
+      : json["quoteRatePerDistanceUnit"],
     defaultCourierPayRate: !exists(json, "defaultCourierPayRate")
       ? undefined
       : json["defaultCourierPayRate"],
@@ -294,6 +315,15 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     registeredRegistries: !exists(json, "registeredRegistries")
       ? undefined
       : (json["registeredRegistries"] as string[]),
+    reassignmentPayoutPolicies: !exists(json, "reassignmentPayoutPolicies")
+      ? undefined
+      : json["reassignmentPayoutPolicies"],
+    reassignmentPayoutDefaultPolicy: !exists(
+      json,
+      "reassignmentPayoutDefaultPolicy",
+    )
+      ? undefined
+      : json["reassignmentPayoutDefaultPolicy"],
   };
 }
 
@@ -325,5 +355,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     defaultDietaryRestrictions: value.defaultDietaryRestrictions,
     details: value.details,
     registeredRegistries: value.registeredRegistries,
+    quoteRatePerDistanceUnit: value.quoteRatePerDistanceUnit,
+    reassignmentPayoutPolicies: value.reassignmentPayoutPolicies,
+    reassignmentPayoutDefaultPolicy: value.reassignmentPayoutDefaultPolicy,
   };
 }

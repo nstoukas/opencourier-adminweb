@@ -96,6 +96,12 @@ export interface InstanceConfigSettingsDto {
    * @type {number}
    * @memberof InstanceConfigSettingsDto
    */
+  quoteRatePerDistanceUnit?: number | null;
+  /**
+   *
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
   defaultCourierPayRate: number | null;
   /**
    *
@@ -283,6 +289,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     maxDriftDistance: json["maxDriftDistance"],
     quoteExpirationMinutes: json["quoteExpirationMinutes"],
     feePercentageAmount: json["feePercentageAmount"],
+    quoteRatePerDistanceUnit: !exists(json, "quoteRatePerDistanceUnit")
+      ? null
+      : json["quoteRatePerDistanceUnit"],
     defaultCourierPayRate: json["defaultCourierPayRate"],
     defaultMinimumCourierPay: json["defaultMinimumCourierPay"],
     defaultMaxWorkingHours: json["defaultMaxWorkingHours"],
@@ -323,6 +332,7 @@ export function InstanceConfigSettingsDtoToJSON(
     maxDriftDistance: value.maxDriftDistance,
     quoteExpirationMinutes: value.quoteExpirationMinutes,
     feePercentageAmount: value.feePercentageAmount,
+    quoteRatePerDistanceUnit: value.quoteRatePerDistanceUnit,
     defaultCourierPayRate: value.defaultCourierPayRate,
     defaultMinimumCourierPay: value.defaultMinimumCourierPay,
     defaultMaxWorkingHours: value.defaultMaxWorkingHours,

@@ -21,12 +21,17 @@ export type InstanceConfigSettings = {
   maxDriftDistance: number | null
   quoteExpirationMinutes: number | null
   feePercentageAmount: number | null
+  // Minor currency units per distanceUnit
+  quoteRatePerDistanceUnit: number | null
   defaultCourierPayRate: number | null
   defaultMinimumCourierPay: number | null
   defaultMaxWorkingHours: number | null
   defaultDietaryRestrictions: EnumCourierDietaryRestrictions | null
   distanceUnit: EnumDistanceUnit | null
   currency: EnumCurrency | null
+  // Percentages of dropped rider piece-rate
+  reassignmentPayoutPolicies: Record<string, number>
+  reassignmentPayoutDefaultPolicy: string
 }
 
 export type InstanceCourierDefaults = {
@@ -57,6 +62,7 @@ export enum ConfigKey {
   GEO_CALCULATION_TYPE = 'geoCalculationType',
   COURIER_COMPENSATION_CALCULATION_TYPE = 'courierCompensationCalculationType',
   FEE_PERCENTAGE_AMOUNT = 'feePercentageAmount',
+  QUOTE_RATE_PER_DISTANCE_UNIT = 'quoteRatePerDistanceUnit',
   MAX_ASSIGNMENT_DISTANCE = 'maxAssignmentDistance',
   QUOTE_EXPIRATION_MINUTES = 'quoteExpirationMinutes',
   DEFAULT_COURIER_PAY_RATE = 'defaultCourierPayRate',
@@ -66,6 +72,8 @@ export enum ConfigKey {
   DISTANCE_UNIT = 'distanceUnit',
   CURRENCY = 'currency',
   MAX_DRIFT_DISTANCE = 'maxDriftDistance',
+  REASSIGNMENT_PAYOUT_POLICIES = 'reassignmentPayoutPolicies',
+  REASSIGNMENT_PAYOUT_DEFAULT_POLICY = 'reassignmentPayoutDefaultPolicy',
 }
 
 export type ConfigMap = { [key in ConfigKey]?: string | number | boolean | null }
