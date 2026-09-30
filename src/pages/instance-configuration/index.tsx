@@ -27,6 +27,7 @@ import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { featureCollection } from "@turf/turf";
 import ReactMarkdown from "react-markdown";
 import { parseQuoteRateInput } from "@/utils/quoteRate";
+import { parseNumberInput } from "@/utils/numberInput";
 import { QuoteRateEditor } from "@/modules/instance-config/components/QuoteRateEditor";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
 
@@ -141,13 +142,15 @@ const InstanceConfigurationPage: NextPage = () => {
     defaultDietaryRestrictions: [] as string[],
     currency: "",
     distanceUnit: "",
-    maxAssignmentDistance: 0,
-    maxDriftDistance: 0,
-    quoteExpirationMinutes: 0,
-    defaultCourierPayRate: 0,
-    defaultMinimumCourierPay: 0,
-    defaultMaxWorkingHours: 0,
-    feePercentageAmount: 0,
+    // null = no value stored (or the box was cleared). Never 0: a 0 here would be saved
+    // as a real vote by Save all.
+    maxAssignmentDistance: null as number | null,
+    maxDriftDistance: null as number | null,
+    quoteExpirationMinutes: null as number | null,
+    defaultCourierPayRate: null as number | null,
+    defaultMinimumCourierPay: null as number | null,
+    defaultMaxWorkingHours: null as number | null,
+    feePercentageAmount: null as number | null,
     quoteRatePerDistanceUnit: 0,
     registeredRegistries: [] as string[],
   });
@@ -202,13 +205,13 @@ const InstanceConfigurationPage: NextPage = () => {
           : [],
         currency: data.currency ?? "",
         distanceUnit: data.distanceUnit ?? "",
-        maxAssignmentDistance: data.maxAssignmentDistance ?? 0,
-        maxDriftDistance: data.maxDriftDistance ?? 0,
-        quoteExpirationMinutes: data.quoteExpirationMinutes ?? 0,
-        defaultCourierPayRate: data.defaultCourierPayRate ?? 0,
-        defaultMinimumCourierPay: data.defaultMinimumCourierPay ?? 0,
-        defaultMaxWorkingHours: data.defaultMaxWorkingHours ?? 0,
-        feePercentageAmount: data.feePercentageAmount ?? 0,
+        maxAssignmentDistance: data.maxAssignmentDistance ?? null,
+        maxDriftDistance: data.maxDriftDistance ?? null,
+        quoteExpirationMinutes: data.quoteExpirationMinutes ?? null,
+        defaultCourierPayRate: data.defaultCourierPayRate ?? null,
+        defaultMinimumCourierPay: data.defaultMinimumCourierPay ?? null,
+        defaultMaxWorkingHours: data.defaultMaxWorkingHours ?? null,
+        feePercentageAmount: data.feePercentageAmount ?? null,
         quoteRatePerDistanceUnit: data.quoteRatePerDistanceUnit ?? 0,
         registeredRegistries: Array.isArray(data.registeredRegistries)
           ? data.registeredRegistries
@@ -441,10 +444,14 @@ const InstanceConfigurationPage: NextPage = () => {
       });
       // PRINT OUT DATA!
       console.log(config, computedURLs);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save instance configuration. Please try again.",
+        // The backend's own reason (e.g. "maxAssignmentDistance cannot be 0: ..."), which
+        // the SDK puts on the thrown ApiError. The generic text is only for network errors.
+        description:
+          error?.message ||
+          "Failed to save instance configuration. Please try again.",
         variant: "destructive",
       });
       console.error("Failed to save configuration:", error);
@@ -1142,11 +1149,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="maxAssignmentDistance"
                 type="number"
-                value={config.maxAssignmentDistance}
+                value={config.maxAssignmentDistance ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    maxAssignmentDistance: Number(event.target.value),
+                    maxAssignmentDistance: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1161,11 +1168,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="maxDriftDistance"
                 type="number"
-                value={config.maxDriftDistance}
+                value={config.maxDriftDistance ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    maxDriftDistance: Number(event.target.value),
+                    maxDriftDistance: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1176,11 +1183,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="quoteExpirationMinutes"
                 type="number"
-                value={config.quoteExpirationMinutes}
+                value={config.quoteExpirationMinutes ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    quoteExpirationMinutes: Number(event.target.value),
+                    quoteExpirationMinutes: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1191,11 +1198,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="defaultCourierPayRate"
                 type="number"
-                value={config.defaultCourierPayRate}
+                value={config.defaultCourierPayRate ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    defaultCourierPayRate: Number(event.target.value),
+                    defaultCourierPayRate: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1206,11 +1213,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="defaultMinimumCourierPay"
                 type="number"
-                value={config.defaultMinimumCourierPay}
+                value={config.defaultMinimumCourierPay ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    defaultMinimumCourierPay: Number(event.target.value),
+                    defaultMinimumCourierPay: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1221,11 +1228,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="defaultMaxWorkingHours"
                 type="number"
-                value={config.defaultMaxWorkingHours}
+                value={config.defaultMaxWorkingHours ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    defaultMaxWorkingHours: Number(event.target.value),
+                    defaultMaxWorkingHours: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
@@ -1236,11 +1243,11 @@ const InstanceConfigurationPage: NextPage = () => {
               <Input
                 key="feePercentageAmount"
                 type="number"
-                value={config.feePercentageAmount}
+                value={config.feePercentageAmount ?? ""}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    feePercentageAmount: Number(event.target.value),
+                    feePercentageAmount: parseNumberInput(event.target.value),
                   })
                 }
                 className="max-w-[120px]"
