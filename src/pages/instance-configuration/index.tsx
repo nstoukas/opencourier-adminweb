@@ -26,7 +26,8 @@ import dynamic from "next/dynamic";
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { featureCollection } from "@turf/turf";
 import ReactMarkdown from "react-markdown";
-import { describeQuoteRate, parseQuoteRateInput } from "@/utils/quoteRate";
+import { parseQuoteRateInput } from "@/utils/quoteRate";
+import { QuoteRateEditor } from "@/modules/instance-config/components/QuoteRateEditor";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
 
 // `node` is pulled out so react-markdown's AST node is never spread onto the DOM element.
@@ -154,6 +155,7 @@ const InstanceConfigurationPage: NextPage = () => {
   const [quoteRateText, setQuoteRateText] = useState("");
   const [quoteRateError, setQuoteRateError] = useState("");
   const [isSavingPayoutPolicies, setIsSavingPayoutPolicies] = useState(false);
+  const [isSavingQuoteRate, setIsSavingQuoteRate] = useState(false);
 
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
@@ -745,6 +747,39 @@ const InstanceConfigurationPage: NextPage = () => {
     setQuoteRateError("");
   };
 
+  const handleSaveQuoteRate = async () => {
+    // Re-read the box rather than trusting `config`: what is on screen is what gets sent.
+    const rate = parseQuoteRateInput(quoteRateText);
+    if (rate === null) {
+      setQuoteRateError("Enter a whole number of cents, zero or more.");
+      return;
+    }
+    setIsSavingQuoteRate(true);
+    try {
+      // .unwrap() is what makes a rejected save actually throw. configApi's queryFn returns
+      // `{ error }` instead of throwing, so without it the catch below never runs and a 400
+      // would be reported as success. Only this one key is sent: the backend setter writes
+      // just the keys that are present, so nothing else in the instance config is touched.
+      await setInstanceConfigMutation({
+        quoteRatePerDistanceUnit: rate,
+      }).unwrap();
+      toast({
+        title: "Success!",
+        description: "Quote rate saved successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message || "Failed to save the quote rate. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save quote rate:", error);
+    } finally {
+      setIsSavingQuoteRate(false);
+    }
+  };
+
   const handleSavePayoutPolicies = async (
     policies: Record<string, number>,
     defaultPolicy: string,
@@ -969,27 +1004,16 @@ const InstanceConfigurationPage: NextPage = () => {
                 )}
               </select>
             </div>
-            <div>
-              <Label className="text-right">Quote Rate Per Distance Unit</Label>
-              <p className="text-sm text-gray-600 mb-1">
-                {describeQuoteRate(
-                  config.quoteRatePerDistanceUnit,
-                  config.currency,
-                  config.distanceUnit,
-                )}
-              </p>
-              <Input
-                key="quoteRatePerDistanceUnit"
-                type="number"
-                min={0}
-                value={quoteRateText}
-                onChange={(event) => handleQuoteRateChange(event.target.value)}
-                className={`max-w-[120px] ${quoteRateError ? "border-red-500 border-2" : ""}`}
-              />
-              {quoteRateError && (
-                <p className="text-red-500 text-sm mt-1">{quoteRateError}</p>
-              )}
-            </div>
+            <QuoteRateEditor
+              rateText={quoteRateText}
+              rate={config.quoteRatePerDistanceUnit}
+              currencyCode={config.currency}
+              distanceUnit={config.distanceUnit}
+              error={quoteRateError}
+              isSaving={isSavingQuoteRate}
+              onChange={handleQuoteRateChange}
+              onSave={handleSaveQuoteRate}
+            />
             <div>
               <Label className="text-right">Geo Calculation Type</Label>
               <br />
