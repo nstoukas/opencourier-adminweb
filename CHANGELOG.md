@@ -15,8 +15,8 @@ The editable pay settings (the first entry under Added) were built on the branch
 `feat/editable-pay-settings` and merged into `fix/accepted-event-courier-id` on 30 September.
 With them the suite is at **233 passing tests**, and lint and typecheck are unchanged.
 
-Scope row 49 (zero is a valid value for every co-op setting) sits on the branch
-`fix/zero-valid-settings`, four commits on top of that. With it the suite is at **261 passing
+Scope row 49 (zero is a valid value for every co-op setting) was built on the branch
+`fix/zero-valid-settings` and merged in on 30 September. With it the suite is at **261 passing
 tests**, and lint and typecheck are unchanged.
 
 ---
