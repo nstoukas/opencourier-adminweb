@@ -66,7 +66,7 @@ function extractInputTags(sourceText: string): string[] {
 }
 
 describeSuite('InstanceConfigSettings general coverage guard', () => {
-  const fileContent = fs.readFileSync(backendFilePath, 'utf-8')
+  const fileContent = backendExists ? fs.readFileSync(backendFilePath, 'utf-8') : ''
   const classMatch = fileContent.match(/export class InstanceConfigSettingsInput \{([^}]+)\}/)
   const classBody = classMatch ? classMatch[1] ?? '' : ''
   const settingKeys = (classBody.match(/^\s+(\w+)\??\s*:/gm) || []).map((line) =>
@@ -99,7 +99,7 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
 
   // Read the adminweb instance configuration page source text from disk
   const pageFilePath = path.resolve(__dirname, '../../../pages/instance-configuration/index.tsx')
-  const rawPageSourceText = fs.readFileSync(pageFilePath, 'utf-8')
+  const rawPageSourceText = backendExists ? fs.readFileSync(pageFilePath, 'utf-8') : ''
 
   // Strip block comments (/* ... */) and line comments (// ...) so prose/comment mentions don't count
   const commentStrippedPageSource = rawPageSourceText
