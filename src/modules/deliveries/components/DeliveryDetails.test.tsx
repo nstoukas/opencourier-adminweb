@@ -276,7 +276,7 @@ describe('DeliveryDetails component', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 
       // Find the Fee label container and assert its value text is '—'
-      const feeLabel = screen.getByText('Fee').closest('label')
+      const feeLabel = screen.getByText(/Co-op fee/).closest('label')
       expect(feeLabel).toHaveTextContent('—')
 
       // Find the Tips label container and assert its value text is '—'
@@ -289,6 +289,87 @@ describe('DeliveryDetails component', () => {
 
       const currencyLabel = screen.getByText('Currency').closest('label')
       expect(currencyLabel).toHaveTextContent('EUR')
+    })
+  })
+
+  describe('Price breakdown card (AC-7)', () => {
+    it('renders Price breakdown card with base fee €2.00, distance fee €1.07, rider pay €3.07, "Co-op fee (10%)" €0.31 and customer total €3.38', () => {
+      const ac7Delivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        baseFee: 200,
+        distanceFee: 107,
+        totalCompensation: 307,
+        fee: 31,
+        feePercentage: 10,
+        totalCost: 338,
+        currencyCode: 'EUR',
+      } as unknown as DeliveryAdminDto
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: ac7Delivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText('Price breakdown')).toBeInTheDocument()
+
+      const baseFeeRow = screen.getByText('Base fee').closest('label')
+      expect(baseFeeRow).toHaveTextContent('€2.00')
+
+      const distanceFeeRow = screen.getByText('Distance fee').closest('label')
+      expect(distanceFeeRow).toHaveTextContent('€1.07')
+
+      const riderPayRow = screen.getByText('Rider pay (base fee + distance fee)').closest('label')
+      expect(riderPayRow).toHaveTextContent('€3.07')
+
+      const coopFeeRow = screen.getByText('Co-op fee (10%)').closest('label')
+      expect(coopFeeRow).toHaveTextContent('€0.31')
+
+      const customerTotalRow = screen.getByText('Customer total').closest('label')
+      expect(customerTotalRow).toHaveTextContent('€3.38')
+
+      // Since pay fields are present, the "not offered yet" note is absent
+      expect(
+        screen.queryByText(
+          'Rider pay, co-op fee and customer total are set when the delivery is first offered to a rider.'
+        )
+      ).toBeNull()
+    })
+
+    it('shows the not offered yet note and dashes when pay fields are null', () => {
+      const unofferedDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        baseFee: null,
+        distanceFee: null,
+        totalCompensation: null,
+        fee: null,
+        feePercentage: null,
+        totalCost: null,
+        currencyCode: 'EUR',
+      } as unknown as DeliveryAdminDto
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: unofferedDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(
+        screen.getByText(
+          'Rider pay, co-op fee and customer total are set when the delivery is first offered to a rider.'
+        )
+      ).toBeInTheDocument()
+
+      const baseFeeRow = screen.getByText('Base fee').closest('label')
+      expect(baseFeeRow).toHaveTextContent('—')
+
+      const distanceFeeRow = screen.getByText('Distance fee').closest('label')
+      expect(distanceFeeRow).toHaveTextContent('—')
+
+      const riderPayRow = screen.getByText('Rider pay (base fee + distance fee)').closest('label')
+      expect(riderPayRow).toHaveTextContent('—')
+
+      const coopFeeRow = screen.getByText('Co-op fee').closest('label')
+      expect(coopFeeRow).toHaveTextContent('—')
+
+      const customerTotalRow = screen.getByText('Customer total').closest('label')
+      expect(customerTotalRow).toHaveTextContent('—')
     })
   })
 

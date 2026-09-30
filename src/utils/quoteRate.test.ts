@@ -39,10 +39,10 @@ describe('quoteRate utility', () => {
       expect(description).toContain('kilometre')
     })
 
-    it('explains that 0 rate means distance component is zero and pay floor applies', () => {
+    it('explains that 0 rate means distance component is zero and riders get only base fee', () => {
       const description = describeQuoteRate(0, 'EUR', 'KILOMETERS')
-      expect(description).toContain('0 — the distance part of every DeliveryQuote is zero')
-      expect(description).toContain('minimum courier pay floor')
+      expect(description).toContain('0: the distance part of every DeliveryQuote is zero')
+      expect(description).toContain('base fee')
     })
 
     it('returns validation prompt for negative rate or non-integer rate', () => {

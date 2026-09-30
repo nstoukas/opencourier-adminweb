@@ -124,7 +124,6 @@ const NUMERIC_SETTINGS = [
   { key: 'maxDriftDistance', label: 'Max Drift Distance' },
   { key: 'quoteExpirationMinutes', label: 'Quote Expiration Minutes' },
   { key: 'defaultCourierPayRate', label: 'Default Courier Pay Rate' },
-  { key: 'defaultMinimumCourierPay', label: 'Default Minimum Courier Pay' },
   { key: 'defaultMaxWorkingHours', label: 'Default Max Working Hours' },
   { key: 'feePercentageAmount', label: 'Fee Percentage Amount' },
 ] as const
@@ -236,6 +235,188 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
           variant: 'destructive',
         })
       )
+    })
+  })
+
+  describe('Base fee per delivery setting (AC-4)', () => {
+    it('renders base fee input with value from API (200), and 0 renders as "0"', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 200,
+        },
+        isLoading: false,
+      })
+
+      const { rerender } = render(<InstanceConfigurationPage />)
+
+      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement
+      expect(baseFeeInput.value).toBe('200')
+
+      // Rerender with quoteBaseFee as 0
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 0,
+        },
+        isLoading: false,
+      })
+
+      rerender(<InstanceConfigurationPage />)
+      expect((screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement).value).toBe('0')
+    })
+
+    it('shows an error naming base fee and disables "Save base fee" when typing -1, 12.5 or clearing box', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 200,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement
+      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
+
+      expect(saveBaseFeeButton).not.toBeDisabled()
+
+      // Typing -1
+      fireEvent.change(baseFeeInput, { target: { value: '-1' } })
+      expect(screen.getByText('Base fee: enter a whole number of cents, zero or more.')).toBeInTheDocument()
+      expect(saveBaseFeeButton).toBeDisabled()
+
+      // Typing 12.5
+      fireEvent.change(baseFeeInput, { target: { value: '12.5' } })
+      expect(screen.getByText('Base fee: enter a whole number of cents, zero or more.')).toBeInTheDocument()
+      expect(saveBaseFeeButton).toBeDisabled()
+
+      // Clearing box
+      fireEvent.change(baseFeeInput, { target: { value: '' } })
+      expect(screen.getByText('Base fee: enter a whole number of cents, zero or more.')).toBeInTheDocument()
+      expect(saveBaseFeeButton).toBeDisabled()
+    })
+
+    it('saving 0 calls config mutation with exactly { quoteBaseFee: 0 } and nothing else', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 200,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery')
+      fireEvent.change(baseFeeInput, { target: { value: '0' } })
+
+      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
+      fireEvent.click(saveBaseFeeButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          quoteBaseFee: 0,
+        })
+      })
+    })
+
+    it('"Save All Changes" never sends quoteBaseFee', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 200,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveAllButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload).not.toHaveProperty('quoteBaseFee')
+      })
+    })
+
+    it('refused save of base fee shows backend error message in toast', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 200,
+        },
+        isLoading: false,
+      })
+
+      const backendMessage = 'quoteBaseFee must be a whole number of cents'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: backendMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery')
+      fireEvent.change(baseFeeInput, { target: { value: '300' } })
+
+      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
+      fireEvent.click(saveBaseFeeButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: backendMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+    })
+  })
+
+  describe('Minimum Courier Pay floor removal (AC-5)', () => {
+    it('contains no "Minimum Courier Pay" text on the page', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: baseMockConfigData,
+        isLoading: false,
+      })
+
+      const { container } = render(<InstanceConfigurationPage />)
+
+      expect(screen.queryByText(/Minimum Courier Pay/i)).toBeNull()
+      expect(container.textContent).not.toContain('Minimum Courier Pay')
+      expect(container.textContent).not.toContain('defaultMinimumCourierPay')
+    })
+
+    it('"Save All Changes" payload has no defaultMinimumCourierPay key', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: baseMockConfigData,
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveAllButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload).not.toHaveProperty('defaultMinimumCourierPay')
+      })
     })
   })
 })
