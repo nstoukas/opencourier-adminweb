@@ -27,6 +27,10 @@ Scope row 50 (Instance configuration reports saves honestly) was built on the br
 `fix/honest-config-saves` and merged in on 1 October. With it the suite is at **296 passing tests**, and
 lint and typecheck are unchanged.
 
+Scope row 55 (remove the dropped registry from Instance configuration) was built on the branch
+`fix/drop-registry-controls` and merged in on 1 October. With it the suite is at **291 passing tests**
+(18 tests of deleted code went, 13 new ones came), and lint and typecheck are unchanged.
+
 ---
 
 ## Added
@@ -123,6 +127,16 @@ lint and typecheck are unchanged.
   shows "Will be saved as `HALF_COMP`" whenever the two differ. `46024bf`
 - **Tests for both** (19 new, written by agy from the row, each checked to fail with its bug put
   back). `12e8d82`
+- **"Save All Changes" is no longer blocked by an empty logo or websocket URL, and says why it
+  is off** (scope row 55). It required both only because the dropped instance registry needed
+  them, so on dev, where the logo is empty, the number settings could not be saved from it.
+  Both fields stay editable (the courier app and the backend's public metadata read them, and
+  cope with an empty value) and still block when they hold a bad URL. Save All now requires
+  Name, URL, Operating Region and Default Dietary Restrictions, and when it is off a list under
+  it names every reason, announced to screen readers through a `role="status"` region.
+  `662cfd4`, `808a33b`
+- **Tests for it** (13 new, written by agy from the row's Done when, each checked by hand to
+  fail with its bug put back). `6dfe959`
 
 - **Instance configuration no longer invents zeros** (scope row 49). A setting that was
   never stored loaded as `0`, and clearing a number box made it `0` (`Number("")` is `0`).
@@ -177,6 +191,12 @@ lint and typecheck are unchanged.
 
 ## Removed
 
+- **The instance registry's controls on Instance configuration** (scope row 55): the "Register
+  Instance" button and view, the register and unregister calls, and the registry list. The
+  co-op runs one instance, so the registry is dropped. The page no longer reads or sends
+  `registeredRegistries`; the backend still stores it, untouched. Two modules only the
+  registry used went with it: `src/api/userApi.ts` (the user count) and
+  `src/utils/geoJsonUtils.ts` (`normalizeRegionForPostGIS`), with its tests. `662cfd4`
 - **The "Default Minimum Courier Pay" field**, and the setting from the SDK models, shared
   types and "Save All Changes". The backend no longer has a pay floor; the base fee replaces
   it. The compensation type's description now says the rider is paid the base fee plus the
@@ -213,6 +233,3 @@ lint and typecheck are unchanged.
   edits in other fields are lost. Both the payout menu and quote rate Save buttons do this.
 - "Save All Changes" logs the whole config to the browser console when it succeeds
   (`console.log(config, computedURLs)`, from upstream).
-- "Save All Changes" stays disabled while the logo image URL is empty, and the page does not
-  say why. On the dev instance that means the number settings cannot be saved from this page
-  at all (scope row 55, which removes the dropped registry's fields from this page).
