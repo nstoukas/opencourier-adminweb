@@ -3,7 +3,6 @@ import {
   useGetInstanceConfigQuery,
   useSetInstanceConfigMutation,
 } from "@/api/configApi";
-import { useGetUserCountQuery } from "@/api/userApi";
 import type { InstanceConfigSettingsDto } from "@/backend-admin-sdk";
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
 import type { NextPage } from "next";
@@ -21,7 +20,6 @@ import {
   GEO_CALCULATION_TYPE_TO_HUMAN,
   QUOTE_CALCULATION_TYPE_TO_HUMAN,
 } from "@/shared-types";
-import { normalizeRegionForPostGIS } from "@/utils/geoJsonUtils";
 import dynamic from "next/dynamic";
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { featureCollection } from "@turf/turf";
@@ -94,33 +92,14 @@ const sanitizeURL = (url: string): string => {
 const InstanceConfigurationPage: NextPage = () => {
   const instanceConfigOptionsResponse = useGetInstanceConfigOptionsQuery({});
   const instanceConfigResponse = useGetInstanceConfigQuery({});
-  const { data: userCountData, isLoading: isUserCountLoading } =
-    useGetUserCountQuery();
   const [setInstanceConfigMutation] = useSetInstanceConfigMutation();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [unregisteringRegistryUrl, setUnregisteringRegistryUrl] = useState<
-    string | null
-  >(null);
   const [urlErrors, setUrlErrors] = useState<{
     link?: string;
     websocketLink?: string;
     imageUrl?: string;
   }>({});
-  const [registryLink, setRegistryLink] = useState("");
-  const [registryLinkError, setRegistryLinkError] = useState("");
-  const [registryStatusMap, setRegistryStatusMap] = useState<
-    Record<
-      string,
-      {
-        status: string;
-        reason: string | null;
-        createdAt: string | null;
-        lastFetchedAt: string | null;
-      }
-    >
-  >({});
 
   const regionDataRef = useRef<any>(null);
 
@@ -152,7 +131,6 @@ const InstanceConfigurationPage: NextPage = () => {
     defaultMaxWorkingHours: null as number | null,
     feePercentageAmount: null as number | null,
     quoteRatePerDistanceUnit: 0,
-    registeredRegistries: [] as string[],
   });
 
   const [quoteRateText, setQuoteRateText] = useState("");
@@ -176,7 +154,6 @@ const InstanceConfigurationPage: NextPage = () => {
     | "terms-of-service"
     | "rules"
     | "description"
-    | "registration"
   >("main");
 
   // Sync server data to local state
@@ -218,9 +195,6 @@ const InstanceConfigurationPage: NextPage = () => {
         defaultMaxWorkingHours: data.defaultMaxWorkingHours ?? null,
         feePercentageAmount: data.feePercentageAmount ?? null,
         quoteRatePerDistanceUnit: data.quoteRatePerDistanceUnit ?? 0,
-        registeredRegistries: Array.isArray(data.registeredRegistries)
-          ? data.registeredRegistries
-          : [],
       });
       setQuoteRateText(String(data.quoteRatePerDistanceUnit ?? 0));
       setQuoteRateError("");
@@ -384,16 +358,28 @@ const InstanceConfigurationPage: NextPage = () => {
     }
   };
 
-  const isAllFieldsFilled = useMemo(() => {
-    return (
-      config.name.trim() !== "" &&
-      config.link.trim() !== "" &&
-      config.websocketLink.trim() !== "" &&
-      config.imageUrl.trim() !== "" &&
-      config.region !== null &&
-      config.defaultDietaryRestrictions.length > 0
-    );
-  }, [config]);
+  // Every reason "Save All Changes" is off, in words the page shows under the button. An empty
+  // list means it can save. Websocket URL and Logo Image URL are not required: only the dropped
+  // instance registry needed them filled, and their other readers (the courier app, the public
+  // metadata) cope with an empty value. They still block the save when they hold a bad URL.
+  const saveAllBlockers = useMemo(() => {
+    const blockers: string[] = [];
+    if (config.name.trim() === "") blockers.push("Name is empty");
+    if (config.link.trim() === "") blockers.push("URL is empty");
+    if (config.region === null) blockers.push("Operating Region is not drawn");
+    if (config.defaultDietaryRestrictions.length === 0) {
+      blockers.push("Default Dietary Restrictions has nothing selected");
+    }
+    if (urlErrors.link) blockers.push("URL is not a valid URL");
+    if (urlErrors.websocketLink) {
+      blockers.push("Websocket URL is not a valid URL");
+    }
+    if (urlErrors.imageUrl) blockers.push("Logo Image URL is not a valid URL");
+    if (quoteRateError !== "") {
+      blockers.push("Quote Rate Per Distance Unit is not a valid number");
+    }
+    return blockers;
+  }, [config, urlErrors, quoteRateError]);
 
   const handleSaveAllChanges = async () => {
     setIsSaving(true);
@@ -480,241 +466,6 @@ const InstanceConfigurationPage: NextPage = () => {
     }
   };
 
-  const handleRegistryLinkChange = (value: string) => {
-    setRegistryLink(value);
-    if (value && !validateURL(value)) {
-      setRegistryLinkError("Invalid URL format");
-    } else {
-      setRegistryLinkError("");
-    }
-  };
-
-  const fetchRegistryStatus = useCallback(
-    async (registryUrl: string) => {
-      const sanitizedRegistryUrl = sanitizeURL(registryUrl.trim());
-      const sanitizedInstanceLink = sanitizeURL(config.link.trim());
-
-      if (!sanitizedInstanceLink) {
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `${sanitizedRegistryUrl}/registrations?instanceLink=${encodeURIComponent(
-            sanitizedInstanceLink,
-          )}`,
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setRegistryStatusMap((prev) => ({
-            ...prev,
-            [sanitizedRegistryUrl]: {
-              status: data.status ?? "unknown",
-              reason: data.reason ?? null,
-              createdAt: data.createdAt ?? null,
-              lastFetchedAt: data.lastFetchedAt ?? null,
-            },
-          }));
-        }
-      } catch (error) {
-        // Silent error - just don't update status
-      }
-    },
-    [config.link],
-  );
-
-  const handleRegisterSubmit = async () => {
-    const sanitizedRegistryUrl = sanitizeURL(registryLink.trim());
-    const sanitizedInstanceLink = sanitizeURL(config.link.trim());
-
-    if (!sanitizedRegistryUrl) {
-      setRegistryLinkError("Registry link is required");
-      return;
-    }
-
-    if (!validateURL(sanitizedRegistryUrl)) {
-      setRegistryLinkError("Invalid URL format");
-      return;
-    }
-
-    if (!sanitizedInstanceLink) {
-      toast({
-        title: "Error",
-        description: "Instance URL is required before registering.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Refetch latest config data to ensure we have the most recent updatedAt timestamp
-    await instanceConfigResponse.refetch();
-
-    // Normalize region: Convert FeatureCollection to Polygon/MultiPolygon for PostGIS
-    const normalizedRegion = normalizeRegionForPostGIS(config.region);
-
-    const registrationData = {
-      details: {
-        name: config.name,
-        link: sanitizedInstanceLink,
-        websocketLink: config.websocketLink,
-        region: normalizedRegion,
-        imageUrl: config.imageUrl,
-        rulesUrl: computedURLs.rulesUrl,
-        descriptionUrl: computedURLs.descriptionUrl,
-        privacyPolicyUrl: computedURLs.privacyPolicyUrl,
-        termsOfServiceUrl: computedURLs.termsOfServiceUrl,
-        userCount: typeof userCountData === "number" ? userCountData : null,
-      },
-      config: {
-        courierMatcherType: config.courierMatcherType,
-        quoteCalculationType: config.quoteCalculationType,
-        geoCalculationType: config.geoCalculationType,
-        deliveryDurationCalculationType: config.deliveryDurationCalculationType,
-        courierCompensationCalculationType:
-          config.courierCompensationCalculationType,
-        maxAssignmentDistance: config.maxAssignmentDistance,
-        maxDriftDistance: config.maxDriftDistance,
-        quoteExpirationMinutes: config.quoteExpirationMinutes,
-        feePercentageAmount: config.feePercentageAmount,
-        defaultCourierPayRate: config.defaultCourierPayRate,
-        defaultMaxWorkingHours: config.defaultMaxWorkingHours,
-        defaultDietaryRestrictions: config.defaultDietaryRestrictions,
-        distanceUnit: config.distanceUnit,
-        currency: config.currency,
-      },
-      updatedAt: instanceConfigResponse.data?.updatedAt ?? null,
-    };
-
-    console.log("Registration payload:", registrationData);
-
-    setIsRegistering(true);
-
-    try {
-      const response = await fetch(`${sanitizedRegistryUrl}/registrations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(registrationData),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        const message =
-          errorBody?.error ||
-          errorBody?.message ||
-          `Registry responded with ${response.status}`;
-        throw new Error(message);
-      }
-
-      const result = await response.json();
-
-      // Add to registered registries following the pattern of details
-      const updatedRegistries = [...config.registeredRegistries];
-      if (!updatedRegistries.includes(sanitizedRegistryUrl)) {
-        updatedRegistries.push(sanitizedRegistryUrl);
-      }
-
-      // Save to database following the pattern of details
-      await setInstanceConfigMutation({
-        registeredRegistries: updatedRegistries,
-      } as any).unwrap();
-
-      // Update local config
-      setConfig({ ...config, registeredRegistries: updatedRegistries });
-
-      // Fetch status for this registry
-      await fetchRegistryStatus(sanitizedRegistryUrl);
-
-      // Clear input
-      setRegistryLink("");
-      setRegistryLinkError("");
-
-      toast({
-        title: "Success!",
-        description:
-          result?.message || "Instance registered successfully with registry.",
-      });
-
-      console.log("Registry registration completed", registrationData, result);
-    } catch (error: any) {
-      toast({
-        title: "Registration failed",
-        description: error?.message || "Could not register instance.",
-        variant: "destructive",
-      });
-      console.error("Failed to register instance:", error);
-    } finally {
-      setIsRegistering(false);
-    }
-  };
-
-  const handleUnregister = async (registryUrl: string) => {
-    const sanitizedRegistryUrl = sanitizeURL(registryUrl.trim());
-    const sanitizedInstanceLink = sanitizeURL(config.link.trim());
-
-    if (!sanitizedInstanceLink) {
-      toast({
-        title: "Error",
-        description: "Instance URL is required before unregistering.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUnregisteringRegistryUrl(sanitizedRegistryUrl);
-
-    try {
-      const response = await fetch(
-        `${sanitizedRegistryUrl}/registrations?instanceLink=${encodeURIComponent(
-          sanitizedInstanceLink,
-        )}`,
-        {
-          method: "DELETE",
-        },
-      );
-
-      if (!response.ok && response.status !== 404) {
-        const errorBody = await response.json().catch(() => null);
-        const message =
-          errorBody?.error ||
-          errorBody?.message ||
-          `Registry responded with ${response.status}`;
-        throw new Error(message);
-      }
-
-      const updatedRegistries = config.registeredRegistries.filter(
-        (url) => sanitizeURL(url.trim()) !== sanitizedRegistryUrl,
-      );
-
-      await setInstanceConfigMutation({
-        registeredRegistries: updatedRegistries,
-      } as any).unwrap();
-
-      setConfig({ ...config, registeredRegistries: updatedRegistries });
-      setRegistryStatusMap((prev) => {
-        const next = { ...prev };
-        delete next[sanitizedRegistryUrl];
-        return next;
-      });
-
-      toast({
-        title: "Unregistered",
-        description: "Instance removed from registry.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Unregister failed",
-        description: error?.message || "Could not unregister instance.",
-        variant: "destructive",
-      });
-      console.error("Failed to unregister instance:", error);
-    } finally {
-      setUnregisteringRegistryUrl(null);
-    }
-  };
-
   // Compute URL fields based on instance link
   const computedURLs = useMemo(() => {
     const baseLink = sanitizeURL(config.link);
@@ -725,15 +476,6 @@ const InstanceConfigurationPage: NextPage = () => {
       descriptionUrl: baseLink ? `${baseLink}/description` : "",
     };
   }, [config.link]);
-
-  // Load registry statuses when component mounts or registries change
-  useEffect(() => {
-    config.registeredRegistries.forEach((registryUrl) => {
-      // `void` = "start this and deliberately don't await it"; fetchRegistryStatus
-      // swallows its own errors, so there is nothing here to catch.
-      void fetchRegistryStatus(registryUrl);
-    });
-  }, [config.registeredRegistries, fetchRegistryStatus]);
 
   // Memoize the onUpdate callback to prevent map re-renders
   const handleMapUpdate = useCallback((val: any) => {
@@ -878,13 +620,6 @@ const InstanceConfigurationPage: NextPage = () => {
     }
   };
 
-  const getStatusBadgeClasses = (status: string) => {
-    const normalized = (status || "").toLowerCase();
-    if (normalized === "verified") return "bg-green-100 text-green-800";
-    if (normalized === "pending") return "bg-amber-100 text-amber-800";
-    return "bg-gray-100 text-gray-800";
-  };
-
   return (
     <DefaultLayout>
       {/* Header and Edit Links - Always Visible */}
@@ -898,14 +633,6 @@ const InstanceConfigurationPage: NextPage = () => {
             onClick={() => setCurrentView("main")}
           >
             ← Back
-          </button>
-        )}
-        {currentView === "main" && (
-          <button
-            className="bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700"
-            onClick={() => setCurrentView("registration")}
-          >
-            Register Instance
           </button>
         )}
       </div>
@@ -1339,16 +1066,24 @@ const InstanceConfigurationPage: NextPage = () => {
           </div>
           <button
             onClick={handleSaveAllChanges}
-            disabled={
-              isSaving ||
-              Object.keys(urlErrors).length > 0 ||
-              !isAllFieldsFilled ||
-              quoteRateError !== ""
+            disabled={isSaving || saveAllBlockers.length > 0}
+            aria-describedby={
+              saveAllBlockers.length > 0 ? "save-all-blockers" : undefined
             }
             className="mt-4 bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? "Saving..." : "Save All Changes"}
           </button>
+          {saveAllBlockers.length > 0 && (
+            <div id="save-all-blockers" className="text-sm text-red-600 mt-2">
+              <p>Save All Changes is off until you fix:</p>
+              <ul className="list-disc list-inside ml-2">
+                {saveAllBlockers.map((blocker) => (
+                  <li key={blocker}>{blocker}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       ) : currentView === "terms-of-service" ? (
         <div className="mt-4">
@@ -1523,7 +1258,9 @@ const InstanceConfigurationPage: NextPage = () => {
             </button>
           </div>
         </div>
-      ) : currentView === "privacy-policy" ? (
+      ) : (
+        // Only "privacy-policy" is left: the four other views are handled above and the
+        // union has no sixth member. A new view goes into this chain, not after it.
         <div className="mt-4">
           <h3 className="text-lg font-semibold pb-2">Editing Privacy Policy</h3>
           <div className="grid grid-cols-2 gap-6">
@@ -1577,319 +1314,6 @@ const InstanceConfigurationPage: NextPage = () => {
               className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
             >
               Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        // Only "registration" is left — the five other views are handled above and the
-        // union has no seventh member. A new view goes into this chain, not after it.
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold pb-2">Instance Registration</h3>
-          <p className="text-gray-600 mb-4 text-sm">
-            Register your instance to an instance registry, so that couriers can
-            more easily discover it!
-          </p>
-
-          <div className="flex flex-col gap-4">
-            {/* Registered Registries */}
-            <div className="flex flex-col gap-2 w-1/2">
-              <h4 className="text-md font-semibold">Registered Registries</h4>
-              {config.registeredRegistries.length === 0 ? (
-                <p className="text-sm text-gray-600">
-                  Not registered with any registry yet.
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {config.registeredRegistries.map((registryUrl) => {
-                    const statusInfo = registryStatusMap[registryUrl];
-                    return (
-                      <div
-                        key={registryUrl}
-                        className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3 bg-white shadow-sm"
-                      >
-                        <div className="flex flex-col gap-1">
-                          <p className="text-sm font-semibold text-gray-900 break-all">
-                            {registryUrl}
-                          </p>
-                          {statusInfo && (
-                            <>
-                              <p className="text-xs text-gray-500">
-                                Created: {statusInfo.createdAt || "—"}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Last fetched: {statusInfo.lastFetchedAt || "—"}
-                              </p>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex flex-col justify-between h-full">
-                          {statusInfo && (
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClasses(
-                                statusInfo.status,
-                              )}`}
-                            >
-                              {statusInfo.status.charAt(0).toUpperCase() +
-                                statusInfo.status.slice(1).toLowerCase()}
-                            </span>
-                          )}
-                          <button
-                            onClick={() => handleUnregister(registryUrl)}
-                            disabled={
-                              unregisteringRegistryUrl ===
-                                sanitizeURL(registryUrl.trim()) || isRegistering
-                            }
-                            className="bg-gray-200 rounded-md text-gray-900 px-2 py-1 text-xs font-medium hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {unregisteringRegistryUrl ===
-                            sanitizeURL(registryUrl.trim())
-                              ? "Unregistering..."
-                              : "Unregister"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Registry Link Input */}
-            <div className="flex flex-col">
-              <Label className="mb-2">Registry Link</Label>
-              <Input
-                type="text"
-                value={registryLink}
-                onChange={(e) => handleRegistryLinkChange(e.target.value)}
-                className={`max-w-[500px] ${
-                  registryLinkError ? "border-red-500 border-2" : ""
-                }`}
-                placeholder="https://registry.example.com"
-              />
-              {registryLinkError && (
-                <p className="text-red-500 text-sm mt-1">{registryLinkError}</p>
-              )}
-            </div>
-
-            {/* Display Saved Configuration */}
-            <div className="">
-              <h3 className="text-lg font-semibold mb-2">
-                Current Instance Configuration
-              </h3>
-              <h3 className="text-gray-600 text-md font-semibold mb-2">
-                Details
-              </h3>
-              <div className="w-2/3 grid grid-cols-2 gap-x-8 gap-y-4">
-                <div>
-                  <Label className="text-gray-600">Name</Label>
-                  <p className="text-sm">{config.name}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">User Count</Label>
-                  <p className="text-sm">
-                    {isUserCountLoading
-                      ? "Loading..."
-                      : typeof userCountData === "number"
-                      ? userCountData
-                      : "Not available"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">URL</Label>
-                  <p className="text-sm break-all">{config.link}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Websocket URL</Label>
-                  <p className="text-sm break-all">{config.websocketLink}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Logo Image URL</Label>
-                  <p className="text-sm break-all">{config.imageUrl}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Privacy Policy URL</Label>
-                  <p className="text-sm break-all">
-                    {computedURLs.privacyPolicyUrl}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Terms of Service URL</Label>
-                  <p className="text-sm break-all">
-                    {computedURLs.termsOfServiceUrl}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Rules URL</Label>
-                  <p className="text-sm break-all">{computedURLs.rulesUrl}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Description URL</Label>
-                  <p className="text-sm break-all">
-                    {computedURLs.descriptionUrl}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-gray-600 mb-2 block">
-                    Operating Region
-                  </Label>
-                  {config.region ? (
-                    <div className="h-40 w-full">
-                      <AdminMap
-                        initialGeoJSON={config.region}
-                        onUpdate={() => {}}
-                        readOnly={true}
-                        height="h-40"
-                        width="w-full"
-                        fitPadding={[12, 12]}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-sm">Not set</p>
-                  )}
-                </div>
-              </div>
-              <h3 className="text-gray-600 text-md font-semibold mb-2 mt-6">
-                Config
-              </h3>
-              <div className="w-2/3 grid grid-cols-2 gap-x-8 gap-y-4">
-                <div>
-                  <Label className="text-gray-600">Courier Matcher Type</Label>
-                  <p className="text-sm">
-                    {
-                      COURIER_MATCHER_TYPE_TO_HUMAN[
-                        config.courierMatcherType as keyof typeof COURIER_MATCHER_TYPE_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Quote Calculation Type
-                  </Label>
-                  <p className="text-sm">
-                    {
-                      QUOTE_CALCULATION_TYPE_TO_HUMAN[
-                        config.quoteCalculationType as keyof typeof QUOTE_CALCULATION_TYPE_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Geo Calculation Type</Label>
-                  <p className="text-sm">
-                    {
-                      GEO_CALCULATION_TYPE_TO_HUMAN[
-                        config.geoCalculationType as keyof typeof GEO_CALCULATION_TYPE_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Delivery Duration Calculation Type
-                  </Label>
-                  <p className="text-sm">
-                    {
-                      DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN[
-                        config.deliveryDurationCalculationType as keyof typeof DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Courier Compensation Calculation Type
-                  </Label>
-                  <p className="text-sm">
-                    {
-                      COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN[
-                        config.courierCompensationCalculationType as keyof typeof COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Max Assignment Distance
-                  </Label>
-                  <p className="text-sm">{config.maxAssignmentDistance}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Max Drift Distance</Label>
-                  <p className="text-sm">{config.maxDriftDistance}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Quote Expiration Minutes
-                  </Label>
-                  <p className="text-sm">{config.quoteExpirationMinutes}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Fee Percentage Amount</Label>
-                  <p className="text-sm">{config.feePercentageAmount}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Default Courier Pay Rate
-                  </Label>
-                  <p className="text-sm">{config.defaultCourierPayRate}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Default Max Working Hours
-                  </Label>
-                  <p className="text-sm">{config.defaultMaxWorkingHours}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">
-                    Default Dietary Restrictions
-                  </Label>
-                  <p className="text-sm">
-                    {config.defaultDietaryRestrictions
-                      .map(
-                        (restriction) =>
-                          COURIER_DIETARY_RESTRICTIONS_TO_HUMAN[
-                            restriction as keyof typeof COURIER_DIETARY_RESTRICTIONS_TO_HUMAN
-                          ],
-                      )
-                      .join(", ")}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Distance Unit</Label>
-                  <p className="text-sm">
-                    {
-                      DISTANCE_UNIT_TO_HUMAN[
-                        config.distanceUnit as keyof typeof DISTANCE_UNIT_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-600">Currency</Label>
-                  <p className="text-sm">
-                    {
-                      CURRENCY_TO_HUMAN[
-                        config.currency as keyof typeof CURRENCY_TO_HUMAN
-                      ]
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="mt-4">
-            <h3 className="text-sm text-gray-600 mb-1">
-              Please double-check this information before registering!
-            </h3>
-            <button
-              onClick={handleRegisterSubmit}
-              disabled={!registryLink || !!registryLinkError || isRegistering}
-              className="bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isRegistering ? "Registering..." : "Register"}
             </button>
           </div>
         </div>

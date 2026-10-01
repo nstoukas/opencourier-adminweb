@@ -6,7 +6,6 @@ import {
   useGetInstanceConfigQuery,
   useSetInstanceConfigMutation,
 } from '../../api/configApi'
-import { useGetUserCountQuery } from '../../api/userApi'
 
 // Mock ESM-only react-markdown dependency for Jest runner
 jest.mock('react-markdown', () => ({
@@ -32,21 +31,16 @@ jest.mock('../../admin-web-components', () => {
   }
 })
 
-// Mock RTK Query config and user API hooks
+// Mock RTK Query config API hooks
 jest.mock('../../api/configApi', () => ({
   useGetInstanceConfigOptionsQuery: jest.fn(),
   useGetInstanceConfigQuery: jest.fn(),
   useSetInstanceConfigMutation: jest.fn(),
 }))
 
-jest.mock('../../api/userApi', () => ({
-  useGetUserCountQuery: jest.fn(),
-}))
-
 const mockUseGetInstanceConfigOptionsQuery = useGetInstanceConfigOptionsQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 const mockUseSetInstanceConfigMutation = useSetInstanceConfigMutation as jest.Mock
-const mockUseGetUserCountQuery = useGetUserCountQuery as jest.Mock
 
 const mockOptionsData = {
   courierMatcherType: ['NEAREST_COURIER'],
@@ -137,10 +131,6 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     global.fetch = jest.fn()
     mockUseGetInstanceConfigOptionsQuery.mockReturnValue({
       data: mockOptionsData,
-      isLoading: false,
-    })
-    mockUseGetUserCountQuery.mockReturnValue({
-      data: { count: 5 },
       isLoading: false,
     })
     mockUseSetInstanceConfigMutation.mockReturnValue([
@@ -590,164 +580,6 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
         })
       }
     )
-
-    describe('Registry save reporting', () => {
-      it('register: shows success toast when registry post and instance config mutation succeed', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: baseMockConfigData,
-          isLoading: false,
-          refetch: jest.fn().mockResolvedValue({}),
-        })
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.resolve({}),
-        })
-        ;(global.fetch as jest.Mock).mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({ message: 'Registered successfully' }),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
-
-        const registryInput = screen.getByPlaceholderText('https://registry.example.com')
-        fireEvent.change(registryInput, { target: { value: 'https://registry.example.com' } })
-
-        const registerButton = screen.getByRole('button', { name: /^Register$/i })
-        fireEvent.click(registerButton)
-
-        await waitFor(() => {
-          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
-            registeredRegistries: ['https://registry.example.com'],
-          })
-          expect(mockToast).toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: 'Success!',
-              description: 'Registered successfully',
-            })
-          )
-        })
-      })
-
-      it('register: shows destructive error toast and no success toast when setInstanceConfigMutation is refused', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: baseMockConfigData,
-          isLoading: false,
-          refetch: jest.fn().mockResolvedValue({}),
-        })
-        const backendErrorMessage = 'registeredRegistries validation failed: invalid url'
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.reject({ message: backendErrorMessage }),
-        })
-        ;(global.fetch as jest.Mock).mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({ message: 'Registry accepted POST' }),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
-
-        const registryInput = screen.getByPlaceholderText('https://registry.example.com')
-        fireEvent.change(registryInput, { target: { value: 'https://registry.example.com' } })
-
-        const registerButton = screen.getByRole('button', { name: /^Register$/i })
-        fireEvent.click(registerButton)
-
-        await waitFor(() => {
-          expect(mockToast).toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: 'Registration failed',
-              description: backendErrorMessage,
-              variant: 'destructive',
-            })
-          )
-          expect(mockToast).not.toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: 'Success!',
-            })
-          )
-        })
-      })
-
-      it('unregister: shows success toast when registry delete and instance config mutation succeed', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            registeredRegistries: ['https://registry.example.com'],
-          },
-          isLoading: false,
-          refetch: jest.fn().mockResolvedValue({}),
-        })
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.resolve({}),
-        })
-        ;(global.fetch as jest.Mock).mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({}),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
-
-        const unregisterButton = screen.getByRole('button', { name: /^Unregister$/i })
-        fireEvent.click(unregisterButton)
-
-        await waitFor(() => {
-          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
-            registeredRegistries: [],
-          })
-          expect(mockToast).toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: 'Unregistered',
-              description: 'Instance removed from registry.',
-            })
-          )
-        })
-      })
-
-      it('unregister: shows destructive error toast and no success toast when setInstanceConfigMutation is refused', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            registeredRegistries: ['https://registry.example.com'],
-          },
-          isLoading: false,
-          refetch: jest.fn().mockResolvedValue({}),
-        })
-        const backendErrorMessage = 'Failed to unregister in database'
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.reject({ message: backendErrorMessage }),
-        })
-        ;(global.fetch as jest.Mock).mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({}),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        fireEvent.click(screen.getByRole('button', { name: /Register Instance/i }))
-
-        const unregisterButton = screen.getByRole('button', { name: /^Unregister$/i })
-        fireEvent.click(unregisterButton)
-
-        await waitFor(() => {
-          expect(mockToast).toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: 'Unregister failed',
-              description: backendErrorMessage,
-              variant: 'destructive',
-            })
-          )
-          expect(mockToast).not.toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: 'Unregistered',
-            })
-          )
-        })
-      })
-    })
   })
 })
 
