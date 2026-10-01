@@ -581,5 +581,339 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       }
     )
   })
-})
 
+  describe('Scope Row 55: Registry removal and Save All configuration validation', () => {
+    beforeEach(() => {
+      jest.clearAllMocks()
+      mockUseGetInstanceConfigOptionsQuery.mockReturnValue({
+        data: mockOptionsData,
+        isLoading: false,
+      })
+      mockUseSetInstanceConfigMutation.mockReturnValue([
+        mockSetInstanceConfig,
+        { isLoading: false },
+      ])
+    })
+
+    describe('Clause 1: Instance configuration has no registry controls', () => {
+      it('renders no registry controls or text mentioning a registry on main view and after visiting every other view', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            registeredRegistries: [
+              { name: 'Demo Registry', url: 'https://registry.example.com' },
+            ],
+          },
+          isLoading: false,
+        })
+
+        const { container } = render(<InstanceConfigurationPage />)
+
+        const assertNoRegistryControlsOrText = (_viewName: string) => {
+          expect(screen.queryByRole('button', { name: /register instance/i })).toBeNull()
+          expect(screen.queryByRole('button', { name: /^register$/i })).toBeNull()
+          expect(screen.queryByRole('button', { name: /^unregister$/i })).toBeNull()
+          expect(screen.queryByLabelText(/registry/i)).toBeNull()
+          expect(screen.queryByPlaceholderText(/registry/i)).toBeNull()
+          expect(container.textContent).not.toMatch(/registry/i)
+        }
+
+        // 1. Main view
+        assertNoRegistryControlsOrText('main')
+
+        // 2. Edit Rules view
+        fireEvent.click(screen.getByText('Edit Rules'))
+        assertNoRegistryControlsOrText('rules')
+
+        // 3. Edit Description view
+        fireEvent.click(screen.getByText('Edit Description'))
+        assertNoRegistryControlsOrText('description')
+
+        // 4. Edit Terms of Service view
+        fireEvent.click(screen.getByText('Edit Terms of Service'))
+        assertNoRegistryControlsOrText('terms-of-service')
+
+        // 5. Edit Privacy Policy view
+        fireEvent.click(screen.getByText('Edit Privacy Policy'))
+        assertNoRegistryControlsOrText('privacy-policy')
+      })
+
+      it('does not send registeredRegistries in Save All Changes payload when API returns non-empty registeredRegistries', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            registeredRegistries: [
+              { name: 'Demo Registry', url: 'https://registry.example.com' },
+            ],
+          },
+          isLoading: false,
+        })
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        fireEvent.click(saveAllButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          const payload = mockSetInstanceConfig.mock.calls[0][0]
+          expect(payload).not.toHaveProperty('registeredRegistries')
+          expect(payload.details).not.toHaveProperty('registeredRegistries')
+        })
+      })
+    })
+
+    describe('Clause 2: Save All is never disabled by a field only the registry used', () => {
+      it('enables Save All Changes and calls save mutation when Websocket URL is empty', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            details: {
+              ...baseMockConfigData.details,
+              websocketLink: '',
+            },
+          },
+          isLoading: false,
+        })
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        expect(saveAllButton).not.toBeDisabled()
+
+        fireEvent.click(saveAllButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        })
+      })
+
+      it('enables Save All Changes and calls save mutation when Logo Image URL is empty', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            details: {
+              ...baseMockConfigData.details,
+              imageUrl: '',
+            },
+          },
+          isLoading: false,
+        })
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        expect(saveAllButton).not.toBeDisabled()
+
+        fireEvent.click(saveAllButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        })
+      })
+
+      it('enables Save All Changes and calls save mutation when both Websocket URL and Logo Image URL are empty', async () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            details: {
+              ...baseMockConfigData.details,
+              websocketLink: '',
+              imageUrl: '',
+            },
+          },
+          isLoading: false,
+        })
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        expect(saveAllButton).not.toBeDisabled()
+
+        fireEvent.click(saveAllButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        })
+      })
+
+      it('keeps Websocket URL and Logo Image URL editable, but invalid URL typed into either blocks Save All Changes', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            details: {
+              ...baseMockConfigData.details,
+              websocketLink: '',
+              imageUrl: '',
+            },
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const wsInput = getInputByLabel('Websocket URL')
+        const logoInput = getInputByLabel('Logo Image URL')
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+
+        expect(wsInput).toBeInTheDocument()
+        expect(logoInput).toBeInTheDocument()
+        expect(saveAllButton).not.toBeDisabled()
+
+        // Type invalid Websocket URL
+        fireEvent.change(wsInput, { target: { value: 'not-a-valid-url' } })
+        expect(saveAllButton).toBeDisabled()
+
+        // Fix Websocket URL to empty (which is allowed)
+        fireEvent.change(wsInput, { target: { value: '' } })
+        expect(saveAllButton).not.toBeDisabled()
+
+        // Type invalid Logo Image URL
+        fireEvent.change(logoInput, { target: { value: 'invalid-logo-url' } })
+        expect(saveAllButton).toBeDisabled()
+      })
+    })
+
+    describe('Clause 3: When Save All is disabled the page says which field is missing', () => {
+      it.each([
+        {
+          missingField: 'Name',
+          configOverride: { details: { ...baseMockConfigData.details, name: '' } },
+          expectedText: 'Name is empty',
+        },
+        {
+          missingField: 'URL',
+          configOverride: { details: { ...baseMockConfigData.details, link: '' } },
+          expectedText: 'URL is empty',
+        },
+        {
+          missingField: 'Operating Region',
+          configOverride: { details: { ...baseMockConfigData.details, region: null } },
+          expectedText: 'Operating Region is not drawn',
+        },
+        {
+          missingField: 'Default Dietary Restrictions',
+          configOverride: { defaultDietaryRestrictions: [] },
+          expectedText: 'Default Dietary Restrictions has nothing selected',
+        },
+      ])('disables button and names missing field ($missingField) in save-all-blockers element referenced by aria-describedby', ({ configOverride, expectedText }) => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            ...configOverride,
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        expect(saveAllButton).toBeDisabled()
+        expect(saveAllButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+
+        const blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement).not.toBeNull()
+        expect(blockersElement?.textContent).toContain(expectedText)
+      })
+
+      it('names all missing required fields when several required fields are empty', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            defaultDietaryRestrictions: [],
+            details: {
+              ...baseMockConfigData.details,
+              name: '',
+              link: '',
+              region: null,
+            },
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        expect(saveAllButton).toBeDisabled()
+        expect(saveAllButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+
+        const blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement).not.toBeNull()
+        expect(blockersElement?.textContent).toContain('Name is empty')
+        expect(blockersElement?.textContent).toContain('URL is empty')
+        expect(blockersElement?.textContent).toContain('Operating Region is not drawn')
+        expect(blockersElement?.textContent).toContain('Default Dietary Restrictions has nothing selected')
+      })
+
+      it('names invalid URL fields and invalid Quote Rate Per Distance Unit in save-all-blockers element', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: baseMockConfigData,
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const urlInput = getInputByLabel('URL')
+        const wsInput = getInputByLabel('Websocket URL')
+        const logoInput = getInputByLabel('Logo Image URL')
+        const quoteRateInput = getInputByLabel('Quote Rate Per Distance Unit')
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+
+        // Invalid URL field
+        fireEvent.change(urlInput, { target: { value: 'bad-url' } })
+        expect(saveAllButton).toBeDisabled()
+        let blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement?.textContent).toContain('URL is not a valid URL')
+
+        // Reset URL and type invalid Websocket URL
+        fireEvent.change(urlInput, { target: { value: 'https://volos.courier.coop' } })
+        fireEvent.change(wsInput, { target: { value: 'bad-ws' } })
+        expect(saveAllButton).toBeDisabled()
+        blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement?.textContent).toContain('Websocket URL is not a valid URL')
+
+        // Reset Websocket URL and type invalid Logo Image URL
+        fireEvent.change(wsInput, { target: { value: '' } })
+        fireEvent.change(logoInput, { target: { value: 'bad-logo' } })
+        expect(saveAllButton).toBeDisabled()
+        blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement?.textContent).toContain('Logo Image URL is not a valid URL')
+
+        // Reset Logo Image URL and type invalid quote rate
+        fireEvent.change(logoInput, { target: { value: '' } })
+        fireEvent.change(quoteRateInput, { target: { value: '-10' } })
+        expect(saveAllButton).toBeDisabled()
+        blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement?.textContent).toContain('Quote Rate Per Distance Unit is not a valid number')
+      })
+
+      it('shows no blocker message element and removes aria-describedby from button when nothing blocks save', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: baseMockConfigData,
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+        expect(saveAllButton).not.toBeDisabled()
+        expect(saveAllButton).not.toHaveAttribute('aria-describedby')
+
+        const blockersElement = document.getElementById('save-all-blockers')
+        expect(blockersElement).toBeNull()
+      })
+    })
+  })
+})
