@@ -1074,16 +1074,22 @@ const InstanceConfigurationPage: NextPage = () => {
           >
             {isSaving ? "Saving..." : "Save All Changes"}
           </button>
-          {saveAllBlockers.length > 0 && (
-            <div id="save-all-blockers" className="text-sm text-red-600 mt-2">
-              <p>Save All Changes is off until you fix:</p>
-              <ul className="list-disc list-inside ml-2">
-                {saveAllBlockers.map((blocker) => (
-                  <li key={blocker}>{blocker}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* role="status" makes a screen reader announce the reasons when they appear or
+              change; the disabled button can't take focus, so aria-describedby alone may never
+              be read. The wrapper is always on the page because a live region that appears
+              together with its text is often not announced. */}
+          <div role="status">
+            {saveAllBlockers.length > 0 && (
+              <div id="save-all-blockers" className="text-sm text-red-600 mt-2">
+                <p>Save All Changes is off until you fix:</p>
+                <ul className="list-disc list-inside ml-2">
+                  {saveAllBlockers.map((blocker) => (
+                    <li key={blocker}>{blocker}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </>
       ) : currentView === "terms-of-service" ? (
         <div className="mt-4">

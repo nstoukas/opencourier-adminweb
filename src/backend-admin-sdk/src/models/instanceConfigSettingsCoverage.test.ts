@@ -78,12 +78,12 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
    *
    * - 'details': A container object holding nested instance metadata (name, link, websocketLink,
    *   imageUrl, region polygon, privacy policy, TOS, etc.) rather than a single form input field.
-   * - 'registeredRegistries': An array of registered registry URLs managed dynamically via
-   *   register and unregister actions rather than a direct text/select form field.
+   * - 'registeredRegistries': Left over from the dropped instance registry (scope row L). The
+   *   backend still stores it, but the page no longer reads, shows or sends it.
    */
   const DELIBERATE_NON_FIELD_SETTINGS: string[] = [
     'details', // Container object for nested instance metadata (name, link, imageUrl, region, etc.)
-    'registeredRegistries', // Array of registered registry URLs managed via register/unregister actions
+    'registeredRegistries', // Dropped registry's list; the backend keeps it, the page ignores it
   ]
 
   it('found at least 15 setting keys in backend input class', () => {
