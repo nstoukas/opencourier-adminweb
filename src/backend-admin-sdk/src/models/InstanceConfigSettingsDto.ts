@@ -145,6 +145,25 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   reassignmentPayoutDefaultPolicy?: string;
+  /**
+   * Offer expiry switch (spec 0002, AC-10). Hand edited. null when the backend sent no value
+   * (an older backend), so the page can tell "not sent" from a real "off".
+   * @type {boolean}
+   * @memberof InstanceConfigSettingsDto
+   */
+  offerExpiryEnabled?: boolean | null;
+  /**
+   * Seconds an automatic offer stays open while expiry is on (20 to 300). Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  offerExpirySeconds?: number | null;
+  /**
+   * Seconds between backstop retries for a delivery nobody could take (10 to 300). Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  noCourierRetrySeconds?: number | null;
 }
 
 /**
@@ -305,6 +324,15 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     reassignmentPayoutDefaultPolicy: !exists(json, "reassignmentPayoutDefaultPolicy")
       ? ""
       : json["reassignmentPayoutDefaultPolicy"],
+    offerExpiryEnabled: !exists(json, "offerExpiryEnabled")
+      ? null
+      : json["offerExpiryEnabled"],
+    offerExpirySeconds: !exists(json, "offerExpirySeconds")
+      ? null
+      : json["offerExpirySeconds"],
+    noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
+      ? null
+      : json["noCourierRetrySeconds"],
   };
 }
 
@@ -340,5 +368,8 @@ export function InstanceConfigSettingsDtoToJSON(
     registeredRegistries: value.registeredRegistries,
     reassignmentPayoutPolicies: value.reassignmentPayoutPolicies,
     reassignmentPayoutDefaultPolicy: value.reassignmentPayoutDefaultPolicy,
+    offerExpiryEnabled: value.offerExpiryEnabled,
+    offerExpirySeconds: value.offerExpirySeconds,
+    noCourierRetrySeconds: value.noCourierRetrySeconds,
   };
 }

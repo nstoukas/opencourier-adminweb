@@ -33,6 +33,11 @@ export interface DeliveryEventAdminDto {
     transitionSuccessful: boolean;
     message: string | null;
     createdAt: Date;
+    // The rider an OFFERED or OFFER_EXPIRED event is about (spec 0002); null on every other
+    // event. Shown on this one delivery's timeline only, never grouped or counted per rider
+    // (value 5). Hand edited. `?` (optional) as well as null: events built before this field
+    // existed, such as the test fixtures, leave it out, and both mean "no rider".
+    courierId?: string | null;
 }
 
 /**
@@ -65,6 +70,7 @@ export function DeliveryEventAdminDtoFromJSONTyped(json: any, ignoreDiscriminato
         'transitionSuccessful': json['transitionSuccessful'],
         'message': json['message'] === undefined ? null : json['message'],
         'createdAt': (new Date(json['createdAt'])),
+        'courierId': json['courierId'] == null ? null : json['courierId'],
     };
 }
 
@@ -85,5 +91,6 @@ export function DeliveryEventAdminDtoToJSON(value?: DeliveryEventAdminDto | null
         'transitionSuccessful': value.transitionSuccessful,
         'message': value.message,
         'createdAt': (value.createdAt.toISOString()),
+        'courierId': value.courierId,
     };
 }

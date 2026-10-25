@@ -139,6 +139,28 @@ export interface InstanceConfigSettingsAdminInput {
    * @memberof InstanceConfigSettingsAdminInput
    */
   reassignmentPayoutDefaultPolicy?: string;
+  /**
+   * Offer expiry switch (spec 0002, AC-10). Hand edited. When true, an automatic offer the
+   * rider has not answered ends on the server after offerExpirySeconds. The backend refuses
+   * anything but a real JSON true or false.
+   * @type {boolean}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  offerExpiryEnabled?: boolean;
+  /**
+   * Seconds an automatic offer stays open while expiry is on: a whole number, 20 to 300.
+   * Hand edited (spec 0002).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  offerExpirySeconds?: number;
+  /**
+   * Seconds between backstop retries for a delivery nobody could take: a whole number,
+   * 10 to 300. Hand edited (spec 0002).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  noCourierRetrySeconds?: number;
 }
 
 /**
@@ -324,6 +346,15 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     )
       ? undefined
       : json["reassignmentPayoutDefaultPolicy"],
+    offerExpiryEnabled: !exists(json, "offerExpiryEnabled")
+      ? undefined
+      : json["offerExpiryEnabled"],
+    offerExpirySeconds: !exists(json, "offerExpirySeconds")
+      ? undefined
+      : json["offerExpirySeconds"],
+    noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
+      ? undefined
+      : json["noCourierRetrySeconds"],
   };
 }
 
@@ -358,5 +389,10 @@ export function InstanceConfigSettingsAdminInputToJSON(
     quoteBaseFee: value.quoteBaseFee,
     reassignmentPayoutPolicies: value.reassignmentPayoutPolicies,
     reassignmentPayoutDefaultPolicy: value.reassignmentPayoutDefaultPolicy,
+    // Without these three lines the SDK would drop the offer settings before the request
+    // left the browser, and the save would report success for a change never sent.
+    offerExpiryEnabled: value.offerExpiryEnabled,
+    offerExpirySeconds: value.offerExpirySeconds,
+    noCourierRetrySeconds: value.noCourierRetrySeconds,
   };
 }

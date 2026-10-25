@@ -350,6 +350,35 @@ export interface DeliveryAdminDto {
      * @memberof DeliveryAdminDto
      */
     createdAt: Date;
+    /**
+     * When the open offer went out (spec 0002, AC-11). Hand edited. Kept after an accept as a
+     * record, so read it only while the delivery is still ASSIGNING_COURIER. null when no
+     * offer was ever recorded (offers made before the backend learned this field have none).
+     * @type {Date}
+     * @memberof DeliveryAdminDto
+     */
+    offeredAt: Date | null;
+    /**
+     * When the open offer ends on its own; null means it never does (expiry off, or an admin
+     * offer). Hand edited (spec 0002).
+     * @type {Date}
+     * @memberof DeliveryAdminDto
+     */
+    offerExpiresAt: Date | null;
+    /**
+     * The rider who holds the open offer right now, as "First Last". Set only while the
+     * delivery is looking for a rider; never a history or a count (value 5). Hand edited.
+     * @type {string}
+     * @memberof DeliveryAdminDto
+     */
+    matchedCourierName: string | null;
+    /**
+     * Start of the current wait for a free rider (the latest NO_COURIER_AVAILABLE event),
+     * set only while nobody is offered the delivery. Hand edited (spec 0002).
+     * @type {Date}
+     * @memberof DeliveryAdminDto
+     */
+    waitingForCourierSince: Date | null;
 }
 
 
@@ -515,6 +544,12 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'customerName': json['customerName'],
         'customerPhoneNumber': json['customerPhoneNumber'],
         'createdAt': (new Date(json['createdAt'])),
+        // `exists` is false for both a missing key and null, so an older backend that sends
+        // neither reads as "no offer" instead of an Invalid Date.
+        'offeredAt': !exists(json, 'offeredAt') ? null : new Date(json['offeredAt']),
+        'offerExpiresAt': !exists(json, 'offerExpiresAt') ? null : new Date(json['offerExpiresAt']),
+        'matchedCourierName': !exists(json, 'matchedCourierName') ? null : json['matchedCourierName'],
+        'waitingForCourierSince': !exists(json, 'waitingForCourierSince') ? null : new Date(json['waitingForCourierSince']),
     };
 }
 
@@ -582,6 +617,10 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'customerName': value.customerName,
         'customerPhoneNumber': value.customerPhoneNumber,
         'createdAt': (value.createdAt.toISOString()),
+        'offeredAt': value.offeredAt === null ? null : value.offeredAt.toISOString(),
+        'offerExpiresAt': value.offerExpiresAt === null ? null : value.offerExpiresAt.toISOString(),
+        'matchedCourierName': value.matchedCourierName,
+        'waitingForCourierSince': value.waitingForCourierSince === null ? null : value.waitingForCourierSince.toISOString(),
     };
 }
 
