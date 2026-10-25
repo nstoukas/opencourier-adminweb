@@ -462,6 +462,23 @@ describe('DeliveryDetails component', () => {
       confirmSpy.mockRestore()
     })
 
+    it('omits ACCEPTED from menu trigger when delivery has no rider ids', () => {
+      // In ASSIGNING_COURIER without matchedCourierId or courierId, ACCEPTED is not allowed
+      const deliveryWithoutRiders = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        matchedCourierId: undefined,
+        courierId: undefined,
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: deliveryWithoutRiders, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      fireEvent.click(screen.getByText('Trigger event'))
+
+      expect(screen.queryByText(/^Accepted$/i)).toBeNull()
+    })
+
     it('shows destructive toast when submitting delivery event fails', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({

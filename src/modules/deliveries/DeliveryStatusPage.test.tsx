@@ -38,10 +38,10 @@ jest.mock('../../api/deliveriesApi', () => ({
 // Mock Radix Select primitive so select options can be triggered cleanly in JSDOM
 jest.mock('@radix-ui/react-select', () => {
   const ReactActual = require('react') as typeof import('react')
-  const SelectContext = ReactActual.createContext<{ onValueChange?: (v: string) => void }>({})
+  const SelectContext = ReactActual.createContext<{ onValueChange?: (v: string) => void; value?: string }>({})
   return {
-    Root: ({ children, onValueChange }: any) => (
-      <SelectContext.Provider value={{ onValueChange }}>
+    Root: ({ children, onValueChange, value }: any) => (
+      <SelectContext.Provider value={{ onValueChange, value }}>
         <div data-testid="radix-select-root">{children}</div>
       </SelectContext.Provider>
     ),
@@ -50,7 +50,10 @@ jest.mock('@radix-ui/react-select', () => {
         {children}
       </button>
     ),
-    Value: ({ placeholder, children }: any) => <span>{children || placeholder}</span>,
+    Value: ({ placeholder, children }: any) => {
+      const { value } = ReactActual.useContext(SelectContext)
+      return <span>{children || value || placeholder}</span>
+    },
     Icon: ({ children }: any) => <span>{children}</span>,
     Portal: ({ children }: any) => <div>{children}</div>,
     Content: ({ children }: any) => <div>{children}</div>,
@@ -167,6 +170,55 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       expect(screen.getByText(EnumDeliveryEventType.ACCEPTED)).toBeInTheDocument()
       expect(screen.getByText(EnumDeliveryEventType.CANCELED)).toBeInTheDocument()
       expect(screen.queryByText(EnumDeliveryEventType.FAILED)).toBeNull()
+    })
+
+    it('omits ACCEPTED from offered transitions when delivery has no rider ids', () => {
+      // In CREATED without matchedCourierId or courierId, ACCEPTED is not allowed
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleDelivery,
+          courierId: undefined,
+          matchedCourierId: undefined,
+        },
+        isLoading: false,
+      })
+
+      render(<DeliveryStatusPage />)
+
+      expect(screen.getByText('Change Status')).toBeInTheDocument()
+      expect(screen.getByText(EnumDeliveryEventType.CANCELED)).toBeInTheDocument()
+      expect(screen.queryByText(EnumDeliveryEventType.ACCEPTED)).toBeNull()
+      expect(screen.queryByText(EnumDeliveryEventType.FAILED)).toBeNull()
+    })
+
+    it('includes ACCEPTED when delivery has matchedCourierId', () => {
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleDelivery,
+          matchedCourierId: 'courier-matched-42',
+          courierId: undefined,
+        },
+        isLoading: false,
+      })
+
+      render(<DeliveryStatusPage />)
+
+      expect(screen.getByText(EnumDeliveryEventType.ACCEPTED)).toBeInTheDocument()
+    })
+
+    it('includes ACCEPTED when delivery has courierId fallback', () => {
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleDelivery,
+          matchedCourierId: undefined,
+          courierId: 'courier-assigned-99',
+        },
+        isLoading: false,
+      })
+
+      render(<DeliveryStatusPage />)
+
+      expect(screen.getByText(EnumDeliveryEventType.ACCEPTED)).toBeInTheDocument()
     })
 
     it('renders "No status change is possible from <status>." when no admin transitions exist', () => {
@@ -320,10 +372,90 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       confirmSpy.mockRestore()
     })
 
-    it('displays destructive toast "Failed to change delivery status" on mutation failure', async () => {
+    it('displays "Nothing changed" toast when the server returns the unchanged delivery status', async () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+      // The server ignores an event with no legal transition and returns unchanged status
+      mockSubmitDeliveryEvent.mockReturnValue({
+        unwrap: () => Promise.resolve({ id: 'del-123', status: EnumDeliveryStatus.CREATED }),
+      })
+
+      render(<DeliveryStatusPage />)
+
+      // Select CANCELED event
+      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
+
+      await waitFor(() => {
+        expect(mockSubmitDeliveryEvent).toHaveBeenCalledWith({
+          deliveryId: 'del-123',
+          eventType: EnumDeliveryEventType.CANCELED,
+          courierId: undefined,
+        })
+      })
+
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Nothing changed',
+        description: 'The server did not apply "CANCELED". Status is still CREATED.',
+      })
+
+      confirmSpy.mockRestore()
+    })
+
+    it('resets the form after a successful event submission', async () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+      mockSubmitDeliveryEvent.mockReturnValue({
+        unwrap: () => Promise.resolve({ id: 'del-123', status: EnumDeliveryStatus.CANCELED }),
+      })
+
+      render(<DeliveryStatusPage />)
+
+      const combobox = screen.getByRole('combobox')
+      expect(combobox).toHaveTextContent('Select delivery event')
+
+      // Select an event
+      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      expect(combobox).toHaveTextContent(EnumDeliveryEventType.CANCELED)
+
+      // Submit
+      fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalled()
+      })
+
+      // Form reset restored combobox placeholder
+      expect(combobox).toHaveTextContent('Select delivery event')
+
+      confirmSpy.mockRestore()
+    })
+
+    it('displays destructive toast with backend error message on mutation failure', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({
         unwrap: () => Promise.reject(new Error('Server error')),
+      })
+
+      render(<DeliveryStatusPage />)
+
+      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Submit failed',
+          description: 'Server error',
+          variant: 'destructive',
+        })
+      })
+
+      confirmSpy.mockRestore()
+    })
+
+    it('displays destructive toast with fallback message when mutation error has no message', async () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+      // An error without a message property falls back to the generic message
+      mockSubmitDeliveryEvent.mockReturnValue({
+        unwrap: () => Promise.reject({}),
       })
 
       render(<DeliveryStatusPage />)

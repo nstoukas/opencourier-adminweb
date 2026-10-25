@@ -13,6 +13,55 @@ describe('adminEvents utility functions', () => {
       expect(createdEvents).toEqual([EnumDeliveryEventType.ACCEPTED, EnumDeliveryEventType.CANCELED])
     })
 
+    it('omits ACCEPTED when riders object is passed with no rider ids', () => {
+      // With riders defined and neither matchedCourierId nor courierId present, ACCEPTED must be omitted
+      const eventsWithUndefinedRiders = adminEventsForStatus(EnumDeliveryStatus.CREATED, {
+        matchedCourierId: undefined,
+        courierId: undefined,
+      })
+      expect(eventsWithUndefinedRiders).toEqual([EnumDeliveryEventType.CANCELED])
+      expect(eventsWithUndefinedRiders).not.toContain(EnumDeliveryEventType.ACCEPTED)
+
+      const eventsWithNullRiders = adminEventsForStatus(EnumDeliveryStatus.CREATED, {
+        matchedCourierId: null,
+        courierId: null,
+      })
+      expect(eventsWithNullRiders).toEqual([EnumDeliveryEventType.CANCELED])
+
+      const eventsWithEmptyStringRiders = adminEventsForStatus(EnumDeliveryStatus.CREATED, {
+        matchedCourierId: '',
+        courierId: '',
+      })
+      expect(eventsWithEmptyStringRiders).toEqual([EnumDeliveryEventType.CANCELED])
+
+      const eventsWithEmptyObject = adminEventsForStatus(EnumDeliveryStatus.CREATED, {})
+      expect(eventsWithEmptyObject).toEqual([EnumDeliveryEventType.CANCELED])
+    })
+
+    it('includes ACCEPTED when riders has matchedCourierId', () => {
+      const events = adminEventsForStatus(EnumDeliveryStatus.CREATED, {
+        matchedCourierId: 'courier-matched-42',
+        courierId: undefined,
+      })
+      expect(events).toContain(EnumDeliveryEventType.ACCEPTED)
+      expect(events).toEqual([EnumDeliveryEventType.ACCEPTED, EnumDeliveryEventType.CANCELED])
+    })
+
+    it('includes ACCEPTED when riders has courierId fallback', () => {
+      const events = adminEventsForStatus(EnumDeliveryStatus.CREATED, {
+        matchedCourierId: undefined,
+        courierId: 'courier-assigned-99',
+      })
+      expect(events).toContain(EnumDeliveryEventType.ACCEPTED)
+      expect(events).toEqual([EnumDeliveryEventType.ACCEPTED, EnumDeliveryEventType.CANCELED])
+    })
+
+    it('behaves exactly as before when riders argument is omitted (includes ACCEPTED for CREATED)', () => {
+      const eventsWithoutRiders = adminEventsForStatus(EnumDeliveryStatus.CREATED)
+      expect(eventsWithoutRiders).toContain(EnumDeliveryEventType.ACCEPTED)
+      expect(eventsWithoutRiders).toEqual([EnumDeliveryEventType.ACCEPTED, EnumDeliveryEventType.CANCELED])
+    })
+
     it('filters out FAILED from DISPATCHED transitions', () => {
       // DISPATCHED transitions in STATE_MACHINE: ARRIVED_AT_PICKUP_LOCATION, PICKED_UP, CANCELED, FAILED
       const dispatchedEvents = adminEventsForStatus(EnumDeliveryStatus.DISPATCHED)
