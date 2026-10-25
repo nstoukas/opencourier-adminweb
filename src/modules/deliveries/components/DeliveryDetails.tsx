@@ -139,7 +139,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
 
   const { data: delivery } = getDeliveryResponse
 
-  const possibleEvents = adminEventsForStatus(delivery.status)
+  const possibleEvents = adminEventsForStatus(delivery.status, delivery)
 
   return (
     <>

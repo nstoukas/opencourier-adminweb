@@ -56,18 +56,26 @@ const DeliveryStatusPage: NextPage = () => {
       }).unwrap()
       // Report the status the server came back with, not the one we hoped for: the backend
       // ignores an event it has no transition for, and still answers with success.
-      toast({ title: 'Event submitted', description: `Status is now ${updated.status}.` })
+      if (updated.status === data.status) {
+        toast({
+          title: 'Nothing changed',
+          description: `The server did not apply "${eventType}". Status is still ${updated.status}.`,
+        })
+      } else {
+        toast({ title: 'Event submitted', description: `Status is now ${updated.status}.` })
+      }
       form.reset()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Submit failed',
-        description: 'Failed to change delivery status',
+        // Show the backend's own reason (for example "courierId is required") when there is one.
+        description: error?.message || 'Failed to change delivery status',
         variant: 'destructive',
       })
     }
   }
 
-  const possibleEvents = data ? adminEventsForStatus(data.status) : []
+  const possibleEvents = data ? adminEventsForStatus(data.status, data) : []
 
   return (
     <DefaultLayout>

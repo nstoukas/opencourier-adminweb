@@ -7,12 +7,21 @@ const DISALLOWED_EVENTS: EnumDeliveryEventType[] = [EnumDeliveryEventType.FAILED
 /**
  * The events an admin may submit by hand for a delivery in `status`.
  * Shared by the delivery page's "Trigger event" menu and the status page,
- * so the two admin paths cannot drift apart.
+ * so the two admin paths cannot drift apart. When the delivery's rider ids are
+ * passed, ACCEPTED is left out while there is no rider to accept it for,
+ * because the backend would refuse it.
  */
-export function adminEventsForStatus(status: string): EnumDeliveryEventType[] {
+export function adminEventsForStatus(
+  status: string,
+  riders?: { matchedCourierId?: string | null; courierId?: string | null }
+): EnumDeliveryEventType[] {
   // Object.keys always returns string[]; the keys of the transitions record are event types.
   const events = Object.keys(transitionsForStatus(status)) as EnumDeliveryEventType[]
-  return events.filter((eventType) => !DISALLOWED_EVENTS.includes(eventType))
+  return events.filter(
+    (eventType) =>
+      !DISALLOWED_EVENTS.includes(eventType) &&
+      !(riders && eventType === EnumDeliveryEventType.ACCEPTED && courierIdForAdminEvent(eventType, riders) === undefined)
+  )
 }
 
 /**
@@ -22,8 +31,8 @@ export function adminEventsForStatus(status: string): EnumDeliveryEventType[] {
  */
 export function courierIdForAdminEvent(
   eventType: EnumDeliveryEventType,
-  // Typed wider than DeliveryAdminDto on purpose: the SDK says these are `string | null`,
-  // but a key the backend leaves out arrives as undefined, so the type admits that too.
+  // Typed wider than DeliveryAdminDto on purpose: the SDK turns a missing `matchedCourierId`
+  // into null but passes `courierId` through as sent, so it can arrive undefined; the type admits both.
   delivery: { matchedCourierId?: string | null; courierId?: string | null }
 ): string | undefined {
   if (eventType !== EnumDeliveryEventType.ACCEPTED) return undefined
