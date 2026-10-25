@@ -431,6 +431,54 @@ describe('DeliveryDetails component', () => {
       confirmSpy.mockRestore()
     })
 
+    it('sends courierId with ACCEPTED event on menu trigger', async () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+      mockSubmitDeliveryEvent.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+
+      const deliveryInAssigning = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        matchedCourierId: 'courier-matched-77',
+        courierId: 'c1',
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: deliveryInAssigning, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Open menu trigger
+      fireEvent.click(screen.getByText('Trigger event'))
+
+      // Click ACCEPTED event item
+      fireEvent.click(screen.getByText(/^Accepted$/i))
+
+      await waitFor(() => {
+        expect(mockSubmitDeliveryEvent).toHaveBeenCalledWith({
+          deliveryId: 'd100',
+          eventType: EnumDeliveryEventType.ACCEPTED,
+          courierId: 'courier-matched-77',
+        })
+      })
+
+      confirmSpy.mockRestore()
+    })
+
+    it('omits ACCEPTED from menu trigger when delivery has no rider ids', () => {
+      // In ASSIGNING_COURIER without matchedCourierId or courierId, ACCEPTED is not allowed
+      const deliveryWithoutRiders = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        matchedCourierId: undefined,
+        courierId: undefined,
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: deliveryWithoutRiders, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      fireEvent.click(screen.getByText('Trigger event'))
+
+      expect(screen.queryByText(/^Accepted$/i)).toBeNull()
+    })
+
     it('shows destructive toast when submitting delivery event fails', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({
