@@ -5,8 +5,13 @@ export function formatDateAsHourAndMinute(date: string | number | Date): string 
   return dayjs(date).format('h:mm A')
 }
 
+// How a date and time read across admin: Greek order, day first, and the 24 hour clock,
+// for example "30/09/2026, 23:25" (night run decision D6; request-web reads the same).
+// Shown in the browser's own time zone, as before.
+export const DATE_TIME_FORMAT = 'DD/MM/YYYY, HH:mm'
+
 export function formatDate(date: Date | string) {
-  return dayjs(date).format('MMMM D, YYYY h:mm A')
+  return dayjs(date).format(DATE_TIME_FORMAT)
 }
 
 // For dates the API can legitimately leave unset. The generated SDK types several of them
@@ -20,7 +25,7 @@ export function formatOptionalDate(date: Date | string | null | undefined) {
   const parsed = dayjs(date)
   if (!parsed.isValid() || parsed.valueOf() === 0) return '—'
 
-  return parsed.format('MMMM D, YYYY h:mm A')
+  return parsed.format(DATE_TIME_FORMAT)
 }
 
 export function formatDateTime(dateTime: DateTimeDto) {

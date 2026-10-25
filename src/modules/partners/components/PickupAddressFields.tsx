@@ -1,7 +1,7 @@
 import React from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import { useLoadScript } from '@react-google-maps/api'
-import { ChevronsUpDown } from 'lucide-react'
+import { CaretUpDown } from '@phosphor-icons/react'
 import {
   FormControl,
   FormField,
@@ -49,7 +49,7 @@ export const PickupAddressFields: React.FC<PickupAddressFieldsProps> = ({ form }
               <FormControl>
                 <Button variant="outline" role="combobox" className="w-full justify-between">
                   Search an address to pre-fill
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <CaretUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </FormControl>
             </PopoverTrigger>

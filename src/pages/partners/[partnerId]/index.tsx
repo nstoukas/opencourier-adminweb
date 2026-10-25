@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { ArrowLeft, Edit, KeyRound } from 'lucide-react'
+import { ArrowLeft, PencilSimple, Key } from '@phosphor-icons/react'
 import { useGetPartnerQuery } from '@/api/partnersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
-import { Button, Icons } from '@/admin-web-components'
+import { Button, Spinner } from '@/admin-web-components'
 import { PartnerSummaryCard } from '@/modules/partners/components/PartnerSummaryCard'
 import { PartnerFormDialog } from '@/modules/partners/components/PartnerFormDialog'
 import { RotateCredentialsDialog } from '@/modules/partners/components/RotateCredentialsDialog'
@@ -37,7 +37,7 @@ const PartnerDetailsPage: NextPage = () => {
 
           {isLoading ? (
             <div className="flex items-center space-x-2 py-8">
-              <Icons.spinner className="h-5 w-5 animate-spin" />
+              <Spinner className="h-5 w-5" />
               <span>Loading restaurant details...</span>
             </div>
           ) : isError || !partner ? (
@@ -50,11 +50,11 @@ const PartnerDetailsPage: NextPage = () => {
                 <h2 className="text-3xl font-medium tracking-tight">{partner.name}</h2>
                 <div className="flex items-center space-x-2">
                   <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
-                    <Edit className="mr-2 h-4 w-4" />
+                    <PencilSimple className="mr-2 h-4 w-4" />
                     Edit restaurant
                   </Button>
                   <Button variant="outline" onClick={() => setRotateDialogOpen(true)}>
-                    <KeyRound className="mr-2 h-4 w-4" />
+                    <Key className="mr-2 h-4 w-4" />
                     Set new password
                   </Button>
                 </div>

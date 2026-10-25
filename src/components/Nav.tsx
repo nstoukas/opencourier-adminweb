@@ -1,13 +1,15 @@
 import { Badge, Tooltip, TooltipContent, TooltipTrigger, buttonVariants } from '../admin-web-components/index'
 import { cn } from '../ui-shared-utils'
-import { LucideIcon } from 'lucide-react'
+// `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
+// any icon component, renamed here so it is not mistaken for a component itself.
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 export type NavLink = {
   title: string
   label?: string
-  icon: LucideIcon
+  icon: PhosphorIcon
   href: string
   notification?: string
 }

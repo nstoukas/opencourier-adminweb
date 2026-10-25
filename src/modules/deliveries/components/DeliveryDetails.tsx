@@ -5,7 +5,6 @@ import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourier
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { formatMoney } from '@/utils/formatMoney'
-import { StatusBadge } from '@/modules/deliveries/components/StatusBadge'
 import {
   Button,
   Card,
@@ -17,6 +16,7 @@ import {
   MenuItem,
   MenuItems,
   MenuTrigger,
+  StatusBadge,
   useToast,
 } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
@@ -24,7 +24,7 @@ import { EnumDeliveryEventType, EnumDeliveryStatus } from '../../../shared-types
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
 import { cn, formatDate, formatOptionalDate } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeft } from '@phosphor-icons/react'
 
 function displayText(value: string | object | null | undefined): string {
   if (value == null || value === '') return '—'
@@ -146,7 +146,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       {!props.isSheet && (
         <Button variant="link" className="p-0" onClick={() => goToDeliveries()}>
           <div className="bg-gray-100 rounded-full h-6 w-6 flex justify-center items-center mr-1">
-            <ArrowLeftIcon className="w-4" />
+            <ArrowLeft className="w-4" />
           </div>
           Back to Deliveries
         </Button>

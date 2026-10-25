@@ -13,7 +13,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  Icons,
+  Spinner,
   Input,
   useToast,
 } from '@/admin-web-components'
@@ -233,7 +233,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? <Icons.spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isLoading ? <Spinner className="mr-2" /> : null}
                   Create Restaurant
                 </Button>
               </DialogFooter>
@@ -305,7 +305,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? <Icons.spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isLoading ? <Spinner className="mr-2" /> : null}
                   Save Changes
                 </Button>
               </DialogFooter>

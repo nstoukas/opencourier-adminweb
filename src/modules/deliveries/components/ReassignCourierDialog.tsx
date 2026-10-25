@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  Icons,
+  Spinner,
   Input,
   Label,
   Select,
@@ -230,7 +230,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
               disabled={isLoading || !newCourierId || !preview.ok}
               onClick={handleReassign}
             >
-              {isLoading ? <Icons.spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isLoading ? <Spinner className="mr-2" /> : null}
               Reassign rider
             </Button>
           </DialogFooter>

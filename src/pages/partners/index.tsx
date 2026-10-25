@@ -9,7 +9,7 @@ import type { PartnerAdminDto } from '@/backend-admin-sdk'
 import { formatPickupAddressForDisplay } from '@/utils/partnerPickupAddress'
 import { formatDate } from '@/ui-shared-utils'
 import { PartnerFormDialog } from '@/modules/partners/components/PartnerFormDialog'
-import { Plus } from 'lucide-react'
+import { Plus } from '@phosphor-icons/react'
 
 const columns: ColumnDef<PartnerAdminDto>[] = [
   {

@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  Icons,
+  Spinner,
   Label,
   Select,
   SelectContent,
@@ -109,7 +109,7 @@ export function AssignCourierCell({ delivery }: { delivery: DeliveryAdminDto }) 
               Cancel
             </Button>
             <Button type="button" disabled={isLoading || !courierId} onClick={() => void handleAssign()}>
-              {isLoading ? <Icons.spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isLoading ? <Spinner className="mr-2" /> : null}
               Manually Reassign
             </Button>
           </DialogFooter>

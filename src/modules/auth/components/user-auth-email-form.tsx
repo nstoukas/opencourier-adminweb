@@ -12,7 +12,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  Icons,
+  Spinner,
   Input,
   useToast,
 } from '../../../admin-web-components'
@@ -96,7 +96,7 @@ export function UserAuthEmailForm({ className, ...props }: UserAuthFormProps) {
               )}
             />
             <Button disabled={isLoading}>
-              {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading && <Spinner className="mr-2" />}
               Sign In
             </Button>
           </div>

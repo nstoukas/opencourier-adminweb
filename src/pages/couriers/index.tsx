@@ -1,10 +1,8 @@
 import { useGetCouriersQuery } from '@/api/couriersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
-import { CourierStatusBadge } from '@/modules/deliveries/components/CourierStatusBadge'
-import { DEFAULT_PAGE_SIZE, DataTable } from '../../admin-web-components'
+import { DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import type { CourierAdminDto } from '../../backend-admin-sdk'
-import { EnumCourierStatus } from '../../shared-types'
 import { formatDate } from '../../ui-shared-utils'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
@@ -39,7 +37,7 @@ const columns: ColumnDef<CourierAdminDto>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => (
-      <CourierStatusBadge status={row.original.status as EnumCourierStatus} />
+      <StatusBadge kind="courier" status={row.original.status} />
     ),
   },
   {

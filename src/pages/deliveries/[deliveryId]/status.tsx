@@ -16,7 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  Icons,
+  Spinner,
   Label,
   Select,
   SelectContent,
@@ -142,7 +142,7 @@ const DeliveryStatusPage: NextPage = () => {
                     />
                     <div>
                       <Button variant="destructive" disabled={isLoading}>
-                        {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading && <Spinner className="mr-2" />}
                         Submit event
                       </Button>
                     </div>

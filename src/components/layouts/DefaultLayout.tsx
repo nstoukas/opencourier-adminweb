@@ -9,13 +9,7 @@ import {
   ResizablePanelGroup,
 } from '../../admin-web-components'
 import { cn, useAppDispatch, useScreenSize } from '../../ui-shared-utils'
-import {
-  BuildingIcon,
-  CarTaxiFrontIcon,
-  LayoutDashboardIcon,
-  ScrollTextIcon,
-  StoreIcon,
-} from 'lucide-react'
+import { GearSix, Moped, Package, SquaresFour, Storefront } from '@phosphor-icons/react'
 import React, { useState } from 'react'
 import { Nav, NavLink } from '../Nav'
 
@@ -29,30 +23,31 @@ export const SIDEBAR_DEFAULT_SIZE = 13
 export const CONTENT_MIN_SIZE = 30
 export const CONTENT_DEFAULT_SIZE = 100 - SIDEBAR_DEFAULT_SIZE
 
+// Icons follow the design system's meanings: Storefront is a restaurant, GearSix settings.
 const sidebarNavItems: NavLink[] = [
   {
     title: 'Overview',
-    icon: LayoutDashboardIcon,
+    icon: SquaresFour,
     href: EAdminRoutes.HOME,
   },
   {
     title: 'Deliveries',
-    icon: BuildingIcon,
+    icon: Package,
     href: EAdminRoutes.DELIVERIES,
   },
   {
     title: 'Restaurants',
-    icon: StoreIcon,
+    icon: Storefront,
     href: EAdminRoutes.PARTNERS,
   },
   {
     title: 'Couriers',
-    icon: ScrollTextIcon,
+    icon: Moped,
     href: EAdminRoutes.COURIERS,
   },
   {
     title: 'Instance Configuration',
-    icon: CarTaxiFrontIcon,
+    icon: GearSix,
     href: EAdminRoutes.INSTANCE_CONFIGURATION,
   },
 ]

@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '../../../admin-web-components'
 import { debounce } from 'lodash'
-import { SearchIcon, X } from 'lucide-react'
+import { MagnifyingGlass, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 
 export interface DeliveriesFilters {
@@ -55,7 +55,7 @@ export function DeliveriesTableFilters(props: DeliveriesTableFiltersProps) {
         </Select>
 
         <div className="flex items-center relative">
-          <SearchIcon className="pointer-events-none w-4 h-4 text-input left-2 absolute top-1/2 -translate-y-1/2" />
+          <MagnifyingGlass className="pointer-events-none w-4 h-4 text-input left-2 absolute top-1/2 -translate-y-1/2" />
           <Input
             key={searchKey}
             placeholder="Search by ID, customer, merchant..."

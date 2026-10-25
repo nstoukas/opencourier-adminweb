@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Icons,
+  Spinner,
   Input,
   Label,
   useToast,
@@ -105,7 +105,7 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
             Cancel
           </Button>
           <Button type="button" disabled={!isValid || isLoading} onClick={handleRotate}>
-            {isLoading ? <Icons.spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isLoading ? <Spinner className="mr-2" /> : null}
             Rotate Password
           </Button>
         </DialogFooter>
