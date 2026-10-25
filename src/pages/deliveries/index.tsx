@@ -99,10 +99,6 @@ const OrdersPage: NextPage = () => {
         },
       },
       // {
-      //   header: 'Merchant',
-      //   accessorFn: ({ merchant }) => (merchant ? merchant.name : 'N/A'),
-      // },
-      // {
       //   header: 'Customer',
       //   accessorFn: ({ customer }) => (customer ? `${customer.firstName} ${customer.lastName}` : 'N/A'),
       // },

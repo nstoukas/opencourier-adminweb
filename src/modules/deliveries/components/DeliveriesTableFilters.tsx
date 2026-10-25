@@ -75,18 +75,6 @@ export function DeliveriesTableFilters(props: DeliveriesTableFiltersProps) {
           emptySearchResultsPlaceholder="No customers found."
           title="Filter by customer"
         /> */}
-        {/* 
-        <SearchFilterCombobox
-          isLoading={merchantLoading}
-          items={merchantSearchData || []}
-          selectedItem={merchant}
-          onItemSelect={setMerchant}
-          onNewSearchString={setMerchantSearchString}
-          itemStringifier={(m: MerchantSearchAdminDto) => m.name}
-          searchInputPlaceholder="Search merchants..."
-          emptySearchResultsPlaceholder="No merchants found."
-          title="Filter by merchant"
-        /> */}
 
         <Button variant="ghost" type="button" onClick={clearFilters}>
           <X />

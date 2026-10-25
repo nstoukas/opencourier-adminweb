@@ -1,10 +1,9 @@
 import countryCodes from './data/countries.json'
 import cuisineTypes from './data/cuisineTypes.json'
 import fulfillmentModes from './data/fulfillmentModes.json'
-import timezones from './data/timezones.json'
 
 // data
-export { countryCodes, cuisineTypes, fulfillmentModes, timezones }
+export { countryCodes, cuisineTypes, fulfillmentModes }
 
 // utils
 export { getAddressDisplay, transformAddress } from './utils/address'
