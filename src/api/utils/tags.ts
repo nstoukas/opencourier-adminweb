@@ -1,7 +1,6 @@
 const tagTypes = {
   addresses: 'Addresses',
   me: 'Me',
-  catalog: 'Catalog',
   deliveries: 'Deliveries',
   couriers: 'Couriers',
   customer: 'Customer',
@@ -18,7 +17,6 @@ export const Tags = {
 
   addresses: tagTypes['addresses'],
   me: tagTypes['me'],
-  catalog: tagTypes['catalog'],
   deliveries: tagTypes['deliveries'],
   couriers: tagTypes['couriers'],
   customer: tagTypes['customer'],
