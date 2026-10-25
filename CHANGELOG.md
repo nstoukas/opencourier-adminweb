@@ -5,7 +5,7 @@ for a Greek workers' cooperative delivering by moped in Volos. It pairs with the
 fork of `opencourier-backend`, whose `CHANGELOG.md` documents the endpoints used here.
 
 Everything below sits on top of upstream `main` on the branch
-`fix/accepted-event-courier-id` (18 commits, 26 July – 4 August 2026). Each entry names
+`fix/accepted-event-courier-id` (56 commits, 26 July – 26 October 2026). Each entry names
 its commit, and the commit message has the full reasoning and verification notes.
 
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
@@ -31,9 +31,39 @@ Scope row 55 (remove the dropped registry from Instance configuration) was built
 `fix/drop-registry-controls` and merged in on 1 October. With it the suite is at **291 passing tests**
 (18 tests of deleted code went, 13 new ones came), and lint and typecheck are unchanged.
 
+Scope rows 5 (the merchants code removed) and 93 (the delivery status and chat pages) were merged
+in on 25 October, and scope row 63 (the OpenCourier design system) was built on the branch
+`feat/design-foundation` and merged in on 26 October. With them the suite has **393 tests**:
+387 pass, and the 6 that fail are the settings coverage guard, which reads the backend checkout
+beside this repo and fails while that backend is on `feat/offer-expiry` (three new settings this
+page does not show yet). Typecheck is down to 36 errors and lint to 0.
+
 ---
 
 ## Added
+
+### The OpenCourier design system (scope row 63): `7347352`, `426839d`
+- **The colours and corner radius come from the co-op's design system**
+  (`opencourier-design-system/tokens/tokens.json`): the `:root` theme in `globals.css` and
+  the Tailwind preset in `src/tailwind-config/admin.tailwind.config.ts`. Light theme only,
+  still Tailwind 3.
+- **Button, Badge and Alert have the OpenCourier variants.** Button gains `success` and
+  `warning` and the sizes `xl`, `offer` and `icon-xl`; Badge and Alert gain `success`,
+  `warning` and `info`.
+- **New `StatusBadge`, `DetailList` and `Spinner`** in
+  `src/admin-web-components/components/atoms/`. The deliveries list, a delivery's page, its
+  status page and the couriers list show every status through `StatusBadge`, with one
+  readable name per status (the names live in `STATUS_TO_HUMAN` and
+  `COURIER_STATUS_TO_HUMAN` in `src/shared-types`, so the badge and the event timeline agree)
+  and no raw enum text. Status badges do not change colour on hover. A restaurant's facts
+  render through `DetailList`. The old outline `StatusBadge` and `CourierStatusBadge` are gone.
+- **Icons come from Phosphor** (`@phosphor-icons/react` 2.1.10, the same as request-web)
+  instead of `lucide-react`. Icons are hidden from screen readers by default; the spinner
+  speaks, and the toast close button is named "Close".
+- **Dates read day first on the 24 hour clock**, for example "30/09/2026, 23:25".
+- Tests: 53 by agy for the foundation, then the review fixes' tests (`095328e`, `172af49`).
+  They check the theme against `tokens.json` (skipped when the design system folder is not
+  beside this repo), every status label, that no lucide import comes back, and the clock.
 
 ### Base fee and price breakdown (scope row 51): `a618c97`, `87313d5`, `0061662`
 - **A "Base Fee Per Delivery" field on Instance configuration**, in whole cents, with a live
@@ -116,6 +146,15 @@ Scope row 55 (remove the dropped registry from Instance configuration) was built
 
 ## Fixed
 
+- **The delivery status page builds and works again** (scope row 93). It and `/chat` imported
+  `@/modules/orders`, which never existed here, so neither page built. The status page now
+  uses the deliveries module and the `deliveryId` from its own route. It sends a `courierId`
+  with `ACCEPTED`, as the backend requires, and both admin event menus leave `ACCEPTED` out
+  while a delivery has no rider. After a change it reports the status the server answered
+  with, says "Nothing changed" when the event had no transition, and shows the backend's own
+  reason when it was refused. The event list and the `courierId` rule are shared with the
+  delivery page's Trigger event menu in `modules/deliveries/utils/adminEvents.ts`.
+  `71accd9`, `3f7cb4f`, `e65f396`; tests `840d7e9`, `f8a082b`
 - **Every save on Instance configuration now reports a refusal** (scope row 50). The privacy
   policy, terms of service, rules and description editors, and the two registry saves, showed
   "saved" even when the backend refused the change, because they never called `.unwrap()`. They
@@ -191,6 +230,18 @@ Scope row 55 (remove the dropped registry from Instance configuration) was built
 
 ## Removed
 
+- **The unreachable merchants admin code** (scope row 5): the merchants, merchant groups and
+  merchant organizations modules, their three layouts, the timezone combobox, four admin
+  components only they used, the Merchant and Catalog cache tags, and the timezone list and
+  weekday map they left behind. Nothing under `src/pages` reached any of it. 42 plus 4 files,
+  about 3,800 lines. Typecheck went from 110 to 48 errors, and lint from 2 warnings to 0.
+  `cc89127`, `a861d84`
+- **upstream's Twilio order chat** (scope row 93). There was no backend behind it, so `/chat`
+  is now a plain Messages page that says it is not available yet; the chat module, its
+  conversation route and `useChat` went, with the dead refund form types. `71accd9`
+- **`lucide-react`** (scope row 63), three unreachable components that still imported it
+  (`Actions.tsx`, `card-list-actions.tsx`, `country-combobox.tsx`), and two Tailwind configs
+  nothing loaded. `7347352`
 - **The instance registry's controls on Instance configuration** (scope row 55): the "Register
   Instance" button and view, the register and unregister calls, and the registry list. The
   co-op runs one instance, so the registry is dropped. The page no longer reads or sends
@@ -225,11 +276,16 @@ Scope row 55 (remove the dropped registry from Instance configuration) was built
 - On deliveries priced before row 51, the breakdown's "Rider pay (base fee + distance fee)"
   does not add up: base 0 plus the old price, next to the old pay (which included the old
   floor). The spec accepts this for old dev data.
-- Lint still reports 2 `no-img-element` hits in `merchant-card-images.tsx`, which is
-  unreachable and a candidate for deletion.
-- About 110 typecheck errors predate this fork.
+- 36 typecheck errors predate this fork.
 - The checked-in admin SDK misreports nullability. Treat it with care.
 - After any save on Instance configuration, the whole form reloads from the server, so unsaved
   edits in other fields are lost. Both the payout menu and quote rate Save buttons do this.
 - "Save All Changes" logs the whole config to the browser console when it succeeds
   (`console.log(config, computedURLs)`, from upstream).
+- Button `success` and `warning`, Badge `info` and every `Alert` exist and are tested, but no
+  page uses them yet. The redesign rows give them their first uses.
+- `Nav.tsx` and the login page still carry `dark:` classes from upstream. They do nothing,
+  because nothing turns dark mode on; the redesign rows clear them.
+- Money still reads "€12.00" in the US style; dates already use the Greek order.
+- Beside a backend on `feat/offer-expiry`, the settings coverage guard fails 6 tests until
+  Instance configuration shows the three offer expiry settings (scope row 61).
