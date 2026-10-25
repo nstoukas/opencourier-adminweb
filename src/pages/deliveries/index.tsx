@@ -2,7 +2,9 @@ import { useGetCouriersQuery } from '@/api/couriersApi'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
+import { useNow } from '@/hooks/useNow'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { DeliveriesFilters, DeliveriesTableFilters } from '@/modules/deliveries/components/DeliveriesTableFilters'
 import { DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import { DeliveryAdminDto } from '../../backend-admin-sdk'
@@ -26,6 +28,9 @@ function CourierResolvedName({
   return <span className="break-all font-mono text-xs text-muted-foreground">{courierId}</span>
 }
 
+// How often the Offer column is refreshed, in milliseconds.
+const OFFER_REFRESH_MS = 30_000
+
 const OrdersPage: NextPage = () => {
   const { goToDeliveryDetails } = useAdminPageNavigator()
   const [filters, setFilters] = useState<DeliveriesFilters>()
@@ -34,12 +39,19 @@ const OrdersPage: NextPage = () => {
     pageSize: DEFAULT_PAGE_SIZE,
   })
 
-  const getOrdersResponse = useGetDeliveriesQuery({
-    state: filters?.state,
-    search: filters?.search,
-    page: pagination.pageIndex + 1,
-    perPage: pagination.pageSize,
-  })
+  // The Offer column changes on its own (an offer expires, moves to the next rider, a rider
+  // comes free), so the list asks the backend again every 30 s; `pollingInterval` is RTK
+  // Query's built in timer for that. `now` ages the minutes shown between two fetches.
+  const getOrdersResponse = useGetDeliveriesQuery(
+    {
+      state: filters?.state,
+      search: filters?.search,
+      page: pagination.pageIndex + 1,
+      perPage: pagination.pageSize,
+    },
+    { pollingInterval: OFFER_REFRESH_MS },
+  )
+  const now = useNow(OFFER_REFRESH_MS)
 
   const { data: couriersPayload } = useGetCouriersQuery({ page: 1, perPage: 500 })
 
@@ -62,6 +74,13 @@ const OrdersPage: NextPage = () => {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        // Spec 0002, AC-11: who holds the open offer and for how long, or how long nobody
+        // has been free. Empty for a delivery that is not looking for a rider.
+        id: 'offer',
+        header: 'Offer',
+        cell: ({ row }) => <OfferSummary delivery={row.original} now={now} />,
       },
       {
         id: 'courierId',
@@ -114,7 +133,7 @@ const OrdersPage: NextPage = () => {
       //   accessorFn: ({ cost }) => (cost ? `$${formatPennies(cost.subtotalAmount)}` : 'N/A'),
       // },
     ],
-    [courierNameById],
+    [courierNameById, now],
   )
 
   return (
