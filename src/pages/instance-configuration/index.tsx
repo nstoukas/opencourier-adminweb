@@ -27,6 +27,7 @@ import ReactMarkdown from "react-markdown";
 import { parseQuoteRateInput } from "@/utils/quoteRate";
 import { describeBaseFee, parseBaseFeeInput } from "@/utils/baseFee";
 import { parseNumberInput } from "@/utils/numberInput";
+import { describeOfferExpiry } from "@/utils/offerExpiry";
 import { QuoteRateEditor } from "@/modules/instance-config/components/QuoteRateEditor";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
 
@@ -144,6 +145,17 @@ const InstanceConfigurationPage: NextPage = () => {
   const [baseFeeError, setBaseFeeError] = useState("");
   const [isSavingBaseFee, setIsSavingBaseFee] = useState(false);
 
+  // Offer expiry (spec 0002, AC-10). Like the base fee, these live outside `config` so only
+  // their own Save button sends them; "Save All Changes" never touches them. Each is named
+  // after its setting so the coverage guard test finds the box bound to it.
+  // `boolean | null`: null until the settings arrive, so the page never shows (or saves)
+  // "off" for a switch it has not read yet.
+  const [offerExpiryEnabled, setOfferExpiryEnabled] = useState<boolean | null>(null);
+  // The two number boxes hold the text typed (a string), like the base fee box.
+  const [offerExpirySeconds, setOfferExpirySeconds] = useState("");
+  const [noCourierRetrySeconds, setNoCourierRetrySeconds] = useState("");
+  const [isSavingOfferSettings, setIsSavingOfferSettings] = useState(false);
+
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
   const [rulesContent, setRulesContent] = useState("");
@@ -206,6 +218,15 @@ const InstanceConfigurationPage: NextPage = () => {
           : String(data.quoteBaseFee),
       );
       setBaseFeeError("");
+      setOfferExpiryEnabled(data.offerExpiryEnabled ?? null);
+      setOfferExpirySeconds(
+        data.offerExpirySeconds == null ? "" : String(data.offerExpirySeconds),
+      );
+      setNoCourierRetrySeconds(
+        data.noCourierRetrySeconds == null
+          ? ""
+          : String(data.noCourierRetrySeconds),
+      );
       setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
       setTermsOfServiceContent(details.termsOfServiceContent ?? "");
       setRulesContent(details.rulesContent ?? "");
@@ -585,6 +606,39 @@ const InstanceConfigurationPage: NextPage = () => {
       console.error("Failed to save base fee:", error);
     } finally {
       setIsSavingBaseFee(false);
+    }
+  };
+
+  const handleSaveOfferSettings = async () => {
+    // The button is off until the settings have loaded, so this never sends a guessed switch.
+    if (offerExpiryEnabled === null) return;
+    setIsSavingOfferSettings(true);
+    try {
+      // The three go in one request and nothing else does. What is in the boxes is sent as is
+      // (an empty box as null): the backend owns the rules (whole seconds, 20 to 300 and 10 to
+      // 300) and refuses a bad value with a message naming the setting, which the toast shows.
+      // `as number` only quiets the SDK type, which has no room for null; the backend refuses null.
+      await setInstanceConfigMutation({
+        offerExpiryEnabled,
+        offerExpirySeconds: parseNumberInput(offerExpirySeconds) as number,
+        noCourierRetrySeconds: parseNumberInput(noCourierRetrySeconds) as number,
+      }).unwrap();
+      toast({
+        title: "Success!",
+        description:
+          "Offer settings saved. They apply to the next offer; an offer already out keeps its deadline.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message ||
+          "Failed to save the offer settings. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save offer settings:", error);
+    } finally {
+      setIsSavingOfferSettings(false);
     }
   };
 
@@ -1057,6 +1111,85 @@ const InstanceConfigurationPage: NextPage = () => {
                 className="max-w-[120px]"
               />
             </div>
+            <section
+              aria-labelledby="offer-expiry-heading"
+              className="max-w-[500px] rounded-md border border-border p-4 flex flex-col gap-3"
+            >
+              <h3 id="offer-expiry-heading" className="text-lg font-medium">
+                Offers to riders
+              </h3>
+              <div>
+                <Label htmlFor="offerExpiryEnabled">Offer expiry</Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {describeOfferExpiry(offerExpiryEnabled, offerExpirySeconds)}
+                </p>
+                <select
+                  id="offerExpiryEnabled"
+                  className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={offerExpiryEnabled === null ? "" : offerExpiryEnabled ? "on" : "off"}
+                  disabled={offerExpiryEnabled === null}
+                  onChange={(e) => setOfferExpiryEnabled(e.target.value === "on")}
+                >
+                  {offerExpiryEnabled === null && (
+                    <option value="">Not loaded yet</option>
+                  )}
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="offerExpirySeconds">
+                  Seconds before an unanswered offer ends
+                </Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Whole seconds, 20 to 300. Used only while Offer expiry is on.
+                  An offer an admin makes by hand never ends on its own.
+                </p>
+                <Input
+                  id="offerExpirySeconds"
+                  key="offerExpirySeconds"
+                  type="number"
+                  min={20}
+                  max={300}
+                  step={1}
+                  value={offerExpirySeconds}
+                  onChange={(event) => setOfferExpirySeconds(event.target.value)}
+                  className="max-w-[120px]"
+                />
+              </div>
+              <div>
+                <Label htmlFor="noCourierRetrySeconds">
+                  Seconds between retries when no rider is free
+                </Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Whole seconds, 10 to 300. A delivery nobody could take is
+                  offered again this often, and at once when a rider comes
+                  online or finishes. Applies whether Offer expiry is on or off.
+                </p>
+                <Input
+                  id="noCourierRetrySeconds"
+                  key="noCourierRetrySeconds"
+                  type="number"
+                  min={10}
+                  max={300}
+                  step={1}
+                  value={noCourierRetrySeconds}
+                  onChange={(event) =>
+                    setNoCourierRetrySeconds(event.target.value)
+                  }
+                  className="max-w-[120px]"
+                />
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  disabled={isSavingOfferSettings || offerExpiryEnabled === null}
+                  onClick={handleSaveOfferSettings}
+                >
+                  {isSavingOfferSettings ? "Saving…" : "Save offer settings"}
+                </Button>
+              </div>
+            </section>
             <ReassignmentPayoutPolicyEditor
               policies={instanceConfigResponse.data?.reassignmentPayoutPolicies}
               defaultPolicy={instanceConfigResponse.data?.reassignmentPayoutDefaultPolicy}
