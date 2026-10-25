@@ -2,6 +2,7 @@ import {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
   DeliveryEventAdminDto,
+  DeliverySubmitEventAdminInputEventTypeEnum,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
 import { api as baseApi, prepareAdminSdk } from '.'
@@ -70,7 +71,11 @@ export const deliveriesApi = baseApi.injectEndpoints({
             id: deliveryId,
             deliverySubmitEventAdminInput: {
               deliveryId,
-              eventType,
+              // `as` narrows the type by hand. adminweb's event list now also holds OFFERED,
+              // OFFER_EXPIRED and NO_COURIER_AVAILABLE, which only the platform records; the
+              // SDK's submit list rightly lacks them. Callers pass events from the admin menus,
+              // which come from STATE_MACHINE, and that table never lists those three.
+              eventType: eventType as DeliverySubmitEventAdminInputEventTypeEnum,
               ...(courierId ? { courierId } : {}),
             },
           })

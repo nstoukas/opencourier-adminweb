@@ -37,6 +37,9 @@ export type DeliveryStateNode = {
  * - CANCELED — non-terminal pre-dropoff states.
  * - DROPPED_OFF — ON_THE_WAY | COURIER_ARRIVED_AT_DROPOFF_LOCATION → DROPPED_OFF (FULFILLED on doorstep unchanged).
  * - FAILED — per transitions below; also CANCELED → FAILED.
+ * - OFFERED, OFFER_EXPIRED, NO_COURIER_AVAILABLE (spec 0002) — the backend keeps the delivery in
+ *   ASSIGNING_COURIER for all three, but only the platform records them, so they are left out here
+ *   on purpose: this table is what the admin event menus offer, and an admin must not submit them.
  */
 export const STATE_MACHINE: Record<EnumDeliveryStatus, DeliveryStateNode> = {
 	[EnumDeliveryStatus.CREATED]: {

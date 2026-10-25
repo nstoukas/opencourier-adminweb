@@ -11,18 +11,39 @@ export enum EnumDeliveryEventType {
   ARRIVED_AT_PICKUP_LOCATION = 'ARRIVED_AT_PICKUP_LOCATION',
   PICKED_UP = 'PICKED_UP',
   ON_THE_WAY = 'ON_THE_WAY',
-  FAILED = 'FAILED'
+  FAILED = 'FAILED',
+  // Offer expiry (spec 0002). The platform records these by itself; an admin never submits
+  // them, so they are deliberately absent from STATE_MACHINE and the admin event menus.
+  OFFERED = 'OFFERED',
+  OFFER_EXPIRED = 'OFFER_EXPIRED',
+  NO_COURIER_AVAILABLE = 'NO_COURIER_AVAILABLE'
 }
 
 export enum EnumEventActor {
   COURIER = 'COURIER',
   ADMIN = 'ADMIN',
-  PARTNER = 'PARTNER'
+  PARTNER = 'PARTNER',
+  // Events the platform raises on its own: automatic offers, expiries, "no rider free".
+  SYSTEM = 'SYSTEM'
 }
 
 export enum EnumDeliveryEventSource {
   OPENCOURIER = 'OPENCOURIER',
   PARTNER_APP = 'PARTNER_APP'
+}
+
+// The words the event timeline shows for who caused an event and where it came from, so the
+// page never prints the raw enum ("SYSTEM · OPENCOURIER").
+export const EVENT_ACTOR_TO_HUMAN: Record<EnumEventActor, string> = {
+  COURIER: 'Courier',
+  ADMIN: 'Admin',
+  PARTNER: 'Partner',
+  SYSTEM: 'System',
+}
+
+export const EVENT_SOURCE_TO_HUMAN: Record<EnumDeliveryEventSource, string> = {
+  OPENCOURIER: 'OpenCourier',
+  PARTNER_APP: 'Partner app',
 }
 
 export enum EnumDeliveryStatus {
@@ -90,6 +111,16 @@ export interface DeliveryOnTheWayEvent extends BaseDeliveryEvent {
   type: typeof EnumDeliveryEventType.ON_THE_WAY
 }
 
+export interface DeliveryOfferedEvent extends BaseDeliveryEvent {
+  type: typeof EnumDeliveryEventType.OFFERED
+}
+export interface DeliveryOfferExpiredEvent extends BaseDeliveryEvent {
+  type: typeof EnumDeliveryEventType.OFFER_EXPIRED
+}
+export interface DeliveryNoCourierAvailableEvent extends BaseDeliveryEvent {
+  type: typeof EnumDeliveryEventType.NO_COURIER_AVAILABLE
+}
+
 export interface DeliveryDroppedOffEvent extends BaseDeliveryEvent {
   type: typeof EnumDeliveryEventType.DROPPED_OFF
   deliveredData: {
@@ -113,6 +144,9 @@ export type DeliveryEvent =
   | DeliveryDroppedOffEvent
   | DeliveryCanceledEvent
   | DeliveryFailedEvent
+  | DeliveryOfferedEvent
+  | DeliveryOfferExpiredEvent
+  | DeliveryNoCourierAvailableEvent
 
 export interface ResolvedPendingKeyRotation {
   accountKeys: []
