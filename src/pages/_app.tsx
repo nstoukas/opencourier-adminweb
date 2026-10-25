@@ -15,6 +15,7 @@ import weekday from 'dayjs/plugin/weekday'
 import { NextPage } from 'next'
 import { AppProps } from 'next/app'
 import Head from 'next/head'
+import { IconContext } from '@phosphor-icons/react'
 import { ReactElement, ReactNode } from 'react'
 import { PersistGate } from 'redux-persist/integration/react'
 
@@ -42,31 +43,47 @@ export type WithAuth = {
 
 type AppPropsWithExtras = AppProps & WithLayout & WithAuth
 
+// Phosphor icons are pictures beside words, so screen readers should skip them. lucide did
+// this on its own; Phosphor does not, so every icon gets aria-hidden here by default. An icon
+// that carries meaning alone (the Spinner) passes aria-hidden={false}, and an icon only button
+// needs its own words (an sr-only span or aria-label).
+// The value replaces Phosphor's defaults rather than adding to them, so they are repeated here.
+const ICON_DEFAULTS = {
+  color: 'currentColor',
+  size: '1em',
+  weight: 'regular',
+  mirrored: false,
+  'aria-hidden': true,
+} as const
+
 function App({ Component, ...rest }: AppPropsWithExtras) {
   const { store, props } = wrapper.useWrappedStore(rest)
   const getLayout = Component.getLayout ?? ((page) => page)
 
   return (
-    <TooltipProvider>
-      <Head>
-        <title>OpenCourier Admin</title>
-      </Head>
-      <PersistGate persistor={store.__persistor} loading={null}>
-        {Component.public ? (
-          getLayout(<Component {...props.pageProps} />)
-        ) : (
-          // <WebSocketProvider>
-            <AuthGuard>
-              {/* <GlobalEventListener /> */}
-              <main>{getLayout(<Component {...props.pageProps} />)}</main>
-            </AuthGuard>
-          // </WebSocketProvider>
-        )}
-      </PersistGate>
-      <Toaster />
-      <SheetsManager />
-      <ModalManager />
-    </TooltipProvider>
+    // A React context Provider hands a value to every component below it without passing props.
+    <IconContext.Provider value={ICON_DEFAULTS}>
+      <TooltipProvider>
+        <Head>
+          <title>OpenCourier Admin</title>
+        </Head>
+        <PersistGate persistor={store.__persistor} loading={null}>
+          {Component.public ? (
+            getLayout(<Component {...props.pageProps} />)
+          ) : (
+            // <WebSocketProvider>
+              <AuthGuard>
+                {/* <GlobalEventListener /> */}
+                <main>{getLayout(<Component {...props.pageProps} />)}</main>
+              </AuthGuard>
+            // </WebSocketProvider>
+          )}
+        </PersistGate>
+        <Toaster />
+        <SheetsManager />
+        <ModalManager />
+      </TooltipProvider>
+    </IconContext.Provider>
   )
 }
 

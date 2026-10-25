@@ -12,7 +12,17 @@ type SpinnerProps = React.ComponentProps<typeof CircleNotch> & { label?: string 
  * started the work and keep the button's label. Lists and cards load with Skeleton instead.
  */
 function Spinner({ className, label = 'Loading', ...props }: SpinnerProps) {
-  return <CircleNotch role="status" aria-label={label} className={cn('h-4 w-4 animate-spin', className)} {...props} />
+  // Icons are hidden from screen readers by default (IconContext in _app.tsx). The spinner is
+  // the one icon that says something ("Loading"), so it opts back in with aria-hidden={false}.
+  return (
+    <CircleNotch
+      role="status"
+      aria-label={label}
+      aria-hidden={false}
+      className={cn('h-4 w-4 animate-spin', className)}
+      {...props}
+    />
+  )
 }
 
 export { Spinner }

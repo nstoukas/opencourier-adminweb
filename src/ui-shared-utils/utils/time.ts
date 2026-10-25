@@ -1,8 +1,9 @@
 import { DateTimeDto } from '@/backend-customer-sdk'
 import dayjs from 'dayjs'
 
+// The 24 hour clock, like every other time in admin (decision D6): "15:05", never "3:05 PM".
 export function formatDateAsHourAndMinute(date: string | number | Date): string {
-  return dayjs(date).format('h:mm A')
+  return dayjs(date).format('HH:mm')
 }
 
 // How a date and time read across admin: Greek order, day first, and the 24 hour clock,
@@ -37,7 +38,9 @@ export function formatDateTime(dateTime: DateTimeDto) {
   const now = new Date()
 
   const dateFormatter = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short', day: 'numeric' })
-  const timeFormatter = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit', hour12: true })
+  // hourCycle 'h23' is the 24 hour clock that starts at 00, so a minute past midnight reads
+  // "00:01" (decision D6). The weekday and month stay in English, like the rest of admin.
+  const timeFormatter = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
   // Check if the date is today
   if (date.toDateString() === now.toDateString()) {

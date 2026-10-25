@@ -1,4 +1,4 @@
-import { STATUS_TO_HUMAN } from '../shared-types/state-machine'
+import { statusLabel } from '../admin-web-components/components/atoms/StatusBadge'
 
 // Converts UPPER_SNAKE_CASE event type into Sentence case string for display.
 export function humanizeEventType(type: string): string {
@@ -7,11 +7,12 @@ export function humanizeEventType(type: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
-// Looks up a status string in STATUS_TO_HUMAN map or falls back to raw status string.
+// The words for a delivery status: the same ones StatusBadge shows (both read STATUS_TO_HUMAN
+// through statusLabel), so the timeline and the badge above it never name a status two ways.
+// An unknown value reads as words ("Some new status"), never raw caps.
 export function humanizeStatus(status: string | null | undefined): string {
   if (!status) return '—'
-  // Index record as string to safely handle status enum values or arbitrary strings.
-  return (STATUS_TO_HUMAN as Record<string, string>)[status] ?? status
+  return statusLabel(status)
 }
 
 // Ignore status fields on failure because backend saveDeliveryEvent swaps oldStatus/newStatus on failure path.

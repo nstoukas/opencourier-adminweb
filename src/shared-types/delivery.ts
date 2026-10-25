@@ -39,10 +39,11 @@ export interface CourierStatusUpdateEvent {
   deliveryInformation: GenericDeliveryInformation
 }
 
+// The words a person reads for each courier status; StatusBadge reads them from here.
 export const COURIER_STATUS_TO_HUMAN: Record<EnumCourierStatus, string> = {
   ONLINE: 'Online',
   OFFLINE: 'Offline',
-  LAST_CALL: 'last_call',
+  LAST_CALL: 'Last Call',
 }
 
 export interface DeliveryAddress {

@@ -1,14 +1,17 @@
 import { EnumDeliveryEventType, EnumDeliveryStatus } from "./delivery-events";
 
+// The one list of the words a person reads for each delivery status. StatusBadge, the event
+// timeline and the admin status page all read it, so a status has one name everywhere. The
+// words are the design system's (opencourier-design-system, components/StatusBadge).
 export const STATUS_TO_HUMAN: Record<EnumDeliveryStatus, string> = {
 	CREATED: 'Created',
 	ASSIGNING_COURIER: 'Assigning Courier',
 	ACCEPTED: 'Accepted',
 	DISPATCHED: 'Dispatched',
-	COURIER_ARRIVED_AT_PICKUP_LOCATION: 'Courier Arrived At Pickup Location',
+	COURIER_ARRIVED_AT_PICKUP_LOCATION: 'Courier at Pickup',
 	PICKED_UP: 'Picked Up',
-	ON_THE_WAY: 'On The Way',
-	COURIER_ARRIVED_AT_DROPOFF_LOCATION: 'Courier Arrived At Dropoff Location',
+	ON_THE_WAY: 'On the Way',
+	COURIER_ARRIVED_AT_DROPOFF_LOCATION: 'Courier at Dropoff',
 	DROPPED_OFF: 'Dropped Off',
 	CANCELED: 'Canceled',
 	FAILED: 'Failed',

@@ -4,6 +4,7 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useOrderStatusForm } from '@/modules/deliveries/hooks/form/useOrderStatusForm'
 import { OrderEventFormValues } from '@/modules/deliveries/types'
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
+import { humanizeEventType, humanizeStatus } from '@/utils/deliveryEventDisplay'
 import {
   Button,
   Card,
@@ -17,6 +18,7 @@ import {
   FormLabel,
   FormMessage,
   Spinner,
+  StatusBadge,
   Label,
   Select,
   SelectContent,
@@ -46,7 +48,10 @@ const DeliveryStatusPage: NextPage = () => {
     const eventType = values.eventType
     // The form's schema already refuses an empty choice; this check tells TypeScript so.
     if (!data || !eventType) return
-    if (!confirm(`Submitting event from status "${data.status}": "${eventType}"?`)) return
+    // People read words, not enum codes: the status in the badge's words, the event in the
+    // timeline's words (an event is something that happened, so its name differs from a status).
+    const eventName = humanizeEventType(eventType)
+    if (!confirm(`Submit "${eventName}" for this delivery? Its status is now ${humanizeStatus(data.status)}.`)) return
 
     try {
       const updated = await submitDeliveryEvent({
@@ -59,10 +64,10 @@ const DeliveryStatusPage: NextPage = () => {
       if (updated.status === data.status) {
         toast({
           title: 'Nothing changed',
-          description: `The server did not apply "${eventType}". Status is still ${updated.status}.`,
+          description: `The server did not apply "${eventName}". Status is still ${humanizeStatus(updated.status)}.`,
         })
       } else {
-        toast({ title: 'Event submitted', description: `Status is now ${updated.status}.` })
+        toast({ title: 'Event submitted', description: `Status is now ${humanizeStatus(updated.status)}.` })
       }
       form.reset()
     } catch (error: any) {
@@ -92,10 +97,10 @@ const DeliveryStatusPage: NextPage = () => {
               <CardTitle>Delivery Details</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-6">
-              <Label className="flex flex-col space-y-1">
-                <span>Status</span>
-                <span className="font-normal leading-snug text-muted-foreground">{data.status}</span>
-              </Label>
+              <div className="flex flex-col items-start space-y-1">
+                <Label>Status</Label>
+                <StatusBadge status={data.status} />
+              </div>
               <Label className="flex flex-col space-y-1">
                 <span>Courier ID</span>
                 <span className="font-normal leading-snug text-muted-foreground break-all">
@@ -131,7 +136,7 @@ const DeliveryStatusPage: NextPage = () => {
                             <SelectContent>
                               {possibleEvents.map((eventType) => (
                                 <SelectItem value={eventType} key={eventType}>
-                                  {eventType}
+                                  {humanizeEventType(eventType)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -149,7 +154,7 @@ const DeliveryStatusPage: NextPage = () => {
                   </form>
                 </Form>
               ) : (
-                <span className="text-muted-foreground">No status change is possible from {data.status}.</span>
+                <span className="text-muted-foreground">No status change is possible from {humanizeStatus(data.status)}.</span>
               )}
             </CardContent>
           </Card>
