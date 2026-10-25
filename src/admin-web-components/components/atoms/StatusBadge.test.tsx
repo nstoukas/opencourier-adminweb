@@ -3,8 +3,11 @@ import { render, screen } from '@testing-library/react'
 import fs from 'fs'
 import path from 'path'
 import { StatusBadge } from './StatusBadge'
+import { Badge } from './Badge'
 import { EnumDeliveryStatus } from '../../../shared-types/delivery-events'
-import { EnumCourierStatus } from '../../../shared-types/delivery'
+import { COURIER_STATUS_TO_HUMAN, EnumCourierStatus } from '../../../shared-types/delivery'
+import { STATUS_TO_HUMAN } from '../../../shared-types/state-machine'
+import { humanizeStatus } from '../../../utils/deliveryEventDisplay'
 
 describe('StatusBadge component', () => {
   describe('delivery statuses', () => {
@@ -218,6 +221,81 @@ describe('StatusBadge component', () => {
     it('confirms the old StatusBadge.tsx and CourierStatusBadge.tsx no longer exist', () => {
       expect(fs.existsSync(oldStatusBadgePath)).toBe(false)
       expect(fs.existsSync(oldCourierStatusBadgePath)).toBe(false)
+    })
+  })
+
+  describe('One name per status (Ruling 2)', () => {
+    it('holds design system labels in STATUS_TO_HUMAN and COURIER_STATUS_TO_HUMAN', () => {
+      expect(STATUS_TO_HUMAN[EnumDeliveryStatus.COURIER_ARRIVED_AT_PICKUP_LOCATION]).toBe('Courier at Pickup')
+      expect(STATUS_TO_HUMAN[EnumDeliveryStatus.ON_THE_WAY]).toBe('On the Way')
+      expect(STATUS_TO_HUMAN[EnumDeliveryStatus.COURIER_ARRIVED_AT_DROPOFF_LOCATION]).toBe('Courier at Dropoff')
+      expect(COURIER_STATUS_TO_HUMAN[EnumCourierStatus.LAST_CALL]).toBe('Last Call')
+    })
+
+    it('ensures humanizeStatus(s) === the label StatusBadge renders === STATUS_TO_HUMAN[s] for every delivery status', () => {
+      for (const status of Object.values(EnumDeliveryStatus)) {
+        const expected = STATUS_TO_HUMAN[status]
+        const { unmount } = render(<StatusBadge status={status} />)
+        const renderedLabel = screen.getByText(expected).textContent
+        expect(humanizeStatus(status)).toBe(expected)
+        expect(renderedLabel).toBe(expected)
+        expect(humanizeStatus(status)).toBe(renderedLabel)
+        unmount()
+      }
+    })
+
+    it('ensures the label StatusBadge renders === COURIER_STATUS_TO_HUMAN[c] for every courier status', () => {
+      for (const status of Object.values(EnumCourierStatus)) {
+        const expected = COURIER_STATUS_TO_HUMAN[status]
+        const { unmount } = render(<StatusBadge kind="courier" status={status} />)
+        const renderedLabel = screen.getByText(expected).textContent
+        expect(renderedLabel).toBe(expected)
+        unmount()
+      }
+    })
+  })
+
+  describe('StatusBadge hover state cancellation (Ruling 3)', () => {
+    it('does not carry hover:bg-.*/80 on StatusBadge variants, while plain Badge does', () => {
+      // 1. default variant (DROPPED_OFF)
+      const { unmount: u1 } = render(<StatusBadge status={EnumDeliveryStatus.DROPPED_OFF} />)
+      const droppedOffBadge = screen.getByText(STATUS_TO_HUMAN[EnumDeliveryStatus.DROPPED_OFF])
+      expect(droppedOffBadge.className).not.toMatch(/hover:bg-.*\/80/)
+      expect(droppedOffBadge.className).toContain('hover:bg-primary')
+      u1()
+
+      // 2. secondary variant (e.g. CREATED)
+      const { unmount: u2 } = render(<StatusBadge status={EnumDeliveryStatus.CREATED} />)
+      const createdBadge = screen.getByText(STATUS_TO_HUMAN[EnumDeliveryStatus.CREATED])
+      expect(createdBadge.className).not.toMatch(/hover:bg-.*\/80/)
+      expect(createdBadge.className).toContain('hover:bg-secondary')
+      u2()
+
+      // 3. destructive variant (CANCELED)
+      const { unmount: u3 } = render(<StatusBadge status={EnumDeliveryStatus.CANCELED} />)
+      const canceledBadge = screen.getByText(STATUS_TO_HUMAN[EnumDeliveryStatus.CANCELED])
+      expect(canceledBadge.className).not.toMatch(/hover:bg-.*\/80/)
+      expect(canceledBadge.className).toContain('hover:bg-destructive')
+      u3()
+
+      // Plain Badge counterparts DO carry hover:bg-.*/80
+      const { unmount: u4 } = render(<Badge variant="default">Plain Default</Badge>)
+      const plainDefault = screen.getByText('Plain Default')
+      expect(plainDefault.className).toMatch(/hover:bg-.*\/80/)
+      expect(plainDefault.className).toContain('hover:bg-primary/80')
+      u4()
+
+      const { unmount: u5 } = render(<Badge variant="secondary">Plain Secondary</Badge>)
+      const plainSecondary = screen.getByText('Plain Secondary')
+      expect(plainSecondary.className).toMatch(/hover:bg-.*\/80/)
+      expect(plainSecondary.className).toContain('hover:bg-secondary/80')
+      u5()
+
+      const { unmount: u6 } = render(<Badge variant="destructive">Plain Destructive</Badge>)
+      const plainDestructive = screen.getByText('Plain Destructive')
+      expect(plainDestructive.className).toMatch(/hover:bg-.*\/80/)
+      expect(plainDestructive.className).toContain('hover:bg-destructive/80')
+      u6()
     })
   })
 })

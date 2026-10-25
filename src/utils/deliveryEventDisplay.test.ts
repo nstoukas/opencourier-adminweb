@@ -1,4 +1,6 @@
 import { humanizeEventType, humanizeStatus, describeTransition } from './deliveryEventDisplay'
+import { EnumDeliveryStatus } from '../shared-types/delivery-events'
+import { STATUS_TO_HUMAN } from '../shared-types/state-machine'
 
 describe('deliveryEventDisplay utils', () => {
   it('humanizes UPPER_SNAKE_CASE event types to sentence case', () => {
@@ -7,11 +9,19 @@ describe('deliveryEventDisplay utils', () => {
     expect(humanizeEventType('')).toBe('—')
   })
 
-  it('humanizes status codes using STATUS_TO_HUMAN or falls back to raw string or em dash', () => {
+  it('humanizes status codes using STATUS_TO_HUMAN or falls back to words or em dash', () => {
     expect(humanizeStatus('ASSIGNING_COURIER')).toBe('Assigning Courier')
     expect(humanizeStatus(null)).toBe('—')
     expect(humanizeStatus(undefined)).toBe('—')
-    expect(humanizeStatus('SOMETHING_NEW')).toBe('SOMETHING_NEW')
+    // Unknown values now read as words ('Something new'), never raw caps
+    expect(humanizeStatus('SOMETHING_NEW')).toBe('Something new')
+    expect(humanizeStatus('ANOTHER_UNKNOWN_STATUS')).toBe('Another unknown status')
+  })
+
+  it('ensures humanizeStatus(s) equals STATUS_TO_HUMAN[s] for every EnumDeliveryStatus value', () => {
+    for (const status of Object.values(EnumDeliveryStatus)) {
+      expect(humanizeStatus(status)).toBe(STATUS_TO_HUMAN[status])
+    }
   })
 
   it('describes status transitions for successful and stayed transitions', () => {

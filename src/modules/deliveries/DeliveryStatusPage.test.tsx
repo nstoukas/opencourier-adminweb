@@ -38,6 +38,7 @@ jest.mock('../../api/deliveriesApi', () => ({
 // Mock Radix Select primitive so select options can be triggered cleanly in JSDOM
 jest.mock('@radix-ui/react-select', () => {
   const ReactActual = require('react') as typeof import('react')
+  const { humanizeEventType } = require('../../utils/deliveryEventDisplay')
   const SelectContext = ReactActual.createContext<{ onValueChange?: (v: string) => void; value?: string }>({})
   return {
     Root: ({ children, onValueChange, value }: any) => (
@@ -52,7 +53,8 @@ jest.mock('@radix-ui/react-select', () => {
     ),
     Value: ({ placeholder, children }: any) => {
       const { value } = ReactActual.useContext(SelectContext)
-      return <span>{children || value || placeholder}</span>
+      const display = children || (value ? humanizeEventType(value) : null) || placeholder
+      return <span>{display}</span>
     },
     Icon: ({ children }: any) => <span>{children}</span>,
     Portal: ({ children }: any) => <div>{children}</div>,
@@ -119,7 +121,10 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       expect(screen.getByText('Delivery Details')).toBeInTheDocument()
 
       // Delivery fields
-      expect(screen.getByText('CREATED')).toBeInTheDocument()
+      const statusBadge = screen.getByText('Created')
+      expect(statusBadge).toBeInTheDocument()
+      expect(statusBadge).toHaveAttribute('data-status', EnumDeliveryStatus.CREATED)
+      expect(screen.queryByText('CREATED')).toBeNull()
       expect(screen.getByText('courier-assigned-99')).toBeInTheDocument()
       expect(screen.getByText('Nikos Galis')).toBeInTheDocument()
 
@@ -140,6 +145,24 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       const courierLabel = screen.getByText('Courier ID').closest('label')
       expect(courierLabel).toHaveTextContent('—')
+    })
+    it('shows no raw enum text in page text (uses StatusBadge and humanized labels)', () => {
+      render(<DeliveryStatusPage />)
+
+      // The status must be rendered as a StatusBadge with data-status attribute
+      const statusBadge = screen.getByText('Created')
+      expect(statusBadge).toBeInTheDocument()
+      expect(statusBadge).toHaveAttribute('data-status', EnumDeliveryStatus.CREATED)
+
+      // No raw enum string should appear anywhere in the rendered page text
+      const pageText = document.body.textContent || ''
+      const rawStatuses = Object.values(EnumDeliveryStatus)
+      for (const status of rawStatuses) {
+        expect(pageText).not.toContain(status)
+      }
+      expect(pageText).not.toContain('ACCEPTED')
+      expect(pageText).not.toContain('CANCELED')
+      expect(pageText).not.toContain('ASSIGNING_COURIER')
     })
   })
 
@@ -167,9 +190,11 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       expect(screen.getByText('Change Status')).toBeInTheDocument()
-      expect(screen.getByText(EnumDeliveryEventType.ACCEPTED)).toBeInTheDocument()
-      expect(screen.getByText(EnumDeliveryEventType.CANCELED)).toBeInTheDocument()
-      expect(screen.queryByText(EnumDeliveryEventType.FAILED)).toBeNull()
+      expect(screen.getByText('Accepted')).toBeInTheDocument()
+      expect(screen.getByText('Canceled')).toBeInTheDocument()
+      expect(screen.queryByText('Failed')).toBeNull()
+      expect(screen.queryByText(EnumDeliveryEventType.ACCEPTED)).toBeNull()
+      expect(screen.queryByText(EnumDeliveryEventType.CANCELED)).toBeNull()
     })
 
     it('omits ACCEPTED from offered transitions when delivery has no rider ids', () => {
@@ -186,9 +211,9 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       expect(screen.getByText('Change Status')).toBeInTheDocument()
-      expect(screen.getByText(EnumDeliveryEventType.CANCELED)).toBeInTheDocument()
-      expect(screen.queryByText(EnumDeliveryEventType.ACCEPTED)).toBeNull()
-      expect(screen.queryByText(EnumDeliveryEventType.FAILED)).toBeNull()
+      expect(screen.getByText('Canceled')).toBeInTheDocument()
+      expect(screen.queryByText('Accepted')).toBeNull()
+      expect(screen.queryByText('Failed')).toBeNull()
     })
 
     it('includes ACCEPTED when delivery has matchedCourierId', () => {
@@ -203,7 +228,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       render(<DeliveryStatusPage />)
 
-      expect(screen.getByText(EnumDeliveryEventType.ACCEPTED)).toBeInTheDocument()
+      expect(screen.getByText('Accepted')).toBeInTheDocument()
     })
 
     it('includes ACCEPTED when delivery has courierId fallback', () => {
@@ -218,7 +243,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       render(<DeliveryStatusPage />)
 
-      expect(screen.getByText(EnumDeliveryEventType.ACCEPTED)).toBeInTheDocument()
+      expect(screen.getByText('Accepted')).toBeInTheDocument()
     })
 
     it('renders "No status change is possible from <status>." when no admin transitions exist', () => {
@@ -231,13 +256,14 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       expect(
-        screen.getByText('No status change is possible from DROPPED_OFF.')
+        screen.getByText('No status change is possible from Dropped Off.')
       ).toBeInTheDocument()
+      expect(screen.queryByText(/DROPPED_OFF/)).toBeNull()
       // Form and submit button must not be rendered
       expect(screen.queryByRole('button', { name: /submit event/i })).toBeNull()
     })
 
-    it('renders "No status change is possible from CANCELED." when only FAILED transition was available', () => {
+    it('renders "No status change is possible from Canceled." when only FAILED transition was available', () => {
       // CANCELED only transitions to FAILED, which is excluded from admin events
       mockUseGetDeliveryQuery.mockReturnValue({
         data: { ...sampleDelivery, status: EnumDeliveryStatus.CANCELED },
@@ -247,7 +273,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       expect(
-        screen.getByText('No status change is possible from CANCELED.')
+        screen.getByText('No status change is possible from Canceled.')
       ).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /submit event/i })).toBeNull()
     })
@@ -260,7 +286,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       // Select an event
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByText('Canceled'))
 
       // Click submit
       const submitBtn = screen.getByRole('button', { name: 'Submit event' })
@@ -268,7 +294,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       await waitFor(() => {
         expect(confirmSpy).toHaveBeenCalledWith(
-          'Submitting event from status "CREATED": "CANCELED"?'
+          'Submit "Canceled" for this delivery? Its status is now Created.'
         )
       })
 
@@ -288,7 +314,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       // Select CANCELED event
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByText('Canceled'))
 
       // Submit
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
@@ -304,7 +330,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       // Shows success toast with server returned status
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Event submitted',
-        description: 'Status is now CANCELED.',
+        description: 'Status is now Canceled.',
       })
 
       confirmSpy.mockRestore()
@@ -319,7 +345,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       // Select ACCEPTED event
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.ACCEPTED))
+      fireEvent.click(screen.getByText('Accepted'))
 
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
 
@@ -333,7 +359,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Event submitted',
-        description: 'Status is now ASSIGNING_COURIER.',
+        description: 'Status is now Assigning Courier.',
       })
 
       confirmSpy.mockRestore()
@@ -357,7 +383,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       // Select ACCEPTED event
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.ACCEPTED))
+      fireEvent.click(screen.getByText('Accepted'))
 
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
 
@@ -382,7 +408,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       render(<DeliveryStatusPage />)
 
       // Select CANCELED event
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByText('Canceled'))
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
 
       await waitFor(() => {
@@ -395,7 +421,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Nothing changed',
-        description: 'The server did not apply "CANCELED". Status is still CREATED.',
+        description: 'The server did not apply "Canceled". Status is still Created.',
       })
 
       confirmSpy.mockRestore()
@@ -413,8 +439,8 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
       expect(combobox).toHaveTextContent('Select delivery event')
 
       // Select an event
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
-      expect(combobox).toHaveTextContent(EnumDeliveryEventType.CANCELED)
+      fireEvent.click(screen.getByText('Canceled'))
+      expect(combobox).toHaveTextContent('Canceled')
 
       // Submit
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
@@ -437,7 +463,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       render(<DeliveryStatusPage />)
 
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByText('Canceled'))
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
 
       await waitFor(() => {
@@ -460,7 +486,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
 
       render(<DeliveryStatusPage />)
 
-      fireEvent.click(screen.getByText(EnumDeliveryEventType.CANCELED))
+      fireEvent.click(screen.getByText('Canceled'))
       fireEvent.click(screen.getByRole('button', { name: 'Submit event' }))
 
       await waitFor(() => {
