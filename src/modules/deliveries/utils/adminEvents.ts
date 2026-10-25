@@ -1,4 +1,3 @@
-import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryEventType, transitionsForStatus } from '../../../shared-types'
 
 // Events the admin menus never offer, even where the state machine allows them.
@@ -23,10 +22,11 @@ export function adminEventsForStatus(status: string): EnumDeliveryEventType[] {
  */
 export function courierIdForAdminEvent(
   eventType: EnumDeliveryEventType,
-  // Pick<T, K> is T cut down to the listed fields, so callers can pass any object that has them.
-  delivery: Pick<DeliveryAdminDto, 'matchedCourierId' | 'courierId'>
+  // Typed wider than DeliveryAdminDto on purpose: the SDK says these are `string | null`,
+  // but a key the backend leaves out arrives as undefined, so the type admits that too.
+  delivery: { matchedCourierId?: string | null; courierId?: string | null }
 ): string | undefined {
   if (eventType !== EnumDeliveryEventType.ACCEPTED) return undefined
-  // `||` rather than `??`: the SDK can hand back '' or undefined here despite its types.
+  // `||` rather than `??`, so an empty string counts as no rider too.
   return delivery.matchedCourierId || delivery.courierId || undefined
 }
