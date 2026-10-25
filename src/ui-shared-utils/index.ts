@@ -25,7 +25,6 @@ export * from './utils/numbers'
 // hooks
 export { create } from './hooks/create'
 export { useAppDispatch } from './hooks/useAppDispatch'
-export { useChat, type NoshConversation, type NoshMessage, type NoshChat } from './hooks/useChat'
 export { useCurrencyInput } from './hooks/useCurrencyInput'
 export { useDebouncedValue } from './hooks/useDebounce'
 export { useMergedRef } from './hooks/useMergedRef'
