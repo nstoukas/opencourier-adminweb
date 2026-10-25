@@ -431,6 +431,37 @@ describe('DeliveryDetails component', () => {
       confirmSpy.mockRestore()
     })
 
+    it('sends courierId with ACCEPTED event on menu trigger', async () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+      mockSubmitDeliveryEvent.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+
+      const deliveryInAssigning = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        matchedCourierId: 'courier-matched-77',
+        courierId: 'c1',
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: deliveryInAssigning, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Open menu trigger
+      fireEvent.click(screen.getByText('Trigger event'))
+
+      // Click ACCEPTED event item
+      fireEvent.click(screen.getByText(/^Accepted$/i))
+
+      await waitFor(() => {
+        expect(mockSubmitDeliveryEvent).toHaveBeenCalledWith({
+          deliveryId: 'd100',
+          eventType: EnumDeliveryEventType.ACCEPTED,
+          courierId: 'courier-matched-77',
+        })
+      })
+
+      confirmSpy.mockRestore()
+    })
+
     it('shows destructive toast when submitting delivery event fails', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({
