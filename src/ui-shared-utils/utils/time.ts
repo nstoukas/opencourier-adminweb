@@ -6,6 +6,11 @@ export function formatDateAsHourAndMinute(date: string | number | Date): string 
   return dayjs(date).format('HH:mm')
 }
 
+// A time to the second on the 24 hour clock, "15:05:42". For offers, which can last 20 s.
+export function formatTimeWithSeconds(date: string | number | Date): string {
+  return dayjs(date).format('HH:mm:ss')
+}
+
 // How a date and time read across admin: Greek order, day first, and the 24 hour clock,
 // for example "30/09/2026, 23:25" (night run decision D6; request-web reads the same).
 // Shown in the browser's own time zone, as before.

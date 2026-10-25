@@ -3,14 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/admin-web-com
 import { formatDate } from '@/ui-shared-utils'
 import { useGetDeliveryEventsQuery } from '@/api/deliveriesApi'
 import { humanizeEventType, describeTransition } from '@/utils/deliveryEventDisplay'
+import { EVENT_ACTOR_TO_HUMAN, EVENT_SOURCE_TO_HUMAN } from '@/shared-types'
 
 interface DeliveryEventTimelineProps {
   deliveryId: string
+  // Rider names by id, to name the rider an OFFERED or OFFER_EXPIRED event is about. Optional:
+  // without it (or for a rider not in it) the timeline shows the rider's id instead.
+  courierNameById?: Map<string, string>
+}
+
+// The words for an actor or a source; a value this copy does not know yet is shown as sent.
+// `Record<string, string | undefined>` lets us look up any string and get undefined back.
+function wordsFor(table: Record<string, string | undefined>, value: string): string {
+  return table[value] ?? value
 }
 
 // Renders the recorded DeliveryEvent history of a delivery, oldest first.
-export function DeliveryEventTimeline({ deliveryId }: DeliveryEventTimelineProps) {
-  const eventsQuery = useGetDeliveryEventsQuery({ deliveryId }, { skip: !deliveryId })
+export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryEventTimelineProps) {
+  // Polled every 30 s like the delivery above it, so a new OFFERED, OFFER_EXPIRED or
+  // NO_COURIER_AVAILABLE row appears without a reload.
+  const eventsQuery = useGetDeliveryEventsQuery({ deliveryId }, { skip: !deliveryId, pollingInterval: 30_000 })
   const { data: events, isLoading, isError } = eventsQuery
   // Typed `unknown` deliberately. The base query is declared through a `@ts-expect-error`
   // (src/api/index.ts:7), which leaves this inferred as a type that can never hold a value —
@@ -61,9 +73,22 @@ export function DeliveryEventTimeline({ deliveryId }: DeliveryEventTimelineProps
                     <div>
                       <span className="text-muted-foreground block">Actor & Source</span>
                       <span className="font-medium">
-                        {event.actor} · {event.eventSource}
+                        {wordsFor(EVENT_ACTOR_TO_HUMAN, event.actor)} · {wordsFor(EVENT_SOURCE_TO_HUMAN, event.eventSource)}
                       </span>
                     </div>
+
+                    {/* Only OFFERED and OFFER_EXPIRED name a rider: the one this offer went to, on
+                        this delivery's own timeline. Never a count per rider (value 5). */}
+                    {event.courierId ? (
+                      <div>
+                        <span className="text-muted-foreground block">Rider</span>
+                        {courierNameById?.get(event.courierId) ? (
+                          <span className="font-medium">{courierNameById.get(event.courierId)}</span>
+                        ) : (
+                          <span className="font-mono break-all">{event.courierId}</span>
+                        )}
+                      </div>
+                    ) : null}
 
                     <div>
                       <span className="text-muted-foreground block">Transition</span>

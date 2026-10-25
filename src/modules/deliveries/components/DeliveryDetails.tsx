@@ -1,9 +1,13 @@
 import React from 'react'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
+import { useGetAllCouriersQuery } from '@/api/couriersApi'
+import { useNow } from '@/hooks/useNow'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
+import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
+import { deliveryOffer, minutesWaiting } from '@/modules/deliveries/utils/offer'
 import { formatMoney } from '@/utils/formatMoney'
 import {
   Button,
@@ -11,6 +15,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  DetailList,
   Label,
   Menu,
   MenuItem,
@@ -22,7 +27,7 @@ import {
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryEventType, EnumDeliveryStatus } from '../../../shared-types'
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
-import { cn, formatDate, formatOptionalDate } from '../../../ui-shared-utils'
+import { cn, formatDate, formatOptionalDate, formatTimeWithSeconds } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
 import { ArrowLeft } from '@phosphor-icons/react'
 
@@ -99,6 +104,46 @@ function PriceBreakdownCard({ delivery }: { delivery: DeliveryAdminDto }) {
   )
 }
 
+// The open offer in detail (spec 0002, AC-11): who holds it, when it went out and when it ends,
+// or since when nobody has been free. Times carry seconds, because an offer may last only 20.
+// Shown only while the delivery is looking for a rider; it names the rider of this one offer,
+// never a history or a count (value 5).
+function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date }) {
+  const offer = deliveryOffer(delivery)
+  if (!offer) return null
+
+  const items =
+    offer.kind === 'offered'
+      ? [
+          { label: 'Offered to', value: offer.riderName },
+          {
+            label: 'Offered at',
+            value: offer.since ? `${formatTimeWithSeconds(offer.since)} (${minutesWaiting(offer.since, now)} ago)` : null,
+          },
+          {
+            label: 'Offer ends',
+            value: delivery.offerExpiresAt
+              ? formatTimeWithSeconds(delivery.offerExpiresAt)
+              : 'Not on its own: offer expiry is off, or an admin made this offer',
+          },
+        ]
+      : [
+          { label: 'No rider free since', value: formatTimeWithSeconds(offer.since) },
+          { label: 'Waiting', value: minutesWaiting(offer.since, now) },
+        ]
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Offer</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <DetailList items={items} />
+      </CardContent>
+    </Card>
+  )
+}
+
 type DeliveryDetailsProps = {
   deliveryId: string
   isSheet?: boolean
@@ -107,7 +152,16 @@ type DeliveryDetailsProps = {
 export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { goToDeliveries } = useAdminPageNavigator()
 
-  const getDeliveryResponse = useGetDeliveryQuery({ id: props.deliveryId })
+  // Asked again every 30 s, like the list, because an offer can now end or move on its own.
+  const getDeliveryResponse = useGetDeliveryQuery({ id: props.deliveryId }, { pollingInterval: 30_000 })
+  const now = useNow(30_000)
+  // Every rider's name by id, so the event timeline can say who an offer went to.
+  const { data: couriers = [] } = useGetAllCouriersQuery()
+  // useMemo keeps the same Map between renders until the courier list itself changes.
+  const courierNameById = React.useMemo(
+    () => new Map(couriers.map((c) => [c.id, `${c.firstName} ${c.lastName}`.trim()])),
+    [couriers]
+  )
 
   const [submitDeliveryEvent] = useSubmitDeliveryEventMutation()
   const { toast } = useToast()
@@ -175,10 +229,12 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               className="flex flex-wrap items-center gap-2 md:items-center"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* The same words as the list's Offer column, with the full name. */}
               <span className="text-sm text-muted-foreground">
-                Waiting for response from courier{' '}
-                <span className="font-mono text-xs text-foreground">
-                  {delivery.matchedCourierId ?? '—'}
+                Offer:{' '}
+                <span className="text-foreground">
+                  <OfferSummary delivery={delivery} now={now} nameStyle="full" />
+                  {deliveryOffer(delivery) ? null : 'looking for a rider'}
                 </span>
               </span>
               <AssignCourierCell delivery={delivery} />
@@ -201,7 +257,9 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
           ) : null}
         </div>
 
-        <DeliveryEventTimeline deliveryId={delivery.id} />
+        <OfferCard delivery={delivery} now={now} />
+
+        <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
 
         <Card>
           <CardHeader>
