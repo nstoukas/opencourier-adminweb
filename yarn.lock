@@ -13488,11 +13488,6 @@ react-remove-scroll@^2.6.3:
     use-callback-ref "^1.3.3"
     use-sidecar "^1.1.3"
 
-react-resizable-panels@^0.0.55:
-  version "0.0.55"
-  resolved "https://registry.npmjs.org/react-resizable-panels/-/react-resizable-panels-0.0.55.tgz"
-  integrity sha512-J/LTFzUEjJiqwSjVh8gjUXkQDA8MRPjARASfn++d2+KOgA+9UcRYUfE3QBJixer2vkk+ffQ4cq3QzWzzHgqYpQ==
-
 react-simple-animate@^3.3.12:
   version "3.5.2"
   resolved "https://registry.npmjs.org/react-simple-animate/-/react-simple-animate-3.5.2.tgz"

@@ -74,7 +74,8 @@ function App({ Component, ...rest }: AppPropsWithExtras) {
             // <WebSocketProvider>
               <AuthGuard>
                 {/* <GlobalEventListener /> */}
-                <main>{getLayout(<Component {...props.pageProps} />)}</main>
+                {/* No <main> here: the shell (DefaultLayout) draws the page's one <main>. */}
+                {getLayout(<Component {...props.pageProps} />)}
               </AuthGuard>
             // </WebSocketProvider>
           )}
