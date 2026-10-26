@@ -4,7 +4,9 @@ import { Provider } from 'react-redux'
 import fs from 'fs'
 import path from 'path'
 import { makeStore } from '../../redux/store'
-import { setAccessToken } from '../../modules/auth/slices/authSlice'
+import { api } from '../../api'
+import { selectAccessToken, setAccessToken } from '../../modules/auth/slices/authSlice'
+import { openSheet, selectSheets } from '../../modules/shared/slices/sheetManagerSlice'
 import { DefaultLayout } from './DefaultLayout'
 import { isActivePath } from './AdminSidebar'
 import { PageHeader } from './PageHeader'
@@ -185,7 +187,31 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(overviewLink).not.toHaveAttribute('aria-current')
     })
 
-    it('Sign Out button in footer dispatches setAccessToken(null)', () => {
+    it('Sign Out button in footer resets token, clears API cache, and closes all sheets', async () => {
+      // Pre-seed an access token, an open sheet, and a cached API query
+      store.dispatch(setAccessToken('test-admin-token'))
+      store.dispatch(
+        openSheet({
+          id: 'test-open-sheet',
+          children: 'Open Sheet Content',
+        })
+      )
+      // Inject and initiate a lightweight query to populate store.getState().api.queries
+      const testApi = api.injectEndpoints({
+        endpoints: (build) => ({
+          getSignOutTestQuery: build.query<{ ok: boolean }, void>({
+            queryFn: () => ({ data: { ok: true } }),
+          }),
+        }),
+        overrideExisting: true,
+      })
+      await store.dispatch(testApi.endpoints.getSignOutTestQuery.initiate())
+
+      // Verify pre-conditions: store has token, cached queries, and open sheets
+      expect(selectAccessToken(store.getState())).toBe('test-admin-token')
+      expect(Object.keys(store.getState().api.queries).length).toBeGreaterThan(0)
+      expect(selectSheets(store.getState()).length).toBeGreaterThan(0)
+
       const dispatchSpy = jest.spyOn(store, 'dispatch')
       renderLayout()
 
@@ -194,7 +220,19 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
 
       fireEvent.click(signOutButton)
 
+      // Dispatches setAccessToken(null), api.util.resetApiState(), and closeAllSheets()
       expect(dispatchSpy).toHaveBeenCalledWith(setAccessToken(null))
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'api/resetApiState' })
+      )
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'sheets/closeAllSheets' })
+      )
+
+      // Post-conditions: after Sign Out the store has no token, no cached queries and no open sheets
+      expect(selectAccessToken(store.getState())).toBeNull()
+      expect(Object.keys(store.getState().api.queries)).toHaveLength(0)
+      expect(selectSheets(store.getState())).toHaveLength(0)
     })
   })
 

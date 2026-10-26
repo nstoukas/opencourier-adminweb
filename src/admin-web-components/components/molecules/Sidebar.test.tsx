@@ -95,4 +95,87 @@ describe('Sidebar molecule components (row 86)', () => {
     const activeBtn = screen.getByRole('button', { name: 'Active Link' })
     expect(activeBtn).toHaveAttribute('data-active', 'true')
   })
+
+  describe('Mobile Sheet accessibility and resize behavior (row 86 review fixes)', () => {
+    const originalInnerWidth = window.innerWidth
+
+    afterEach(() => {
+      // Restore window.innerWidth and cleanup any mocks
+      window.innerWidth = originalInnerWidth
+      jest.restoreAllMocks()
+    })
+
+    it('mobile sheet has an sr-only SheetDescription linked by aria-describedby', () => {
+      render(
+        <SidebarProvider>
+          <SidebarTrigger />
+          <Sidebar>
+            <div>Sidebar Links</div>
+          </Sidebar>
+        </SidebarProvider>
+      )
+
+      // Open sheet
+      fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+      const dialog = screen.getByRole('dialog')
+      expect(dialog).toBeInTheDocument()
+
+      // SheetDescription exists with exact screen-reader text
+      const description = screen.getByText('Links to every admin page.')
+      expect(description).toBeInTheDocument()
+      expect(description).toHaveClass('sr-only')
+
+      // Radix UI connects the description via aria-describedby
+      const describedById = dialog.getAttribute('aria-describedby')
+      expect(describedById).toBeTruthy()
+      expect(description).toHaveAttribute('id', describedById)
+    })
+
+    it('adds no resize listener while the mobile sheet is closed', () => {
+      const addEventListenerSpy = jest.spyOn(window, 'addEventListener')
+
+      render(
+        <SidebarProvider>
+          <SidebarTrigger />
+          <Sidebar>
+            <div>Sidebar Links</div>
+          </Sidebar>
+        </SidebarProvider>
+      )
+
+      // While closed, no resize listener should be attached to window
+      expect(addEventListenerSpy).not.toHaveBeenCalledWith('resize', expect.any(Function))
+    })
+
+    it('closes mobile sheet when resized to >= 1024px (e.g. 1200px), but keeps it open below 1024px', () => {
+      window.innerWidth = 800
+      const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener')
+
+      render(
+        <SidebarProvider>
+          <SidebarTrigger />
+          <Sidebar>
+            <div>Sidebar Links</div>
+          </Sidebar>
+        </SidebarProvider>
+      )
+
+      // Open the sheet
+      fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      // Resizing to 900px (< 1024px desktop breakpoint) keeps the sheet open
+      window.innerWidth = 900
+      fireEvent(window, new Event('resize'))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      // Resizing to 1200px (>= 1024px) closes the sheet
+      window.innerWidth = 1200
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByRole('dialog')).toBeNull()
+
+      // Closing removes the resize event listener
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function))
+    })
+  })
 })

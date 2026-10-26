@@ -7,10 +7,36 @@ import {
   useSetInstanceConfigMutation,
 } from '../../api/configApi'
 
-// Mock ESM-only react-markdown dependency for Jest runner
+// Mock ESM-only react-markdown dependency for Jest runner, rendering headings through custom components
 jest.mock('react-markdown', () => ({
   __esModule: true,
-  default: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  default: ({
+    children,
+    components,
+  }: {
+    children?: string | React.ReactNode
+    components?: Record<string, React.ComponentType<any>>
+  }) => {
+    if (typeof children === 'string' && components) {
+      const lines = children.split('\n')
+      return (
+        <div data-testid="markdown-preview">
+          {lines.map((line, idx) => {
+            if (line.startsWith('# ')) {
+              const H1Comp = components.h1 || 'h1'
+              return <H1Comp key={idx}>{line.slice(2)}</H1Comp>
+            }
+            if (line.startsWith('## ')) {
+              const H2Comp = components.h2 || 'h2'
+              return <H2Comp key={idx}>{line.slice(3)}</H2Comp>
+            }
+            return <p key={idx}>{line}</p>
+          })}
+        </div>
+      )
+    }
+    return <div>{children}</div>
+  },
 }))
 
 // Mock DefaultLayout to avoid requiring Redux provider wrapper in page tests
@@ -1115,6 +1141,46 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
           })
         )
       })
+    })
+  })
+
+  describe('Markdown heading rendering and single h1 invariant (row 86 review fix 4df8ba6)', () => {
+    it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: baseMockConfigData,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      // Initial view shows exactly one <h1> rendered by PageHeader
+      const initialH1s = screen.getAllByRole('heading', { level: 1 })
+      expect(initialH1s).toHaveLength(1)
+      expect(initialH1s[0]).toHaveTextContent('Instance Configuration')
+
+      // Switch to editing rules view
+      const editRulesButton = screen.getByRole('button', { name: /Edit Rules/i })
+      fireEvent.click(editRulesButton)
+
+      // Enter a top-level markdown heading in the rules editor textarea
+      const textarea = screen.getByRole('textbox')
+      fireEvent.change(textarea, {
+        target: { value: '# Volos Delivery Rules\n## Subheading' },
+      })
+
+      // The markdown heading "# Volos Delivery Rules" must render as an <h2>
+      const rulesHeading = screen.getByRole('heading', {
+        level: 2,
+        name: 'Volos Delivery Rules',
+      })
+      expect(rulesHeading).toBeInTheDocument()
+      expect(rulesHeading.tagName).toBe('H2')
+
+      // The entire page must maintain exactly one <h1> ("Instance Configuration")
+      const pageH1s = screen.getAllByRole('heading', { level: 1 })
+      expect(pageH1s).toHaveLength(1)
+      expect(pageH1s[0]).toHaveTextContent('Instance Configuration')
     })
   })
 })
