@@ -25,5 +25,11 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 - A backend enum gaining a value does not reach the UI by itself: update the copy in
   `src/shared-types/` and its label map.
 - The generated SDK's nullability is unreliable, so a null check that looks redundant may be load-bearing.
+- A new setting in the hand edited SDK needs both its Dto (reading) and its AdminInput serializer
+  (saving); without the second, a save drops it silently.
+- `OFFERED`, `OFFER_EXPIRED` and `NO_COURIER_AVAILABLE` are platform events: in the enum copy, never
+  in `STATE_MACHINE`, so the admin trigger menu cannot send them.
+- The value 5 guard (`src/shared-types/regression.test.ts`) fails on any count or grouping of events
+  or offers per courier anywhere in `src`.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
