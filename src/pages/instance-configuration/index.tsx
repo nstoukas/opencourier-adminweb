@@ -41,8 +41,9 @@ const MARKDOWN_COMPONENTS = {
     <ol className="list-decimal list-inside ml-4" {...props} />
   ),
   li: ({ node: _node, ...props }: any) => <li className="mb-1" {...props} />,
+  // A `#` heading in the rules text becomes an h2: the page's one h1 is its PageHeader title.
   h1: ({ children }: any) => (
-    <h1 className="text-2xl font-bold mt-6 mb-3">{children}</h1>
+    <h2 className="text-2xl font-bold mt-6 mb-3">{children}</h2>
   ),
   h2: ({ children }: any) => (
     <h2 className="text-xl font-semibold mt-5 mb-3">{children}</h2>
