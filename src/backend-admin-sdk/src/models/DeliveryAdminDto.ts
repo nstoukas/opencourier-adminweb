@@ -617,10 +617,12 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'customerName': value.customerName,
         'customerPhoneNumber': value.customerPhoneNumber,
         'createdAt': (value.createdAt.toISOString()),
-        'offeredAt': value.offeredAt === null ? null : value.offeredAt.toISOString(),
-        'offerExpiresAt': value.offerExpiresAt === null ? null : value.offerExpiresAt.toISOString(),
+        // `== null` (two equals signs) is true for both null and undefined, so an object built
+        // without these fields (an old fixture) becomes null instead of throwing on toISOString.
+        'offeredAt': value.offeredAt == null ? null : value.offeredAt.toISOString(),
+        'offerExpiresAt': value.offerExpiresAt == null ? null : value.offerExpiresAt.toISOString(),
         'matchedCourierName': value.matchedCourierName,
-        'waitingForCourierSince': value.waitingForCourierSince === null ? null : value.waitingForCourierSince.toISOString(),
+        'waitingForCourierSince': value.waitingForCourierSince == null ? null : value.waitingForCourierSince.toISOString(),
     };
 }
 
