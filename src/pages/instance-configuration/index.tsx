@@ -1153,6 +1153,9 @@ const InstanceConfigurationPage: NextPage = () => {
                   max={300}
                   step={1}
                   value={offerExpirySeconds}
+                  // Off until the settings load, like the select above: typing here first
+                  // would only be overwritten by the loaded value.
+                  disabled={offerExpiryEnabled === null}
                   onChange={(event) => setOfferExpirySeconds(event.target.value)}
                   className="max-w-[120px]"
                 />
@@ -1174,6 +1177,9 @@ const InstanceConfigurationPage: NextPage = () => {
                   max={300}
                   step={1}
                   value={noCourierRetrySeconds}
+                  // Off until the settings load, like the select above: typing here first
+                  // would only be overwritten by the loaded value.
+                  disabled={offerExpiryEnabled === null}
                   onChange={(event) =>
                     setNoCourierRetrySeconds(event.target.value)
                   }
