@@ -42,6 +42,39 @@ page does not show yet). Typecheck is down to 36 errors and lint to 0.
 
 ## Added
 
+### Offer expiry settings and the Offer column (scope row 61): `5b462d5`, `09a4922`, `8af6b88`, `3e4783f`, `f32e18f`
+Built on `feat/offer-expiry`, on top of row 63. **Not merged yet**: it merges together with the
+backend and mobile halves of row 61, which add the settings and events it shows.
+- **An "Offers to riders" section on Instance configuration** (spec 0002, AC-10): Offer expiry
+  (Off or On, off by default), the offer time in whole seconds (20 to 300) and the retry time
+  for "no rider free". It has its own Save button that sends only those three settings; "Save
+  All Changes" never sends them. A refusal shows the backend's own words, the same honest
+  saves as rows 50 and 55. The switch, both boxes and the button stay disabled until the
+  current values have loaded. `09a4922`, `b8c8c78`
+- **An Offer column on the deliveries list** (AC-11): "Ana P., 2 min" while a rider holds the
+  offer, "No rider free, 4 min" while nobody does, empty otherwise. While a delivery is
+  looking for a rider, the Courier column shows a dash instead of repeating it. `3e4783f`, `d622ea6`
+- **On a delivery's page**: the same line with the rider's full name, and an Offer card listing
+  who, offered at and offer ends, to the second. Once an open offer is more than 33 s past its
+  deadline (the server's 3 s grace plus one refresh), the card says "Overdue since", the sign
+  that the expiry job did not run. The line and the assign control show only while nobody has
+  accepted. `f32e18f`, `a2767c5`, `25892aa`, `0a95c06`
+- **The timeline names the offered rider** on `OFFERED` and `OFFER_EXPIRED` and shows the actor
+  and source in words ("System · OpenCourier"). Adminweb's enum copy gains `OFFERED`,
+  `OFFER_EXPIRED`, `NO_COURIER_AVAILABLE` and the `SYSTEM` actor, but the three events stay out
+  of `STATE_MACHINE`, so the admin "Trigger event" menu never offers them. `8af6b88`, `f32e18f`
+- The list, a delivery and its timeline refresh every 30 s, paused while the browser tab is
+  hidden (`usePageVisible`; this repo's RTK 1.9.7 has no built in option for it). `3e4783f`, `c8b5cdc`
+- The hand edited SDK carries the three settings both ways, the delivery's offer fields
+  (`offeredAt`, `offerExpiresAt`, `matchedCourierName`, `waitingForCourierSince`) and `courierId`
+  on an event. A delivery with an undefined date no longer crashes its serialiser. `5b462d5`, `e2981b8`
+- Nothing counts or scores expired offers per rider (value 5): a rider is named only for the
+  offer they hold now, or on one delivery's timeline. A test guard scans the SDK models and the
+  frontend source (`api`, `modules`, `pages`, `components`, `utils`) for any such count.
+- Reviewed by Sonnet and by agy; seven fixes came out of it, among them "Unknown rider" shown
+  whole instead of "Unknown r.". `95cd7cc` to `0a95c06`
+- Tests by agy: 475 pass (393 before, when 6 of them failed). `e23b6ee`, `f44a7d7`, `d271270`
+
 ### The OpenCourier design system (scope row 63): `7347352`, `426839d`
 - **The colours and corner radius come from the co-op's design system**
   (`opencourier-design-system/tokens/tokens.json`): the `:root` theme in `globals.css` and
@@ -287,5 +320,5 @@ page does not show yet). Typecheck is down to 36 errors and lint to 0.
 - `Nav.tsx` and the login page still carry `dark:` classes from upstream. They do nothing,
   because nothing turns dark mode on; the redesign rows clear them.
 - Money still reads "€12.00" in the US style; dates already use the Greek order.
-- Beside a backend on `feat/offer-expiry`, the settings coverage guard fails 6 tests until
-  Instance configuration shows the three offer expiry settings (scope row 61).
+- The Offer column and card count minutes with the browser's clock against the server's
+  times; the admin API sends no server time, so a browser clock that is off moves them.
