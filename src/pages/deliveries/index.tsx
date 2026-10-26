@@ -8,7 +8,6 @@ import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { DeliveriesFilters, DeliveriesTableFilters } from '@/modules/deliveries/components/DeliveriesTableFilters'
 import { DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import { DeliveryAdminDto } from '../../backend-admin-sdk'
-import { EnumDeliveryStatus } from '../../shared-types'
 import { formatDate } from '../../ui-shared-utils'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
@@ -87,25 +86,15 @@ const OrdersPage: NextPage = () => {
         header: 'Courier',
         cell: ({ row }) => {
           const d = row.original
-          const isAssigning = d.status === EnumDeliveryStatus.ASSIGNING_COURIER
           return (
             <div
               className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="min-w-0">
-                {isAssigning ? (
-                  <span className="text-xs leading-snug text-muted-foreground">
-                    Waiting for response from courier{' '}
-                    <span className="text-foreground">
-                      {d.matchedCourierId ? (
-                        <CourierResolvedName courierId={d.matchedCourierId} nameById={courierNameById} />
-                      ) : (
-                        '—'
-                      )}
-                    </span>
-                  </span>
-                ) : d.courierId ? (
+                {/* Only the rider who accepted. While the delivery is looking for a rider, the
+                    Offer column already says who holds the offer, so this one shows a dash. */}
+                {d.courierId ? (
                   <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
                 ) : (
                   <span className="text-muted-foreground">—</span>
