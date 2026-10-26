@@ -6,7 +6,7 @@ import { List } from '@phosphor-icons/react'
 
 import { cn } from '../../../ui-shared-utils'
 import { Button } from '../atoms/Button'
-import { Sheet, SheetContent, SheetTitle } from '../atoms/Sheet'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../atoms/Sheet'
 
 /**
  * shadcn's Sidebar (new-york), on Tailwind 3, trimmed to what the admin shell uses. The design
@@ -99,6 +99,8 @@ function Sidebar({ className, children, ...props }: React.ComponentProps<'div'>)
           className="flex w-[--sidebar-width-mobile] flex-col gap-0 bg-sidebar p-0 text-sidebar-foreground lg:hidden"
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
+          {/* Read by screen readers when the sheet opens; Radix ties it to the sheet by aria-describedby. */}
+          <SheetDescription className="sr-only">Links to every admin page.</SheetDescription>
           {children}
         </SheetContent>
       </Sheet>
