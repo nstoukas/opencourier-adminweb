@@ -5,7 +5,7 @@ for a Greek workers' cooperative delivering by moped in Volos. It pairs with the
 fork of `opencourier-backend`, whose `CHANGELOG.md` documents the endpoints used here.
 
 Everything below sits on top of upstream `main` on the branch
-`fix/accepted-event-courier-id` (56 commits, 26 July – 26 October 2026). Each entry names
+`fix/accepted-event-courier-id` (74 commits, 26 July – 26 October 2026). Each entry names
 its commit, and the commit message has the full reasoning and verification notes.
 
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
@@ -33,17 +33,20 @@ Scope row 55 (remove the dropped registry from Instance configuration) was built
 
 Scope rows 5 (the merchants code removed) and 93 (the delivery status and chat pages) were merged
 in on 25 October, and scope row 63 (the OpenCourier design system) was built on the branch
-`feat/design-foundation` and merged in on 26 October. With them the suite has **393 tests**:
-387 pass, and the 6 that fail are the settings coverage guard, which reads the backend checkout
-beside this repo and fails while that backend is on `feat/offer-expiry` (three new settings this
-page does not show yet). Typecheck is down to 36 errors and lint to 0.
+`feat/design-foundation` and merged in on 26 October. Typecheck is down to 36 errors and lint to 0.
+
+Scope row 61 (offer expiry set by the co-op, spec 0002) was built on the branch
+`feat/offer-expiry`, on top of row 63, and merged in on 26 October together with its backend and
+mobile halves. With it the suite is at **475 passing tests** (the settings coverage guard passes
+again, since this page now shows the three new settings), typecheck stays at 36 errors and lint
+at 0.
 
 ---
 
 ## Added
 
 ### Offer expiry settings and the Offer column (scope row 61): `5b462d5`, `09a4922`, `8af6b88`, `3e4783f`, `f32e18f`
-Built on `feat/offer-expiry`, on top of row 63. **Not merged yet**: it merges together with the
+Built on `feat/offer-expiry`, on top of row 63, and merged on 26 October together with the
 backend and mobile halves of row 61, which add the settings and events it shows.
 - **An "Offers to riders" section on Instance configuration** (spec 0002, AC-10): Offer expiry
   (Off or On, off by default), the offer time in whole seconds (20 to 300) and the retry time
