@@ -9,7 +9,6 @@ interface UserInfo {
 
 export interface AuthState {
   accessToken?: string | null
-  chatToken?: string | null
   user?: UserInfo
 }
 
@@ -25,9 +24,6 @@ export const authSlice = createSlice({
     setAccessToken(state, action: { payload: AuthState['accessToken']; type: string }) {
       state.accessToken = action.payload
     },
-    setChatToken(state, action: { payload: AuthState['chatToken']; type: string }) {
-      state.chatToken = action.payload
-    },
     setUser: (state, action: PayloadAction<UserInfo>) => {
       state.user = action.payload
     },
@@ -41,6 +37,6 @@ export const authSlice = createSlice({
   },
 })
 
-export const { setAccessToken, setChatToken } = authSlice.actions
+export const { setAccessToken } = authSlice.actions
 export const selectAccessToken = (state: AppState) => state.auth.accessToken
 export default authSlice.reducer
