@@ -115,6 +115,30 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.offerExpirySeconds).toBe(90)
       expect(serialized.noCourierRetrySeconds).toBe(20)
     })
+
+    it('preserves savedCustomerRetentionMonths in ToJSON serialization (spec 0005, AC-7)', () => {
+      // Load-bearing test guard: without savedCustomerRetentionMonths in ToJSON, the SDK silently drops
+      // it and the save reports success for a change never sent.
+      const input = {
+        savedCustomerRetentionMonths: 12,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.savedCustomerRetentionMonths).toBe(12)
+    })
+
+    it('round-trips savedCustomerRetentionMonths through FromJSON and ToJSON (spec 0005, AC-7)', () => {
+      const originalJson = {
+        savedCustomerRetentionMonths: 24,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.savedCustomerRetentionMonths).toBe(24)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.savedCustomerRetentionMonths).toBe(24)
+    })
   })
 
   describe('InstanceConfigSettingsDto (response deserialization guard - AC-5)', () => {
@@ -233,6 +257,35 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.offerExpiryEnabled).toBe(false)
       expect(json.offerExpirySeconds).toBe(60)
       expect(json.noCourierRetrySeconds).toBe(30)
+    })
+
+    it('deserializes savedCustomerRetentionMonths when present (spec 0005, AC-7)', () => {
+      const json = {
+        details: {},
+        savedCustomerRetentionMonths: 18,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.savedCustomerRetentionMonths).toBe(18)
+    })
+
+    it('deserializes savedCustomerRetentionMonths as null when absent in backend response (spec 0005, AC-7)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.savedCustomerRetentionMonths).toBeNull()
+    })
+
+    it('serializes DTO carrying savedCustomerRetentionMonths back to JSON (spec 0005, AC-7)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        savedCustomerRetentionMonths: 12,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.savedCustomerRetentionMonths).toBe(12)
     })
   })
 

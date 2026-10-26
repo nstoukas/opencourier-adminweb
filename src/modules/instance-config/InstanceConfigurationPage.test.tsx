@@ -1144,6 +1144,159 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     })
   })
 
+  describe('Saved customers retention setting (spec 0005, AC-7)', () => {
+    it('loads the stored value into the retention input', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          savedCustomerRetentionMonths: 12,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const retentionInput = screen.getByLabelText(
+        'Delete a saved customer after this many months unused'
+      ) as HTMLInputElement
+
+      expect(retentionInput.value).toBe('12')
+      expect(retentionInput).not.toBeDisabled()
+      expect(
+        screen.getByRole('button', { name: /save saved customer setting/i })
+      ).not.toBeDisabled()
+    })
+
+    it('the field and its save button are disabled until the settings load', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const retentionInput = screen.getByLabelText(
+        'Delete a saved customer after this many months unused'
+      ) as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+
+      expect(retentionInput.value).toBe('')
+      expect(retentionInput).toBeDisabled()
+      expect(saveButton).toBeDisabled()
+    })
+
+    it('Save sends only { savedCustomerRetentionMonths } (an empty box as null)', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          savedCustomerRetentionMonths: 12,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const retentionInput = screen.getByLabelText(
+        'Delete a saved customer after this many months unused'
+      )
+      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+
+      // 1. Changing to 24 sends exactly { savedCustomerRetentionMonths: 24 }
+      fireEvent.change(retentionInput, { target: { value: '24' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          savedCustomerRetentionMonths: 24,
+        })
+      })
+
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Success!',
+          description: expect.stringContaining('Saved customer retention saved'),
+        })
+      )
+
+      mockSetInstanceConfig.mockClear()
+      mockToast.mockClear()
+
+      // 2. An empty box sends exactly { savedCustomerRetentionMonths: null }
+      fireEvent.change(retentionInput, { target: { value: '' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          savedCustomerRetentionMonths: null,
+        })
+      })
+    })
+
+    it('"Save All Changes" never sends savedCustomerRetentionMonths', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          savedCustomerRetentionMonths: 12,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveAllButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload).not.toHaveProperty('savedCustomerRetentionMonths')
+      })
+    })
+
+    it('refused value\'s message appears in the error toast', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          savedCustomerRetentionMonths: 12,
+        },
+        isLoading: false,
+      })
+
+      const backendErrorMessage = 'savedCustomerRetentionMonths must be 36 or less'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: backendErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const retentionInput = screen.getByLabelText(
+        'Delete a saved customer after this many months unused'
+      )
+      fireEvent.change(retentionInput, { target: { value: '37' } })
+
+      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: backendErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+    })
+  })
+
   describe('Markdown heading rendering and single h1 invariant (row 86 review fix 4df8ba6)', () => {
     it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
