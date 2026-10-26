@@ -19,15 +19,23 @@ export type DeliveryOffer =
   | { kind: 'offered'; riderName: string; since: Date | null }
   | { kind: 'waiting'; since: Date }
 
+// Shown when the backend sends no name for the rider holding the offer. It is not a name, so
+// it is never shortened like one ("Unknown r." would read as a real rider).
+export const UNKNOWN_RIDER = 'Unknown rider'
+
+// The same test the backend uses: still looking for a rider and nobody has accepted. The
+// delivery page asks it too, so the rule lives in one place.
+export function isLookingForRider(delivery: Pick<DeliveryOfferFields, 'status' | 'courierId'>): boolean {
+  return delivery.status === EnumDeliveryStatus.ASSIGNING_COURIER && !delivery.courierId
+}
+
 export function deliveryOffer(delivery: DeliveryOfferFields): DeliveryOffer | null {
-  // The same test the backend uses: still looking for a rider and nobody has accepted.
-  const isLooking = delivery.status === EnumDeliveryStatus.ASSIGNING_COURIER && !delivery.courierId
-  if (!isLooking) return null
+  if (!isLookingForRider(delivery)) return null
   if (delivery.matchedCourierId) {
     return {
       kind: 'offered',
       // The backend leaves the name null only if the rider's record is gone.
-      riderName: delivery.matchedCourierName || 'Unknown rider',
+      riderName: delivery.matchedCourierName || UNKNOWN_RIDER,
       // null for an offer made before offers were timed: shown without a time.
       since: delivery.offeredAt ?? null,
     }
@@ -67,6 +75,8 @@ export function describeOffer(
   const offer = deliveryOffer(delivery)
   if (!offer) return null
   if (offer.kind === 'waiting') return `No rider free, ${minutesWaiting(offer.since, now)}`
-  const name = nameStyle === 'short' ? shortRiderName(offer.riderName) : offer.riderName
+  // The fallback is shown as it is: only a real name gets the short form.
+  const shorten = nameStyle === 'short' && offer.riderName !== UNKNOWN_RIDER
+  const name = shorten ? shortRiderName(offer.riderName) : offer.riderName
   return offer.since ? `${name}, ${minutesWaiting(offer.since, now)}` : name
 }
