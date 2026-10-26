@@ -1145,7 +1145,7 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
   })
 
   describe('Markdown heading rendering and single h1 invariant (row 86 review fix 4df8ba6)', () => {
-    it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', async () => {
+    it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: baseMockConfigData,
         isLoading: false,
