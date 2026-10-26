@@ -241,4 +241,92 @@ describe('EditSavedCustomerDialog (spec 0005, AC-6)', () => {
     })
     expect(mockOnSaved).not.toHaveBeenCalled()
   })
+
+  it('a 500 or error with no statusCode shows "The customer could not be saved. Try again in a moment." and keeps dialog open', async () => {
+    mockUpdateCustomer.mockReturnValue({
+      unwrap: () => Promise.reject({ statusCode: 500 }),
+    })
+
+    render(
+      <EditSavedCustomerDialog
+        partnerId="partner-1"
+        restaurantName="Volos Test Kitchen"
+        customer={sampleCustomer}
+        onClose={mockOnClose}
+        onSaved={mockOnSaved}
+        onGone={mockOnGone}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('The customer could not be saved. Try again in a moment.')
+      ).toBeInTheDocument()
+    })
+
+    // Dialog stays open
+    expect(mockOnSaved).not.toHaveBeenCalled()
+    expect(mockOnClose).not.toHaveBeenCalled()
+    expect(mockOnGone).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeInTheDocument()
+
+    // Also verify rejection with no statusCode
+    mockUpdateCustomer.mockReturnValue({
+      unwrap: () => Promise.reject(new Error('Unknown server failure')),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('The customer could not be saved. Try again in a moment.')
+      ).toBeInTheDocument()
+    })
+    expect(mockOnSaved).not.toHaveBeenCalled()
+    expect(mockOnClose).not.toHaveBeenCalled()
+  })
+
+  it('disables Save and Cancel buttons while saving', () => {
+    mockUseUpdatePartnerCustomerMutation.mockReturnValue([
+      mockUpdateCustomer,
+      { isLoading: true },
+    ])
+
+    render(
+      <EditSavedCustomerDialog
+        partnerId="partner-1"
+        restaurantName="Volos Test Kitchen"
+        customer={sampleCustomer}
+        onClose={mockOnClose}
+        onSaved={mockOnSaved}
+        onGone={mockOnGone}
+      />
+    )
+
+    const saveButton = screen.getByRole('button', { name: /saving…/i })
+    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
+
+    expect(saveButton).toBeDisabled()
+    expect(cancelButton).toBeDisabled()
+  })
+
+  it('inputs carry maxLength constraints (name 255, phone 40, floor 255, notes 255)', () => {
+    render(
+      <EditSavedCustomerDialog
+        partnerId="partner-1"
+        restaurantName="Volos Test Kitchen"
+        customer={sampleCustomer}
+        onClose={mockOnClose}
+        onSaved={mockOnSaved}
+        onGone={mockOnGone}
+      />
+    )
+
+    expect(screen.getByLabelText('Name')).toHaveAttribute('maxLength', '255')
+    expect(screen.getByLabelText('Phone')).toHaveAttribute('maxLength', '40')
+    expect(screen.getByLabelText(/Floor or flat/i)).toHaveAttribute('maxLength', '255')
+    expect(screen.getByLabelText(/Notes for the rider/i)).toHaveAttribute('maxLength', '255')
+  })
 })

@@ -369,6 +369,120 @@ describe('PartnerCustomersCard (spec 0005, AC-6)', () => {
     })
   })
 
+  it('drops a Show more answer that arrives after a newer search started', async () => {
+    jest.useFakeTimers()
+
+    // Initial page 1 returns customer1, total 3
+    mockFetchPage.mockReturnValueOnce({
+      unwrap: () => Promise.resolve({ items: [customer1], total: 3 }),
+    })
+
+    render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+    // Flush initial load
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+    const showMoreButton = screen.getByRole('button', { name: 'Show more' })
+    expect(showMoreButton).toBeInTheDocument()
+
+    // Show more pending promise for page 2
+    let resolveShowMore!: (val: any) => void
+    const showMorePromise = new Promise((resolve) => {
+      resolveShowMore = resolve
+    })
+    mockFetchPage.mockReturnValueOnce({
+      unwrap: () => showMorePromise,
+    })
+
+    // Click Show more to start loading page 2
+    fireEvent.click(showMoreButton)
+    expect(mockFetchPage).toHaveBeenCalledTimes(2)
+    expect(mockFetchPage).toHaveBeenLastCalledWith({
+      partnerId: 'partner-1',
+      q: undefined,
+      page: 2,
+      perPage: 20,
+    })
+
+    // Newer search begins while Show more is still pending
+    mockFetchPage.mockReturnValueOnce({
+      unwrap: () => Promise.resolve({ items: [customer2], total: 1 }),
+    })
+
+    const searchInput = screen.getByPlaceholderText('Search name or phone')
+    fireEvent.change(searchInput, { target: { value: 'Nikos' } })
+
+    // Advance 300 ms debounce for search
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(300)
+    })
+
+    expect(mockFetchPage).toHaveBeenCalledTimes(3)
+    expect(mockFetchPage).toHaveBeenLastCalledWith({
+      partnerId: 'partner-1',
+      q: 'Nikos',
+      page: 1,
+      perPage: 20,
+    })
+
+    // Search results are rendered: only customer2, total 1
+    expect(screen.getByText('Nikos Georgiou')).toBeInTheDocument()
+    expect(screen.queryByText('Maria Papadopoulou')).toBeNull()
+    expect(screen.getByText('Customers · 1')).toBeInTheDocument()
+
+    // Older Show more response now arrives with customer3, total 3
+    await act(async () => {
+      resolveShowMore({ items: [customer3], total: 3 })
+      await Promise.resolve()
+    })
+
+    // The stale Show more response is dropped: only the new search's rows and total remain
+    expect(screen.getByText('Nikos Georgiou')).toBeInTheDocument()
+    expect(screen.queryByText('Eleni Dimitriou')).toBeNull()
+    expect(screen.queryByText('Maria Papadopoulou')).toBeNull()
+    expect(screen.getByText('Customers · 1')).toBeInTheDocument()
+
+    jest.useRealTimers()
+  })
+
+  it('shows error toast and re-enables Show more when fetching more fails', async () => {
+    // Initial page 1 returns customer1, total 3
+    mockFetchPage.mockReturnValueOnce({
+      unwrap: () => Promise.resolve({ items: [customer1], total: 3 }),
+    })
+
+    render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument()
+    })
+
+    const showMoreButton = screen.getByRole('button', { name: 'Show more' })
+
+    // Page 2 request fails
+    mockFetchPage.mockReturnValueOnce({
+      unwrap: () => Promise.reject(new Error('Network error')),
+    })
+
+    fireEvent.click(showMoreButton)
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Could not load more customers',
+        description: 'Try again in a moment.',
+        variant: 'destructive',
+      })
+    })
+
+    // Show more button is enabled again so user can retry
+    expect(showMoreButton).not.toBeDisabled()
+    expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+  })
+
   it('Edit and Delete buttons are named "Edit <name>" and "Delete <name>", and there is no Add button', async () => {
     mockFetchPage.mockReturnValue({
       unwrap: () => Promise.resolve({ items: [customer1], total: 1 }),
@@ -527,6 +641,196 @@ describe('PartnerCustomersCard (spec 0005, AC-6)', () => {
       expect(screen.queryByText('Maria Papadopoulou')).toBeNull()
       expect(screen.getByText('Customers · 0')).toBeInTheDocument()
       expect(screen.getByText('This restaurant has no saved customers.')).toBeInTheDocument()
+    })
+  })
+
+  describe('focus after dialog close (spec 0005, review fixes)', () => {
+    it('focuses table container after a delete', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+      mockDeleteMutation.mockReturnValue({
+        unwrap: () => Promise.resolve(),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const deleteBtn = screen.getByRole('button', { name: 'Delete Maria Papadopoulou' })
+      fireEvent.click(deleteBtn)
+
+      expect(screen.getByRole('heading', { name: 'Delete Maria Papadopoulou?' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Delete Maria Papadopoulou?' })).toBeNull()
+        const tableContainer = screen.getByRole('table').closest('div[tabindex="-1"]')
+        expect(document.activeElement).toBe(tableContainer)
+      })
+    })
+
+    it('focuses table container after an Edit that answers 404', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+      mockUpdateMutation.mockReturnValue({
+        unwrap: () => Promise.reject({ statusCode: 404 }),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const editBtn = screen.getByRole('button', { name: 'Edit Maria Papadopoulou' })
+      fireEvent.click(editBtn)
+
+      expect(screen.getByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeNull()
+        const tableContainer = screen.getByRole('table').closest('div[tabindex="-1"]')
+        expect(document.activeElement).toBe(tableContainer)
+      })
+    })
+
+    it('focuses back on row\'s Edit button after a successful Edit', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+      const updatedCustomer: SavedCustomerAdminDto = {
+        ...customer1,
+        name: 'Maria Papadopoulou Updated',
+      }
+      mockUpdateMutation.mockReturnValue({
+        unwrap: () => Promise.resolve(updatedCustomer),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const editBtn = screen.getByRole('button', { name: 'Edit Maria Papadopoulou' })
+      fireEvent.click(editBtn)
+
+      expect(screen.getByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeInTheDocument()
+
+      fireEvent.change(screen.getByLabelText('Name'), {
+        target: { value: 'Maria Papadopoulou Updated' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: /Edit Maria/ })).toBeNull()
+        // The updated row's Edit button has focus
+        const updatedEditBtn = screen.getByRole('button', { name: 'Edit Maria Papadopoulou Updated' })
+        expect(document.activeElement).toBe(updatedEditBtn)
+      })
+    })
+
+    it('focuses back on row\'s Edit button after Cancel on Edit dialog', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const editBtn = screen.getByRole('button', { name: 'Edit Maria Papadopoulou' })
+      fireEvent.click(editBtn)
+
+      expect(screen.getByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeNull()
+        expect(document.activeElement).toBe(editBtn)
+      })
+    })
+
+    it('focuses back on row\'s Edit button after Escape on Edit dialog', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const editBtn = screen.getByRole('button', { name: 'Edit Maria Papadopoulou' })
+      fireEvent.click(editBtn)
+
+      expect(screen.getByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeInTheDocument()
+
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' })
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Edit Maria Papadopoulou' })).toBeNull()
+        expect(document.activeElement).toBe(editBtn)
+      })
+    })
+
+    it('focuses back on row\'s Delete button after Cancel on Delete dialog', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const deleteBtn = screen.getByRole('button', { name: 'Delete Maria Papadopoulou' })
+      fireEvent.click(deleteBtn)
+
+      expect(screen.getByRole('heading', { name: 'Delete Maria Papadopoulou?' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Delete Maria Papadopoulou?' })).toBeNull()
+        expect(document.activeElement).toBe(deleteBtn)
+      })
+    })
+
+    it('focuses back on row\'s Delete button after Escape on Delete dialog', async () => {
+      mockFetchPage.mockReturnValue({
+        unwrap: () => Promise.resolve({ items: [customer1, customer2], total: 2 }),
+      })
+
+      render(<PartnerCustomersCard partnerId="partner-1" restaurantName="Volos Test Kitchen" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      })
+
+      const deleteBtn = screen.getByRole('button', { name: 'Delete Maria Papadopoulou' })
+      fireEvent.click(deleteBtn)
+
+      expect(screen.getByRole('heading', { name: 'Delete Maria Papadopoulou?' })).toBeInTheDocument()
+
+      fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape', code: 'Escape' })
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Delete Maria Papadopoulou?' })).toBeNull()
+        expect(document.activeElement).toBe(deleteBtn)
+      })
     })
   })
 })
