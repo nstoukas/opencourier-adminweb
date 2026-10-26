@@ -5,7 +5,7 @@ for a Greek workers' cooperative delivering by moped in Volos. It pairs with the
 fork of `opencourier-backend`, whose `CHANGELOG.md` documents the endpoints used here.
 
 Everything below sits on top of upstream `main` on the branch
-`fix/accepted-event-courier-id` (89 commits, 26 July to 26 October 2026). Each entry names
+`fix/accepted-event-courier-id` (94 commits, 26 July to 26 October 2026). Each entry names
 its commit, and the commit message has the full reasoning and verification notes.
 
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
@@ -45,9 +45,43 @@ Scope row 86 (the admin sign in and app shell) was built on the branch `feat/adm
 of rows 63 and 61, and fast forwarded in on 26 October. With it the suite is at **529 passing
 tests**, typecheck is down to 35 errors (the `chatToken` line is gone) and lint stays at 0.
 
+Scope row 26 (saved customers for restaurants, spec 0005) was built on the branch
+`feat/saved-customers` and fast forwarded in on 26 October, together with its backend and
+request-web halves. With it the suite is at **583 passing tests**, typecheck stays at 35 errors
+and lint at 0.
+
 ---
 
 ## Added
+
+### A restaurant's saved customers and the retention setting (scope row 26): `f54d0fd` to `f32e467`
+Built on `feat/saved-customers` and fast forwarded on 26 October, together with the backend half
+(the table, the routes and the daily job) and the request-web half (the restaurants' own page and
+the order form's picker). Here an admin can honour a customer's request to be removed.
+- **A Customers section on a restaurant's page** (spec 0005, AC-6), under its summary: the
+  restaurant's saved customers, most recently used first, 20 at a time with Show more and "N of
+  M", and the total in the title. The search waits 300 ms and needs 2 characters; only the latest
+  search's answer is shown, and a Show more answer that arrives after a newer search is dropped.
+  There is no Add: customers are the restaurant's own.
+- **Edit** changes only the name, phone, floor or flat and notes; the address and its map point
+  are shown read only, and the SDK's update serializer cannot send them. A phone another saved
+  customer has is refused in the dialog; a customer deleted meanwhile leaves the list with "This
+  customer was already deleted." An edit is not a use, so the row stays where it is. Each field
+  carries the backend's own length limit.
+- **Delete** asks first, naming the customer, and says the deletion is logged with your admin
+  account. The backend logs each edit and delete by ids only, never a name, phone or address.
+- After a dialog closes, focus goes back to the row button that opened it, or to the table when
+  that row is gone. Radix's own return of focus never happened here (checked in Chrome: focus fell
+  to the page after every close). `f99d231`
+- **A Saved customers section on Instance configuration** (AC-7): how many months an unused
+  customer is kept (whole months, 1 to 36, 12 by default). Like Offer expiry, it has its own Save
+  button that sends only this setting, and "Save All Changes" never sends it. A refused value shows
+  the backend's own words. The hand edited SDK carries the setting both ways.
+- `key` on the card, so a search typed for one restaurant never carries over to the next.
+- Reviewed by Fable and by agy; four fixes came out of it, among them the focus above and the
+  stale Show more. `f99d231`
+- Tests by agy: 583 pass (531 before); 40 checked by hand by putting their bug back.
+  `1492d03`, `f32e467`
 
 ### The admin shell and sign in (scope row 86): `a1ff5c5`, `e2c42f4`, `d1d0049`, `2b31b18`
 Built on `feat/admin-shell`, on top of rows 63 and 61, and fast forwarded into the co-op branch on
