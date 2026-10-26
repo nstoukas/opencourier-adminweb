@@ -672,5 +672,17 @@ describe('DeliveryDetails component', () => {
       expect(screen.getByText('Rider')).toBeInTheDocument()
       expect(screen.getAllByText('Eleni Dimitriou').length).toBeGreaterThanOrEqual(1)
     })
+
+    it('refreshes delivery query every 30 seconds via pollingInterval (spec 0002, AC-11)', () => {
+      mockUseGetDeliveryQuery.mockReturnValue({ data: sampleEurDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Polling interval must be set to 30,000 ms (30 s) because offers can expire or move on their own
+      expect(mockUseGetDeliveryQuery).toHaveBeenCalledWith(
+        { id: 'd100' },
+        expect.objectContaining({ pollingInterval: 30_000 })
+      )
+    })
   })
 })

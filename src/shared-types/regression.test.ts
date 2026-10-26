@@ -48,18 +48,56 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       const fs = require('fs')
       const path = require('path')
 
-      const sdkModelsDir = path.resolve(__dirname, '../backend-admin-sdk/src/models')
-      const modelFiles = fs.readdirSync(sdkModelsDir).filter((f: string) => f.endsWith('.ts'))
+      // Recursively collect all source files (excluding tests) from a directory
+      function getSourceFiles(dir: string): string[] {
+        if (!fs.existsSync(dir)) return []
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+        const results: string[] = []
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name)
+          if (entry.isDirectory()) {
+            results.push(...getSourceFiles(fullPath))
+          } else if (
+            (entry.name.endsWith('.ts') ||
+              entry.name.endsWith('.tsx') ||
+              entry.name.endsWith('.js') ||
+              entry.name.endsWith('.jsx')) &&
+            !entry.name.includes('.test.') &&
+            !entry.name.includes('.spec.')
+          ) {
+            results.push(fullPath)
+          }
+        }
+        return results
+      }
+
+      // Scan SDK models, frontend modules, pages, components, and utils
+      const scanDirs = [
+        path.resolve(__dirname, '../backend-admin-sdk/src/models'),
+        path.resolve(__dirname, '../modules'),
+        path.resolve(__dirname, '../pages'),
+        path.resolve(__dirname, '../components'),
+        path.resolve(__dirname, '../utils'),
+      ]
+
+      const sourceFiles = scanDirs.flatMap(getSourceFiles)
+      expect(sourceFiles.length).toBeGreaterThan(0)
 
       const bannedAggregations = [
         /missedOffer/i,
+        /missed_offers?\b/i,
+        /missed\s+offers\b/i,
         /expiredOffer(s?)(Count|Total|Rate|Score)/i,
         /courierOffer(s?)(Score|Rate|Rank)/i,
         /acceptanceRate/i,
+        /expiredCount/i,
+        // Grouping or counting of events or offers by courierId / courier (e.g. groupBy or reduce keyed by courierId)
+        /(?:groupBy|reduce)\b[\s\S]{0,250}\b(?:courierId|courier)\b/i,
+        /\b(?:courierId|courier)\b[\s\S]{0,250}\b(?:groupBy|reduce)\b/i,
       ]
 
-      for (const file of modelFiles) {
-        const content = fs.readFileSync(path.join(sdkModelsDir, file), 'utf-8')
+      for (const file of sourceFiles) {
+        const content = fs.readFileSync(file, 'utf-8')
         for (const pattern of bannedAggregations) {
           expect(content).not.toMatch(pattern)
         }

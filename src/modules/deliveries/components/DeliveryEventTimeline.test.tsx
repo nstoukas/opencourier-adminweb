@@ -325,5 +325,22 @@ describe('DeliveryEventTimeline component', () => {
       expect(screen.getByText('No courier available')).toBeInTheDocument()
       expect(screen.queryByText('Rider')).toBeNull()
     })
+
+    it('polls for delivery events every 30 seconds via pollingInterval (spec 0002, AC-11)', () => {
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      // Timeline must poll every 30 s so new OFFERED, OFFER_EXPIRED or NO_COURIER_AVAILABLE events appear
+      expect(mockUseGetDeliveryEventsQuery).toHaveBeenCalledWith(
+        { deliveryId: 'd100' },
+        expect.objectContaining({ pollingInterval: 30_000 })
+      )
+    })
   })
 })
