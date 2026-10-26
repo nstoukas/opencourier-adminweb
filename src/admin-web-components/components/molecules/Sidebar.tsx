@@ -20,6 +20,9 @@ import { Sheet, SheetContent, SheetTitle } from '../atoms/Sheet'
  * design system's contrast fix.
  */
 
+// Tailwind's `lg` breakpoint: from this width the fixed sidebar shows and the sheet is not used.
+const SIDEBAR_DESKTOP_MIN_WIDTH = 1024
+
 type SidebarContextValue = {
   openMobile: boolean
   setOpenMobile: (open: boolean) => void
@@ -42,6 +45,20 @@ function SidebarProvider({ className, style, children, ...props }: React.Compone
   // useMemo keeps the same object between renders while nothing in it changed, so the
   // components reading the context do not redraw for nothing.
   const value = React.useMemo(() => ({ openMobile, setOpenMobile }), [openMobile])
+
+  // If the window grows to 1024px or wider while the sheet is open (a resized window, a rotated
+  // tablet), close it: the fixed sidebar is showing by then, and an open sheet would leave its
+  // dark overlay and focus trap over the page. The listener exists only while the sheet is open.
+  // useEffect runs after the render; the function it returns is the cleanup, run when the
+  // sheet closes or the component goes away, so the listener is removed again.
+  React.useEffect(() => {
+    if (!openMobile) return
+    const closeWhenWide = () => {
+      if (window.innerWidth >= SIDEBAR_DESKTOP_MIN_WIDTH) setOpenMobile(false)
+    }
+    window.addEventListener('resize', closeWhenWide)
+    return () => window.removeEventListener('resize', closeWhenWide)
+  }, [openMobile])
 
   return (
     <SidebarContext.Provider value={value}>
