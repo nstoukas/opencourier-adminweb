@@ -71,13 +71,14 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
         return results
       }
 
-      // Scan SDK models, frontend modules, pages, components, and utils
+      // Scan SDK models, frontend modules, pages, components, utils, and API endpoints
       const scanDirs = [
         path.resolve(__dirname, '../backend-admin-sdk/src/models'),
         path.resolve(__dirname, '../modules'),
         path.resolve(__dirname, '../pages'),
         path.resolve(__dirname, '../components'),
         path.resolve(__dirname, '../utils'),
+        path.resolve(__dirname, '../api'),
       ]
 
       const sourceFiles = scanDirs.flatMap(getSourceFiles)

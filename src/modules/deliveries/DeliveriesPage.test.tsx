@@ -126,6 +126,27 @@ describe('Deliveries list page (OrdersPage) Offer column wiring & polling (spec 
     // Status badges are rendered for all rows
     expect(screen.getAllByText('Assigning Courier').length).toBe(2)
     expect(screen.getByText('Accepted')).toBeInTheDocument()
+
+    // Regression guard (F5): Courier column shows a dash while looking for a rider,
+    // never the old 'Waiting for response from courier' label
+    expect(screen.queryByText(/Waiting for response from courier/i)).toBeNull()
+
+    const rows = screen.getAllByRole('row')
+    // Row 0 is table header; rows 1..3 are data rows
+    const offeredRow = rows[1]
+    const waitingRow = rows[2]
+    const acceptedRow = rows[3]
+
+    // Offered row: Offer column shows rider & duration; Courier column shows dash
+    expect(offeredRow).toHaveTextContent('Ana P., 2 min')
+    expect(offeredRow).toHaveTextContent('—')
+
+    // Waiting row: Offer column shows 'No rider free, 4 min'; Courier column shows dash
+    expect(waitingRow).toHaveTextContent('No rider free, 4 min')
+    expect(waitingRow).toHaveTextContent('—')
+
+    // Accepted row: Courier column shows accepted rider full name
+    expect(acceptedRow).toHaveTextContent('Ana Papadopoulou')
   })
 
   it('renders pre-migration open offer with shortened name only and empty cell for unassigned delivery without waiting time', () => {
@@ -184,5 +205,23 @@ describe('Deliveries list page (OrdersPage) Offer column wiring & polling (spec 
       expect.anything(),
       expect.objectContaining({ pollingInterval: 30_000 })
     )
+  })
+
+  it('stops polling (pollingInterval: 0) while the tab is hidden / in background (F6, decision 61.52)', () => {
+    const visibilitySpy = jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+
+    mockUseGetDeliveriesQuery.mockReturnValue({
+      data: { data: [], pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 1 } },
+      isLoading: false,
+    })
+
+    render(<OrdersPage />)
+
+    expect(mockUseGetDeliveriesQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ pollingInterval: 0 })
+    )
+
+    visibilitySpy.mockRestore()
   })
 })

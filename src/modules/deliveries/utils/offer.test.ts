@@ -3,6 +3,8 @@ import {
   shortRiderName,
   minutesWaiting,
   describeOffer,
+  isLookingForRider,
+  UNKNOWN_RIDER,
   type DeliveryOfferFields,
 } from './offer'
 import { EnumDeliveryStatus } from '../../../shared-types'
@@ -271,6 +273,89 @@ describe('offer utilities (spec 0002, AC-11)', () => {
       }
 
       expect(describeOffer(acceptedDelivery, fixedNow)).toBeNull()
+    })
+
+    it('shows "Unknown rider" whole (never abbreviated to "Unknown r.") in short style when matchedCourierName is missing or null (F1)', () => {
+      // Regression guard (F1): UNKNOWN_RIDER fallback must not be passed to shortRiderName
+      const deliveryWithNoRiderName: DeliveryOfferFields = {
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'c1',
+        matchedCourierName: null,
+        offeredAt: new Date(fixedNow.getTime() - 25_000), // 25s ago
+        waitingForCourierSince: null,
+      }
+
+      expect(describeOffer(deliveryWithNoRiderName, fixedNow, 'short')).toBe('Unknown rider, under 1 min')
+      expect(describeOffer(deliveryWithNoRiderName, fixedNow, 'short')).not.toContain('Unknown r.')
+
+      // Also for untimed offers (offeredAt: null)
+      const untimedNoName: DeliveryOfferFields = {
+        ...deliveryWithNoRiderName,
+        offeredAt: null,
+      }
+      expect(describeOffer(untimedNoName, fixedNow, 'short')).toBe('Unknown rider')
+      expect(describeOffer(untimedNoName, fixedNow, 'short')).not.toBe('Unknown r.')
+    })
+  })
+
+  describe('isLookingForRider helper (spec 0002, review fix F1/F2)', () => {
+    it('returns true when status is ASSIGNING_COURIER and courierId is null or empty', () => {
+      expect(
+        isLookingForRider({
+          status: EnumDeliveryStatus.ASSIGNING_COURIER,
+          courierId: null,
+        })
+      ).toBe(true)
+
+      expect(
+        isLookingForRider({
+          status: EnumDeliveryStatus.ASSIGNING_COURIER,
+          courierId: undefined as any,
+        })
+      ).toBe(true)
+
+      expect(
+        isLookingForRider({
+          status: EnumDeliveryStatus.ASSIGNING_COURIER,
+          courierId: '',
+        })
+      ).toBe(true)
+    })
+
+    it('returns false when courierId is set, even if status is ASSIGNING_COURIER', () => {
+      // Once a rider accepts or is set, the delivery is no longer looking for a rider
+      expect(
+        isLookingForRider({
+          status: EnumDeliveryStatus.ASSIGNING_COURIER,
+          courierId: 'accepted-courier-42',
+        })
+      ).toBe(false)
+    })
+
+    it('returns false for any status other than ASSIGNING_COURIER', () => {
+      const otherStatuses = [
+        EnumDeliveryStatus.CREATED,
+        EnumDeliveryStatus.ACCEPTED,
+        EnumDeliveryStatus.DISPATCHED,
+        EnumDeliveryStatus.DROPPED_OFF,
+        EnumDeliveryStatus.CANCELED,
+        EnumDeliveryStatus.FAILED,
+      ]
+
+      for (const status of otherStatuses) {
+        expect(
+          isLookingForRider({
+            // The shared enum and the SDK's status enum hold the same values under two type names.
+            status: status as unknown as DeliveryOfferFields['status'],
+            courierId: null,
+          })
+        ).toBe(false)
+      }
+    })
+
+    it('exports UNKNOWN_RIDER constant as "Unknown rider"', () => {
+      expect(UNKNOWN_RIDER).toBe('Unknown rider')
     })
   })
 })

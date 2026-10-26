@@ -343,6 +343,40 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.matchedCourierName).toBeNull()
       expect(serialized.waitingForCourierSince).toBeNull()
     })
+
+    it('tolerates undefined dates in DeliveryAdminDtoToJSON (e.g. fixtures created without offer dates - F4)', () => {
+      // Regression guard (F4): DeliveryAdminDtoToJSON uses `== null` so undefined dates serialize
+      // to null instead of throwing TypeError: Cannot read properties of undefined (reading 'toISOString')
+      const baseDto = DeliveryAdminDtoFromJSON({
+        id: 'del-undef',
+        status: 'ASSIGNING_COURIER',
+        currencyCode: 'EUR',
+        orderTotalValue: 1000,
+        totalCost: 338,
+        fee: 31,
+        totalCompensation: 307,
+        pickupReadyAt: '2026-10-26T10:00:00.000Z',
+        pickupDeadlineAt: '2026-10-26T10:30:00.000Z',
+        dropoffReadyAt: '2026-10-26T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-10-26T10:45:00.000Z',
+        createdAt: '2026-10-26T10:00:00.000Z',
+        updatedAt: '2026-10-26T10:00:00.000Z',
+      })
+
+      const dtoWithUndefinedDates = {
+        ...baseDto,
+        offeredAt: undefined as any,
+        offerExpiresAt: undefined as any,
+        waitingForCourierSince: undefined as any,
+      }
+
+      expect(() => DeliveryAdminDtoToJSON(dtoWithUndefinedDates)).not.toThrow()
+      const json = DeliveryAdminDtoToJSON(dtoWithUndefinedDates)
+      expect(json.offeredAt).toBeNull()
+      expect(json.offerExpiresAt).toBeNull()
+      expect(json.waitingForCourierSince).toBeNull()
+    })
   })
 
   describe('DeliveryEventAdminDto (rider serializer guard - AC-11, Value 5)', () => {

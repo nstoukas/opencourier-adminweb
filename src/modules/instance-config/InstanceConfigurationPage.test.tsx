@@ -933,12 +933,16 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       render(<InstanceConfigurationPage />)
 
       const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
+      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends') as HTMLInputElement
+      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free') as HTMLInputElement
       const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
 
       expect(select).toBeDisabled()
       expect(select.value).toBe('')
       expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
       expect(screen.getByText('Loading the current setting.')).toBeInTheDocument()
+      expect(expirySecondsInput).toBeDisabled()
+      expect(retrySecondsInput).toBeDisabled()
       expect(saveOfferButton).toBeDisabled()
     })
 

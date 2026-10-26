@@ -342,5 +342,24 @@ describe('DeliveryEventTimeline component', () => {
         expect.objectContaining({ pollingInterval: 30_000 })
       )
     })
+
+    it('pauses polling (pollingInterval: 0) when the tab is hidden / in background (F6, decision 61.52)', () => {
+      const visibilitySpy = jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      expect(mockUseGetDeliveryEventsQuery).toHaveBeenCalledWith(
+        { deliveryId: 'd100' },
+        expect.objectContaining({ pollingInterval: 0 })
+      )
+
+      visibilitySpy.mockRestore()
+    })
   })
 })

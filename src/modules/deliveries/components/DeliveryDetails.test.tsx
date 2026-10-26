@@ -684,5 +684,104 @@ describe('DeliveryDetails component', () => {
         expect.objectContaining({ pollingInterval: 30_000 })
       )
     })
+
+    it('stops polling (pollingInterval: 0) when the tab is hidden / in background (F6, decision 61.52)', () => {
+      const visibilitySpy = jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      mockUseGetDeliveryQuery.mockReturnValue({ data: sampleEurDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(mockUseGetDeliveryQuery).toHaveBeenCalledWith(
+        { id: 'd100' },
+        expect.objectContaining({ pollingInterval: 0 })
+      )
+
+      visibilitySpy.mockRestore()
+    })
+
+    it('shows offer line and assign control only when isLookingForRider (ASSIGNING_COURIER and no courierId - F2)', () => {
+      // Case A: ASSIGNING_COURIER with courierId already set (rider accepted)
+      const assigningWithAcceptedCourier: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: 'courier-accepted-99',
+        matchedCourierId: 'courier-matched-77',
+        matchedCourierName: 'Testing Courier',
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: assigningWithAcceptedCourier,
+        isLoading: false,
+      })
+
+      const { rerender } = render(<DeliveryDetails deliveryId="d100" />)
+
+      // Since courierId is set, isLookingForRider is false: no offer summary and no assign control
+      expect(screen.queryByText(/Offer:/i)).toBeNull()
+      expect(screen.queryByText(/looking for a rider/i)).toBeNull()
+      expect(screen.queryByRole('button', { name: /Manually Reassign/i })).toBeNull()
+
+      // Case B: ASSIGNING_COURIER with no courierId (looking for rider)
+      const assigningLookingForRider: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'courier-matched-77',
+        matchedCourierName: 'Testing Courier',
+        offeredAt: new Date(fixedNow.getTime() - 20_000),
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: assigningLookingForRider,
+        isLoading: false,
+      })
+
+      rerender(<DeliveryDetails deliveryId="d100" />)
+
+      // Both offer summary and assign control are rendered
+      expect(screen.getByText(/Testing Courier, under 1 min/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Manually Reassign/i })).toBeInTheDocument()
+    })
+
+    it('Offer card label: 10 s past the deadline reads "Offer ends", 40 s past reads "Overdue since" (F7, decision 61.53)', () => {
+      // fixedNow is 2026-10-26T12:00:00.000Z. Grace is 33 s.
+      // Case 1: 10 s past the deadline (offerExpiresAt = 11:59:50.000Z).
+      // offerExpiresAt + 33 s is 12:00:23.000Z, which is after fixedNow, so label reads "Offer ends"
+      const tenSecPastDeadlineDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'c1',
+        matchedCourierName: 'Testing Courier',
+        offeredAt: new Date(fixedNow.getTime() - 70_000),
+        offerExpiresAt: new Date(fixedNow.getTime() - 10_000), // 10 s past deadline
+        waitingForCourierSince: null,
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: tenSecPastDeadlineDelivery, isLoading: false })
+      const { rerender } = render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText('Offer ends')).toBeInTheDocument()
+      expect(screen.queryByText('Overdue since')).toBeNull()
+
+      // Case 2: 40 s past the deadline (offerExpiresAt = 11:59:20.000Z).
+      // offerExpiresAt + 33 s is 11:59:53.000Z, which is before fixedNow, so label reads "Overdue since"
+      const fortySecPastDeadlineDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'c1',
+        matchedCourierName: 'Testing Courier',
+        offeredAt: new Date(fixedNow.getTime() - 100_000),
+        offerExpiresAt: new Date(fixedNow.getTime() - 40_000), // 40 s past deadline
+        waitingForCourierSince: null,
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: fortySecPastDeadlineDelivery, isLoading: false })
+      rerender(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText('Overdue since')).toBeInTheDocument()
+      expect(screen.queryByText('Offer ends')).toBeNull()
+    })
   })
 })
