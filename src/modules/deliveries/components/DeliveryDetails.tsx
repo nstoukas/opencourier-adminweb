@@ -7,7 +7,7 @@ import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourier
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
-import { deliveryOffer, minutesWaiting } from '@/modules/deliveries/utils/offer'
+import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
 import { formatMoney } from '@/utils/formatMoney'
 import {
   Button,
@@ -25,7 +25,7 @@ import {
   useToast,
 } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
-import { EnumDeliveryEventType, EnumDeliveryStatus } from '../../../shared-types'
+import { EnumDeliveryEventType } from '../../../shared-types'
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
 import { cn, formatDate, formatOptionalDate, formatTimeWithSeconds } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
@@ -224,7 +224,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             </span>
           </div>
 
-          {delivery.status === EnumDeliveryStatus.ASSIGNING_COURIER ? (
+          {/* Only while nobody has accepted: once a rider holds it there is no offer to show or assign. */}
+          {isLookingForRider(delivery) ? (
             <div
               className="flex flex-wrap items-center gap-2 md:items-center"
               onClick={(e) => e.stopPropagation()}
