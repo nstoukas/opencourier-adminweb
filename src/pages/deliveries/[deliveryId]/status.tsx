@@ -1,5 +1,6 @@
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
+import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useOrderStatusForm } from '@/modules/deliveries/hooks/form/useOrderStatusForm'
 import { OrderEventFormValues } from '@/modules/deliveries/types'
@@ -85,14 +86,15 @@ const DeliveryStatusPage: NextPage = () => {
   return (
     <DefaultLayout>
       {data ? (
+        <Button variant="link" className="p-0" onClick={() => goToDeliveryDetails(data.id)}>
+          Back to delivery
+        </Button>
+      ) : null}
+      {/* The h1 is there in every state: "Delivery" until the delivery has loaded. */}
+      <PageHeader title={data ? `Delivery ${data.id}` : 'Delivery'} />
+      {data ? (
         <>
-          <Button variant="link" className="p-0" onClick={() => goToDeliveryDetails(data.id)}>
-            Back to delivery
-          </Button>
-          <div className="flex flex-row">
-            <h2 className="text-2xl font-bold tracking-tight grow">Delivery {data.id}</h2>
-          </div>
-          <Card className="my-4">
+          <Card className="mb-4">
             <CardHeader>
               <CardTitle>Delivery Details</CardTitle>
             </CardHeader>

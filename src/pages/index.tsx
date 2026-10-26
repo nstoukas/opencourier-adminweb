@@ -1,14 +1,11 @@
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
+import { PageHeader } from '@/components/layouts/PageHeader'
 import { ReactElement } from 'react'
 import { NextPageWithLayout } from './_app'
 
 const HomePage: NextPageWithLayout = () => {
-  return (
-    <>
-      <h2 className="mb-4 text-2xl font-bold tracking-tight">Welcome back</h2>
-      <p className="text-muted-foreground">What would you like to do today?</p>
-    </>
-  )
+  // Row 90 turns this page into the redesign's Dispatch board.
+  return <PageHeader title="Overview" description="Welcome back. What would you like to do today?" />
 }
 
 HomePage.getLayout = (page: ReactElement) => <DefaultLayout>{page}</DefaultLayout>

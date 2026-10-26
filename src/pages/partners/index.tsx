@@ -3,6 +3,7 @@ import type { NextPage } from 'next'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import { useGetPartnersQuery } from '@/api/partnersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
+import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { Button, DEFAULT_PAGE_SIZE, DataTable } from '@/admin-web-components'
 import type { PartnerAdminDto } from '@/backend-admin-sdk'
@@ -57,15 +58,17 @@ const PartnersPage: NextPage = () => {
 
   return (
     <DefaultLayout>
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-medium tracking-tight">Restaurants</h2>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New restaurant
-        </Button>
-      </div>
+      <PageHeader
+        title="Restaurants"
+        action={
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New restaurant
+          </Button>
+        }
+      />
 
-      <div className="mt-6">
+      <div>
         <DataTable
           columns={columns}
           data={getPartnersResponse.data?.data ?? []}

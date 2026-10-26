@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 import { ArrowLeft, PencilSimple, Key } from '@phosphor-icons/react'
 import { useGetPartnerQuery } from '@/api/partnersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
+import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { Button, Spinner } from '@/admin-web-components'
 import { PartnerSummaryCard } from '@/modules/partners/components/PartnerSummaryCard'
@@ -35,6 +36,25 @@ const PartnerDetailsPage: NextPage = () => {
             Back to Restaurants
           </Button>
 
+          {/* The h1 is there in every state: "Restaurant" while loading or on an error. */}
+          <PageHeader
+            title={partner?.name || 'Restaurant'}
+            action={
+              partner ? (
+                <>
+                  <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+                    <PencilSimple className="mr-2 h-4 w-4" />
+                    Edit restaurant
+                  </Button>
+                  <Button variant="outline" onClick={() => setRotateDialogOpen(true)}>
+                    <Key className="mr-2 h-4 w-4" />
+                    Set new password
+                  </Button>
+                </>
+              ) : undefined
+            }
+          />
+
           {isLoading ? (
             <div className="flex items-center space-x-2 py-8">
               <Spinner className="h-5 w-5" />
@@ -46,20 +66,6 @@ const PartnerDetailsPage: NextPage = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-medium tracking-tight">{partner.name}</h2>
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
-                    <PencilSimple className="mr-2 h-4 w-4" />
-                    Edit restaurant
-                  </Button>
-                  <Button variant="outline" onClick={() => setRotateDialogOpen(true)}>
-                    <Key className="mr-2 h-4 w-4" />
-                    Set new password
-                  </Button>
-                </div>
-              </div>
-
               <PartnerSummaryCard partner={partner} />
 
               <PartnerFormDialog

@@ -5,6 +5,7 @@ import {
 } from "@/api/configApi";
 import type { InstanceConfigSettingsDto } from "@/backend-admin-sdk";
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
+import { PageHeader } from "@/components/layouts/PageHeader";
 import type { NextPage } from "next";
 // `import type` = these names are used only in type positions and vanish at build time.
 // The GeoJSON shapes come from @types/geojson (already installed).
@@ -676,20 +677,21 @@ const InstanceConfigurationPage: NextPage = () => {
 
   return (
     <DefaultLayout>
-      {/* Header and Edit Links - Always Visible */}
-      <div className="flex items-center gap-4">
-        <h2 className="text-3xl font-medium tracking-tight pb-2">
-          Instance Configuration
-        </h2>
-        {currentView !== "main" && (
-          <button
-            className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
-            onClick={() => setCurrentView("main")}
-          >
-            ← Back
-          </button>
-        )}
-      </div>
+      {/* Header and Edit Links - Always Visible. The Back button keeps its old look until
+          row 87 rebuilds this page; here it only moved into the header's action slot. */}
+      <PageHeader
+        title="Instance Configuration"
+        action={
+          currentView !== "main" ? (
+            <button
+              className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
+              onClick={() => setCurrentView("main")}
+            >
+              ← Back
+            </button>
+          ) : undefined
+        }
+      />
       <div className="flex items-center gap-3">
         <button
           onClick={() => setCurrentView("rules")}

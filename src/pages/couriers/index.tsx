@@ -1,5 +1,6 @@
 import { useGetCouriersQuery } from '@/api/couriersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
+import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import type { CourierAdminDto } from '../../backend-admin-sdk'
@@ -66,9 +67,9 @@ const CouriersPage: NextPage = () => {
 
   return (
     <DefaultLayout>
-      <h2 className="text-3xl font-medium tracking-tight">Couriers</h2>
+      <PageHeader title="Couriers" />
 
-      <div className="mt-6">
+      <div>
         <DataTable
           columns={columns}
           data={getCouriersResponse.data?.data ?? []}

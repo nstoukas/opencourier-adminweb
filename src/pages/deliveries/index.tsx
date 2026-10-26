@@ -1,6 +1,7 @@
 import { useGetCouriersQuery } from '@/api/couriersApi'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
+import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
 import { usePageVisible } from '@/hooks/usePageVisible'
@@ -130,7 +131,8 @@ const OrdersPage: NextPage = () => {
 
   return (
     <DefaultLayout>
-      <h2 className="text-3xl font-medium tracking-tight">Orders</h2>
+      {/* "Deliveries", not "Orders": the co-op's word for the thing a courier moves. */}
+      <PageHeader title="Deliveries" />
 
       <DeliveriesTableFilters
         onFiltersChange={(newFilters) => {

@@ -31,6 +31,7 @@ import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveri
 import { cn, formatDate, formatOptionalDate, formatTimeWithSeconds } from '../../../ui-shared-utils'
 import capitalize from 'lodash/capitalize'
 import { ArrowLeft } from '@phosphor-icons/react'
+import { PageHeader } from '@/components/layouts/PageHeader'
 
 // The server's 3 s grace plus one 30 s refresh of this page.
 const OVERDUE_GRACE_MS = 33_000
@@ -204,8 +205,21 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
     }
   }
 
-  if (getDeliveryResponse.isLoading) return <span>Loading delivery data.</span>
-  if (!getDeliveryResponse.data) return <span>There was a problem loading data.</span>
+  // On its own page the h1 is there in every state ("Delivery" while loading or on an error).
+  if (getDeliveryResponse.isLoading)
+    return (
+      <>
+        {!props.isSheet && <PageHeader title="Delivery" />}
+        <span>Loading delivery data.</span>
+      </>
+    )
+  if (!getDeliveryResponse.data)
+    return (
+      <>
+        {!props.isSheet && <PageHeader title="Delivery" />}
+        <span>There was a problem loading data.</span>
+      </>
+    )
 
   const { data: delivery } = getDeliveryResponse
 
@@ -222,16 +236,18 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
         </Button>
       )}
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-end">
+      {/* On its own page the title is the page's h1; inside a sheet (over another page) it stays an h2. */}
+      {props.isSheet ? (
+        <div className="flex flex-col gap-2">
           <h2 className="text-xl font-medium tracking-tight">Delivery {delivery.id}</h2>
-          <span className="ml-2 text-base font-normal leading-snug text-muted-foreground">
-          </span>
+          <span className="text-sm text-muted-foreground">{formatDate(delivery.createdAt)}</span>
         </div>
-        <span className="text-sm text-muted-foreground">{formatDate(delivery.createdAt)}</span>
-      </div>
+      ) : (
+        <PageHeader title={`Delivery ${delivery.id}`} description={formatDate(delivery.createdAt)} />
+      )}
 
-      <div className="mt-6 grid gap-6">
+      {/* PageHeader already leaves 24px under itself; the sheet's plain title does not. */}
+      <div className={cn('grid gap-6', { 'mt-6': props.isSheet })}>
         <div className={cn('flex flex-col gap-6', { 'md:flex-row': !props.isSheet })}>
           <div className="flex items-center gap-2">
             <span>Status</span>
