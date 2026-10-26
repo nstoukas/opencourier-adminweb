@@ -1,6 +1,8 @@
+import { api } from '@/api'
 import { useGetInstanceConfigQuery } from '@/api/configApi'
 import { EAdminRoutes } from '@/hooks/useAdminPageNavigator'
 import { setAccessToken } from '@/modules/auth/slices/authSlice'
+import { closeAllSheets } from '@/modules/shared/slices/sheetManagerSlice'
 import {
   Sidebar,
   SidebarContent,
@@ -81,6 +83,18 @@ export function AdminSidebar() {
   const dispatch = useAppDispatch()
   const coopName = useCoopName()
 
+  // Sign Out leaves nothing of this session behind for the next person at the same screen.
+  // Forgetting the token first unmounts the pages (the sign in guard draws nothing without one),
+  // so emptying the cache next does not make them fetch again. The same two steps as the
+  // automatic sign out on a 401 (src/api/utils/api.ts), plus closing any open sheet.
+  const signOut = () => {
+    dispatch(setAccessToken(null))
+    // `resetApiState` empties RTK Query's cache: every delivery, courier, restaurant and setting
+    // fetched so far is dropped from memory.
+    dispatch(api.util.resetApiState())
+    dispatch(closeAllSheets())
+  }
+
   return (
     <Sidebar>
       <SidebarHeader className="gap-3 px-4 pb-2 pt-4">
@@ -125,7 +139,7 @@ export function AdminSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             {/* Signing out forgets the token; the sign in guard then sends you to /login. */}
-            <SidebarMenuButton onClick={() => dispatch(setAccessToken(null))}>
+            <SidebarMenuButton onClick={signOut}>
               <SignOut />
               <span>Sign Out</span>
             </SidebarMenuButton>

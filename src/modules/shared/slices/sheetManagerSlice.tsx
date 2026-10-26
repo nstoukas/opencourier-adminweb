@@ -21,9 +21,13 @@ export const sheetsSlice = createSlice({
     closeSheet: (state, action) => {
       state.sheets = state.sheets.filter((sheet) => sheet.id !== action.payload)
     },
+    // Signing out closes every open sheet, so none of one session's data is left on screen.
+    closeAllSheets: (state) => {
+      state.sheets = []
+    },
   },
 })
 
-export const { openSheet, closeSheet } = sheetsSlice.actions
+export const { openSheet, closeSheet, closeAllSheets } = sheetsSlice.actions
 export const selectSheets = (state: AppState) => state.sheets.sheets
 export default sheetsSlice.reducer
