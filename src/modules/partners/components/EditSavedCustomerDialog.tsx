@@ -25,6 +25,8 @@ interface EditSavedCustomerDialogProps {
   onSaved: (customer: SavedCustomerAdminDto) => void
   // The edit answered 404: the restaurant (or another admin) deleted the customer meanwhile.
   onGone: (id: string) => void
+  // Radix calls it as the dialog lets go of focus; the card uses it to put focus on the table.
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 // Trimmed text, or null when nothing is left.
@@ -42,6 +44,7 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
   onClose,
   onSaved,
   onGone,
+  onCloseAutoFocus,
 }) => {
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone)
@@ -84,15 +87,22 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
   return (
     // onOpenChange(false) is Radix closing the dialog (Escape, the X, a click outside).
     <Dialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
-      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>Edit {customer.name}</DialogTitle>
           <DialogDescription>A saved customer of {restaurantName}.</DialogDescription>
         </DialogHeader>
+        {/* Each maxLength is the backend's own limit, so the form never sends a value it refuses. */}
         <form onSubmit={save} className="space-y-4" noValidate>
           <div className="space-y-1.5">
             <Label htmlFor="saved-customer-name">Name</Label>
-            <Input id="saved-customer-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+            <Input
+              id="saved-customer-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={255}
+              autoComplete="off"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="saved-customer-phone">Phone</Label>
@@ -101,6 +111,7 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              maxLength={40}
               autoComplete="off"
             />
           </div>
@@ -108,7 +119,7 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
             <Label htmlFor="saved-customer-floor">
               Floor or flat <span className="font-normal text-muted-foreground">(optional)</span>
             </Label>
-            <Input id="saved-customer-floor" value={floor} onChange={(e) => setFloor(e.target.value)} />
+            <Input id="saved-customer-floor" value={floor} onChange={(e) => setFloor(e.target.value)} maxLength={255} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="saved-customer-notes">
@@ -120,6 +131,7 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
               className="resize-none"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              maxLength={255}
             />
           </div>
           <div className="space-y-1 rounded-md bg-muted p-3 text-sm">

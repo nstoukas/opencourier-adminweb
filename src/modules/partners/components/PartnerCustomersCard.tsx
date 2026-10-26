@@ -26,7 +26,7 @@ import { EditSavedCustomerDialog } from './EditSavedCustomerDialog'
 import { DeleteSavedCustomerDialog } from './DeleteSavedCustomerDialog'
 
 // Rows per page, the search's pause and its minimum (spec 0005, adminweb design).
-export const CUSTOMERS_PAGE_SIZE = 20
+const CUSTOMERS_PAGE_SIZE = 20
 const SEARCH_PAUSE_MS = 300
 const MIN_SEARCH_LENGTH = 2
 
@@ -57,6 +57,8 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
   // Each load gets a number; an answer to an older one is ignored, so the latest search wins.
   const loadId = useRef(0)
   const tableRef = useRef<HTMLDivElement>(null)
+  // The row button that opened the dialog: focus goes back to it when the dialog closes.
+  const openedFrom = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     const trimmed = query.trim()
@@ -79,6 +81,8 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
 
   const showMore = useCallback(async () => {
     if (list.status !== 'ready') return
+    // A first page load (a new search, Try again) after this started makes its answer stale.
+    const id = loadId.current
     setIsLoadingMore(true)
     try {
       const next = await fetchPage({
@@ -87,6 +91,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
         page: list.page + 1,
         perPage: CUSTOMERS_PAGE_SIZE,
       }).unwrap()
+      if (id !== loadId.current) return
       setList((current) => {
         if (current.status !== 'ready') return current
         // A customer used between two pages moves up the list; never show it twice.
@@ -107,8 +112,18 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
         ? { ...current, items: current.items.filter((item) => item.id !== id), total: Math.max(0, current.total - 1) }
         : current,
     )
-    // The focused button went with the row: move focus to the table, never lose it.
-    tableRef.current?.focus()
+    // The button that opened the dialog went with the row: moveFocusAfterClose sends focus to the table.
+  }
+
+  // Radix's close hook, run as the dialog lets go of focus. Radix's own return of focus does not happen
+  // here (checked in Chrome: focus fell to the page after every close), so preventDefault switches it off
+  // and the card does it: back to the row's button, or to the table when that row went away.
+  const moveFocusAfterClose = (event: Event) => {
+    event.preventDefault()
+    const button = openedFrom.current
+    openedFrom.current = null
+    if (button?.isConnected) button.focus()
+    else tableRef.current?.focus()
   }
 
   const total = list.status === 'ready' ? list.total : null
@@ -185,7 +200,10 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setEditing(customer)}
+                        onClick={(event) => {
+                          openedFrom.current = event.currentTarget
+                          setEditing(customer)
+                        }}
                         aria-label={`Edit ${customer.name}`}
                       >
                         <PencilSimple className="h-4 w-4" aria-hidden="true" />
@@ -193,7 +211,10 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setDeleting(customer)}
+                        onClick={(event) => {
+                          openedFrom.current = event.currentTarget
+                          setDeleting(customer)
+                        }}
                         aria-label={`Delete ${customer.name}`}
                       >
                         <Trash className="h-4 w-4 text-destructive" aria-hidden="true" />
@@ -238,6 +259,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
             setEditing(null)
             toast({ title: 'Changes saved', description: saved.name })
           }}
+          onCloseAutoFocus={moveFocusAfterClose}
           onGone={(id) => {
             setEditing(null)
             removeRow(id)
@@ -251,6 +273,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
           partnerId={partnerId}
           customer={deleting}
           onClose={() => setDeleting(null)}
+          onCloseAutoFocus={moveFocusAfterClose}
           onDeleted={(id) => {
             setDeleting(null)
             removeRow(id)

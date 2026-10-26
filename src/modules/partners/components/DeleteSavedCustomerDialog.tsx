@@ -19,6 +19,8 @@ interface DeleteSavedCustomerDialogProps {
   onClose: () => void
   // Called once the customer is gone: deleted now, or already deleted elsewhere (404).
   onDeleted: (id: string) => void
+  // Radix calls it as the dialog lets go of focus; the card uses it to put focus on the table.
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /** Asks first, naming the customer, then deletes for good (spec 0005, AC-6): how a customer's
@@ -28,6 +30,7 @@ export const DeleteSavedCustomerDialog: React.FC<DeleteSavedCustomerDialogProps>
   customer,
   onClose,
   onDeleted,
+  onCloseAutoFocus,
 }) => {
   const [deleteCustomer, { isLoading }] = useDeletePartnerCustomerMutation()
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +51,7 @@ export const DeleteSavedCustomerDialog: React.FC<DeleteSavedCustomerDialogProps>
 
   return (
     <AlertDialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {customer.name}?</AlertDialogTitle>
           <AlertDialogDescription>

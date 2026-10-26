@@ -68,7 +68,9 @@ const PartnerDetailsPage: NextPage = () => {
           ) : (
             <div className="space-y-6">
               <PartnerSummaryCard partner={partner} />
-              <PartnerCustomersCard partnerId={partner.id} restaurantName={partner.name} />
+              {/* key: another restaurant's page starts the card afresh (Next keeps it mounted otherwise),
+                  so a search typed for one restaurant never carries over to the next. */}
+              <PartnerCustomersCard key={partner.id} partnerId={partner.id} restaurantName={partner.name} />
 
               <PartnerFormDialog
                 open={editDialogOpen}
