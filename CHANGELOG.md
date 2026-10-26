@@ -5,7 +5,7 @@ for a Greek workers' cooperative delivering by moped in Volos. It pairs with the
 fork of `opencourier-backend`, whose `CHANGELOG.md` documents the endpoints used here.
 
 Everything below sits on top of upstream `main` on the branch
-`fix/accepted-event-courier-id` (74 commits, 26 July – 26 October 2026). Each entry names
+`fix/accepted-event-courier-id` (89 commits, 26 July to 26 October 2026). Each entry names
 its commit, and the commit message has the full reasoning and verification notes.
 
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
@@ -41,9 +41,73 @@ mobile halves. With it the suite is at **475 passing tests** (the settings cover
 again, since this page now shows the three new settings), typecheck stays at 36 errors and lint
 at 0.
 
+Scope row 86 (the admin sign in and app shell) was built on the branch `feat/admin-shell`, on top
+of rows 63 and 61, and fast forwarded in on 26 October. With it the suite is at **529 passing
+tests**, typecheck is down to 35 errors (the `chatToken` line is gone) and lint stays at 0.
+
 ---
 
 ## Added
+
+### The admin shell and sign in (scope row 86): `a1ff5c5`, `e2c42f4`, `d1d0049`, `2b31b18`
+Built on `feat/admin-shell`, on top of rows 63 and 61, and fast forwarded into the co-op branch on
+26 October. Adminweb only. The page bodies are not redesigned here (rows 87 to 91 do that); they
+only moved into the new shell.
+- **A sidebar from the redesign** replaces the old column of buttons you could drag wider. It
+  shows the OpenCourier sign, the co-op's name from the instance settings (`details.name`, or
+  "OpenCourier" until it loads or if it is empty), then three groups: "Run the day" (Overview,
+  Deliveries), "People" (Couriers, Restaurants) and "Co-op" (Instance Configuration), with Sign
+  Out at the bottom. The page you are on is shaded and marked `aria-current="page"`, and a
+  delivery's page lights up Deliveries. The sidebar stays put while a long page scrolls. It is
+  shadcn's Sidebar, cut down (no collapse to icons, no remembered state), in
+  `src/admin-web-components/components/molecules/Sidebar.tsx`, filled by
+  `src/components/layouts/AdminSidebar.tsx`. `a1ff5c5`, `e2c42f4`
+- **Below 1024px the sidebar becomes a sheet**, so a tablet or a half screen window gives the
+  table the whole width. A slim top bar holds a menu button and the co-op's name; the button
+  slides the same sidebar in from the left, and picking a page closes it. The sheet also closes
+  when the window widens past 1024px, and it has a description for screen readers. No page
+  scrolls sideways at 768, 1024 or 1440 pixels wide. `e2c42f4`, `18a7e60`, `ff45eff`
+- **Every page opens with a `PageHeader`**: its title as the one h1 on the page, an optional line
+  under it, the page's action on the right (it wraps under the title on a narrow screen), and the
+  browser tab title, such as "Deliveries · OpenCourier Admin". Loading and error states have an
+  h1 too. A few titles changed: "Orders" is now Deliveries, "Welcome back" is now Overview, and a
+  delivery's page says "Delivery" and its id. A `#` heading in Instance configuration's rules text
+  now renders as an h2, so that page keeps one h1. `d1d0049`, `4df8ba6`
+- **A Skip to content link** is the first thing a Tab press reaches, and it moves focus to the
+  page's one `<main>`. `e2c42f4`
+- **A new sign in** after the redesign's board: a card with the OpenCourier sign, "Co-op Admin",
+  labelled Email and Password fields (the `Field` component request-web added in row 92) and a
+  full width Sign In button. Enter signs you in, and the button shows a spinner while it works.
+  A failed attempt shows a red Alert inside the card. Its words come from the HTTP status, never
+  from the backend's text, and match the restaurant portal's: an empty field, a wrong email or
+  password (400, 401, 403 and 404 all read "That email and password don't match", so it never
+  says which accounts exist), too many tries (429), or no answer from the server. Before, every
+  failure was the same toast, "Failed to login with e-mail". `2b31b18`
+- **Sign Out** (was "Log out") now does what the automatic sign out on a 401 does: it forgets the
+  token, then empties the API cache, and it closes any open sheet. Before, the deliveries,
+  couriers and settings already fetched stayed in memory for the next person at the same
+  screen. `edfe808`
+- **`/login` sends an admin who is already signed in to Overview** instead of showing the sign in
+  card again. `40e5e1e`
+- **Removed**, since nothing used them any more: `Nav.tsx` (with the last `dark:` classes in the
+  app, which did nothing), the `Resizable` atom, the `useScreenSize` hook, the
+  `react-resizable-panels` package (`yarn.lock` lost only its entry), the old `react-hook-form`
+  login form with its zod schemas and types, and `chatToken` in the auth slice, which the login
+  reply never contained (its line was one of the standing type errors). `e2c42f4`, `2b31b18`,
+  `e27c81d`
+- The logo is a plain `<img>`, because `next/image` on this Next version made React log an error
+  on every page.
+- Reviewed by Sonnet; five fixes came out of it (Sign Out, the sheet closing on a wider window and
+  its description, `chatToken`, the markdown h1), and one more came from the live check (`/login`).
+  `edfe808` to `40e5e1e`
+- Tests by agy: 529 pass (475 before). They cover the sidebar, the page header, the skip link,
+  the sheet, sign in and its error words, `Field` and the review fixes. The three old
+  `DefaultLayout` tests of the resizable panel sizes were rewritten for the new shell. `90cb75a`,
+  `d7598d7`, `1f4e997`
+- **Still open**: the old style back links above the titles on a delivery and a restaurant, and
+  Instance configuration's grey Back button, stay until rows 88, 91 and 87 replace them. The
+  sheet's backdrop is the Sheet atom's blurred white, not the design system's `overlay` token. At
+  768px the deliveries table squeezes its columns (row 88).
 
 ### Offer expiry settings and the Offer column (scope row 61): `5b462d5`, `09a4922`, `8af6b88`, `3e4783f`, `f32e18f`
 Built on `feat/offer-expiry`, on top of row 63, and merged on 26 October together with the
