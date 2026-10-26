@@ -32,6 +32,9 @@ import { cn, formatDate, formatOptionalDate, formatTimeWithSeconds } from '../..
 import capitalize from 'lodash/capitalize'
 import { ArrowLeft } from '@phosphor-icons/react'
 
+// The server's 3 s grace plus one 30 s refresh of this page.
+const OVERDUE_GRACE_MS = 33_000
+
 function displayText(value: string | object | null | undefined): string {
   if (value == null || value === '') return '—'
   if (typeof value === 'string') return value
@@ -115,7 +118,10 @@ function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date })
 
   // A deadline already behind `now` while the offer is still open means the expiry did not run
   // (a failed job, a wiped queue): say so, rather than "ends" at a time that has passed.
-  const overdue = delivery.offerExpiresAt != null && delivery.offerExpiresAt.getTime() < now.getTime()
+  // Only after OVERDUE_GRACE_MS, though: the server ends an offer up to 3 s after its deadline and
+  // this page refreshes every 30 s, so an offer that ended on time can still look open briefly.
+  const overdue =
+    delivery.offerExpiresAt != null && delivery.offerExpiresAt.getTime() + OVERDUE_GRACE_MS < now.getTime()
 
   const items =
     offer.kind === 'offered'
