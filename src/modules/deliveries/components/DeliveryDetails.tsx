@@ -112,6 +112,10 @@ function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date })
   const offer = deliveryOffer(delivery)
   if (!offer) return null
 
+  // A deadline already behind `now` while the offer is still open means the expiry did not run
+  // (a failed job, a wiped queue): say so, rather than "ends" at a time that has passed.
+  const overdue = delivery.offerExpiresAt != null && delivery.offerExpiresAt.getTime() < now.getTime()
+
   const items =
     offer.kind === 'offered'
       ? [
@@ -121,7 +125,7 @@ function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date })
             value: offer.since ? `${formatTimeWithSeconds(offer.since)} (${minutesWaiting(offer.since, now)} ago)` : null,
           },
           {
-            label: 'Offer ends',
+            label: overdue ? 'Overdue since' : 'Offer ends',
             value: delivery.offerExpiresAt
               ? formatTimeWithSeconds(delivery.offerExpiresAt)
               : 'Not on its own: offer expiry is off, or an admin made this offer',
