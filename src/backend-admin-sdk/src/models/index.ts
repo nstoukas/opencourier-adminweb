@@ -30,3 +30,4 @@ export * from './PickupAddressAdminInput';
 export * from './UserAdminDto';
 export * from './UserInfoAdminDto';
 export * from './UserSessionAdminDto';
+export * from './SavedCustomerAdminDto';

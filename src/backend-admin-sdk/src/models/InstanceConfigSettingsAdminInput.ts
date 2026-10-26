@@ -161,6 +161,13 @@ export interface InstanceConfigSettingsAdminInput {
    * @memberof InstanceConfigSettingsAdminInput
    */
   noCourierRetrySeconds?: number;
+  /**
+   * Months an unused saved customer is kept before the daily job deletes it: a whole number,
+   * 1 to 36. Hand edited (spec 0005).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  savedCustomerRetentionMonths?: number;
 }
 
 /**
@@ -355,6 +362,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
       ? undefined
       : json["noCourierRetrySeconds"],
+    savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
+      ? undefined
+      : json["savedCustomerRetentionMonths"],
   };
 }
 
@@ -394,5 +404,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     offerExpiryEnabled: value.offerExpiryEnabled,
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
+    // Without this line a save would drop the retention setting before it left the browser.
+    savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
   };
 }

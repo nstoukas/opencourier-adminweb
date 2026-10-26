@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, LocationsApi, PartnerApi } from "./apis";
+import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, LocationsApi, PartnerApi, SavedCustomersApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -75,6 +75,11 @@ export class BackendAdminSdk {
 
   partners(): PartnerApi {
     return this.getOrCreateApi(PartnerApi)
+  }
+
+  // A restaurant's saved customers (spec 0005).
+  savedCustomers(): SavedCustomersApi {
+    return this.getOrCreateApi(SavedCustomersApi)
   }
 
   courierSettings(): CourierSettingsApi {

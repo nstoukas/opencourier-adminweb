@@ -7,3 +7,4 @@ export * from './CourierSettingsApi';
 export * from './DeliveriesApi';
 export * from './LocationsApi';
 export * from './PartnerApi';
+export * from './SavedCustomersApi';

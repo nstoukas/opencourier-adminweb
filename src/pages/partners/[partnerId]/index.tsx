@@ -10,6 +10,7 @@ import { Button, Spinner } from '@/admin-web-components'
 import { PartnerSummaryCard } from '@/modules/partners/components/PartnerSummaryCard'
 import { PartnerFormDialog } from '@/modules/partners/components/PartnerFormDialog'
 import { RotateCredentialsDialog } from '@/modules/partners/components/RotateCredentialsDialog'
+import { PartnerCustomersCard } from '@/modules/partners/components/PartnerCustomersCard'
 
 // Detail page for inspecting and managing a single restaurant (Partner).
 const PartnerDetailsPage: NextPage = () => {
@@ -67,6 +68,7 @@ const PartnerDetailsPage: NextPage = () => {
           ) : (
             <div className="space-y-6">
               <PartnerSummaryCard partner={partner} />
+              <PartnerCustomersCard partnerId={partner.id} restaurantName={partner.name} />
 
               <PartnerFormDialog
                 open={editDialogOpen}

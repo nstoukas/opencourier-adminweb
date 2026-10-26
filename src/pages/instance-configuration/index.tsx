@@ -157,6 +157,9 @@ const InstanceConfigurationPage: NextPage = () => {
   const [offerExpirySeconds, setOfferExpirySeconds] = useState("");
   const [noCourierRetrySeconds, setNoCourierRetrySeconds] = useState("");
   const [isSavingOfferSettings, setIsSavingOfferSettings] = useState(false);
+  // Saved customers (spec 0005): months an unused saved customer is kept. null until loaded.
+  const [savedCustomerRetentionMonths, setSavedCustomerRetentionMonths] = useState<string | null>(null);
+  const [isSavingRetention, setIsSavingRetention] = useState(false);
 
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
@@ -228,6 +231,11 @@ const InstanceConfigurationPage: NextPage = () => {
         data.noCourierRetrySeconds == null
           ? ""
           : String(data.noCourierRetrySeconds),
+      );
+      setSavedCustomerRetentionMonths(
+        data.savedCustomerRetentionMonths == null
+          ? ""
+          : String(data.savedCustomerRetentionMonths),
       );
       setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
       setTermsOfServiceContent(details.termsOfServiceContent ?? "");
@@ -641,6 +649,36 @@ const InstanceConfigurationPage: NextPage = () => {
       console.error("Failed to save offer settings:", error);
     } finally {
       setIsSavingOfferSettings(false);
+    }
+  };
+
+  const handleSaveRetention = async () => {
+    // The button is off until the settings have loaded.
+    if (savedCustomerRetentionMonths === null) return;
+    setIsSavingRetention(true);
+    try {
+      // Sent as typed (an empty box as null): the backend owns the rule (whole months, 1 to 36)
+      // and refuses a bad value with a message naming the setting, which the toast shows.
+      // `as number` only quiets the SDK type, which has no room for null; the backend refuses null.
+      await setInstanceConfigMutation({
+        savedCustomerRetentionMonths: parseNumberInput(savedCustomerRetentionMonths) as number,
+      }).unwrap();
+      toast({
+        title: "Success!",
+        description:
+          "Saved customer retention saved. The daily job uses it from its next run.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message ||
+          "Failed to save the saved customer retention. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save saved customer retention:", error);
+    } finally {
+      setIsSavingRetention(false);
     }
   };
 
@@ -1196,6 +1234,50 @@ const InstanceConfigurationPage: NextPage = () => {
                   onClick={handleSaveOfferSettings}
                 >
                   {isSavingOfferSettings ? "Saving…" : "Save offer settings"}
+                </Button>
+              </div>
+            </section>
+            {/* Saved customers (spec 0005): how long the co-op keeps a restaurant's customer
+                nobody orders for. Personal data, so the period is the co-op's decision. */}
+            <section
+              aria-labelledby="saved-customers-heading"
+              className="max-w-[500px] rounded-md border border-border p-4 flex flex-col gap-3"
+            >
+              <h3 id="saved-customers-heading" className="text-lg font-medium">
+                Saved customers
+              </h3>
+              <div>
+                <Label htmlFor="savedCustomerRetentionMonths">
+                  Delete a saved customer after this many months unused
+                </Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Restaurants&apos; customers are personal data the co-op keeps
+                  for them. This is how long one nobody orders for is kept.
+                  Whole months, 1 to 36.
+                </p>
+                <Input
+                  id="savedCustomerRetentionMonths"
+                  key="savedCustomerRetentionMonths"
+                  type="number"
+                  min={1}
+                  max={36}
+                  step={1}
+                  value={savedCustomerRetentionMonths ?? ""}
+                  // Off until the settings load: typing here first would only be overwritten.
+                  disabled={savedCustomerRetentionMonths === null}
+                  onChange={(event) =>
+                    setSavedCustomerRetentionMonths(event.target.value)
+                  }
+                  className="max-w-[120px]"
+                />
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  disabled={isSavingRetention || savedCustomerRetentionMonths === null}
+                  onClick={handleSaveRetention}
+                >
+                  {isSavingRetention ? "Saving…" : "Save saved customer setting"}
                 </Button>
               </div>
             </section>

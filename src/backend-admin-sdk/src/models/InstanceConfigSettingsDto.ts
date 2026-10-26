@@ -164,6 +164,12 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   noCourierRetrySeconds?: number | null;
+  /**
+   * Months an unused saved customer is kept (1 to 36). Hand edited (spec 0005).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  savedCustomerRetentionMonths?: number | null;
 }
 
 /**
@@ -333,6 +339,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
       ? null
       : json["noCourierRetrySeconds"],
+    savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
+      ? null
+      : json["savedCustomerRetentionMonths"],
   };
 }
 
@@ -371,5 +380,6 @@ export function InstanceConfigSettingsDtoToJSON(
     offerExpiryEnabled: value.offerExpiryEnabled,
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
+    savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
   };
 }
