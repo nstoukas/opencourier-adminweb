@@ -3,6 +3,7 @@ import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
+import { usePageVisible } from '@/hooks/usePageVisible'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { DeliveriesFilters, DeliveriesTableFilters } from '@/modules/deliveries/components/DeliveriesTableFilters'
@@ -41,6 +42,7 @@ const OrdersPage: NextPage = () => {
   // The Offer column changes on its own (an offer expires, moves to the next rider, a rider
   // comes free), so the list asks the backend again every 30 s; `pollingInterval` is RTK
   // Query's built in timer for that. `now` ages the minutes shown between two fetches.
+  const pageVisible = usePageVisible()
   const getOrdersResponse = useGetDeliveriesQuery(
     {
       state: filters?.state,
@@ -48,7 +50,8 @@ const OrdersPage: NextPage = () => {
       page: pagination.pageIndex + 1,
       perPage: pagination.pageSize,
     },
-    { pollingInterval: OFFER_REFRESH_MS },
+    // 0 while the tab is in the background: RTK Query does not poll at 0.
+    { pollingInterval: pageVisible ? OFFER_REFRESH_MS : 0 },
   )
   const now = useNow(OFFER_REFRESH_MS)
 

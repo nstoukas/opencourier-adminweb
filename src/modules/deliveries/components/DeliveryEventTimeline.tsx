@@ -2,6 +2,7 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/admin-web-components'
 import { formatDate } from '@/ui-shared-utils'
 import { useGetDeliveryEventsQuery } from '@/api/deliveriesApi'
+import { usePageVisible } from '@/hooks/usePageVisible'
 import { humanizeEventType, describeTransition } from '@/utils/deliveryEventDisplay'
 import { EVENT_ACTOR_TO_HUMAN, EVENT_SOURCE_TO_HUMAN } from '@/shared-types'
 
@@ -22,7 +23,12 @@ function wordsFor(table: Record<string, string | undefined>, value: string): str
 export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryEventTimelineProps) {
   // Polled every 30 s like the delivery above it, so a new OFFERED, OFFER_EXPIRED or
   // NO_COURIER_AVAILABLE row appears without a reload.
-  const eventsQuery = useGetDeliveryEventsQuery({ deliveryId }, { skip: !deliveryId, pollingInterval: 30_000 })
+  // Not while the tab is in the background (0 means no polling), like the list.
+  const pageVisible = usePageVisible()
+  const eventsQuery = useGetDeliveryEventsQuery(
+    { deliveryId },
+    { skip: !deliveryId, pollingInterval: pageVisible ? 30_000 : 0 }
+  )
   const { data: events, isLoading, isError } = eventsQuery
   // Typed `unknown` deliberately. The base query is declared through a `@ts-expect-error`
   // (src/api/index.ts:7), which leaves this inferred as a type that can never hold a value —

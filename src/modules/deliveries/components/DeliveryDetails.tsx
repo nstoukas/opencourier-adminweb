@@ -2,6 +2,7 @@ import React from 'react'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { useNow } from '@/hooks/useNow'
+import { usePageVisible } from '@/hooks/usePageVisible'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
@@ -157,7 +158,12 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { goToDeliveries } = useAdminPageNavigator()
 
   // Asked again every 30 s, like the list, because an offer can now end or move on its own.
-  const getDeliveryResponse = useGetDeliveryQuery({ id: props.deliveryId }, { pollingInterval: 30_000 })
+  // Paused while the tab is in the background: 0 means no polling.
+  const pageVisible = usePageVisible()
+  const getDeliveryResponse = useGetDeliveryQuery(
+    { id: props.deliveryId },
+    { pollingInterval: pageVisible ? 30_000 : 0 }
+  )
   const now = useNow(30_000)
   // Every rider's name by id, so the event timeline can say who an offer went to.
   const { data: couriers = [] } = useGetAllCouriersQuery()
