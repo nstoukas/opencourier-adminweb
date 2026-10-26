@@ -88,6 +88,18 @@ describe('adminEvents utility functions', () => {
       expect(adminEventsForStatus('UNKNOWN_STATUS')).toEqual([])
       expect(adminEventsForStatus('')).toEqual([])
     })
+
+    it('never offers OFFERED, OFFER_EXPIRED, or NO_COURIER_AVAILABLE in admin trigger menus for any status (spec 0002, AC-11, decision 61.46)', () => {
+      // These three events are recorded exclusively by the platform; admins must never submit them.
+      const allStatuses = Object.values(EnumDeliveryStatus)
+
+      allStatuses.forEach((status) => {
+        const events = adminEventsForStatus(status)
+        expect(events).not.toContain(EnumDeliveryEventType.OFFERED)
+        expect(events).not.toContain(EnumDeliveryEventType.OFFER_EXPIRED)
+        expect(events).not.toContain(EnumDeliveryEventType.NO_COURIER_AVAILABLE)
+      })
+    })
   })
 
   describe('courierIdForAdminEvent', () => {

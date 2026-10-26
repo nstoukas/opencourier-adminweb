@@ -195,4 +195,135 @@ describe('DeliveryEventTimeline component', () => {
 
     expect(container.textContent).not.toMatch(/complete record/i)
   })
+
+  describe('Actor, source, and rider formatting in words (spec 0002, AC-11)', () => {
+    it('shows actor and source in words (e.g. "System · OpenCourier"), never raw enum text', () => {
+      const systemEvent: DeliveryEventAdminDto = {
+        id: 'e-sys',
+        type: 'OFFERED',
+        actor: 'SYSTEM',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ASSIGNING_COURIER',
+        newStatus: 'ASSIGNING_COURIER',
+        transitionSuccessful: true,
+        message: 'Delivery offered',
+        createdAt: new Date('2026-10-26T10:00:00Z'),
+        courierId: 'c1',
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [systemEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      const { container } = render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      expect(screen.getByText('System · OpenCourier')).toBeInTheDocument()
+      expect(container.textContent).not.toContain('SYSTEM · OPENCOURIER')
+    })
+
+    it('names the rider of an OFFERED or OFFER_EXPIRED event when courierNameById contains the rider', () => {
+      const offerEvents: DeliveryEventAdminDto[] = [
+        {
+          id: 'e-offered',
+          type: 'OFFERED',
+          actor: 'SYSTEM',
+          eventSource: 'OPENCOURIER',
+          oldStatus: 'ASSIGNING_COURIER',
+          newStatus: 'ASSIGNING_COURIER',
+          transitionSuccessful: true,
+          message: null,
+          createdAt: new Date('2026-10-26T10:00:00Z'),
+          courierId: 'c-ana',
+        },
+        {
+          id: 'e-expired',
+          type: 'OFFER_EXPIRED',
+          actor: 'SYSTEM',
+          eventSource: 'OPENCOURIER',
+          oldStatus: 'ASSIGNING_COURIER',
+          newStatus: 'ASSIGNING_COURIER',
+          transitionSuccessful: true,
+          message: 'Offer expired after 60 s',
+          createdAt: new Date('2026-10-26T10:01:00Z'),
+          courierId: 'c-ana',
+        },
+      ]
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: offerEvents,
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      const courierMap = new Map([['c-ana', 'Ana Papadopoulou']])
+      render(<DeliveryEventTimeline deliveryId="d100" courierNameById={courierMap} />)
+
+      // Both events render headlines in sentence case
+      expect(screen.getByText('Offered')).toBeInTheDocument()
+      expect(screen.getByText('Offer expired')).toBeInTheDocument()
+
+      // The rider is named from the map
+      const riderElements = screen.getAllByText('Ana Papadopoulou')
+      expect(riderElements.length).toBe(2)
+      expect(screen.getAllByText('Rider').length).toBe(2)
+    })
+
+    it('falls back to courierId when courierNameById does not contain the rider or is omitted', () => {
+      const event: DeliveryEventAdminDto = {
+        id: 'e-offered-unknown',
+        type: 'OFFERED',
+        actor: 'SYSTEM',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ASSIGNING_COURIER',
+        newStatus: 'ASSIGNING_COURIER',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: new Date('2026-10-26T10:00:00Z'),
+        courierId: 'courier-unmapped-999',
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [event],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      expect(screen.getByText('Rider')).toBeInTheDocument()
+      expect(screen.getByText('courier-unmapped-999')).toBeInTheDocument()
+    })
+
+    it('renders NO_COURIER_AVAILABLE headline without Rider section', () => {
+      const event: DeliveryEventAdminDto = {
+        id: 'e-no-courier',
+        type: 'NO_COURIER_AVAILABLE',
+        actor: 'SYSTEM',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ASSIGNING_COURIER',
+        newStatus: 'ASSIGNING_COURIER',
+        transitionSuccessful: true,
+        message: 'No couriers available',
+        createdAt: new Date('2026-10-26T10:00:00Z'),
+        courierId: null,
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [event],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      expect(screen.getByText('No courier available')).toBeInTheDocument()
+      expect(screen.queryByText('Rider')).toBeNull()
+    })
+  })
 })

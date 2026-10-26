@@ -10,6 +10,10 @@ import {
   DeliveryAdminDtoFromJSON,
   DeliveryAdminDtoToJSON,
 } from './DeliveryAdminDto'
+import {
+  DeliveryEventAdminDtoFromJSON,
+  DeliveryEventAdminDtoToJSON,
+} from './DeliveryEventAdminDto'
 
 describe('InstanceConfigSettings SDK serialization guards', () => {
   describe('InstanceConfigSettingsAdminInput (request payload whitelist guard - AC-5)', () => {
@@ -65,6 +69,51 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.reassignmentPayoutPolicies).toEqual({ CUSTOM_POLICY: 75 })
       expect(serialized.reassignmentPayoutDefaultPolicy).toBe('CUSTOM_POLICY')
       expect(serialized).not.toHaveProperty('defaultMinimumCourierPay')
+    })
+
+    it('preserves offerExpiryEnabled, offerExpirySeconds, and noCourierRetrySeconds in ToJSON (AC-10)', () => {
+      // Load-bearing test guard: without these fields in ToJSON, the SDK silently drops them
+      // and the save reports success for a change never sent.
+      const input = {
+        offerExpiryEnabled: true,
+        offerExpirySeconds: 60,
+        noCourierRetrySeconds: 30,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.offerExpiryEnabled).toBe(true)
+      expect(json.offerExpirySeconds).toBe(60)
+      expect(json.noCourierRetrySeconds).toBe(30)
+
+      // Ensure false is also preserved and not dropped
+      const inputDisabled = {
+        offerExpiryEnabled: false,
+        offerExpirySeconds: 120,
+        noCourierRetrySeconds: 45,
+      }
+      const jsonDisabled = InstanceConfigSettingsAdminInputToJSON(inputDisabled)
+      expect(jsonDisabled.offerExpiryEnabled).toBe(false)
+      expect(jsonDisabled.offerExpirySeconds).toBe(120)
+      expect(jsonDisabled.noCourierRetrySeconds).toBe(45)
+    })
+
+    it('round-trips offer expiry settings through FromJSON and ToJSON (AC-10)', () => {
+      const originalJson = {
+        offerExpiryEnabled: true,
+        offerExpirySeconds: 90,
+        noCourierRetrySeconds: 20,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.offerExpiryEnabled).toBe(true)
+      expect(model.offerExpirySeconds).toBe(90)
+      expect(model.noCourierRetrySeconds).toBe(20)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.offerExpiryEnabled).toBe(true)
+      expect(serialized.offerExpirySeconds).toBe(90)
+      expect(serialized.noCourierRetrySeconds).toBe(20)
     })
   })
 
@@ -145,6 +194,46 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.quoteBaseFee).toBe(200)
       expect(json).not.toHaveProperty('defaultMinimumCourierPay')
     })
+
+    it('deserializes offerExpiryEnabled, offerExpirySeconds, and noCourierRetrySeconds when present (AC-10)', () => {
+      const json = {
+        details: {},
+        offerExpiryEnabled: true,
+        offerExpirySeconds: 45,
+        noCourierRetrySeconds: 25,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.offerExpiryEnabled).toBe(true)
+      expect(dto.offerExpirySeconds).toBe(45)
+      expect(dto.noCourierRetrySeconds).toBe(25)
+    })
+
+    it('deserializes offer expiry fields as null when keys are absent in backend response (AC-10)', () => {
+      // Missing keys mean "not sent" (older backend) rather than false/0, so the page can distinguish
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.offerExpiryEnabled).toBeNull()
+      expect(dto.offerExpirySeconds).toBeNull()
+      expect(dto.noCourierRetrySeconds).toBeNull()
+    })
+
+    it('serializes DTO carrying offer expiry fields back to JSON (AC-10)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        offerExpiryEnabled: false,
+        offerExpirySeconds: 60,
+        noCourierRetrySeconds: 30,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.offerExpiryEnabled).toBe(false)
+      expect(json.offerExpirySeconds).toBe(60)
+      expect(json.noCourierRetrySeconds).toBe(30)
+    })
   })
 
   describe('DeliveryAdminDto (price breakdown field serializer guard - AC-7)', () => {
@@ -191,6 +280,111 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(dto.baseFee).toBeNull()
       expect(dto.distanceFee).toBeNull()
       expect(dto.feePercentage).toBeNull()
+    })
+
+    it('keeps offeredAt, offerExpiresAt, matchedCourierName, waitingForCourierSince through FromJSON and ToJSON (AC-11)', () => {
+      const jsonInput = {
+        id: 'del-123',
+        status: 'ASSIGNING_COURIER',
+        currencyCode: 'EUR',
+        orderTotalValue: 1000,
+        totalCost: 338,
+        fee: 31,
+        totalCompensation: 307,
+        pickupReadyAt: '2026-10-26T10:00:00.000Z',
+        pickupDeadlineAt: '2026-10-26T10:30:00.000Z',
+        dropoffReadyAt: '2026-10-26T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-10-26T10:45:00.000Z',
+        createdAt: '2026-10-26T10:00:00.000Z',
+        updatedAt: '2026-10-26T10:00:00.000Z',
+        offeredAt: '2026-10-26T10:01:00.000Z',
+        offerExpiresAt: '2026-10-26T10:02:00.000Z',
+        matchedCourierName: 'Ana Papadopoulou',
+        waitingForCourierSince: '2026-10-26T10:00:30.000Z',
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.offeredAt).toEqual(new Date('2026-10-26T10:01:00.000Z'))
+      expect(dto.offerExpiresAt).toEqual(new Date('2026-10-26T10:02:00.000Z'))
+      expect(dto.matchedCourierName).toBe('Ana Papadopoulou')
+      expect(dto.waitingForCourierSince).toEqual(new Date('2026-10-26T10:00:30.000Z'))
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.offeredAt).toBe('2026-10-26T10:01:00.000Z')
+      expect(serialized.offerExpiresAt).toBe('2026-10-26T10:02:00.000Z')
+      expect(serialized.matchedCourierName).toBe('Ana Papadopoulou')
+      expect(serialized.waitingForCourierSince).toBe('2026-10-26T10:00:30.000Z')
+    })
+
+    it('reads missing offer fields as null (never Invalid Date or 1970)', () => {
+      const jsonInput = {
+        id: 'del-123',
+        status: 'CREATED',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-10-26T10:00:00.000Z',
+        pickupDeadlineAt: '2026-10-26T10:30:00.000Z',
+        dropoffReadyAt: '2026-10-26T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-10-26T10:45:00.000Z',
+        createdAt: '2026-10-26T10:00:00.000Z',
+        updatedAt: '2026-10-26T10:00:00.000Z',
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.offeredAt).toBeNull()
+      expect(dto.offerExpiresAt).toBeNull()
+      expect(dto.matchedCourierName).toBeNull()
+      expect(dto.waitingForCourierSince).toBeNull()
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.offeredAt).toBeNull()
+      expect(serialized.offerExpiresAt).toBeNull()
+      expect(serialized.matchedCourierName).toBeNull()
+      expect(serialized.waitingForCourierSince).toBeNull()
+    })
+  })
+
+  describe('DeliveryEventAdminDto (rider serializer guard - AC-11, Value 5)', () => {
+    it('preserves courierId through FromJSON and ToJSON serialization', () => {
+      const jsonInput = {
+        id: 'ev-1',
+        type: 'OFFERED',
+        actor: 'SYSTEM',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ASSIGNING_COURIER',
+        newStatus: 'ASSIGNING_COURIER',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: '2026-10-26T10:00:00.000Z',
+        courierId: 'courier-123',
+      }
+
+      const dto = DeliveryEventAdminDtoFromJSON(jsonInput)
+      expect(dto.courierId).toBe('courier-123')
+
+      const serialized = DeliveryEventAdminDtoToJSON(dto)
+      expect(serialized.courierId).toBe('courier-123')
+    })
+
+    it('reads missing or null courierId as null without error', () => {
+      const jsonWithoutCourier = {
+        id: 'ev-2',
+        type: 'NO_COURIER_AVAILABLE',
+        actor: 'SYSTEM',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ASSIGNING_COURIER',
+        newStatus: 'ASSIGNING_COURIER',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: '2026-10-26T10:00:00.000Z',
+      }
+
+      const dto = DeliveryEventAdminDtoFromJSON(jsonWithoutCourier)
+      expect(dto.courierId).toBeNull()
+
+      const serialized = DeliveryEventAdminDtoToJSON(dto)
+      expect(serialized.courierId).toBeNull()
     })
   })
 })

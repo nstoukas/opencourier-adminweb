@@ -916,4 +916,201 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       })
     })
   })
+
+  describe('Offers to riders section (spec 0002, AC-10)', () => {
+    it('keeps controls and Save button disabled while setting is not loaded yet', () => {
+      // Mock API returning null for offerExpiryEnabled (unloaded state)
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: null,
+          offerExpirySeconds: null,
+          noCourierRetrySeconds: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+
+      expect(select).toBeDisabled()
+      expect(select.value).toBe('')
+      expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
+      expect(screen.getByText('Loading the current setting.')).toBeInTheDocument()
+      expect(saveOfferButton).toBeDisabled()
+    })
+
+    it('renders loaded values: Off, 60 seconds, 30 seconds retry', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: false,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
+      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends') as HTMLInputElement
+      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free') as HTMLInputElement
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+
+      expect(select).not.toBeDisabled()
+      expect(select.value).toBe('off')
+      expect(expirySecondsInput.value).toBe('60')
+      expect(retrySecondsInput.value).toBe('30')
+      expect(saveOfferButton).not.toBeDisabled()
+
+      // Descriptive text for Off state
+      expect(
+        screen.getByText(/Off: an offer keeps ringing on the rider’s phone until they answer/)
+      ).toBeInTheDocument()
+    })
+
+    it('renders loaded values: On, 45 seconds, 25 seconds retry', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 45,
+          noCourierRetrySeconds: 25,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
+      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends') as HTMLInputElement
+      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free') as HTMLInputElement
+
+      expect(select.value).toBe('on')
+      expect(expirySecondsInput.value).toBe('45')
+      expect(retrySecondsInput.value).toBe('25')
+
+      // Descriptive text for On state mentions the configured seconds and value 5 rule
+      expect(
+        screen.getByText(/On: an offer nobody answers ends after 45 seconds and goes to the next rider/)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/A missed offer is never counted against the rider/)
+      ).toBeInTheDocument()
+    })
+
+    it('saves exactly offerExpiryEnabled, offerExpirySeconds, and noCourierRetrySeconds on button click', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: false,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Offer expiry')
+      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends')
+      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free')
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+
+      // Change values: switch On, 45s expiry, 25s retry
+      fireEvent.change(select, { target: { value: 'on' } })
+      fireEvent.change(expirySecondsInput, { target: { value: '45' } })
+      fireEvent.change(retrySecondsInput, { target: { value: '25' } })
+
+      fireEvent.click(saveOfferButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 45,
+          noCourierRetrySeconds: 25,
+        })
+      })
+
+      // Toast confirms successful save
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Success!',
+            description: expect.stringContaining('Offer settings saved'),
+          })
+        )
+      })
+    })
+
+    it('"Save All Changes" never sends offerExpiryEnabled, offerExpirySeconds, or noCourierRetrySeconds', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveAllButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload).not.toHaveProperty('offerExpiryEnabled')
+        expect(payload).not.toHaveProperty('offerExpirySeconds')
+        expect(payload).not.toHaveProperty('noCourierRetrySeconds')
+      })
+    })
+
+    it('shows backend refusal error message honestly in toast when save fails', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+        },
+        isLoading: false,
+      })
+
+      const backendErrorMessage = 'offerExpirySeconds must be 20 or more'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: backendErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends')
+      fireEvent.change(expirySecondsInput, { target: { value: '19' } })
+
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+      fireEvent.click(saveOfferButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: backendErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+    })
+  })
 })

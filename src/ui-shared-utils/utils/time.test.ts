@@ -2,6 +2,7 @@ import {
   formatOptionalDate,
   formatDate,
   formatDateAsHourAndMinute,
+  formatTimeWithSeconds,
   formatDateTime,
   DATE_TIME_FORMAT,
 } from './time'
@@ -85,5 +86,18 @@ describe('formatDateTime (Ruling 5)', () => {
     const midnightFormatted = formatDateTime(midnightDto)
     expect(midnightFormatted).toContain('00:01')
     expect(midnightFormatted).not.toContain('12:01 AM')
+  })
+})
+
+describe('formatTimeWithSeconds (spec 0002, AC-11)', () => {
+  it('formats time to seconds on 24-hour clock (HH:mm:ss, e.g. 15:05:42, never PM/AM)', () => {
+    // Built from local parts so the test is zone neutral
+    const testDate = new Date(2028, 11, 25, 15, 5, 42)
+    const formatted = formatTimeWithSeconds(testDate)
+    expect(formatted).toBe('15:05:42')
+    expect(formatted).not.toContain('PM')
+
+    const midnightDate = new Date(2028, 11, 25, 0, 1, 5)
+    expect(formatTimeWithSeconds(midnightDate)).toBe('00:01:05')
   })
 })

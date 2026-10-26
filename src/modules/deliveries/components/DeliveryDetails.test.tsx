@@ -519,4 +519,158 @@ describe('DeliveryDetails component', () => {
       expect(container.textContent).not.toMatch(/adminweb has no endpoint/i)
     })
   })
+
+  describe('Offer details and OfferCard (spec 0002, AC-11)', () => {
+    const fixedNow = new Date('2026-10-26T12:00:00.000Z')
+
+    beforeEach(() => {
+      jest.useFakeTimers()
+      jest.setSystemTime(fixedNow)
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('renders open offer in status line (with full name) and OfferCard with expiry time', () => {
+      const offeredDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'c1',
+        matchedCourierName: 'Testing Courier',
+        offeredAt: new Date(fixedNow.getTime() - 20_000), // 20s ago
+        offerExpiresAt: new Date(fixedNow.getTime() + 40_000), // 40s in future
+        waitingForCourierSince: null,
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: offeredDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Status line displays full name and waiting duration
+      expect(screen.getByText(/Testing Courier, under 1 min/)).toBeInTheDocument()
+
+      // OfferCard is rendered via DetailList
+      expect(screen.getByText('Offered to')).toBeInTheDocument()
+      expect(screen.getAllByText('Testing Courier').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('Offered at')).toBeInTheDocument()
+      expect(screen.getByText('Offer ends')).toBeInTheDocument()
+    })
+
+    it('renders "Not on its own" in OfferCard when offerExpiresAt is null (expiry off or admin offer)', () => {
+      const untimedOfferDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'c1',
+        matchedCourierName: 'Testing Courier',
+        offeredAt: new Date(fixedNow.getTime() - 20_000),
+        offerExpiresAt: null,
+        waitingForCourierSince: null,
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: untimedOfferDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(
+        screen.getByText('Not on its own: offer expiry is off, or an admin made this offer')
+      ).toBeInTheDocument()
+    })
+
+    it('renders waiting state when no courier available: status line and OfferCard', () => {
+      const waitingDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: null,
+        matchedCourierName: null,
+        offeredAt: null,
+        offerExpiresAt: null,
+        waitingForCourierSince: new Date(fixedNow.getTime() - 240_000), // 4 min ago
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: waitingDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText(/No rider free, 4 min/)).toBeInTheDocument()
+      expect(screen.getByText('No rider free since')).toBeInTheDocument()
+      expect(screen.getByText('Waiting')).toBeInTheDocument()
+      expect(screen.getByText('4 min')).toBeInTheDocument()
+    })
+
+    it('renders "looking for a rider" and no OfferCard when ASSIGNING_COURIER has no offer or wait time yet', () => {
+      const lookingDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: null,
+        matchedCourierName: null,
+        offeredAt: null,
+        offerExpiresAt: null,
+        waitingForCourierSince: null,
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: lookingDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText(/looking for a rider/)).toBeInTheDocument()
+      expect(screen.queryByText('Offered to')).toBeNull()
+      expect(screen.queryByText('No rider free since')).toBeNull()
+    })
+
+    it('renders no OfferCard when delivery is DISPATCHED or ACCEPTED', () => {
+      mockUseGetDeliveryQuery.mockReturnValue({ data: sampleEurDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.queryByText('Offered to')).toBeNull()
+      expect(screen.queryByText('No rider free since')).toBeNull()
+    })
+
+    it('passes courierNameById to DeliveryEventTimeline to resolve rider names for OFFERED/OFFER_EXPIRED', () => {
+      const offeredDelivery: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        courierId: null,
+        matchedCourierId: 'c-rider-1',
+        matchedCourierName: 'Eleni Dimitriou',
+        offeredAt: fixedNow,
+        offerExpiresAt: null,
+        waitingForCourierSince: null,
+      } as any
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: offeredDelivery, isLoading: false })
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [{ id: 'c-rider-1', firstName: 'Eleni', lastName: 'Dimitriou' }],
+        isLoading: false,
+      })
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [
+          {
+            id: 'ev-offered',
+            type: 'OFFERED',
+            actor: 'SYSTEM',
+            eventSource: 'OPENCOURIER',
+            oldStatus: 'ASSIGNING_COURIER',
+            newStatus: 'ASSIGNING_COURIER',
+            transitionSuccessful: true,
+            message: 'Delivery offered to courier',
+            createdAt: fixedNow,
+            courierId: 'c-rider-1',
+          },
+        ],
+        isLoading: false,
+      })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // The timeline renders "Rider" label and the courier's resolved full name from courierNameById
+      expect(screen.getByText('Rider')).toBeInTheDocument()
+      expect(screen.getAllByText('Eleni Dimitriou').length).toBeGreaterThanOrEqual(1)
+    })
+  })
 })
