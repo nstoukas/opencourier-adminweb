@@ -9,6 +9,7 @@ import {
   useReassignDeliveryMutation,
   useAssignDeliveryToCourierMutation,
   useGetDeliveryEventsQuery,
+  useGetDeliveryIssuesQuery,
 } from '../../../api/deliveriesApi'
 import { useGetAllCouriersQuery } from '../../../api/couriersApi'
 import { useGetInstanceConfigQuery } from '../../../api/configApi'
@@ -96,6 +97,7 @@ jest.mock('../../../api/deliveriesApi', () => ({
   useReassignDeliveryMutation: jest.fn(),
   useAssignDeliveryToCourierMutation: jest.fn(),
   useGetDeliveryEventsQuery: jest.fn(),
+  useGetDeliveryIssuesQuery: jest.fn(),
 }))
 
 jest.mock('../../../api/couriersApi', () => ({
@@ -126,6 +128,7 @@ const mockUseSubmitDeliveryEventMutation = useSubmitDeliveryEventMutation as jes
 const mockUseReassignDeliveryMutation = useReassignDeliveryMutation as jest.Mock
 const mockUseAssignDeliveryToCourierMutation = useAssignDeliveryToCourierMutation as jest.Mock
 const mockUseGetDeliveryEventsQuery = useGetDeliveryEventsQuery as jest.Mock
+const mockUseGetDeliveryIssuesQuery = useGetDeliveryIssuesQuery as jest.Mock
 const mockUseGetAllCouriersQuery = useGetAllCouriersQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 const mockUseAdminPageNavigator = useAdminPageNavigator as jest.Mock
@@ -200,6 +203,12 @@ describe('DeliveryDetails component', () => {
       ],
       isLoading: false,
     })
+    mockUseGetDeliveryIssuesQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
     mockUseGetAllCouriersQuery.mockReturnValue({ data: [], isLoading: false })
     mockUseGetInstanceConfigQuery.mockReturnValue({ data: {}, isLoading: false })
     mockUseAdminPageNavigator.mockReturnValue({
@@ -217,6 +226,20 @@ describe('DeliveryDetails component', () => {
     mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, isLoading: false })
     render(<DeliveryDetails deliveryId="d100" />)
     expect(screen.getByText('There was a problem loading data.')).toBeInTheDocument()
+  })
+
+  it('renders Rider reports card above the Delivery events card (decision 66.11)', () => {
+    render(<DeliveryDetails deliveryId="d100" />)
+
+    const riderReportsTitle = screen.getByText('Rider reports')
+    const deliveryEventsTitle = screen.getByText('Delivery events')
+
+    expect(riderReportsTitle).toBeInTheDocument()
+    expect(deliveryEventsTitle).toBeInTheDocument()
+
+    // Rider reports card must appear above (before) the Delivery events card
+    const position = riderReportsTitle.compareDocumentPosition(deliveryEventsTitle)
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   describe('Money formatting per Delivery currencyCode (Test Plan B)', () => {

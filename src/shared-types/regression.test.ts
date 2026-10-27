@@ -18,10 +18,11 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
     expect(allTransitions.includes('REASSIGNED')).toBe(false)
   })
 
-  it('ensures deliveriesApi exports useSubmitDeliveryEventMutation and useAssignDeliveryToCourierMutation alongside useReassignDeliveryMutation', () => {
+  it('ensures deliveriesApi exports useSubmitDeliveryEventMutation, useAssignDeliveryToCourierMutation, and useGetDeliveryIssuesQuery alongside useReassignDeliveryMutation', () => {
     expect(typeof deliveriesApiModule.useSubmitDeliveryEventMutation).toBe('function')
     expect(typeof deliveriesApiModule.useAssignDeliveryToCourierMutation).toBe('function')
     expect(typeof deliveriesApiModule.useReassignDeliveryMutation).toBe('function')
+    expect(typeof deliveriesApiModule.useGetDeliveryIssuesQuery).toBe('function')
   })
 
   describe('Offer expiry & Value 5 guards (spec 0002, AC-11, AC-12)', () => {
@@ -95,6 +96,9 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
         // Grouping or counting of events or offers by courierId / courier (e.g. groupBy or reduce keyed by courierId)
         /(?:groupBy|reduce)\b[\s\S]{0,250}\b(?:courierId|courier)\b/i,
         /\b(?:courierId|courier)\b[\s\S]{0,250}\b(?:groupBy|reduce)\b/i,
+        // Value 5 / decision 66.11: No counting, scoring, or aggregation of rider issue reports per courier
+        /(?:courier|rider)Issue(s?)(Count|Total|Rate|Score)/i,
+        /(?:courier|rider)Report(s?)(Count|Total|Rate|Score)/i,
       ]
 
       for (const file of sourceFiles) {
@@ -103,6 +107,18 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
           expect(content).not.toMatch(pattern)
         }
       }
+    })
+
+    it('Value 5 guard: verifies DeliveryIssues renders no count of rider reports (decision 66.11)', () => {
+      // Contract (6): nothing shows a count of reports (e.g. no "Rider reports (2)" or similar)
+      const fs = require('fs')
+      const path = require('path')
+      const issuesComponentFile = path.resolve(
+        __dirname,
+        '../modules/deliveries/components/DeliveryIssues.tsx'
+      )
+      const content = fs.readFileSync(issuesComponentFile, 'utf-8')
+      expect(content).not.toMatch(/Rider reports\s*\(/i)
     })
   })
 })
