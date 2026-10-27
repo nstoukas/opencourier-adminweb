@@ -9,6 +9,7 @@ export * from './CourierUpdateAdminInput';
 export * from './DeliveryAdminDto';
 export * from './DeliveryAdminPaginatedDto';
 export * from './DeliveryEventAdminDto';
+export * from './DeliveryIssueAdminDto';
 export * from './DeliveryReassignAdminInput';
 export * from './DeliverySubmitEventAdminInput';
 export * from './EmailLoginAdminInput';

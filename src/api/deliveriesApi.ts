@@ -2,6 +2,7 @@ import {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
   DeliveryEventAdminDto,
+  DeliveryIssueAdminDto,
   DeliverySubmitEventAdminInputEventTypeEnum,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
@@ -58,6 +59,21 @@ export const deliveriesApi = baseApi.injectEndpoints({
         }
       },
       providesTags: [Tags.deliveryEvents],
+    }),
+    /** The riders' reports about a Delivery, oldest first (decision 66.11;
+     *  opencourier-backend GET /api/admin/v1/deliveries/:deliveryId/issues). */
+    getDeliveryIssues: build.query<DeliveryIssueAdminDto[], { deliveryId: string }>({
+      queryFn: async ({ deliveryId }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().getDeliveryIssues({ deliveryId })
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      providesTags: [Tags.deliveryIssues],
     }),
     submitDeliveryEvent: build.mutation<
       DeliveryAdminDto,
@@ -149,6 +165,7 @@ export const {
   useGetDeliveriesQuery,
   useGetDeliveryQuery,
   useGetDeliveryEventsQuery,
+  useGetDeliveryIssuesQuery,
   useSubmitDeliveryEventMutation,
   useAssignDeliveryToCourierMutation,
   useReassignDeliveryMutation,

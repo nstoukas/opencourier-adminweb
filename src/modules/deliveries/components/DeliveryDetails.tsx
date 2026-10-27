@@ -7,6 +7,7 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
+import { DeliveryIssues } from '@/modules/deliveries/components/DeliveryIssues'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
 import { formatMoney } from '@/utils/formatMoney'
@@ -291,6 +292,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
         </div>
 
         <OfferCard delivery={delivery} now={now} />
+
+        <DeliveryIssues deliveryId={delivery.id} />
 
         <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
 
