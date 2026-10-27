@@ -141,9 +141,9 @@ describe('DeliveryIssues component (decision 66.11)', () => {
       expect(rows).toHaveLength(3)
 
       // Verify order matches input list
-      expect(within(rows[0]!).getByText('Wrong address')).toBeInTheDocument()
-      expect(within(rows[1]!).getByText('No internet, GPS or signal')).toBeInTheDocument()
-      expect(within(rows[2]!).getByText('NEW_UNRECOGNIZED_REASON')).toBeInTheDocument()
+      expect(within(rows[0] as HTMLElement).getByText('Wrong address')).toBeInTheDocument()
+      expect(within(rows[1] as HTMLElement).getByText('No internet, GPS or signal')).toBeInTheDocument()
+      expect(within(rows[2] as HTMLElement).getByText('NEW_UNRECOGNIZED_REASON')).toBeInTheDocument()
     })
 
     it('renders humanized reason words from DELIVERY_ISSUE_REASON_TO_HUMAN and shows unknown reasons as sent', () => {
@@ -152,11 +152,11 @@ describe('DeliveryIssues component (decision 66.11)', () => {
       const rows = screen.getAllByTestId('delivery-issue-row')
 
       // Known reasons map to friendly Greek-co-op admin text
-      expect(within(rows[0]!).getByText('Wrong address')).toBeInTheDocument()
-      expect(within(rows[1]!).getByText('No internet, GPS or signal')).toBeInTheDocument()
+      expect(within(rows[0] as HTMLElement).getByText('Wrong address')).toBeInTheDocument()
+      expect(within(rows[1] as HTMLElement).getByText('No internet, GPS or signal')).toBeInTheDocument()
 
       // Unknown reason rendered raw as sent by the backend
-      expect(within(rows[2]!).getByText('NEW_UNRECOGNIZED_REASON')).toBeInTheDocument()
+      expect(within(rows[2] as HTMLElement).getByText('NEW_UNRECOGNIZED_REASON')).toBeInTheDocument()
     })
 
     it('renders courierName when present, and falls back to courierId when courierName is empty', () => {
@@ -165,12 +165,12 @@ describe('DeliveryIssues component (decision 66.11)', () => {
       const rows = screen.getAllByTestId('delivery-issue-row')
 
       // Row 0 has courierName 'Testing Courier'
-      expect(within(rows[0]!).getByText('Testing Courier')).toBeInTheDocument()
-      expect(within(rows[0]!).getByText('From')).toBeInTheDocument()
+      expect(within(rows[0] as HTMLElement).getByText('Testing Courier')).toBeInTheDocument()
+      expect(within(rows[0] as HTMLElement).getByText('From')).toBeInTheDocument()
 
       // Row 2 has empty courierName, so falls back to courierId 'courier-3'
-      expect(within(rows[2]!).getByText('courier-3')).toBeInTheDocument()
-      expect(within(rows[2]!).getByText('From')).toBeInTheDocument()
+      expect(within(rows[2] as HTMLElement).getByText('courier-3')).toBeInTheDocument()
+      expect(within(rows[2] as HTMLElement).getByText('From')).toBeInTheDocument()
     })
 
     it('renders the formatted time using formatDate', () => {
@@ -178,9 +178,21 @@ describe('DeliveryIssues component (decision 66.11)', () => {
 
       const rows = screen.getAllByTestId('delivery-issue-row')
 
-      expect(within(rows[0]!).getByText(formatDate(mockReports[0]!.createdAt))).toBeInTheDocument()
-      expect(within(rows[1]!).getByText(formatDate(mockReports[1]!.createdAt))).toBeInTheDocument()
-      expect(within(rows[2]!).getByText(formatDate(mockReports[2]!.createdAt))).toBeInTheDocument()
+      expect(
+        within(rows[0] as HTMLElement).getByText(
+          formatDate((mockReports[0] as DeliveryIssueAdminDto).createdAt)
+        )
+      ).toBeInTheDocument()
+      expect(
+        within(rows[1] as HTMLElement).getByText(
+          formatDate((mockReports[1] as DeliveryIssueAdminDto).createdAt)
+        )
+      ).toBeInTheDocument()
+      expect(
+        within(rows[2] as HTMLElement).getByText(
+          formatDate((mockReports[2] as DeliveryIssueAdminDto).createdAt)
+        )
+      ).toBeInTheDocument()
     })
 
     it('renders the note only when there is one and omits note container when null/empty', () => {
@@ -190,14 +202,16 @@ describe('DeliveryIssues component (decision 66.11)', () => {
 
       // Row 0 has note
       expect(
-        within(rows[0]!).getByText('Customer specified Apt 4B but building only goes up to floor 3')
+        within(rows[0] as HTMLElement).getByText(
+          'Customer specified Apt 4B but building only goes up to floor 3'
+        )
       ).toBeInTheDocument()
 
       // Row 1 has null note, so no paragraph is rendered
-      expect(rows[1]!.querySelectorAll('p')).toHaveLength(0)
+      expect((rows[1] as HTMLElement).querySelectorAll('p')).toHaveLength(0)
 
       // Row 2 has note
-      expect(within(rows[2]!).getByText('Some unexpected note')).toBeInTheDocument()
+      expect(within(rows[2] as HTMLElement).getByText('Some unexpected note')).toBeInTheDocument()
     })
 
     it('renders ORDER_HANDED and OTHER human labels correctly', () => {
