@@ -34,7 +34,7 @@ type NavGroup = {
 }
 
 // The redesign's three groups, holding today's pages. Dispatch and Messages join "Run the day"
-// when rows 90 builds them; Instance Configuration becomes Co-op settings in row 87.
+// when rows 90 builds them; Instance Configuration became Settings in row 87.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Run the day',
@@ -52,7 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Co-op',
-    items: [{ title: 'Instance Configuration', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION }],
+    items: [{ title: 'Settings', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION }],
   },
 ]
 

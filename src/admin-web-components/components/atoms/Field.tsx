@@ -24,4 +24,14 @@ function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>)
   return <Label data-slot="field-label" className={cn('leading-snug', className)} {...props} />
 }
 
-export { Field, FieldGroup, FieldLabel }
+// Helper text under a control, in the muted colour (row 87).
+function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
+  return <p data-slot="field-description" className={cn('text-sm text-muted-foreground', className)} {...props} />
+}
+
+// A problem with the value, in the destructive colour (row 87).
+function FieldError({ className, ...props }: React.ComponentProps<'p'>) {
+  return <p data-slot="field-error" role="alert" className={cn('text-sm text-destructive', className)} {...props} />
+}
+
+export { Field, FieldGroup, FieldLabel, FieldDescription, FieldError }

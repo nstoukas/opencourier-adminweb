@@ -70,10 +70,10 @@ export function ReassignmentPayoutPolicyEditor({
   return (
     <div className="border rounded-lg p-6 space-y-4">
       <h3 className="text-lg font-semibold">Reassignment payout policies</h3>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-muted-foreground">
         How much of a dropped rider&apos;s piece-rate they keep when a Delivery is reassigned to someone else. 100% is the worker-centered default.
       </p>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-muted-foreground">
         Renaming or removing a policy does not change past reassignments — a <code>CourierCompensation</code> row and its <code>DeliveryEvent</code> keep the name that was in force when it happened.
       </p>
       <div className="space-y-3">
@@ -101,9 +101,9 @@ export function ReassignmentPayoutPolicyEditor({
                     placeholder="0"
                     className="w-20"
                   />
-                  <span className="text-sm text-gray-600">%</span>
+                  <span className="text-sm text-muted-foreground">%</span>
                 </div>
-                <label className="flex items-center gap-1 text-sm text-gray-700 cursor-pointer">
+                <label className="flex items-center gap-1 text-sm text-foreground cursor-pointer">
                   <input
                     type="radio"
                     name="payout-default-policy"
@@ -123,7 +123,7 @@ export function ReassignmentPayoutPolicyEditor({
                 </Button>
               </div>
               {showStoredKey && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Will be saved as <code>{storedKey}</code>
                 </p>
               )}

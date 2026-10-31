@@ -3,682 +3,178 @@ import {
   useGetInstanceConfigQuery,
   useSetInstanceConfigMutation,
 } from "@/api/configApi";
-import type { InstanceConfigSettingsDto } from "@/backend-admin-sdk";
+import { Button, useToast } from "@/admin-web-components";
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
 import { PageHeader } from "@/components/layouts/PageHeader";
-import type { NextPage } from "next";
-// `import type` = these names are used only in type positions and vanish at build time.
-// The GeoJSON shapes come from @types/geojson (already installed).
-import type { Feature, FeatureCollection, Geometry } from "geojson";
-import { Button, Input, Label, useToast } from "@/admin-web-components";
 import {
   COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
   COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
-  COURIER_MATCHER_TYPE_TO_HUMAN,
   CURRENCY_TO_HUMAN,
   DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN,
   DISTANCE_UNIT_TO_HUMAN,
   GEO_CALCULATION_TYPE_TO_HUMAN,
   QUOTE_CALCULATION_TYPE_TO_HUMAN,
 } from "@/shared-types";
-import dynamic from "next/dynamic";
-import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { featureCollection } from "@turf/turf";
-import ReactMarkdown from "react-markdown";
-import { parseQuoteRateInput } from "@/utils/quoteRate";
-import { describeBaseFee, parseBaseFeeInput } from "@/utils/baseFee";
-import { parseNumberInput } from "@/utils/numberInput";
-import { describeOfferExpiry } from "@/utils/offerExpiry";
-import { QuoteRateEditor } from "@/modules/instance-config/components/QuoteRateEditor";
+import {
+  InstanceCard,
+  MATCHER_COPY,
+  MatchingCard,
+  OffersCard,
+  PricingCard,
+  PublicPagesCard,
+  RiderPayCard,
+  SECTIONS,
+  ServiceAreaCard,
+  type PublicPage,
+} from "@/modules/instance-config/cards/SettingsCards";
+import { PublicPageEditor } from "@/modules/instance-config/PublicPageEditor";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
+import { SaveBar } from "@/modules/instance-config/SaveBar";
+import {
+  EMPTY_FORM,
+  blockers as findBlockers,
+  formFromSettings,
+  pendingChanges,
+  savePayload,
+  successMessage,
+  type SettingKey,
+  type SettingsForm,
+} from "@/modules/instance-config/settingsDiff";
+import type { NextPage } from "next";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-// `node` is pulled out so react-markdown's AST node is never spread onto the DOM element.
-const MARKDOWN_COMPONENTS = {
-  ul: ({ node: _node, ...props }: any) => (
-    <ul className="list-disc list-inside ml-4" {...props} />
-  ),
-  ol: ({ node: _node, ...props }: any) => (
-    <ol className="list-decimal list-inside ml-4" {...props} />
-  ),
-  li: ({ node: _node, ...props }: any) => <li className="mb-1" {...props} />,
-  // A `#` heading in the rules text becomes an h2: the page's one h1 is its PageHeader title.
-  h1: ({ children }: any) => (
-    <h2 className="text-2xl font-bold mt-6 mb-3">{children}</h2>
-  ),
-  h2: ({ children }: any) => (
-    <h2 className="text-xl font-semibold mt-5 mb-3">{children}</h2>
-  ),
-  h3: ({ children }: any) => (
-    <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>
-  ),
-  h4: ({ children }: any) => (
-    <h4 className="text-md font-medium mt-3 mb-2 text-gray-700">
-      {children}
-    </h4>
-  ),
-  a: ({ href, children }: any) => (
-    <a
-      href={href}
-      className="text-blue-600 underline underline-offset-2 hover:text-blue-800"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {children}
-    </a>
-  ),
-};
-
+// The drawing tool loads only in the browser (Leaflet needs `window`).
 const AdminMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
-    <div className="h-[400px] w-4/5 bg-gray-100 animate-pulse rounded-lg items-center justify-center flex">
-      Loading Map...
+    <div className="flex h-[400px] w-full items-center justify-center rounded-lg bg-muted text-muted-foreground">
+      Loading map…
     </div>
   ),
 });
 
-const validateURL = (url: string): boolean => {
-  if (!url) return true; // Allow empty fields
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
+// Words for an option's code in the save bar, by setting.
+const OPTION_LABELS: Partial<Record<SettingKey, Record<string, string>>> = {
+  currency: CURRENCY_TO_HUMAN,
+  distanceUnit: DISTANCE_UNIT_TO_HUMAN,
+  quoteCalculationType: QUOTE_CALCULATION_TYPE_TO_HUMAN,
+  geoCalculationType: GEO_CALCULATION_TYPE_TO_HUMAN,
+  deliveryDurationCalculationType: DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN,
+  courierCompensationCalculationType: COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
+  defaultDietaryRestrictions: COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
 };
 
-const sanitizeURL = (url: string): string => {
-  if (!url) return url;
-  return url.replace(/\/$/, ""); // Remove trailing slash
+const optionLabel = (key: SettingKey, option: string): string =>
+  key === "courierMatcherType"
+    ? MATCHER_COPY[option]?.title ?? option
+    : OPTION_LABELS[key]?.[option] ?? option;
+
+// Which public page text lives in which `details` key, and how it is named in messages.
+const PUBLIC_PAGE_FIELDS: Record<
+  PublicPage,
+  { key: string; title: string; placeholder: string }
+> = {
+  rules: {
+    key: "rulesContent",
+    title: "Courier rules",
+    placeholder: "# Courier rules\n\nWrite your content in markdown...",
+  },
+  description: {
+    key: "descriptionContent",
+    title: "About the co-op",
+    placeholder: "# About the co-op\n\nWrite your content in markdown...",
+  },
+  "terms-of-service": {
+    key: "termsOfServiceContent",
+    title: "Terms of service",
+    placeholder: "# Terms of Service\n\n## Agreement\nWrite your content in markdown...",
+  },
+  "privacy-policy": {
+    key: "privacyPolicyContent",
+    title: "Privacy policy",
+    placeholder: "# Privacy Policy\n\nWrite your content in markdown...",
+  },
 };
 
+// Co-op settings (spec 0010): the instance's settings in seven cards, one save bar that lists
+// every change as "old → new" and sends only those. The dropped rider pay policies and the
+// public pages keep their own Save.
 const InstanceConfigurationPage: NextPage = () => {
   const instanceConfigOptionsResponse = useGetInstanceConfigOptionsQuery({});
   const instanceConfigResponse = useGetInstanceConfigQuery({});
   const [setInstanceConfigMutation] = useSetInstanceConfigMutation();
   const { toast } = useToast();
+
+  const data = instanceConfigResponse.data;
+  const loaded = !!data;
+  // `as Record<…>`: the SDK types `details` loosely; it is the backend's free JSON object.
+  const savedDetails = useMemo(
+    () => ((data?.details as Record<string, unknown> | undefined) ?? {}),
+    [data],
+  );
+
+  // What is saved (null until it loads) and what the boxes hold.
+  const saved = useMemo<SettingsForm | null>(
+    () => (data ? formFromSettings(data as Record<string, any>) : null),
+    [data],
+  );
+  const [edited, setEdited] = useState<SettingsForm>(EMPTY_FORM);
+  // Bumped on Discard so the map draws the saved area again (it reads its shape only when it mounts).
+  const [mapKey, setMapKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [urlErrors, setUrlErrors] = useState<{
-    link?: string;
-    websocketLink?: string;
-    imageUrl?: string;
-  }>({});
-
-  const regionDataRef = useRef<any>(null);
-
-  // Local state for all config fields
-  const [config, setConfig] = useState({
-    name: "",
-    link: "",
-    websocketLink: "",
-    imageUrl: "",
-    // `as …` tells TypeScript what this field will hold later; without it the type is
-    // inferred as literally `null` and no use of config.region can ever be checked.
-    // The map hands back an array of drawn Features; the server hands back a
-    // FeatureCollection (saved by this page) or a bare geometry (seeded instances).
-    region: null as FeatureCollection | Feature[] | Geometry | null,
-    courierMatcherType: "",
-    quoteCalculationType: "",
-    geoCalculationType: "",
-    deliveryDurationCalculationType: "",
-    courierCompensationCalculationType: "",
-    defaultDietaryRestrictions: [] as string[],
-    currency: "",
-    distanceUnit: "",
-    // null = no value stored (or the box was cleared). Never 0: a 0 here would be saved
-    // as a real vote by Save all.
-    maxAssignmentDistance: null as number | null,
-    maxDriftDistance: null as number | null,
-    quoteExpirationMinutes: null as number | null,
-    defaultCourierPayRate: null as number | null,
-    defaultMaxWorkingHours: null as number | null,
-    feePercentageAmount: null as number | null,
-    quoteRatePerDistanceUnit: 0,
-  });
-
-  const [quoteRateText, setQuoteRateText] = useState("");
-  const [quoteRateError, setQuoteRateError] = useState("");
   const [isSavingPayoutPolicies, setIsSavingPayoutPolicies] = useState(false);
-  const [isSavingQuoteRate, setIsSavingQuoteRate] = useState(false);
-  // The base fee lives outside `config` on purpose: only its own Save button sends it, so
-  // "Save All Changes" can never send an empty or half typed base fee. It holds the text in
-  // the box (a string), and is named after the setting so the coverage guard test finds it.
-  const [quoteBaseFee, setQuoteBaseFee] = useState("");
-  const [baseFeeError, setBaseFeeError] = useState("");
-  const [isSavingBaseFee, setIsSavingBaseFee] = useState(false);
 
-  // Offer expiry (spec 0002, AC-10). Like the base fee, these live outside `config` so only
-  // their own Save button sends them; "Save All Changes" never touches them. Each is named
-  // after its setting so the coverage guard test finds the box bound to it.
-  // `boolean | null`: null until the settings arrive, so the page never shows (or saves)
-  // "off" for a switch it has not read yet.
-  const [offerExpiryEnabled, setOfferExpiryEnabled] = useState<boolean | null>(null);
-  // The two number boxes hold the text typed (a string), like the base fee box.
-  const [offerExpirySeconds, setOfferExpirySeconds] = useState("");
-  const [noCourierRetrySeconds, setNoCourierRetrySeconds] = useState("");
-  const [isSavingOfferSettings, setIsSavingOfferSettings] = useState(false);
-  // Saved customers (spec 0005): months an unused saved customer is kept. null until loaded.
-  const [savedCustomerRetentionMonths, setSavedCustomerRetentionMonths] = useState<string | null>(null);
-  const [isSavingRetention, setIsSavingRetention] = useState(false);
-
-  const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
-  const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
-  const [rulesContent, setRulesContent] = useState("");
-  const [descriptionContent, setDescriptionContent] = useState("");
-  const [currentView, setCurrentView] = useState<
-    | "main"
-    | "privacy-policy"
-    | "terms-of-service"
-    | "rules"
-    | "description"
-  >("main");
-
-  // Sync server data to local state
+  // Each time the settings arrive (first load, after a save), the boxes show them.
   useEffect(() => {
-    // `Partial<…>` = same object, every field optional. The SDK declares these fields as
-    // always present and never null, and both halves of that are untrue at runtime: its
-    // FromJSON copies each key with no default (an omitted key stays `undefined`), and the
-    // backend DTO casts away nulls that InstanceConfigSettings really allows — `currency`
-    // and `distanceUnit` are `| null` at the source. This annotation is what keeps the
-    // `?? ""` defaults below both necessary and checked.
-    const data: Partial<InstanceConfigSettingsDto> | undefined =
-      instanceConfigResponse.data;
-    if (data) {
-      const details = (data.details as any) || {};
-      setConfig({
-        name: details.name ?? "",
-        link: details.link ?? "",
-        websocketLink: details.websocketLink ?? "",
-        imageUrl: details.imageUrl ?? "",
-        region: details.region ?? null,
-        courierMatcherType: data.courierMatcherType ?? "",
-        quoteCalculationType: data.quoteCalculationType ?? "",
-        geoCalculationType: data.geoCalculationType ?? "",
-        deliveryDurationCalculationType:
-          data.deliveryDurationCalculationType ?? "",
-        courierCompensationCalculationType:
-          data.courierCompensationCalculationType ?? "",
-        defaultDietaryRestrictions: Array.isArray(
-          data.defaultDietaryRestrictions,
-        )
-          ? data.defaultDietaryRestrictions
-          : [],
-        currency: data.currency ?? "",
-        distanceUnit: data.distanceUnit ?? "",
-        maxAssignmentDistance: data.maxAssignmentDistance ?? null,
-        maxDriftDistance: data.maxDriftDistance ?? null,
-        quoteExpirationMinutes: data.quoteExpirationMinutes ?? null,
-        defaultCourierPayRate: data.defaultCourierPayRate ?? null,
-        defaultMaxWorkingHours: data.defaultMaxWorkingHours ?? null,
-        feePercentageAmount: data.feePercentageAmount ?? null,
-        quoteRatePerDistanceUnit: data.quoteRatePerDistanceUnit ?? 0,
-      });
-      setQuoteRateText(String(data.quoteRatePerDistanceUnit ?? 0));
-      setQuoteRateError("");
-      // An empty box (not "0") when the backend sends no value, so a missing setting is
-      // never shown, or saved, as a base fee of 0.
-      setQuoteBaseFee(
-        data.quoteBaseFee === null || data.quoteBaseFee === undefined
-          ? ""
-          : String(data.quoteBaseFee),
-      );
-      setBaseFeeError("");
-      setOfferExpiryEnabled(data.offerExpiryEnabled ?? null);
-      setOfferExpirySeconds(
-        data.offerExpirySeconds == null ? "" : String(data.offerExpirySeconds),
-      );
-      setNoCourierRetrySeconds(
-        data.noCourierRetrySeconds == null
-          ? ""
-          : String(data.noCourierRetrySeconds),
-      );
-      setSavedCustomerRetentionMonths(
-        data.savedCustomerRetentionMonths == null
-          ? ""
-          : String(data.savedCustomerRetentionMonths),
-      );
-      setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
-      setTermsOfServiceContent(details.termsOfServiceContent ?? "");
-      setRulesContent(details.rulesContent ?? "");
-      setDescriptionContent(details.descriptionContent ?? "");
-    }
-  }, [instanceConfigResponse.data]);
+    if (saved) setEdited(saved);
+  }, [saved]);
 
-  const onInstanceConfigChangeDietaryRestrictions = (select: any) => {
-    const result = [];
-    const options = select && select.options;
-    let opt;
+  // `useCallback` keeps the same function between draws, so the cards and the map do not
+  // redraw for nothing.
+  const set = useCallback(
+    <K extends SettingKey>(key: K, value: SettingsForm[K]) =>
+      setEdited((current) => ({ ...current, [key]: value })),
+    [],
+  );
+  const handleMapUpdate = useCallback(
+    (region: unknown) => set("region", region),
+    [set],
+  );
 
-    for (let i = 0, iLen = options.length; i < iLen; i++) {
-      opt = options[i];
-      if (opt.selected) {
-        result.push(opt.value || opt.text);
-      }
-    }
+  const changes = useMemo(
+    () => pendingChanges(saved, edited, optionLabel),
+    [saved, edited],
+  );
+  const blockers = useMemo(() => findBlockers(changes, edited), [changes, edited]);
 
-    setConfig({ ...config, defaultDietaryRestrictions: result });
+  const handleDiscard = () => {
+    if (saved) setEdited(saved);
+    setMapKey((key) => key + 1);
   };
 
-  const handleSavePrivacyPolicy = async () => {
+  const handleSave = async () => {
+    if (changes.length === 0 || blockers.length > 0) return;
     setIsSaving(true);
     try {
-      const existingDetails =
-        (instanceConfigResponse.data?.details as any) || {};
-
-      await setInstanceConfigMutation({
-        details: {
-          ...existingDetails,
-          privacyPolicyContent: privacyPolicyContent.trim(),
-        },
-        // .unwrap() makes a refused save throw, so the catch below reports it as a failure
-        // instead of showing "saved". Every save on this page follows the same rule.
-      } as any).unwrap();
-      // PRINT OUT DATA!
-      console.log(config);
-      toast({
-        title: "Success!",
-        description: "Privacy policy saved successfully.",
-      });
-      setCurrentView("main");
+      // .unwrap() makes a refused save throw; configApi's queryFn returns `{ error }` instead of
+      // throwing, so without it a 400 would be reported as success. `as any`: the SDK input type
+      // has no room for a partial body, which the backend accepts (spec 0010, Data model).
+      await setInstanceConfigMutation(
+        savePayload(changes, edited, savedDetails) as any,
+      ).unwrap();
+      toast({ title: "Saved", description: successMessage(changes) });
     } catch (error: any) {
+      // The backend's own reason (row 50); every change stays in the bar.
       toast({
-        title: "Error",
+        title: "Not saved",
         description:
-          error?.message || "Failed to save privacy policy. Please try again.",
+          error?.message || "The settings could not be saved. Please try again.",
         variant: "destructive",
       });
-      console.error("Failed to save privacy policy:", error);
+      console.error("Failed to save the co-op settings:", error);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleSaveTermsOfService = async () => {
-    setIsSaving(true);
-    try {
-      const existingDetails =
-        (instanceConfigResponse.data?.details as any) || {};
-
-      await setInstanceConfigMutation({
-        details: {
-          ...existingDetails,
-          termsOfServiceContent: termsOfServiceContent.trim(),
-        },
-      } as any).unwrap();
-      toast({
-        title: "Success!",
-        description: "Terms of service saved successfully.",
-      });
-      // PRINT OUT DATA!
-      console.log(config);
-      setCurrentView("main");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message || "Failed to save terms of service. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save terms of service:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveRules = async () => {
-    setIsSaving(true);
-    try {
-      const existingDetails =
-        (instanceConfigResponse.data?.details as any) || {};
-
-      await setInstanceConfigMutation({
-        details: {
-          ...existingDetails,
-          rulesContent: rulesContent.trim(),
-        },
-      } as any).unwrap();
-      toast({
-        title: "Success!",
-        description: "Rules saved successfully.",
-      });
-      // PRINT OUT DATA!
-      console.log(config);
-      setCurrentView("main");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message || "Failed to save rules. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save rules:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveDescription = async () => {
-    setIsSaving(true);
-    try {
-      const existingDetails =
-        (instanceConfigResponse.data?.details as any) || {};
-
-      await setInstanceConfigMutation({
-        details: {
-          ...existingDetails,
-          descriptionContent: descriptionContent.trim(),
-        },
-      } as any).unwrap();
-      toast({
-        title: "Success!",
-        description: "Description saved successfully.",
-      });
-      // PRINT OUT DATA!
-      console.log(config);
-      setCurrentView("main");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message || "Failed to save description. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save description:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Every reason "Save All Changes" is off, in words the page shows under the button. An empty
-  // list means it can save. Websocket URL and Logo Image URL are not required: only the dropped
-  // instance registry needed them filled, and their other readers (the courier app, the public
-  // metadata) cope with an empty value. They still block the save when they hold a bad URL.
-  const saveAllBlockers = useMemo(() => {
-    const blockers: string[] = [];
-    if (config.name.trim() === "") blockers.push("Name is empty");
-    if (config.link.trim() === "") blockers.push("URL is empty");
-    if (config.region === null) blockers.push("Operating Region is not drawn");
-    if (config.defaultDietaryRestrictions.length === 0) {
-      blockers.push("Default Dietary Restrictions has nothing selected");
-    }
-    if (urlErrors.link) blockers.push("URL is not a valid URL");
-    if (urlErrors.websocketLink) {
-      blockers.push("Websocket URL is not a valid URL");
-    }
-    if (urlErrors.imageUrl) blockers.push("Logo Image URL is not a valid URL");
-    if (quoteRateError !== "") {
-      blockers.push("Quote Rate Per Distance Unit is not a valid number");
-    }
-    return blockers;
-  }, [config, urlErrors, quoteRateError]);
-
-  const handleSaveAllChanges = async () => {
-    setIsSaving(true);
-    try {
-      const { name, link, websocketLink, imageUrl, region, ...restConfig } =
-        config;
-      const existingDetails =
-        (instanceConfigResponse.data?.details as any) || {};
-
-      // Sanitize and trim URL fields
-      const sanitizedName = name.trim();
-      const sanitizedLink = sanitizeURL(link.trim());
-      const sanitizedWebsocketLink = sanitizeURL(websocketLink.trim());
-      const sanitizedImageUrl = sanitizeURL(imageUrl.trim());
-
-      // Update config state with sanitized values
-      setConfig({
-        ...config,
-        name: sanitizedName,
-        link: sanitizedLink,
-        websocketLink: sanitizedWebsocketLink,
-        imageUrl: sanitizedImageUrl,
-      });
-
-      // Process region data - keep as FeatureCollection for individual polygon editing
-      let processedRegion = null;
-      const rawData = regionDataRef.current;
-
-      // If regionDataRef is null, use the existing region from config (no changes made)
-      if (!rawData && region) {
-        processedRegion = region;
-      } else if (rawData) {
-        // Normalize Data: Ensure we have a FeatureCollection
-        if (Array.isArray(rawData)) {
-          // If it's just an array of features, wrap them in a FeatureCollection
-          processedRegion = featureCollection(rawData);
-        } else if (rawData.type === "FeatureCollection") {
-          // It's already formatted correctly
-          processedRegion = rawData;
-        } else if (rawData.type === "Feature") {
-          // Single feature, wrap it in a FeatureCollection
-          processedRegion = featureCollection([rawData]);
-        }
-      }
-
-      // .unwrap() is what makes a rejected save actually throw. configApi's queryFn returns
-      // `{ error }` instead of throwing, so without it the catch below never runs and a 400
-      // would be reported as success.
-      await setInstanceConfigMutation({
-        ...restConfig,
-        details: {
-          ...existingDetails,
-          name: sanitizedName,
-          link: sanitizedLink,
-          websocketLink: sanitizedWebsocketLink,
-          imageUrl: sanitizedImageUrl,
-          privacyPolicyUrl: computedURLs.privacyPolicyUrl,
-          termsOfServiceUrl: computedURLs.termsOfServiceUrl,
-          rulesUrl: computedURLs.rulesUrl,
-          descriptionUrl: computedURLs.descriptionUrl,
-          region: processedRegion,
-        },
-      } as any).unwrap();
-      toast({
-        title: "Success!",
-        description: "Instance configuration saved successfully.",
-      });
-      // PRINT OUT DATA!
-      console.log(config, computedURLs);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        // The backend's own reason (e.g. "maxAssignmentDistance cannot be 0: ..."), which
-        // the SDK puts on the thrown ApiError. The generic text is the fallback for an error
-        // that carries no message at all.
-        description:
-          error?.message ||
-          "Failed to save instance configuration. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save configuration:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Compute URL fields based on instance link
-  const computedURLs = useMemo(() => {
-    const baseLink = sanitizeURL(config.link);
-    return {
-      privacyPolicyUrl: baseLink ? `${baseLink}/privacy-policy` : "",
-      termsOfServiceUrl: baseLink ? `${baseLink}/terms-of-service` : "",
-      rulesUrl: baseLink ? `${baseLink}/rules` : "",
-      descriptionUrl: baseLink ? `${baseLink}/description` : "",
-    };
-  }, [config.link]);
-
-  // Memoize the onUpdate callback to prevent map re-renders
-  const handleMapUpdate = useCallback((val: any) => {
-    regionDataRef.current = val;
-    // Update config state to reflect region changes (including clearing)
-    setConfig((prevConfig) => ({
-      ...prevConfig,
-      region: val,
-    }));
-  }, []);
-
-  const handleURLFieldChange = (
-    field: "link" | "websocketLink" | "imageUrl",
-    value: string,
-  ) => {
-    setConfig({ ...config, [field]: value });
-    if (value && !validateURL(value)) {
-      setUrlErrors({ ...urlErrors, [field]: "Invalid URL format" });
-    } else {
-      const newErrors = { ...urlErrors };
-      delete newErrors[field];
-      setUrlErrors(newErrors);
-    }
-  };
-
-  // Mirrors handleURLFieldChange: keep what was typed, then set or clear the inline error that
-  // gates the save button. Only a valid rate reaches `config`, so an emptied or negative box can
-  // never be sent by "Save All Changes" (an empty box would otherwise become 0 via Number('')).
-  const handleQuoteRateChange = (value: string) => {
-    setQuoteRateText(value);
-    const rate = parseQuoteRateInput(value);
-    if (rate === null) {
-      setQuoteRateError("Enter a whole number of cents, zero or more.");
-      return;
-    }
-    setConfig({ ...config, quoteRatePerDistanceUnit: rate });
-    setQuoteRateError("");
-  };
-
-  const handleSaveQuoteRate = async () => {
-    // Re-read the box rather than trusting `config`: what is on screen is what gets sent.
-    const rate = parseQuoteRateInput(quoteRateText);
-    if (rate === null) {
-      setQuoteRateError("Enter a whole number of cents, zero or more.");
-      return;
-    }
-    setIsSavingQuoteRate(true);
-    try {
-      // .unwrap() is what makes a rejected save actually throw. configApi's queryFn returns
-      // `{ error }` instead of throwing, so without it the catch below never runs and a 400
-      // would be reported as success. Only this one key is sent: the backend setter writes
-      // just the keys that are present, so nothing else in the instance config is touched.
-      await setInstanceConfigMutation({
-        quoteRatePerDistanceUnit: rate,
-      }).unwrap();
-      toast({
-        title: "Success!",
-        description: "Quote rate saved successfully.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message || "Failed to save the quote rate. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save quote rate:", error);
-    } finally {
-      setIsSavingQuoteRate(false);
-    }
-  };
-
-  const BASE_FEE_INPUT_ERROR =
-    "Base fee: enter a whole number of cents, zero or more.";
-
-  // Same shape as the quote rate handlers above: keep what was typed, flag it if it is not a
-  // valid base fee, and send only what is in the box when Save is pressed.
-  const handleBaseFeeChange = (value: string) => {
-    setQuoteBaseFee(value);
-    setBaseFeeError(parseBaseFeeInput(value) === null ? BASE_FEE_INPUT_ERROR : "");
-  };
-
-  const handleSaveBaseFee = async () => {
-    const fee = parseBaseFeeInput(quoteBaseFee);
-    if (fee === null) {
-      setBaseFeeError(BASE_FEE_INPUT_ERROR);
-      return;
-    }
-    setIsSavingBaseFee(true);
-    try {
-      // .unwrap() makes a refused save throw, so the catch below shows the backend's reason.
-      // Only this one key is sent, so nothing else in the instance config is touched.
-      await setInstanceConfigMutation({
-        quoteBaseFee: fee,
-      }).unwrap();
-      toast({
-        title: "Success!",
-        description: "Base fee saved successfully. It applies to the next quote.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message || "Failed to save the base fee. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save base fee:", error);
-    } finally {
-      setIsSavingBaseFee(false);
-    }
-  };
-
-  const handleSaveOfferSettings = async () => {
-    // The button is off until the settings have loaded, so this never sends a guessed switch.
-    if (offerExpiryEnabled === null) return;
-    setIsSavingOfferSettings(true);
-    try {
-      // The three go in one request and nothing else does. What is in the boxes is sent as is
-      // (an empty box as null): the backend owns the rules (whole seconds, 20 to 300 and 10 to
-      // 300) and refuses a bad value with a message naming the setting, which the toast shows.
-      // `as number` only quiets the SDK type, which has no room for null; the backend refuses null.
-      await setInstanceConfigMutation({
-        offerExpiryEnabled,
-        offerExpirySeconds: parseNumberInput(offerExpirySeconds) as number,
-        noCourierRetrySeconds: parseNumberInput(noCourierRetrySeconds) as number,
-      }).unwrap();
-      toast({
-        title: "Success!",
-        description:
-          "Offer settings saved. They apply to the next offer; an offer already out keeps its deadline.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message ||
-          "Failed to save the offer settings. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save offer settings:", error);
-    } finally {
-      setIsSavingOfferSettings(false);
-    }
-  };
-
-  const handleSaveRetention = async () => {
-    // The button is off until the settings have loaded.
-    if (savedCustomerRetentionMonths === null) return;
-    setIsSavingRetention(true);
-    try {
-      // Sent as typed (an empty box as null): the backend owns the rule (whole months, 1 to 36)
-      // and refuses a bad value with a message naming the setting, which the toast shows.
-      // `as number` only quiets the SDK type, which has no room for null; the backend refuses null.
-      await setInstanceConfigMutation({
-        savedCustomerRetentionMonths: parseNumberInput(savedCustomerRetentionMonths) as number,
-      }).unwrap();
-      toast({
-        title: "Success!",
-        description:
-          "Saved customer retention saved. The daily job uses it from its next run.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description:
-          error?.message ||
-          "Failed to save the saved customer retention. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Failed to save saved customer retention:", error);
-    } finally {
-      setIsSavingRetention(false);
     }
   };
 
@@ -688,21 +184,19 @@ const InstanceConfigurationPage: NextPage = () => {
   ) => {
     setIsSavingPayoutPolicies(true);
     try {
-      // .unwrap() is what makes a rejected save actually throw. configApi's queryFn returns
-      // `{ error }` instead of throwing, so without it the catch below never runs and a 400
-      // would be reported as success. Both keys go in one request: the backend rejects a menu
-      // whose default policy is not one of its own keys.
+      // Both keys go in one request: the backend rejects a menu whose default policy is not one
+      // of its own keys.
       await setInstanceConfigMutation({
         reassignmentPayoutPolicies: policies,
         reassignmentPayoutDefaultPolicy: defaultPolicy,
       }).unwrap();
       toast({
-        title: "Success!",
+        title: "Saved",
         description: "Reassignment payout policies saved successfully.",
       });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Not saved",
         description:
           error?.message ||
           "Failed to save reassignment payout policies. Please try again.",
@@ -714,839 +208,124 @@ const InstanceConfigurationPage: NextPage = () => {
     }
   };
 
+  // The public page being edited, if any, and the text in its editor.
+  const [currentView, setCurrentView] = useState<"main" | PublicPage>("main");
+  const [pageText, setPageText] = useState("");
+  const [isSavingPage, setIsSavingPage] = useState(false);
+
+  const openPage = (view: PublicPage) => {
+    setPageText(String(savedDetails[PUBLIC_PAGE_FIELDS[view].key] ?? ""));
+    setCurrentView(view);
+  };
+
+  const handleSavePage = async () => {
+    if (currentView === "main") return;
+    const page = PUBLIC_PAGE_FIELDS[currentView];
+    setIsSavingPage(true);
+    try {
+      // `details` is replaced whole by the backend, so the saved details go with the new text.
+      await setInstanceConfigMutation({
+        details: { ...savedDetails, [page.key]: pageText.trim() },
+      } as any).unwrap();
+      toast({ title: "Saved", description: `${page.title} saved successfully.` });
+      setCurrentView("main");
+    } catch (error: any) {
+      toast({
+        title: "Not saved",
+        description:
+          error?.message ||
+          `Failed to save ${page.title.toLowerCase()}. Please try again.`,
+        variant: "destructive",
+      });
+      console.error(`Failed to save ${page.title}:`, error);
+    } finally {
+      setIsSavingPage(false);
+    }
+  };
+
+  const cardProps = {
+    form: edited,
+    set,
+    options: instanceConfigOptionsResponse.data,
+    loaded,
+  };
+
   return (
     <DefaultLayout>
-      {/* Header and Edit Links - Always Visible. The Back button keeps its old look until
-          row 87 rebuilds this page; here it only moved into the header's action slot. */}
       <PageHeader
-        title="Instance Configuration"
+        title="Co-op settings"
         action={
           currentView !== "main" ? (
-            <button
-              className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => setCurrentView("main")}
             >
               ← Back
-            </button>
+            </Button>
           ) : undefined
         }
       />
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setCurrentView("rules")}
-          className="text-gray-500 cursor-pointer hover:text-gray-800"
-        >
-          <Label className="cursor-pointer">Edit Rules</Label>
-        </button>
-        <div className="h-4 w-px bg-gray-300" />
-        <button
-          onClick={() => setCurrentView("description")}
-          className="text-gray-500 cursor-pointer hover:text-gray-800"
-        >
-          <Label className="cursor-pointer">Edit Description</Label>
-        </button>
-        <div className="h-4 w-px bg-gray-300" />
-        <button
-          onClick={() => setCurrentView("terms-of-service")}
-          className="text-gray-500 cursor-pointer hover:text-gray-800"
-        >
-          <Label className="cursor-pointer">Edit Terms of Service</Label>
-        </button>
-        <div className="h-4 w-px bg-gray-300" />
-        <button
-          onClick={() => setCurrentView("privacy-policy")}
-          className="text-gray-500 cursor-pointer hover:text-gray-800"
-        >
-          <Label className="cursor-pointer">Edit Privacy Policy</Label>
-        </button>
-      </div>
 
-      {/* Content - Changes Based on View */}
       {currentView === "main" ? (
         <>
-          <div></div>
-          <div className="pt-4 flex flex-col gap-2">
-            <div>
-              <Label className="text-right">Name</Label>
-              <Input
-                key="instanceName"
-                type="text"
-                value={config.name}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    name: event.target.value,
-                  })
-                }
-                className="max-w-[500px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">URL</Label>
-              <p className="text-sm text-gray-600 mb-1">
-                (Warning: Once the URL is saved, it cannot be changed. Please
-                ensure it is correct before saving.)
-              </p>
-              <Input
-                key="link"
-                type="text"
-                value={config.link}
-                onChange={(event) =>
-                  handleURLFieldChange("link", event.target.value)
-                }
-                disabled={!!(instanceConfigResponse.data?.details as any)?.link}
-                className={`max-w-[500px] ${
-                  urlErrors.link ? "border-red-500 border-2" : ""
-                } ${
-                  !!(instanceConfigResponse.data?.details as any)?.link
-                    ? "bg-gray-100 cursor-not-allowed"
-                    : ""
-                }`}
-              />
-              {urlErrors.link && (
-                <p className="text-red-500 text-sm mt-1">{urlErrors.link}</p>
-              )}
-            </div>
-            <div>
-              <Label className="text-right">Websocket URL</Label>
-              <Input
-                key="websocketLink"
-                type="text"
-                value={config.websocketLink}
-                onChange={(event) =>
-                  handleURLFieldChange("websocketLink", event.target.value)
-                }
-                className={`max-w-[500px] ${
-                  urlErrors.websocketLink ? "border-red-500 border-2" : ""
-                }`}
-              />
-              {urlErrors.websocketLink && (
-                <p className="text-red-500 text-sm mt-1">
-                  {urlErrors.websocketLink}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label className="text-right">Logo Image URL</Label>
-              <Input
-                key="imageUrl"
-                type="text"
-                value={config.imageUrl}
-                onChange={(event) =>
-                  handleURLFieldChange("imageUrl", event.target.value)
-                }
-                className={`max-w-[500px] ${
-                  urlErrors.imageUrl ? "border-red-500 border-2" : ""
-                }`}
-              />
-              {urlErrors.imageUrl && (
-                <p className="text-red-500 text-sm mt-1">
-                  {urlErrors.imageUrl}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label className="text-right">Operating Region</Label>
-              <div className="pt-2 max-w-4xl">
+          {/* Pills that jump to each card (spec 0010, AC-1). */}
+          <nav aria-label="Settings sections" className="mb-6 flex flex-wrap gap-2">
+            {SECTIONS.map((section) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className="rounded-md bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {section.title}
+              </a>
+            ))}
+          </nav>
+          <div className="flex flex-col gap-6">
+            <PricingCard {...cardProps} />
+            <MatchingCard {...cardProps} />
+            <OffersCard {...cardProps} />
+            <RiderPayCard
+              {...cardProps}
+              policyEditor={
+                <ReassignmentPayoutPolicyEditor
+                  policies={data?.reassignmentPayoutPolicies}
+                  defaultPolicy={data?.reassignmentPayoutDefaultPolicy}
+                  isSaving={isSavingPayoutPolicies}
+                  onSave={handleSavePayoutPolicies}
+                />
+              }
+            />
+            <ServiceAreaCard
+              map={
                 <AdminMap
-                  initialGeoJSON={config.region}
+                  key={mapKey}
+                  initialGeoJSON={edited.region as any}
                   onUpdate={handleMapUpdate}
                 />
-              </div>
-            </div>
-            <div>
-              <Label className="text-right">Courier Matcher Type</Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.courierMatcherType}
-                onChange={(e) =>
-                  setConfig({ ...config, courierMatcherType: e.target.value })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.courierMatcherType.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {COURIER_MATCHER_TYPE_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">Quote Calculation Type</Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.quoteCalculationType}
-                onChange={(e) =>
-                  setConfig({ ...config, quoteCalculationType: e.target.value })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.quoteCalculationType.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {QUOTE_CALCULATION_TYPE_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <QuoteRateEditor
-              rateText={quoteRateText}
-              rate={config.quoteRatePerDistanceUnit}
-              currencyCode={config.currency}
-              distanceUnit={config.distanceUnit}
-              error={quoteRateError}
-              isSaving={isSavingQuoteRate}
-              onChange={handleQuoteRateChange}
-              onSave={handleSaveQuoteRate}
+              }
             />
-            <div>
-              <Label className="text-right" htmlFor="quoteBaseFee">
-                Base Fee Per Delivery
-              </Label>
-              <p className="text-sm text-gray-600 mb-1">
-                {describeBaseFee(parseBaseFeeInput(quoteBaseFee), config.currency)}
-              </p>
-              <Input
-                id="quoteBaseFee"
-                key="quoteBaseFee"
-                type="number"
-                min={0}
-                step={1}
-                value={quoteBaseFee}
-                onChange={(event) => handleBaseFeeChange(event.target.value)}
-                className={`max-w-[120px] ${baseFeeError ? "border-red-500 border-2" : ""}`}
-              />
-              {baseFeeError && (
-                <p className="text-red-500 text-sm mt-1">{baseFeeError}</p>
-              )}
-              <div>
-                <Button
-                  type="button"
-                  disabled={
-                    isSavingBaseFee || parseBaseFeeInput(quoteBaseFee) === null
-                  }
-                  onClick={handleSaveBaseFee}
-                  className="mt-2"
-                >
-                  {isSavingBaseFee ? "Saving…" : "Save base fee"}
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label className="text-right">Geo Calculation Type</Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.geoCalculationType}
-                onChange={(e) =>
-                  setConfig({ ...config, geoCalculationType: e.target.value })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.geoCalculationType.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {GEO_CALCULATION_TYPE_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">
-                Delivery Duration Calculation Type
-              </Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.deliveryDurationCalculationType}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    deliveryDurationCalculationType: e.target.value,
-                  })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.deliveryDurationCalculationType.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">
-                Courier Compensation Calculation Type
-              </Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.courierCompensationCalculationType}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    courierCompensationCalculationType: e.target.value,
-                  })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.courierCompensationCalculationType.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">Default Dietary Restrictions</Label>
-              <p className="text-sm text-gray-600 mb-1">(Select multiple)</p>
-              <select
-                className="border-[1px] border-input rounded-md px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.defaultDietaryRestrictions}
-                onChange={(e) =>
-                  onInstanceConfigChangeDietaryRestrictions(e.target)
-                }
-                multiple
-              >
-                {instanceConfigOptionsResponse.data?.defaultDietaryRestrictions.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {COURIER_DIETARY_RESTRICTIONS_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">Currency</Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.currency}
-                onChange={(e) =>
-                  setConfig({ ...config, currency: e.target.value })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.currency.map((option) => (
-                  <option key={option} value={option}>
-                    {CURRENCY_TO_HUMAN[option]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">Distance Unit</Label>
-              <br />
-              <select
-                className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={config.distanceUnit}
-                onChange={(e) =>
-                  setConfig({ ...config, distanceUnit: e.target.value })
-                }
-              >
-                {instanceConfigOptionsResponse.data?.distanceUnit.map(
-                  (option) => (
-                    <option key={option} value={option}>
-                      {DISTANCE_UNIT_TO_HUMAN[option]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-            <div>
-              <Label className="text-right">Max Assignment Distance</Label>
-              <Input
-                key="maxAssignmentDistance"
-                type="number"
-                value={config.maxAssignmentDistance ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    maxAssignmentDistance: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">Max Drift Distance</Label>
-              <p className="text-sm text-gray-600 mb-1">
-                (Maximum amount of distance that the quote and delivery pickup
-                can differ in meters)
-              </p>
-              <Input
-                key="maxDriftDistance"
-                type="number"
-                value={config.maxDriftDistance ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    maxDriftDistance: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">Quote Expiration Minutes</Label>
-              <Input
-                key="quoteExpirationMinutes"
-                type="number"
-                value={config.quoteExpirationMinutes ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    quoteExpirationMinutes: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">Default Courier Pay Rate</Label>
-              <Input
-                key="defaultCourierPayRate"
-                type="number"
-                value={config.defaultCourierPayRate ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    defaultCourierPayRate: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">Default Max Working Hours</Label>
-              <Input
-                key="defaultMaxWorkingHours"
-                type="number"
-                value={config.defaultMaxWorkingHours ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    defaultMaxWorkingHours: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <div>
-              <Label className="text-right">Fee Percentage Amount</Label>
-              <Input
-                key="feePercentageAmount"
-                type="number"
-                value={config.feePercentageAmount ?? ""}
-                onChange={(event) =>
-                  setConfig({
-                    ...config,
-                    feePercentageAmount: parseNumberInput(event.target.value),
-                  })
-                }
-                className="max-w-[120px]"
-              />
-            </div>
-            <section
-              aria-labelledby="offer-expiry-heading"
-              className="max-w-[500px] rounded-md border border-border p-4 flex flex-col gap-3"
-            >
-              <h3 id="offer-expiry-heading" className="text-lg font-medium">
-                Offers to riders
-              </h3>
-              <div>
-                <Label htmlFor="offerExpiryEnabled">Offer expiry</Label>
-                <p className="text-sm text-muted-foreground mb-1">
-                  {describeOfferExpiry(offerExpiryEnabled, offerExpirySeconds)}
-                </p>
-                <select
-                  id="offerExpiryEnabled"
-                  className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={offerExpiryEnabled === null ? "" : offerExpiryEnabled ? "on" : "off"}
-                  disabled={offerExpiryEnabled === null}
-                  onChange={(e) => setOfferExpiryEnabled(e.target.value === "on")}
-                >
-                  {offerExpiryEnabled === null && (
-                    <option value="">Not loaded yet</option>
-                  )}
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="offerExpirySeconds">
-                  Seconds before an unanswered offer ends
-                </Label>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Whole seconds, 20 to 300. Used only while Offer expiry is on.
-                  An offer an admin makes by hand never ends on its own.
-                </p>
-                <Input
-                  id="offerExpirySeconds"
-                  key="offerExpirySeconds"
-                  type="number"
-                  min={20}
-                  max={300}
-                  step={1}
-                  value={offerExpirySeconds}
-                  // Off until the settings load, like the select above: typing here first
-                  // would only be overwritten by the loaded value.
-                  disabled={offerExpiryEnabled === null}
-                  onChange={(event) => setOfferExpirySeconds(event.target.value)}
-                  className="max-w-[120px]"
-                />
-              </div>
-              <div>
-                <Label htmlFor="noCourierRetrySeconds">
-                  Seconds between retries when no rider is free
-                </Label>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Whole seconds, 10 to 300. A delivery nobody could take is
-                  offered again this often, and at once when a rider comes
-                  online or finishes. Applies whether Offer expiry is on or off.
-                </p>
-                <Input
-                  id="noCourierRetrySeconds"
-                  key="noCourierRetrySeconds"
-                  type="number"
-                  min={10}
-                  max={300}
-                  step={1}
-                  value={noCourierRetrySeconds}
-                  // Off until the settings load, like the select above: typing here first
-                  // would only be overwritten by the loaded value.
-                  disabled={offerExpiryEnabled === null}
-                  onChange={(event) =>
-                    setNoCourierRetrySeconds(event.target.value)
-                  }
-                  className="max-w-[120px]"
-                />
-              </div>
-              <div>
-                <Button
-                  type="button"
-                  disabled={isSavingOfferSettings || offerExpiryEnabled === null}
-                  onClick={handleSaveOfferSettings}
-                >
-                  {isSavingOfferSettings ? "Saving…" : "Save offer settings"}
-                </Button>
-              </div>
-            </section>
-            {/* Saved customers (spec 0005): how long the co-op keeps a restaurant's customer
-                nobody orders for. Personal data, so the period is the co-op's decision. */}
-            <section
-              aria-labelledby="saved-customers-heading"
-              className="max-w-[500px] rounded-md border border-border p-4 flex flex-col gap-3"
-            >
-              <h3 id="saved-customers-heading" className="text-lg font-medium">
-                Saved customers
-              </h3>
-              <div>
-                <Label htmlFor="savedCustomerRetentionMonths">
-                  Delete a saved customer after this many months unused
-                </Label>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Restaurants&apos; customers are personal data the co-op keeps
-                  for them. This is how long one nobody orders for is kept.
-                  Whole months, 1 to 36.
-                </p>
-                <Input
-                  id="savedCustomerRetentionMonths"
-                  key="savedCustomerRetentionMonths"
-                  type="number"
-                  min={1}
-                  max={36}
-                  step={1}
-                  value={savedCustomerRetentionMonths ?? ""}
-                  // Off until the settings load: typing here first would only be overwritten.
-                  disabled={savedCustomerRetentionMonths === null}
-                  onChange={(event) =>
-                    setSavedCustomerRetentionMonths(event.target.value)
-                  }
-                  className="max-w-[120px]"
-                />
-              </div>
-              <div>
-                <Button
-                  type="button"
-                  disabled={isSavingRetention || savedCustomerRetentionMonths === null}
-                  onClick={handleSaveRetention}
-                >
-                  {isSavingRetention ? "Saving…" : "Save saved customer setting"}
-                </Button>
-              </div>
-            </section>
-            <ReassignmentPayoutPolicyEditor
-              policies={instanceConfigResponse.data?.reassignmentPayoutPolicies}
-              defaultPolicy={instanceConfigResponse.data?.reassignmentPayoutDefaultPolicy}
-              isSaving={isSavingPayoutPolicies}
-              onSave={handleSavePayoutPolicies}
-            />
+            <InstanceCard {...cardProps} linkLocked={!!savedDetails.link} />
+            <PublicPagesCard onEdit={openPage} />
           </div>
-          <button
-            onClick={handleSaveAllChanges}
-            disabled={isSaving || saveAllBlockers.length > 0}
-            aria-describedby={
-              saveAllBlockers.length > 0 ? "save-all-blockers" : undefined
-            }
-            className="mt-4 bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? "Saving..." : "Save All Changes"}
-          </button>
-          {/* role="status" makes a screen reader announce the reasons when they appear or
-              change; the disabled button can't take focus, so aria-describedby alone may never
-              be read. The wrapper is always on the page because a live region that appears
-              together with its text is often not announced. */}
-          <div role="status">
-            {saveAllBlockers.length > 0 && (
-              <div id="save-all-blockers" className="text-sm text-red-600 mt-2">
-                <p>Save All Changes is off until you fix:</p>
-                <ul className="list-disc list-inside ml-2">
-                  {saveAllBlockers.map((blocker) => (
-                    <li key={blocker}>{blocker}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          <SaveBar
+            changes={changes}
+            blockers={blockers}
+            isSaving={isSaving}
+            onDiscard={handleDiscard}
+            onSave={handleSave}
+          />
         </>
-      ) : currentView === "terms-of-service" ? (
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold pb-2">
-            Editing Terms of Service
-          </h3>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Editor */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <div className="mb-1">
-                <Label className="block text-sm font-medium text-gray-900 mb-2">
-                  Content (Markdown)
-                </Label>
-                <textarea
-                  value={termsOfServiceContent}
-                  onChange={(e) => setTermsOfServiceContent(e.target.value)}
-                  className="w-full h-96 rounded-md border border-gray-300 px-4 py-3 text-sm font-mono shadow-sm focus:border-black focus:ring-black resize-none"
-                  placeholder="# Terms of Service&#10;&#10;## Agreement&#10;Write your content in markdown..."
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Use markdown formatting: # Headers, **bold**, *italic*, -
-                  Lists, [links](url)
-                </p>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
-                Preview
-              </h2>
-              <div className="bg-white rounded-md border border-gray-200 p-4 prose prose-sm max-w-none overflow-y-auto h-96">
-                {termsOfServiceContent ? (
-                  <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-                    {termsOfServiceContent}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-gray-500">No content yet</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={handleSaveTermsOfService}
-              disabled={isSaving}
-              className="bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={() => setCurrentView("main")}
-              className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : currentView === "rules" ? (
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold pb-2">Editing Rules</h3>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Editor */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <div className="mb-1">
-                <Label className="block text-sm font-medium text-gray-900 mb-2">
-                  Content (Markdown)
-                </Label>
-                <textarea
-                  value={rulesContent}
-                  onChange={(e) => setRulesContent(e.target.value)}
-                  className="w-full h-96 rounded-md border border-gray-300 px-4 py-3 text-sm font-mono shadow-sm focus:border-black focus:ring-black resize-none"
-                  placeholder="# Rules&#10;&#10;## Guidelines&#10;Write your content in markdown..."
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Use markdown formatting: # Headers, **bold**, *italic*, -
-                  Lists, [links](url)
-                </p>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
-                Preview
-              </h2>
-              <div className="bg-white rounded-md border border-gray-200 p-4 prose prose-sm max-w-none overflow-y-auto h-96">
-                {rulesContent ? (
-                  <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-                    {rulesContent}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-gray-500">No content yet</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={handleSaveRules}
-              disabled={isSaving}
-              className="bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={() => setCurrentView("main")}
-              className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : currentView === "description" ? (
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold pb-2">Editing Description</h3>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Editor */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <div className="mb-1">
-                <Label className="block text-sm font-medium text-gray-900 mb-2">
-                  Content (Markdown)
-                </Label>
-                <textarea
-                  value={descriptionContent}
-                  onChange={(e) => setDescriptionContent(e.target.value)}
-                  className="w-full h-96 rounded-md border border-gray-300 px-4 py-3 text-sm font-mono shadow-sm focus:border-black focus:ring-black resize-none"
-                  placeholder="# Description&#10;&#10;## About Us&#10;Write your content in markdown..."
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Use markdown formatting: # Headers, **bold**, *italic*, -
-                  Lists, [links](url)
-                </p>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
-                Preview
-              </h2>
-              <div className="bg-white rounded-md border border-gray-200 p-4 max-w-none overflow-y-auto h-96">
-                {descriptionContent ? (
-                  <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-                    {descriptionContent}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-gray-500">No content yet</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={handleSaveDescription}
-              disabled={isSaving}
-              className="bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={() => setCurrentView("main")}
-              className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
       ) : (
-        // Only "privacy-policy" is left: the four other views are handled above and the
-        // union has no sixth member. A new view goes into this chain, not after it.
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold pb-2">Editing Privacy Policy</h3>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Editor */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <div className="mb-1">
-                <Label className="block text-sm font-medium text-gray-900 mb-2">
-                  Content (Markdown)
-                </Label>
-                <textarea
-                  value={privacyPolicyContent}
-                  onChange={(e) => setPrivacyPolicyContent(e.target.value)}
-                  className="w-full h-96 rounded-md border border-gray-300 px-4 py-3 text-sm font-mono shadow-sm focus:border-black focus:ring-black resize-none"
-                  placeholder="# Privacy Policy&#10;&#10;## Introduction&#10;Write your content in markdown..."
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Use markdown formatting: # Headers, **bold**, *italic*, -
-                  Lists, [links](url)
-                </p>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
-                Preview
-              </h2>
-              <div className="bg-white rounded-md border border-gray-200 p-4 prose prose-sm max-w-none overflow-y-auto h-96">
-                {privacyPolicyContent ? (
-                  <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-                    {privacyPolicyContent}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-gray-500">No content yet</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={handleSavePrivacyPolicy}
-              disabled={isSaving}
-              className="bg-black rounded-md text-white px-4 py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={() => setCurrentView("main")}
-              className="bg-gray-200 rounded-md text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <PublicPageEditor
+          title={PUBLIC_PAGE_FIELDS[currentView].title}
+          value={pageText}
+          placeholder={PUBLIC_PAGE_FIELDS[currentView].placeholder}
+          isSaving={isSavingPage}
+          onChange={setPageText}
+          onSave={handleSavePage}
+          onCancel={() => setCurrentView("main")}
+        />
       )}
     </DefaultLayout>
   );
