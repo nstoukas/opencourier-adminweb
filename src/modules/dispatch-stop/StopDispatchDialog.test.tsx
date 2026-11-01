@@ -104,6 +104,31 @@ describe('StopDispatchDialog (spec 0014, AC-1, AC-2, AC-9, AC-12)', () => {
       ).toBeInTheDocument()
     })
 
+    it('shows error explanation when preview query errors and keeps Stop dispatch button enabled', () => {
+      mockUseGetDispatchStopPreviewQuery.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+      })
+
+      render(
+        <StopDispatchDialog
+          open={true}
+          onOpenChange={mockOnOpenChange}
+          mode="now"
+          returnFocusTo={returnFocusTo}
+        />
+      )
+
+      const note = screen.getByRole('note')
+      expect(note).toHaveTextContent(
+        'Could not count the open offers and deliveries; stopping still works.'
+      )
+
+      const submitBtn = screen.getByRole('button', { name: 'Stop dispatch' })
+      expect(submitBtn).toBeEnabled()
+    })
+
     it('sends { reason } with NO startsOn and NO endsOn when end time is unchecked', async () => {
       mockCreateStopMutation.mockReturnValue({
         unwrap: () => Promise.resolve({ id: 'stop-new-1' }),
