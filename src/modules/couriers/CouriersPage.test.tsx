@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import CouriersPage from '@/pages/couriers'
 import { EnumCourierStatus } from '@/shared-types'
 import type { CourierAdminDto } from '@/backend-admin-sdk'
@@ -235,5 +235,243 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
     expect(content).not.toMatch(/online\s*since/i)
     expect(content).not.toMatch(/rating|score/i)
     expect(content).not.toMatch(/vehicle|moped|car|bicycle/i)
+  })
+
+  describe('Couriers list page filter and search wiring (row 97, Done when)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+      mockUseGetCouriersQuery.mockReturnValue({
+        data: {
+          data: [],
+          pagination: { totalItems: 25, page: 1, perPage: 10, totalPages: 3 },
+        },
+        isLoading: false,
+      })
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('calls the couriers query with status "all" and search undefined at first on page 1, with All tab pressed', () => {
+      render(<CouriersPage />)
+
+      // Initial query call on mount
+      expect(mockUseGetCouriersQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'all',
+          search: undefined,
+          page: 1,
+          perPage: 10,
+        })
+      )
+
+      // "All" button in the group is pressed by default
+      const allButton = screen.getByRole('button', { name: 'All' })
+      expect(allButton).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('choosing Working now calls query with status "working" and page 1', () => {
+      render(<CouriersPage />)
+
+      const workingButton = screen.getByRole('button', { name: 'Working now' })
+      fireEvent.click(workingButton)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'working',
+          page: 1,
+        })
+      )
+    })
+
+    it.each([
+      { label: 'Working now', expectedStatus: 'working' },
+      { label: 'Offline', expectedStatus: 'offline' },
+      { label: 'All', expectedStatus: 'all' },
+    ])('choosing $label calls query with status "$expectedStatus" and page 1', ({ label, expectedStatus }) => {
+      render(<CouriersPage />)
+
+      const button = screen.getByRole('button', { name: label })
+      fireEvent.click(button)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: expectedStatus,
+          page: 1,
+        })
+      )
+    })
+
+    it('calls query with trimmed search and page 1, 300 ms after typing', () => {
+      render(<CouriersPage />)
+
+      const searchInput = screen.getByRole('searchbox', { name: 'Search couriers' })
+      fireEvent.change(searchInput, { target: { value: '   Nikos Pappas   ' } })
+
+      // Before the 300 ms debounce delay, search is not sent
+      expect(mockUseGetCouriersQuery).not.toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'Nikos Pappas',
+        })
+      )
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Query called with trimmed search text and page 1
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'Nikos Pappas',
+          page: 1,
+        })
+      )
+    })
+
+    it('sends search undefined when search box contains blank or whitespace-only text', () => {
+      render(<CouriersPage />)
+
+      const searchInput = screen.getByRole('searchbox', { name: 'Search couriers' })
+      fireEvent.change(searchInput, { target: { value: '   ' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: undefined,
+          page: 1,
+        })
+      )
+    })
+
+    it('resets pagination to page 1 when filter changes while on page 2', () => {
+      render(<CouriersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 2,
+        })
+      )
+
+      // Switch to Working now tab
+      const workingButton = screen.getByRole('button', { name: 'Working now' })
+      fireEvent.click(workingButton)
+
+      // Must reset to page 1 with working status
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'working',
+          page: 1,
+        })
+      )
+    })
+
+    it('resets pagination to page 1 when searching while on page 2', () => {
+      render(<CouriersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 2,
+        })
+      )
+
+      // Enter search text
+      const searchInput = screen.getByRole('searchbox', { name: 'Search couriers' })
+      fireEvent.change(searchInput, { target: { value: 'Nikos' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Must reset to page 1 with search
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'Nikos',
+          page: 1,
+        })
+      )
+    })
+
+    it('does not reset pagination when search is unchanged (e.g. "nikos" then "nikos ")', () => {
+      render(<CouriersPage />)
+
+      // Enter initial search
+      const searchInput = screen.getByRole('searchbox', { name: 'Search couriers' })
+      fireEvent.change(searchInput, { target: { value: 'nikos' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'nikos',
+          page: 1,
+        })
+      )
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'nikos',
+          page: 2,
+        })
+      )
+
+      // Type "nikos " (trims to same search "nikos")
+      fireEvent.change(searchInput, { target: { value: 'nikos ' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Must remain on page 2 (not reset to page 1)
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'nikos',
+          page: 2,
+        })
+      )
+    })
+
+    it('fails if status or search is dropped on the way to the query (row 97 Done when)', () => {
+      render(<CouriersPage />)
+
+      // Select Working now status filter
+      const workingButton = screen.getByRole('button', { name: 'Working now' })
+      fireEvent.click(workingButton)
+
+      // Enter search text
+      const searchInput = screen.getByRole('searchbox', { name: 'Search couriers' })
+      fireEvent.change(searchInput, { target: { value: '010003' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Assert BOTH status and search are passed into the query call
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'working',
+          search: '010003',
+          page: 1,
+          perPage: 10,
+        })
+      )
+    })
   })
 })
