@@ -1376,6 +1376,18 @@ const InstanceConfigurationPage: NextPage = () => {
                       {policy} ({percent}%)
                     </option>
                   ))}
+                  {/* The rule in force may have left the menu (riders are then paid in full, with a
+                      warning in the log): show it as it is, so the box never shows one policy while
+                      holding another (row 32 review). */}
+                  {cancellationPayoutPolicy !== null &&
+                  !Object.prototype.hasOwnProperty.call(
+                    instanceConfigResponse.data?.reassignmentPayoutPolicies ?? {},
+                    cancellationPayoutPolicy,
+                  ) ? (
+                    <option value={cancellationPayoutPolicy} disabled>
+                      {cancellationPayoutPolicy} (no longer on the menu)
+                    </option>
+                  ) : null}
                 </select>
               </div>
               <div>
