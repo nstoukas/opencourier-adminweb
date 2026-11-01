@@ -79,6 +79,11 @@ describe('DeliveryEventTimeline component', () => {
     })
   })
 
+  it('renders card title "What happened"', () => {
+    render(<DeliveryEventTimeline deliveryId="d100" />)
+    expect(screen.getByText('What happened')).toBeInTheDocument()
+  })
+
   it('renders all event headlines humanized in sentence case', () => {
     render(<DeliveryEventTimeline deliveryId="d100" />)
 
@@ -89,14 +94,15 @@ describe('DeliveryEventTimeline component', () => {
     expect(screen.getByText('Reassigned')).toBeInTheDocument()
   })
 
-  it('displays failed events with "Did not take effect" badge for each failed transition', () => {
+  it('displays failed events with "Did not take effect" badge for non-late failed transitions', () => {
     render(<DeliveryEventTimeline deliveryId="d100" />)
 
     expect(screen.getByText('Courier ID is required for dispatching')).toBeInTheDocument()
 
-    // Exactly 2 failed events in the fixture
+    // Exactly 2 failed events in the fixture, neither is late
     const failedBadges = screen.getAllByText('Did not take effect')
     expect(failedBadges).toHaveLength(2)
+    expect(screen.queryByText(/Not applied: the delivery had already changed/)).toBeNull()
   })
 
   it('styles failed events with destructive container class alongside the badge', () => {
@@ -184,16 +190,149 @@ describe('DeliveryEventTimeline component', () => {
     )
   })
 
-  it('includes honest copy footnote and avoids claiming to be a complete record', () => {
+  it('includes honest copy footnote and avoids claiming to be a complete record (spec 0011, AC-4)', () => {
     const { container } = render(<DeliveryEventTimeline deliveryId="d100" />)
 
     expect(
       screen.getByText(
-        /Recorded DeliveryEvents, oldest first\. An event the state machine rejects outright is never written, so it cannot appear here\./
+        /Recorded DeliveryEvents, in the order the server received them\. A step a rider sent late shows the time it happened, and when it arrived\. An event the state machine rejects outright is not written, except a rider's late step, which is kept as not applied\./
       )
     ).toBeInTheDocument()
 
     expect(container.textContent).not.toMatch(/complete record/i)
+  })
+
+  describe('Tap time & late event handling (spec 0011, AC-4)', () => {
+    it('shows occurredAt time and "arrived HH:mm, N min later" for same-day late event', () => {
+      // Event happened at 12:00:00Z and was received 2 minutes later at 12:02:00Z
+      const lateEvent: DeliveryEventAdminDto = {
+        id: 'ev-late-same-day',
+        type: 'DROPPED_OFF',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ON_THE_WAY',
+        newStatus: 'DELIVERED',
+        transitionSuccessful: true,
+        message: 'Dropped off order',
+        createdAt: new Date('2026-10-30T12:02:00Z'),
+        occurredAt: new Date('2026-10-30T12:00:00Z'),
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [lateEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      // Shows occurredAt time, not createdAt
+      const row = screen.getByTestId('delivery-event-row')
+      const { formatDate } = require('../../../ui-shared-utils')
+      expect(row).toHaveTextContent(formatDate(lateEvent.occurredAt))
+      expect(row.textContent).not.toContain(formatDate(lateEvent.createdAt))
+      // Must contain late step note with arrived HH:mm and N min later
+      const lateStepNote = screen.getByTestId('late-step')
+      expect(lateStepNote).toHaveTextContent(/arrived \d{2}:\d{2}, 2 min later/)
+      expect(row).toHaveTextContent('Dropped off')
+    })
+
+    it('shows full date when arrival occurred on another calendar day', () => {
+      // Event tapped at 21:59:00Z (23:59 local in UTC+2) on Oct 30,
+      // arrived at 22:01:00Z (00:01 local in UTC+2) on Oct 31 (2 min later)
+      const crossDayLateEvent: DeliveryEventAdminDto = {
+        id: 'ev-cross-day',
+        type: 'DROPPED_OFF',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ON_THE_WAY',
+        newStatus: 'DELIVERED',
+        transitionSuccessful: true,
+        message: 'Late arrival cross day',
+        createdAt: new Date('2026-10-30T22:01:00Z'),
+        occurredAt: new Date('2026-10-30T21:59:00Z'),
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [crossDayLateEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      const lateStepNote = screen.getByTestId('late-step')
+      // When on another day, the arrival note includes the full date and "2 min later"
+      expect(lateStepNote).toHaveTextContent(/arrived \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}, 2 min later/)
+    })
+
+    it('displays "Not applied: the delivery had already changed" for a failed late event', () => {
+      const failedLateEvent: DeliveryEventAdminDto = {
+        id: 'ev-failed-late',
+        type: 'DROPPED_OFF',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ON_THE_WAY',
+        newStatus: 'DELIVERED',
+        transitionSuccessful: false,
+        message: 'Order already canceled by dispatcher',
+        createdAt: new Date('2026-10-30T12:05:00Z'),
+        occurredAt: new Date('2026-10-30T12:00:00Z'), // 5 min earlier (> 60 s)
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [failedLateEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      expect(screen.getByText('Not applied: the delivery had already changed')).toBeInTheDocument()
+      expect(screen.queryByText('Did not take effect')).toBeNull()
+    })
+
+    it('shows createdAt without late note when event has no occurredAt or gap is exactly 60 seconds', () => {
+      const normalEvent: DeliveryEventAdminDto = {
+        id: 'ev-normal',
+        type: 'ACCEPTED',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ASSIGNING_COURIER',
+        newStatus: 'ACCEPTED',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: new Date('2026-10-30T12:00:00Z'),
+      }
+
+      const exactlySixtySecEvent: DeliveryEventAdminDto = {
+        id: 'ev-sixty-sec',
+        type: 'ARRIVED_AT_PICKUP_LOCATION',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ACCEPTED',
+        newStatus: 'COURIER_ARRIVED_AT_PICKUP_LOCATION',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: new Date('2026-10-30T12:01:00Z'),
+        occurredAt: new Date('2026-10-30T12:00:00Z'), // exactly 60 s gap
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [normalEvent, exactlySixtySecEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      expect(screen.queryByTestId('late-step')).toBeNull()
+      expect(screen.queryByText(/later/)).toBeNull()
+    })
   })
 
   describe('Actor, source, and rider formatting in words (spec 0002, AC-11)', () => {

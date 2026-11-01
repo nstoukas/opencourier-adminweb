@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import React from 'react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { DeliveryDetails } from './DeliveryDetails'
 import { Toaster } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
@@ -13,12 +14,9 @@ import {
 } from '../../../api/deliveriesApi'
 import { useGetAllCouriersQuery } from '../../../api/couriersApi'
 import { useGetInstanceConfigQuery } from '../../../api/configApi'
-import { useAdminPageNavigator } from '../../../hooks/useAdminPageNavigator'
 
 // Mock Radix DropdownMenu primitive so dropdown menu content renders cleanly in JSDOM environment
 jest.mock('@radix-ui/react-dropdown-menu', () => {
-  // Renamed with a leading underscore, not deleted: this pulls the prop out of ...props so it
-  // is never spread onto the DOM.
   const DummyComponent = ({
     children,
     onClick,
@@ -55,8 +53,8 @@ jest.mock('@radix-ui/react-dropdown-menu', () => {
 
 // Mock Radix Select primitive so component rendering in JSDOM does not crash on menu triggers
 jest.mock('@radix-ui/react-select', () => {
-  const React = require('react') as typeof import('react')
-  const SelectContext = React.createContext<{ onValueChange?: (v: string) => void }>({})
+  const mockReact = require('react') as typeof import('react')
+  const SelectContext = mockReact.createContext<{ onValueChange?: (v: string) => void }>({})
   return {
     Root: ({ children, onValueChange }: any) => (
       <SelectContext.Provider value={{ onValueChange }}>
@@ -74,7 +72,7 @@ jest.mock('@radix-ui/react-select', () => {
     Content: ({ children }: any) => <div>{children}</div>,
     Viewport: ({ children }: any) => <div>{children}</div>,
     Item: ({ children, value, ...props }: any) => {
-      const { onValueChange } = React.useContext(SelectContext)
+      const { onValueChange } = mockReact.useContext(SelectContext)
       return (
         <div role="option" onClick={() => onValueChange && onValueChange(value)} {...props}>
           {children}
@@ -88,8 +86,6 @@ jest.mock('@radix-ui/react-select', () => {
     Separator: () => <hr />,
   }
 })
-
-// The Radix UI JSDOM polyfills this suite needs now live in jest.setup.js.
 
 jest.mock('../../../api/deliveriesApi', () => ({
   useGetDeliveryQuery: jest.fn(),
@@ -108,11 +104,15 @@ jest.mock('../../../api/configApi', () => ({
   useGetInstanceConfigQuery: jest.fn(),
 }))
 
+const mockGoToDeliveries = jest.fn()
 jest.mock('../../../hooks/useAdminPageNavigator', () => {
   const actual = jest.requireActual('../../../hooks/useAdminPageNavigator')
   return {
     ...actual,
-    useAdminPageNavigator: jest.fn(),
+    useAdminPageNavigator: () => ({
+      goToDeliveries: mockGoToDeliveries,
+      goToDeliveryDetails: jest.fn(),
+    }),
   }
 })
 
@@ -131,7 +131,6 @@ const mockUseGetDeliveryEventsQuery = useGetDeliveryEventsQuery as jest.Mock
 const mockUseGetDeliveryIssuesQuery = useGetDeliveryIssuesQuery as jest.Mock
 const mockUseGetAllCouriersQuery = useGetAllCouriersQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
-const mockUseAdminPageNavigator = useAdminPageNavigator as jest.Mock
 
 const mockSubmitDeliveryEvent = jest.fn()
 
@@ -155,26 +154,38 @@ const sampleEurDelivery: DeliveryAdminDto = {
   pickupLocationId: 'loc-p1',
   pickupReadyAt: new Date('2026-07-30T10:00:00Z'),
   pickupDeadlineAt: new Date('2026-07-30T10:30:00Z'),
+  pickupNotes: 'Use back entrance for pickup',
+  pickupVerification: { type: 'PIN', code: '1234' },
   dropoffName: 'Giannis S.',
   dropoffPhoneNumber: '+306911111111',
-  dropoffBusinessName: null,
+  dropoffBusinessName: 'Acme Corp Office',
   dropoffLocationId: 'loc-d1',
+  dropoffEta: new Date('2026-07-30T10:20:00Z'),
   dropoffReadyAt: new Date('2026-07-30T10:15:00Z'),
   dropoffDeadlineAt: new Date('2026-07-30T10:45:00Z'),
+  dropoffNotes: 'Ring bell #4',
+  dropoffSellerNotes: 'Handle with care: hot soup',
+  dropoffVerification: 'SIGNATURE',
   deliverableAction: 'LEAVE_AT_DOOR',
   undeliverableAction: 'RETURN_TO_STORE',
+  undeliverableReason: 'CUSTOMER_UNAVAILABLE',
   deliveryQuoteId: 'q-100',
+  partnerId: 'partner-1',
+  matchedCourierId: 'courier-matched-77',
+  externalId: 'ext-order-101',
+  externalStoreId: 'ext-store-55',
+  idempotencyKey: 'idemp-key-abc-123',
   deliveryTypes: ['STANDARD'],
   pickupTypes: ['STORE'],
-  customerNotes: [],
+  customerNotes: ['Please do not ring bell if baby is sleeping'],
   requiresDropoffSignature: false,
   requiresId: false,
-  orderItems: [],
+  orderItems: [{ name: 'Greek Salad', quantity: 2, size: 'Large' }],
   createdAt: new Date('2026-07-30T09:00:00Z'),
   updatedAt: new Date('2026-07-30T09:00:00Z'),
 } as unknown as DeliveryAdminDto
 
-describe('DeliveryDetails component', () => {
+describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockUseGetDeliveryQuery.mockReturnValue({
@@ -211,48 +222,87 @@ describe('DeliveryDetails component', () => {
     })
     mockUseGetAllCouriersQuery.mockReturnValue({ data: [], isLoading: false })
     mockUseGetInstanceConfigQuery.mockReturnValue({ data: {}, isLoading: false })
-    mockUseAdminPageNavigator.mockReturnValue({
-      goToDeliveries: jest.fn(),
-    })
   })
 
   it('renders loading state when API query is loading', () => {
     mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, isLoading: true })
     render(<DeliveryDetails deliveryId="d100" />)
     expect(screen.getByText('Loading delivery data.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Delivery' })).toBeInTheDocument()
   })
 
   it('renders error message state when delivery data is unavailable', () => {
     mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, isLoading: false })
     render(<DeliveryDetails deliveryId="d100" />)
     expect(screen.getByText('There was a problem loading data.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Delivery' })).toBeInTheDocument()
   })
 
-  it('renders Rider reports card above the Delivery events card (decision 66.11)', () => {
+  describe('Breadcrumb and Header (AC-2)', () => {
+    it('renders breadcrumb with Deliveries link and current page marked aria-current="page", and exactly one h1', () => {
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Breadcrumb contains Deliveries link
+      const deliveriesLink = screen.getByRole('link', { name: 'Deliveries' })
+      expect(deliveriesLink).toBeInTheDocument()
+      fireEvent.click(deliveriesLink)
+      expect(mockGoToDeliveries).toHaveBeenCalledTimes(1)
+
+      // Current page step is marked with aria-current="page" and is not a link
+      const currentStep = screen.getByText('Delivery ORD-EUR-1', { selector: 'span[aria-current="page"]' })
+      expect(currentStep).toBeInTheDocument()
+
+      // Exactly one h1 on the page with title "Delivery ORD-EUR-1"
+      const headings = screen.getAllByRole('heading', { level: 1 })
+      expect(headings).toHaveLength(1)
+      expect(headings[0]).toHaveTextContent('Delivery ORD-EUR-1')
+
+      // Status badge and created date under header
+      expect(screen.getByText('Dispatched')).toBeInTheDocument()
+      expect(screen.getByText(/Created 30\/07\/2026/)).toBeInTheDocument()
+    })
+
+    it('falls back to short id in title and breadcrumb when orderReference is missing', () => {
+      const deliveryWithoutRef = {
+        ...sampleEurDelivery,
+        id: 'clabc123456',
+        orderReference: null,
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: deliveryWithoutRef, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="clabc123456" />)
+
+      // Short id is the last 6 characters in uppercase: "123456"
+      const expectedTitle = 'Delivery 123456'
+      expect(screen.getByRole('heading', { level: 1, name: expectedTitle })).toBeInTheDocument()
+      expect(screen.getByText(expectedTitle, { selector: 'span[aria-current="page"]' })).toBeInTheDocument()
+    })
+  })
+
+  it('renders Rider reports card above the What happened timeline card (decision 66.11, AC-3)', () => {
     render(<DeliveryDetails deliveryId="d100" />)
 
     const riderReportsTitle = screen.getByText('Rider reports')
-    const deliveryEventsTitle = screen.getByText('Delivery events')
+    const whatHappenedTitle = screen.getByText('What happened')
 
     expect(riderReportsTitle).toBeInTheDocument()
-    expect(deliveryEventsTitle).toBeInTheDocument()
+    expect(whatHappenedTitle).toBeInTheDocument()
 
-    // Rider reports card must appear above (before) the Delivery events card
-    const position = riderReportsTitle.compareDocumentPosition(deliveryEventsTitle)
+    // Rider reports card must appear above (before) the What happened timeline card
+    const position = riderReportsTitle.compareDocumentPosition(whatHappenedTitle)
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  describe('Money formatting per Delivery currencyCode (Test Plan B)', () => {
-    it('Case 1: EUR delivery renders exact euro amounts for all six money rows', () => {
+  describe('Money formatting per Delivery currencyCode (Test Plan B & AC-3)', () => {
+    it('Case 1: EUR delivery renders exact euro amounts for all money rows', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 
-      // Assert exact formatted strings are rendered
       expect(screen.getByText('€112.04')).toBeInTheDocument() // Order total
-      expect(screen.getByText('€5.00')).toBeInTheDocument() // Total cost
-      expect(screen.getByText('€3.00')).toBeInTheDocument() // Fee
-      expect(screen.getByText('€2.50')).toBeInTheDocument() // Pay
+      expect(screen.getByText('€5.00')).toBeInTheDocument() // Customer pays (totalCost)
+      expect(screen.getByText('€3.00')).toBeInTheDocument() // Co-op fee
+      expect(screen.getByText('€2.50')).toBeInTheDocument() // Rider pay recorded
       expect(screen.getByText('€1.00')).toBeInTheDocument() // Tips
-      expect(screen.getByText('€3.50')).toBeInTheDocument() // Total compensation
+      expect(screen.getByText('€3.50')).toBeInTheDocument() // Rider gets (totalCompensation)
     })
 
     it('Case 2: regression anti-test - EUR delivery contains no $ symbol anywhere in rendered container', () => {
@@ -288,7 +338,7 @@ describe('DeliveryDetails component', () => {
       expect(container.textContent).not.toContain('€')
     })
 
-    it('Case 5: null money fields display em dash (—) scoped to their respective label rows', () => {
+    it('Case 5: null money fields display em dash (—) scoped to their respective DetailList rows', () => {
       const nullMoneyDelivery = {
         ...sampleEurDelivery,
         fee: null,
@@ -298,25 +348,25 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      // Find the Fee label container and assert its value text is '—'
-      const feeLabel = screen.getByText(/Co-op fee/).closest('label')
-      expect(feeLabel).toHaveTextContent('—')
+      // Find Fee dt and verify its dd is '—'
+      const feeDt = screen.getByText(/Co-op fee/)
+      expect(feeDt.nextElementSibling?.textContent).toBe('—')
 
-      // Find the Tips label container and assert its value text is '—'
-      const tipsLabel = screen.getByText('Tips').closest('label')
-      expect(tipsLabel).toHaveTextContent('—')
+      // Find Tips dt and verify its dd is '—'
+      const tipsDt = screen.getByText('Tips')
+      expect(tipsDt.nextElementSibling?.textContent).toBe('—')
     })
 
     it('Case 6: Currency row still displays the raw currencyCode string', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 
-      const currencyLabel = screen.getByText('Currency').closest('label')
-      expect(currencyLabel).toHaveTextContent('EUR')
+      const currencyDt = screen.getByText('Currency')
+      expect(currencyDt.nextElementSibling?.textContent).toBe('EUR')
     })
   })
 
-  describe('Price breakdown card (AC-7)', () => {
-    it('renders Price breakdown card with base fee €2.00, distance fee €1.07, rider pay €3.07, "Co-op fee (10%)" €0.31 and customer total €3.38', () => {
+  describe('Price breakdown card (AC-3, AC-7)', () => {
+    it('renders Price breakdown card with Base fee, Distance fee, Rider gets, "Co-op fee (10%)" and Customer pays', () => {
       const ac7Delivery: DeliveryAdminDto = {
         ...sampleEurDelivery,
         baseFee: 200,
@@ -325,6 +375,7 @@ describe('DeliveryDetails component', () => {
         fee: 31,
         feePercentage: 10,
         totalCost: 338,
+        pay: 200,
         currencyCode: 'EUR',
       } as unknown as DeliveryAdminDto
 
@@ -332,27 +383,27 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      expect(screen.getByText('Price breakdown')).toBeInTheDocument()
+      expect(screen.getByText('Price, from the quote')).toBeInTheDocument()
 
-      const baseFeeRow = screen.getByText('Base fee').closest('label')
-      expect(baseFeeRow).toHaveTextContent('€2.00')
+      const baseFeeDt = screen.getByText('Base fee')
+      expect(baseFeeDt.nextElementSibling?.textContent).toBe('€2.00')
 
-      const distanceFeeRow = screen.getByText('Distance fee').closest('label')
-      expect(distanceFeeRow).toHaveTextContent('€1.07')
+      const distanceFeeDt = screen.getByText('Distance fee')
+      expect(distanceFeeDt.nextElementSibling?.textContent).toBe('€1.07')
 
-      const riderPayRow = screen.getByText('Rider pay (base fee + distance fee)').closest('label')
-      expect(riderPayRow).toHaveTextContent('€3.07')
+      const riderGetsDt = screen.getByText('Rider gets')
+      expect(riderGetsDt.nextElementSibling?.textContent).toBe('€3.07')
 
-      const coopFeeRow = screen.getByText('Co-op fee (10%)').closest('label')
-      expect(coopFeeRow).toHaveTextContent('€0.31')
+      const coopFeeDt = screen.getByText('Co-op fee (10%)')
+      expect(coopFeeDt.nextElementSibling?.textContent).toBe('€0.31')
 
-      const customerTotalRow = screen.getByText('Customer total').closest('label')
-      expect(customerTotalRow).toHaveTextContent('€3.38')
+      const customerPaysDt = screen.getByText('Customer pays')
+      expect(customerPaysDt.nextElementSibling?.textContent).toBe('€3.38')
 
       // Since pay fields are present, the "not offered yet" note is absent
       expect(
         screen.queryByText(
-          'Rider pay, co-op fee and customer total are set when the delivery is first offered to a rider.'
+          /Rider pay, co-op fee and what the customer pays are set when the delivery is first offered to a rider\./
         )
       ).toBeNull()
     })
@@ -366,6 +417,7 @@ describe('DeliveryDetails component', () => {
         fee: null,
         feePercentage: null,
         totalCost: null,
+        pay: null,
         currencyCode: 'EUR',
       } as unknown as DeliveryAdminDto
 
@@ -375,29 +427,21 @@ describe('DeliveryDetails component', () => {
 
       expect(
         screen.getByText(
-          'Rider pay, co-op fee and customer total are set when the delivery is first offered to a rider.'
+          'Rider pay, co-op fee and what the customer pays are set when the delivery is first offered to a rider.'
         )
       ).toBeInTheDocument()
 
-      const baseFeeRow = screen.getByText('Base fee').closest('label')
-      expect(baseFeeRow).toHaveTextContent('—')
-
-      const distanceFeeRow = screen.getByText('Distance fee').closest('label')
-      expect(distanceFeeRow).toHaveTextContent('—')
-
-      const riderPayRow = screen.getByText('Rider pay (base fee + distance fee)').closest('label')
-      expect(riderPayRow).toHaveTextContent('—')
-
-      const coopFeeRow = screen.getByText('Co-op fee').closest('label')
-      expect(coopFeeRow).toHaveTextContent('—')
-
-      const customerTotalRow = screen.getByText('Customer total').closest('label')
-      expect(customerTotalRow).toHaveTextContent('—')
+      expect(screen.getByText('Base fee').nextElementSibling?.textContent).toBe('—')
+      expect(screen.getByText('Distance fee').nextElementSibling?.textContent).toBe('—')
+      expect(screen.getByText('Rider gets').nextElementSibling?.textContent).toBe('—')
+      expect(screen.getByText('Co-op fee').nextElementSibling?.textContent).toBe('—')
+      expect(screen.getByText('Customer pays').nextElementSibling?.textContent).toBe('—')
+      expect(screen.getByText('Rider pay recorded').nextElementSibling?.textContent).toBe('—')
     })
   })
 
   describe('Schedule date formatting & epoch trap guard', () => {
-    it('renders em dash (—) and not "January 1, 1970" for epoch dates across all five schedule rows', () => {
+    it('renders em dash (—) and not "January 1, 1970" for epoch dates across schedule rows', () => {
       const epochDelivery = {
         ...sampleEurDelivery,
         pickupReadyAt: new Date(0),
@@ -410,36 +454,24 @@ describe('DeliveryDetails component', () => {
 
       const { container } = render(<DeliveryDetails deliveryId="d100" />)
 
-      const scheduleLabels = [
-        'Pickup ready',
-        'Pickup deadline',
-        'Drop-off ready',
-        'Drop-off ETA',
-        'Drop-off deadline',
-      ]
-
-      for (const labelText of scheduleLabels) {
-        const label = screen.getByText(labelText).closest('label')
-        expect(label).toHaveTextContent('—')
-        expect(label).not.toHaveTextContent('January 1, 1970')
-      }
-
+      // None of the formatted dates render January 1, 1970
       expect(container.textContent).not.toContain('January 1, 1970')
+      expect(container.textContent).not.toContain('01/01/1970')
     })
   })
 
-  describe('Delivery Event action menu & error handling', () => {
-    it('submits delivery event when confirmed by user on menu trigger', async () => {
+  describe('Change status action menu & error handling (AC-2)', () => {
+    it('submits delivery event when confirmed by user on Change status menu trigger', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({ unwrap: () => Promise.resolve({}) })
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      // Open menu trigger
-      const triggerBtn = screen.getByText('Trigger event')
+      // Open Change status menu
+      const triggerBtn = screen.getByText('Change status')
       fireEvent.click(triggerBtn)
 
-      // Click event item (e.g. Arrived_at_pickup_location)
+      // Click event item
       const menuItem = screen.getByText(/Arrived_at_pickup_location/i)
       fireEvent.click(menuItem)
 
@@ -454,7 +486,7 @@ describe('DeliveryDetails component', () => {
       confirmSpy.mockRestore()
     })
 
-    it('sends courierId with ACCEPTED event on menu trigger', async () => {
+    it('sends courierId with ACCEPTED event on Change status menu trigger', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({ unwrap: () => Promise.resolve({}) })
 
@@ -468,10 +500,7 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      // Open menu trigger
-      fireEvent.click(screen.getByText('Trigger event'))
-
-      // Click ACCEPTED event item
+      fireEvent.click(screen.getByText('Change status'))
       fireEvent.click(screen.getByText(/^Accepted$/i))
 
       await waitFor(() => {
@@ -485,8 +514,7 @@ describe('DeliveryDetails component', () => {
       confirmSpy.mockRestore()
     })
 
-    it('omits ACCEPTED from menu trigger when delivery has no rider ids', () => {
-      // In ASSIGNING_COURIER without matchedCourierId or courierId, ACCEPTED is not allowed
+    it('omits ACCEPTED from Change status menu trigger when delivery has no rider ids', () => {
       const deliveryWithoutRiders = {
         ...sampleEurDelivery,
         status: EnumDeliveryStatus.ASSIGNING_COURIER,
@@ -497,7 +525,7 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      fireEvent.click(screen.getByText('Trigger event'))
+      fireEvent.click(screen.getByText('Change status'))
 
       expect(screen.queryByText(/^Accepted$/i)).toBeNull()
     })
@@ -515,7 +543,7 @@ describe('DeliveryDetails component', () => {
         </>
       )
 
-      fireEvent.click(screen.getByText('Trigger event'))
+      fireEvent.click(screen.getByText('Change status'))
       fireEvent.click(screen.getByText(/Arrived_at_pickup_location/i))
 
       expect(await screen.findByText('Delivery status transition failed')).toBeInTheDocument()
@@ -526,10 +554,10 @@ describe('DeliveryDetails component', () => {
   })
 
   describe('DeliveryEventTimeline integration & regression guards (Test Plan C)', () => {
-    it('renders the DeliveryEventTimeline component with stubbed event history', () => {
+    it('renders the DeliveryEventTimeline component with What happened heading', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 
-      expect(screen.getByText('Delivery events')).toBeInTheDocument()
+      expect(screen.getByText('What happened')).toBeInTheDocument()
       expect(screen.getByText('Created')).toBeInTheDocument()
     })
 
@@ -543,7 +571,7 @@ describe('DeliveryDetails component', () => {
     })
   })
 
-  describe('Offer details and OfferCard (spec 0002, AC-11)', () => {
+  describe('Offer details, OfferCard, and Assign courier control (spec 0002, AC-11, AC-2)', () => {
     const fixedNow = new Date('2026-10-26T12:00:00.000Z')
 
     beforeEach(() => {
@@ -624,7 +652,7 @@ describe('DeliveryDetails component', () => {
       expect(screen.getByText('4 min')).toBeInTheDocument()
     })
 
-    it('renders "looking for a rider" and no OfferCard when ASSIGNING_COURIER has no offer or wait time yet', () => {
+    it('renders "Looking for a rider" and no OfferCard when ASSIGNING_COURIER has no offer or wait time yet', () => {
       const lookingDelivery: DeliveryAdminDto = {
         ...sampleEurDelivery,
         status: EnumDeliveryStatus.ASSIGNING_COURIER,
@@ -640,7 +668,7 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      expect(screen.getByText(/looking for a rider/)).toBeInTheDocument()
+      expect(screen.getByText(/Looking for a rider/i)).toBeInTheDocument()
       expect(screen.queryByText('Offered to')).toBeNull()
       expect(screen.queryByText('No rider free since')).toBeNull()
     })
@@ -691,7 +719,6 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      // The timeline renders "Rider" label and the courier's resolved full name from courierNameById
       expect(screen.getByText('Rider')).toBeInTheDocument()
       expect(screen.getAllByText('Eleni Dimitriou').length).toBeGreaterThanOrEqual(1)
     })
@@ -701,7 +728,6 @@ describe('DeliveryDetails component', () => {
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      // Polling interval must be set to 30,000 ms (30 s) because offers can expire or move on their own
       expect(mockUseGetDeliveryQuery).toHaveBeenCalledWith(
         { id: 'd100' },
         expect.objectContaining({ pollingInterval: 30_000 })
@@ -722,7 +748,7 @@ describe('DeliveryDetails component', () => {
       visibilitySpy.mockRestore()
     })
 
-    it('shows offer line and assign control only when isLookingForRider (ASSIGNING_COURIER and no courierId - F2)', () => {
+    it('shows offer line and "Assign courier" control only when isLookingForRider (ASSIGNING_COURIER and no courierId - F2)', () => {
       // Case A: ASSIGNING_COURIER with courierId already set (rider accepted)
       const assigningWithAcceptedCourier: DeliveryAdminDto = {
         ...sampleEurDelivery,
@@ -739,10 +765,10 @@ describe('DeliveryDetails component', () => {
 
       const { rerender } = render(<DeliveryDetails deliveryId="d100" />)
 
-      // Since courierId is set, isLookingForRider is false: no offer summary and no assign control
+      // Since courierId is set, isLookingForRider is false: no offer summary and no Assign courier button
       expect(screen.queryByText(/Offer:/i)).toBeNull()
       expect(screen.queryByText(/looking for a rider/i)).toBeNull()
-      expect(screen.queryByRole('button', { name: /Manually Reassign/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Assign courier/i })).toBeNull()
 
       // Case B: ASSIGNING_COURIER with no courierId (looking for rider)
       const assigningLookingForRider: DeliveryAdminDto = {
@@ -763,13 +789,12 @@ describe('DeliveryDetails component', () => {
 
       // Both offer summary and assign control are rendered
       expect(screen.getByText(/Testing Courier, under 1 min/i)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Manually Reassign/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Assign courier/i })).toBeInTheDocument()
     })
 
     it('Offer card label: 10 s past the deadline reads "Offer ends", 40 s past reads "Overdue since" (F7, decision 61.53)', () => {
       // fixedNow is 2026-10-26T12:00:00.000Z. Grace is 33 s.
       // Case 1: 10 s past the deadline (offerExpiresAt = 11:59:50.000Z).
-      // offerExpiresAt + 33 s is 12:00:23.000Z, which is after fixedNow, so label reads "Offer ends"
       const tenSecPastDeadlineDelivery: DeliveryAdminDto = {
         ...sampleEurDelivery,
         status: EnumDeliveryStatus.ASSIGNING_COURIER,
@@ -788,7 +813,6 @@ describe('DeliveryDetails component', () => {
       expect(screen.queryByText('Overdue since')).toBeNull()
 
       // Case 2: 40 s past the deadline (offerExpiresAt = 11:59:20.000Z).
-      // offerExpiresAt + 33 s is 11:59:53.000Z, which is before fixedNow, so label reads "Overdue since"
       const fortySecPastDeadlineDelivery: DeliveryAdminDto = {
         ...sampleEurDelivery,
         status: EnumDeliveryStatus.ASSIGNING_COURIER,
@@ -805,6 +829,92 @@ describe('DeliveryDetails component', () => {
 
       expect(screen.getByText('Overdue since')).toBeInTheDocument()
       expect(screen.queryByText('Offer ends')).toBeNull()
+    })
+  })
+
+  describe('Comprehensive field preservation in Pickup, Drop off, Order, and Technical details (AC-3)', () => {
+    it('renders every field in Pickup facts card', () => {
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      const pickupCard = screen.getByText('Pickup', { selector: 'h3' }).closest('.rounded-lg')
+      expect(pickupCard).not.toBeNull()
+      const scope = within(pickupCard as HTMLElement)
+
+      expect(scope.getByText('Business').nextElementSibling?.textContent).toBe('Volos Kitchen Ltd')
+      expect(scope.getByText('Name').nextElementSibling?.textContent).toBe('Volos Kitchen')
+      expect(scope.getByText('Phone').nextElementSibling?.textContent).toBe('+302421000000')
+      expect(scope.getByText('Ready').nextElementSibling?.textContent).toBe('30/07/2026, 13:00')
+      expect(scope.getByText('Deadline').nextElementSibling?.textContent).toBe('30/07/2026, 13:30')
+      expect(scope.getByText('Notes').nextElementSibling?.textContent).toBe('Use back entrance for pickup')
+      expect(scope.getByText('Verification').nextElementSibling?.textContent).toBe('{"type":"PIN","code":"1234"}')
+    })
+
+    it('renders every field in Drop off facts card', () => {
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      const dropoffCard = screen.getByText('Drop off', { selector: 'h3' }).closest('.rounded-lg')
+      expect(dropoffCard).not.toBeNull()
+      const scope = within(dropoffCard as HTMLElement)
+
+      expect(scope.getByText('Name').nextElementSibling?.textContent).toBe('Giannis S.')
+      expect(scope.getByText('Business').nextElementSibling?.textContent).toBe('Acme Corp Office')
+      expect(scope.getByText('Phone').nextElementSibling?.textContent).toBe('+306911111111')
+      expect(scope.getByText('ETA').nextElementSibling?.textContent).toBe('30/07/2026, 13:20')
+      expect(scope.getByText('Ready').nextElementSibling?.textContent).toBe('30/07/2026, 13:15')
+      expect(scope.getByText('Deadline').nextElementSibling?.textContent).toBe('30/07/2026, 13:45')
+      expect(scope.getByText('Notes').nextElementSibling?.textContent).toBe('Ring bell #4')
+      expect(scope.getByText('Seller notes').nextElementSibling?.textContent).toBe('Handle with care: hot soup')
+      expect(scope.getByText('Verification').nextElementSibling?.textContent).toBe('SIGNATURE')
+      expect(scope.getByText('When delivered').nextElementSibling?.textContent).toBe('LEAVE_AT_DOOR')
+      expect(scope.getByText('When undeliverable').nextElementSibling?.textContent).toBe('RETURN_TO_STORE')
+      expect(scope.getByText('Undeliverable reason').nextElementSibling?.textContent).toBe('CUSTOMER_UNAVAILABLE')
+    })
+
+    it('renders every field in Order facts card and order items list', () => {
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      const orderCard = screen.getByText('Order', { selector: 'h3' }).closest('.rounded-lg')
+      expect(orderCard).not.toBeNull()
+      const scope = within(orderCard as HTMLElement)
+
+      expect(scope.getByText('Order reference').nextElementSibling?.textContent).toBe('ORD-EUR-1')
+      expect(scope.getByText('Customer').nextElementSibling?.textContent).toBe('Kostas Papadopoulos')
+      expect(scope.getByText('Customer phone').nextElementSibling?.textContent).toBe('+306900000000')
+      expect(scope.getByText('Order total').nextElementSibling?.textContent).toBe('€112.04')
+      expect(scope.getByText('Tips').nextElementSibling?.textContent).toBe('€1.00')
+      expect(scope.getByText('Customer notes').nextElementSibling?.textContent).toBe(
+        'Please do not ring bell if baby is sleeping'
+      )
+      expect(scope.getByText('Delivery types').nextElementSibling?.textContent).toBe('STANDARD')
+      expect(scope.getByText('Pickup types').nextElementSibling?.textContent).toBe('STORE')
+      expect(scope.getByText('Drop off signature required').nextElementSibling?.textContent).toBe('No')
+      expect(scope.getByText('ID check required').nextElementSibling?.textContent).toBe('No')
+
+      // Order items section
+      expect(scope.getByText('Order items')).toBeInTheDocument()
+      expect(scope.getByText(/Greek Salad × 2 \(Large\)/)).toBeInTheDocument()
+    })
+
+    it('renders all IDs in Technical details accordion once opened', () => {
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      const techAccordion = screen.getByText('Technical details')
+      expect(techAccordion).toBeInTheDocument()
+
+      // Click to open the accordion (closed by default)
+      fireEvent.click(techAccordion)
+
+      // The Accordion content is rendered once opened
+      expect(screen.getByText('Delivery ID').nextElementSibling?.textContent).toBe('d100')
+      expect(screen.getByText('Delivery quote ID').nextElementSibling?.textContent).toBe('q-100')
+      expect(screen.getByText('Partner ID').nextElementSibling?.textContent).toBe('partner-1')
+      expect(screen.getByText('Courier ID').nextElementSibling?.textContent).toBe('c1')
+      expect(screen.getByText('Matched courier ID').nextElementSibling?.textContent).toBe('courier-matched-77')
+      expect(screen.getByText('Pickup location ID').nextElementSibling?.textContent).toBe('loc-p1')
+      expect(screen.getByText('Drop off location ID').nextElementSibling?.textContent).toBe('loc-d1')
+      expect(screen.getByText('External ID').nextElementSibling?.textContent).toBe('ext-order-101')
+      expect(screen.getByText('External store ID').nextElementSibling?.textContent).toBe('ext-store-55')
+      expect(screen.getByText('Idempotency key').nextElementSibling?.textContent).toBe('idemp-key-abc-123')
     })
   })
 })
