@@ -27,14 +27,17 @@ jest.mock('../../hooks/usePageVisible', () => ({
 
 // Mock RTK Query couriersApi
 const mockUseGetCouriersQuery = jest.fn()
+const mockUseCreateCourierMutation = jest.fn()
 jest.mock('../../api/couriersApi', () => ({
   useGetCouriersQuery: (args: any, options: any) => mockUseGetCouriersQuery(args, options),
+  useCreateCourierMutation: () => mockUseCreateCourierMutation(),
 }))
 
 describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockUsePageVisible.mockReturnValue(true)
+    mockUseCreateCourierMutation.mockReturnValue([jest.fn(), { isLoading: false }])
   })
 
   it('renders Couriers title (h1), redesign columns, and no vehicle column (AC-1)', () => {
@@ -593,6 +596,31 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         }),
         expect.anything()
       )
+    })
+  })
+
+  describe('"Add courier" button and AddCourierDialog (spec 0013, AC-1)', () => {
+    it('renders "Add courier" header button and opens dialog when clicked', () => {
+      mockUseGetCouriersQuery.mockReturnValue({
+        data: {
+          data: [],
+          pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 1 },
+        },
+        isLoading: false,
+      })
+
+      render(<CouriersPage />)
+
+      const addBtn = screen.getByRole('button', { name: /add courier/i })
+      expect(addBtn).toBeInTheDocument()
+
+      fireEvent.click(addBtn)
+
+      // Dialog opens
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(
+        screen.getByText('Creates the rider and their login. You will see the password once, to pass on to them.')
+      ).toBeInTheDocument()
     })
   })
 })

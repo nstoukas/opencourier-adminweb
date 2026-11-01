@@ -40,8 +40,10 @@ jest.mock('../../hooks/usePageVisible', () => ({
 
 // Mock RTK Query hooks
 const mockUseGetCourierQuery = jest.fn()
+const mockUseRotateCourierPasswordMutation = jest.fn()
 jest.mock('../../api/couriersApi', () => ({
   useGetCourierQuery: (args: any, options: any) => mockUseGetCourierQuery(args, options),
+  useRotateCourierPasswordMutation: () => mockUseRotateCourierPasswordMutation(),
 }))
 
 const mockUseGetDeliveriesQuery = jest.fn()
@@ -67,6 +69,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
     jest.clearAllMocks()
 
     mockUsePageVisible.mockReturnValue(true)
+    mockUseRotateCourierPasswordMutation.mockReturnValue([jest.fn(), { isLoading: false }])
 
     activeDeliveriesResult = {
       data: { data: [] },
@@ -562,6 +565,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
   describe('Polling intervals and tab visibility (spec 0012, row 89 review fixes)', () => {
     it('polls every 30 s on courier query and both delivery queries while tab is visible', () => {
       mockUsePageVisible.mockReturnValue(true)
+    mockUseRotateCourierPasswordMutation.mockReturnValue([jest.fn(), { isLoading: false }])
 
       render(<CourierDetails courierId="c1" />)
 
@@ -608,6 +612,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
     it('skips deliveries queries while courier has not yet loaded, preserving pollingInterval', () => {
       mockUsePageVisible.mockReturnValue(true)
+    mockUseRotateCourierPasswordMutation.mockReturnValue([jest.fn(), { isLoading: false }])
       mockUseGetCourierQuery.mockReturnValue({
         currentData: undefined,
         isLoading: true,
@@ -637,6 +642,53 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       expect(content).not.toMatch(/location|latitude|longitude|coords/i)
       // No email address
       expect(content).not.toMatch(/@|email/i)
+    })
+  })
+
+  describe('Change password button and RotateCourierPasswordDialog (spec 0013, AC-6)', () => {
+    it('opens dialog with carryingDelivery true when Right now query has deliveries', () => {
+      activeDeliveriesResult = {
+        data: {
+          data: [
+            {
+              id: 'del-active-1',
+              status: EnumDeliveryStatus.PICKED_UP,
+              createdAt: new Date(),
+            } as any,
+          ],
+        },
+        isLoading: false,
+        isError: false,
+      }
+
+      render(<CourierDetails courierId="c1" />)
+
+      const changePwBtn = screen.getByRole('button', { name: /change password/i })
+      expect(changePwBtn).toBeInTheDocument()
+      fireEvent.click(changePwBtn)
+
+      // Dialog opens and displays carrying delivery warning naming first name
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByRole('note')).toHaveTextContent(
+        'Nikos is carrying a delivery. Steps still waiting on their phone are sent only when they log in again on that phone. If the phone is lost, reassign the delivery.'
+      )
+    })
+
+    it('opens dialog with carryingDelivery false when Right now query has no deliveries', () => {
+      activeDeliveriesResult = {
+        data: { data: [] },
+        isLoading: false,
+        isError: false,
+      }
+
+      render(<CourierDetails courierId="c1" />)
+
+      const changePwBtn = screen.getByRole('button', { name: /change password/i })
+      fireEvent.click(changePwBtn)
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByText(/Nikos is signed out of the app on their phone and set Offline/i)).toBeInTheDocument()
+      expect(screen.queryByRole('note')).not.toBeInTheDocument()
     })
   })
 

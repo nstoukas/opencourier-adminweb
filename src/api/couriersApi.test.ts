@@ -1,10 +1,17 @@
-import { configureStore } from '@reduxjs/toolkit'
-import { couriersApi, useGetCourierQuery, useGetCouriersQuery } from './couriersApi'
+import { configureStore, type AnyAction } from '@reduxjs/toolkit'
+import {
+  couriersApi,
+  useGetCourierQuery,
+  useGetCouriersQuery,
+  useCreateCourierMutation,
+  useRotateCourierPasswordMutation,
+} from './couriersApi'
+import { deliveriesApi } from './deliveriesApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
 import { authSlice } from '@/modules/auth/slices/authSlice'
 import { ApiError } from '../backend-admin-sdk'
-import type { CourierAdminDto, CourierPaginatedAdminDto } from '../backend-admin-sdk'
+import type { CourierAdminDto, CourierPaginatedAdminDto, CourierCreateAdminInput } from '../backend-admin-sdk'
 
 jest.mock('.', () => {
   const actual = jest.requireActual('.')
@@ -16,17 +23,25 @@ jest.mock('.', () => {
 
 const mockPrepareAdminSdk = prepareAdminSdk as jest.Mock
 
-function setupTestStore(accessToken: string | null = 'test-token') {
+function setupTestStore(accessToken: string | null = 'test-token', onAction?: (action: AnyAction) => void) {
   return configureStore({
     reducer: {
       [couriersApi.reducerPath]: couriersApi.reducer,
       [authSlice.name]: authSlice.reducer,
     },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware({
+    middleware: (getDefaultMiddleware) => {
+      const middleware = getDefaultMiddleware({
         serializableCheck: false,
         immutableCheck: false,
-      }).concat(couriersApi.middleware),
+      }).concat(couriersApi.middleware)
+      if (onAction) {
+        return middleware.concat(() => (next) => (action: any) => {
+          onAction(action)
+          return next(action)
+        })
+      }
+      return middleware
+    },
     preloadedState: {
       auth: { accessToken },
     },
@@ -230,6 +245,190 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
       })
       expect(result.error).toBeDefined()
       expect(result.data).toBeUndefined()
+    })
+  })
+
+  describe('createCourier endpoint (row 16, spec 0013)', () => {
+    let mockCreateCourier: jest.Mock
+
+    beforeEach(() => {
+      mockCreateCourier = jest.fn()
+      mockPrepareAdminSdk.mockReturnValue({
+        couriers: () => ({
+          createCourier: mockCreateCourier,
+        }),
+      })
+    })
+
+    it('exports useCreateCourierMutation hook function', () => {
+      expect(typeof useCreateCourierMutation).toBe('function')
+    })
+
+    it('defines createCourier endpoint on couriersApi', () => {
+      expect(couriersApi.endpoints.createCourier).toBeDefined()
+      expect(typeof couriersApi.endpoints.createCourier.initiate).toBe('function')
+    })
+
+    it('calls sdk.couriers().createCourier with courierCreateAdminInput and invalidates Tags.couriers on success', async () => {
+      const dispatchedActions: AnyAction[] = []
+      const store = setupTestStore('admin-token-create', (action) => dispatchedActions.push(action))
+
+      const mockCourier: CourierAdminDto = {
+        id: 'new-c-1',
+        firstName: 'Nikos',
+        lastName: 'Pappas',
+        phoneNumber: '+306912345678',
+        status: 'OFFLINE',
+        deliverySetting: 'MANUAL',
+        createdAt: new Date(),
+      } as any
+
+      mockCreateCourier.mockResolvedValueOnce(mockCourier)
+
+      const input: CourierCreateAdminInput = {
+        firstName: 'Nikos',
+        lastName: 'Pappas',
+        phoneNumber: '+306912345678',
+        email: 'nikos@example.com',
+        password: 'password123',
+      }
+
+      mockPrepareAdminSdk.mockReturnValue({
+        couriers: () => ({
+          createCourier: mockCreateCourier,
+          getCourierById: jest.fn().mockResolvedValue({ id: 'c-existing' }),
+        }),
+      })
+
+      // Populate courier query in cache
+      await store.dispatch(couriersApi.endpoints.getCourier.initiate({ id: 'c-existing' }))
+      dispatchedActions.length = 0
+
+      const mutationResult = (await store.dispatch(couriersApi.endpoints.createCourier.initiate(input))) as {
+        data?: CourierAdminDto
+        error?: unknown
+      }
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token-create')
+      expect(mockCreateCourier).toHaveBeenCalledTimes(1)
+      expect(mockCreateCourier).toHaveBeenCalledWith({ courierCreateAdminInput: input })
+      expect(mutationResult.data).toEqual(mockCourier)
+
+      // Invalidates Tags.couriers, triggering refetch of getCourier
+      const refetchedEndpoints = dispatchedActions
+        .filter((a) => a.type === 'api/executeQuery/pending')
+        .map((a) => a.meta?.arg?.endpointName)
+
+      expect(refetchedEndpoints).toContain('getCourier')
+    })
+
+    it('handles SDK rejection and returns backend error', async () => {
+      const store = setupTestStore('admin-token-create')
+      const apiError = new ApiError('PHONE_CLASH' as any, 'That phone is already used by another rider.', 409)
+      mockCreateCourier.mockRejectedValueOnce(apiError)
+
+      const mutationResult = (await store.dispatch(
+        couriersApi.endpoints.createCourier.initiate({
+          firstName: 'Nikos',
+          lastName: 'Pappas',
+          phoneNumber: '+306912345678',
+          email: 'nikos@example.com',
+          password: 'password123',
+        })
+      )) as { data?: CourierAdminDto; error?: unknown }
+
+      expect(mutationResult.error).toBeDefined()
+      expect(mutationResult.data).toBeUndefined()
+    })
+  })
+
+  describe('rotateCourierPassword endpoint (row 16, spec 0013)', () => {
+    let mockRotateCourierPassword: jest.Mock
+
+    beforeEach(() => {
+      mockRotateCourierPassword = jest.fn()
+      mockPrepareAdminSdk.mockReturnValue({
+        couriers: () => ({
+          rotateCourierPassword: mockRotateCourierPassword,
+        }),
+      })
+    })
+
+    it('exports useRotateCourierPasswordMutation hook function', () => {
+      expect(typeof useRotateCourierPasswordMutation).toBe('function')
+    })
+
+    it('defines rotateCourierPassword endpoint on couriersApi', () => {
+      expect(couriersApi.endpoints.rotateCourierPassword).toBeDefined()
+      expect(typeof couriersApi.endpoints.rotateCourierPassword.initiate).toBe('function')
+    })
+
+    it('calls sdk.couriers().rotateCourierPassword with { id, password } and invalidates Tags.couriers and Tags.deliveries', async () => {
+      const dispatchedActions: AnyAction[] = []
+      const store = setupTestStore('admin-token-rotate', (action) => dispatchedActions.push(action))
+
+      const mockFetchCourier = jest.fn().mockResolvedValue({ id: 'courier-target-1' })
+      const mockGetDeliveries = jest.fn().mockResolvedValue({ data: [], pagination: {} })
+      mockPrepareAdminSdk.mockReturnValue({
+        couriers: () => ({
+          rotateCourierPassword: mockRotateCourierPassword,
+          getCourierById: mockFetchCourier,
+        }),
+        deliveries: () => ({
+          getDeliveries: mockGetDeliveries,
+        }),
+      })
+
+      mockRotateCourierPassword.mockResolvedValueOnce(undefined)
+
+      // Populate courier query (provides Tags.couriers) and deliveries query (provides Tags.deliveries)
+      await store.dispatch(couriersApi.endpoints.getCourier.initiate({ id: 'courier-target-1' }))
+      await store.dispatch(deliveriesApi.endpoints.getDeliveries.initiate({}))
+      dispatchedActions.length = 0
+
+      const mutationResult = (await store.dispatch(
+        couriersApi.endpoints.rotateCourierPassword.initiate({
+          id: 'courier-target-1',
+          password: 'newPassword123!',
+        })
+      )) as { data?: void; error?: unknown }
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token-rotate')
+      expect(mockRotateCourierPassword).toHaveBeenCalledTimes(1)
+      expect(mockRotateCourierPassword).toHaveBeenCalledWith({
+        id: 'courier-target-1',
+        password: 'newPassword123!',
+      })
+      expect(mutationResult.data).toBeUndefined()
+      expect(mutationResult.error).toBeUndefined()
+
+      // Invalidates both Tags.couriers and Tags.deliveries, triggering refetches for both queries
+      const refetchedEndpoints = dispatchedActions
+        .filter((a) => a.type === 'api/executeQuery/pending')
+        .map((a) => a.meta?.arg?.endpointName)
+
+      expect(refetchedEndpoints).toContain('getCourier')
+      expect(refetchedEndpoints).toContain('getDeliveries')
+    })
+
+    it('handles SDK rejection: sets error and leaves data undefined', async () => {
+      const store = setupTestStore('admin-token-rotate')
+      const apiError = new ApiError('COURIER_NOT_FOUND' as any, 'This rider has no login.', 404)
+      mockRotateCourierPassword.mockRejectedValueOnce(apiError)
+
+      const mutationResult = (await store.dispatch(
+        couriersApi.endpoints.rotateCourierPassword.initiate({
+          id: 'courier-non-existent',
+          password: 'newPassword123!',
+        })
+      )) as { data?: void; error?: unknown }
+
+      expect(mockRotateCourierPassword).toHaveBeenCalledWith({
+        id: 'courier-non-existent',
+        password: 'newPassword123!',
+      })
+      expect(mutationResult.error).toBeDefined()
+      expect(mutationResult.data).toBeUndefined()
     })
   })
 })

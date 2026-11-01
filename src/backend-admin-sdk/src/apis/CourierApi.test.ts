@@ -143,4 +143,68 @@ describe('CourierApi.getManyCouriers and getManyCouriersRaw (row 97: status filt
     expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/courier')
     expect(result.data).toEqual([])
   })
+
+  describe('CourierApi.createCourier (row 16, spec 0013)', () => {
+    it('posts the body to /api/admin/v1/courier and parses response', async () => {
+      const mockCreated = {
+        id: 'new-courier-123',
+        firstName: 'Dimitris',
+        lastName: 'K.',
+        phoneNumber: '+306912345678',
+        status: 'OFFLINE',
+        deliverySetting: 'MANUAL',
+        createdAt: '2026-11-01T10:00:00.000Z',
+      }
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockCreated, 201))
+
+      const input = {
+        firstName: 'Dimitris',
+        lastName: 'K.',
+        phoneNumber: '+306912345678',
+        email: 'dimitris@volos.coop',
+        password: 'securePassword123',
+      }
+
+      const result = await api.createCourier({ courierCreateAdminInput: input })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const firstCall = mockFetch.mock.calls[0]
+      expect(firstCall).toBeDefined()
+      const [calledUrl, calledInit] = firstCall as [string, RequestInit]
+      const url = new URL(calledUrl)
+
+      expect(url.pathname).toBe('/api/admin/v1/courier')
+      expect(calledInit.method).toBe('POST')
+      expect((calledInit.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+      expect((calledInit.headers as Record<string, string>)['Authorization']).toBe('Bearer test-token')
+      expect(calledInit.body).toEqual(JSON.stringify(input))
+      expect(result.id).toBe('new-courier-123')
+      expect(result.firstName).toBe('Dimitris')
+    })
+  })
+
+  describe('CourierApi.rotateCourierPassword (row 16, spec 0013)', () => {
+    it('posts { password } to /api/admin/v1/courier/<id>/rotate-password with the id URL encoded', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(null, 204))
+
+      await api.rotateCourierPassword({
+        id: 'courier/with spaces&special#',
+        password: 'newRotatedPassword!',
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const firstCall = mockFetch.mock.calls[0]
+      expect(firstCall).toBeDefined()
+      const [calledUrl, calledInit] = firstCall as [string, RequestInit]
+
+      // Verify path and URL encoding of the id
+      expect(calledUrl).toBe(
+        'http://localhost:3000/api/admin/v1/courier/courier%2Fwith%20spaces%26special%23/rotate-password'
+      )
+      expect(calledInit.method).toBe('POST')
+      expect((calledInit.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+      expect((calledInit.headers as Record<string, string>)['Authorization']).toBe('Bearer test-token')
+      expect(calledInit.body).toEqual(JSON.stringify({ password: 'newRotatedPassword!' }))
+    })
+  })
 })
