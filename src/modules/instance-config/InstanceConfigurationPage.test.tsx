@@ -1297,6 +1297,262 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     })
   })
 
+  describe('Dispatch line setting (row 72)', () => {
+    it('the field and its save button are disabled until the settings load', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      expect(phoneInput.value).toBe('')
+      expect(phoneInput).toBeDisabled()
+      expect(saveButton).toBeDisabled()
+    })
+
+    it('loads the stored value into the dispatch phone input, showing empty string when null', () => {
+      // 1. When a number is stored
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: '+30 24210 12345',
+        },
+        isLoading: false,
+      })
+
+      const { unmount } = render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      expect(phoneInput.value).toBe('+30 24210 12345')
+      expect(phoneInput).not.toBeDisabled()
+      expect(saveButton).not.toBeDisabled()
+
+      unmount()
+
+      // 2. When null is stored (no dispatch number configured)
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const emptyPhoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      expect(emptyPhoneInput.value).toBe('')
+      expect(emptyPhoneInput).not.toBeDisabled()
+      expect(
+        screen.getByRole('button', { name: /save dispatch number/i })
+      ).not.toBeDisabled()
+    })
+
+    it('Save sends exactly { dispatchPhoneNumber: <typed text> } and nothing else', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: '+30 24210 12345',
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({ dispatchPhoneNumber: '+302421099999' }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number')
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      fireEvent.change(phoneInput, { target: { value: '+30 24210 99999' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          dispatchPhoneNumber: '+30 24210 99999',
+        })
+        // Ensure no other form fields or config properties leaked into the save payload
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(Object.keys(payload)).toEqual(['dispatchPhoneNumber'])
+      })
+    })
+
+    it('"Save All Changes" never sends dispatchPhoneNumber', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: '+30 24210 12345',
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveAllButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload).not.toHaveProperty('dispatchPhoneNumber')
+      })
+    })
+
+    it('after success the box shows the saved, normalized value from response and toast says saved', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: null,
+        },
+        isLoading: false,
+      })
+      // Backend strips spaces and normalizes "+30 24210 12345" to "+302421012345"
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({ dispatchPhoneNumber: '+302421012345' }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      fireEvent.change(phoneInput, { target: { value: '+30 24210 12345' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Success!',
+            description:
+              'Dispatch number saved. Riders see the Call dispatch button within ten minutes.',
+          })
+        )
+      })
+
+      // The box must update to the normalized value returned by the backend response
+      expect(phoneInput.value).toBe('+302421012345')
+    })
+
+    it('after clearing the number, the box is empty and toast says cleared when response holds null', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: '+302421012345',
+        },
+        isLoading: false,
+      })
+      // Backend returns null when dispatch line is cleared
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({ dispatchPhoneNumber: null }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      fireEvent.change(phoneInput, { target: { value: '' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          dispatchPhoneNumber: '',
+        })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Success!',
+            description:
+              'Dispatch number cleared. Riders no longer see a Call dispatch button.',
+          })
+        )
+      })
+
+      expect(phoneInput.value).toBe('')
+    })
+
+    it('a refusal shows the backend\'s message in the error toast and keeps the typed text', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: '+302421012345',
+        },
+        isLoading: false,
+      })
+
+      const backendErrorMessage =
+        'dispatchPhoneNumber must be digits with an optional leading +'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: backendErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      fireEvent.change(phoneInput, { target: { value: 'invalid-phone-number' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: backendErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+
+      // The typed text must be preserved on refusal so the user can fix the typo
+      expect(phoneInput.value).toBe('invalid-phone-number')
+    })
+
+    it('falls back to generic error text when refusal error has no message and keeps typed text', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          dispatchPhoneNumber: null,
+        },
+        isLoading: false,
+      })
+
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const phoneInput = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save dispatch number/i })
+
+      fireEvent.change(phoneInput, { target: { value: '+1234' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: 'Failed to save the dispatch number. Please try again.',
+            variant: 'destructive',
+          })
+        )
+      })
+
+      expect(phoneInput.value).toBe('+1234')
+    })
+  })
+
   describe('Markdown heading rendering and single h1 invariant (row 86 review fix 4df8ba6)', () => {
     it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({

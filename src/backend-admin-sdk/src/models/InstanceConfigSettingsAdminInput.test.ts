@@ -139,6 +139,48 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const serialized = InstanceConfigSettingsAdminInputToJSON(model)
       expect(serialized.savedCustomerRetentionMonths).toBe(24)
     })
+
+    it('preserves dispatchPhoneNumber in ToJSON serialization, including empty text (row 72)', () => {
+      // Load-bearing test guard: without dispatchPhoneNumber in ToJSON, the SDK silently drops
+      // it and the save reports success for a number never sent to the backend.
+      const input = {
+        dispatchPhoneNumber: '+30 24210 12345',
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.dispatchPhoneNumber).toBe('+30 24210 12345')
+
+      // Empty string must also be preserved so clearing the dispatch line sends ''
+      const inputEmpty = {
+        dispatchPhoneNumber: '',
+      }
+
+      const jsonEmpty = InstanceConfigSettingsAdminInputToJSON(inputEmpty)
+      expect(jsonEmpty).toBeDefined()
+      expect(jsonEmpty.dispatchPhoneNumber).toBe('')
+    })
+
+    it('round-trips dispatchPhoneNumber through FromJSON and ToJSON (row 72)', () => {
+      const originalJson = {
+        dispatchPhoneNumber: '+302421012345',
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.dispatchPhoneNumber).toBe('+302421012345')
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.dispatchPhoneNumber).toBe('+302421012345')
+
+      // Also round-trip empty string
+      const emptyModel = InstanceConfigSettingsAdminInputFromJSON({
+        dispatchPhoneNumber: '',
+      })
+      expect(emptyModel.dispatchPhoneNumber).toBe('')
+
+      const emptySerialized = InstanceConfigSettingsAdminInputToJSON(emptyModel)
+      expect(emptySerialized.dispatchPhoneNumber).toBe('')
+    })
   })
 
   describe('InstanceConfigSettingsDto (response deserialization guard - AC-5)', () => {
@@ -286,6 +328,36 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.savedCustomerRetentionMonths).toBe(12)
+    })
+
+    it('deserializes dispatchPhoneNumber when present (row 72)', () => {
+      const json = {
+        details: {},
+        dispatchPhoneNumber: '+302421012345',
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.dispatchPhoneNumber).toBe('+302421012345')
+    })
+
+    it('deserializes dispatchPhoneNumber as null when absent in backend response (row 72)', () => {
+      // Absent key must read as null, so the page can show an empty input rather than undefined
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.dispatchPhoneNumber).toBeNull()
+    })
+
+    it('serializes DTO carrying dispatchPhoneNumber back to JSON (row 72)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        dispatchPhoneNumber: '+302421012345',
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.dispatchPhoneNumber).toBe('+302421012345')
     })
   })
 
