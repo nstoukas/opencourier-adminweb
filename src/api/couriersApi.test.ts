@@ -322,7 +322,7 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
       expect(refetchedEndpoints).toContain('getCourier')
     })
 
-    it('handles SDK rejection and returns backend error', async () => {
+    it('handles SDK rejection (409) and keeps admin signed in (auth.accessToken not cleared)', async () => {
       const store = setupTestStore('admin-token-create')
       const apiError = new ApiError('PHONE_CLASH' as any, 'That phone is already used by another rider.', 409)
       mockCreateCourier.mockRejectedValueOnce(apiError)
@@ -339,6 +339,8 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
 
       expect(mutationResult.error).toBeDefined()
       expect(mutationResult.data).toBeUndefined()
+      // Admin stays signed in: handleBackendError only signs out on 401, not 409
+      expect(store.getState().auth.accessToken).toBe('admin-token-create')
     })
   })
 
@@ -391,7 +393,7 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
           id: 'courier-target-1',
           password: 'newPassword123!',
         })
-      )) as { data?: void; error?: unknown }
+      )) as { data?: null; error?: unknown }
 
       expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token-rotate')
       expect(mockRotateCourierPassword).toHaveBeenCalledTimes(1)
@@ -399,7 +401,7 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
         id: 'courier-target-1',
         password: 'newPassword123!',
       })
-      expect(mutationResult.data).toBeUndefined()
+      expect(mutationResult.data).toBeNull()
       expect(mutationResult.error).toBeUndefined()
 
       // Invalidates both Tags.couriers and Tags.deliveries, triggering refetches for both queries
@@ -421,7 +423,7 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
           id: 'courier-non-existent',
           password: 'newPassword123!',
         })
-      )) as { data?: void; error?: unknown }
+      )) as { data?: null; error?: unknown }
 
       expect(mockRotateCourierPassword).toHaveBeenCalledWith({
         id: 'courier-non-existent',
@@ -429,6 +431,28 @@ describe('couriersApi getCourier endpoint (spec 0012, item 8)', () => {
       })
       expect(mutationResult.error).toBeDefined()
       expect(mutationResult.data).toBeUndefined()
+    })
+
+    it('handles SDK rejection with 403: sets error and keeps admin signed in (auth.accessToken not cleared)', async () => {
+      const store = setupTestStore('admin-token-rotate')
+      const apiError = new ApiError('FORBIDDEN' as any, 'This login also belongs to an admin.', 403)
+      mockRotateCourierPassword.mockRejectedValueOnce(apiError)
+
+      const mutationResult = (await store.dispatch(
+        couriersApi.endpoints.rotateCourierPassword.initiate({
+          id: 'courier-target-1',
+          password: 'newPassword123!',
+        })
+      )) as { data?: null; error?: unknown }
+
+      expect(mockRotateCourierPassword).toHaveBeenCalledWith({
+        id: 'courier-target-1',
+        password: 'newPassword123!',
+      })
+      expect(mutationResult.error).toBeDefined()
+      expect(mutationResult.data).toBeUndefined()
+      // Admin stays signed in: handleBackendError only signs out on 401, not 403
+      expect(store.getState().auth.accessToken).toBe('admin-token-rotate')
     })
   })
 })

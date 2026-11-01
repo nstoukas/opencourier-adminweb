@@ -320,4 +320,151 @@ describe('AddCourierDialog component (spec 0013, AC-1 to AC-3)', () => {
     expect(screen.getByLabelText(/^Phone/i)).toHaveValue('+30 690 000 0000')
     expect(screen.queryByText(/can log in/i)).not.toBeInTheDocument()
   })
+
+  it('AC-2: while create request runs, dialog cannot close (Cancel disabled, onOpenChange(false) ignored)', () => {
+    mockUseCreateCourierMutation.mockReturnValue([
+      mockCreateCourier,
+      { isLoading: true },
+    ])
+
+    render(
+      <AddCourierDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        returnFocusTo={returnFocusTo}
+        onOpenCourier={mockOnOpenCourier}
+      />
+    )
+
+    // Cancel button is disabled while loading
+    const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
+    expect(cancelBtn).toBeDisabled()
+
+    // Dismissal via close X button or onOpenChange(false) is ignored
+    const closeBtn = screen.getByRole('button', { name: 'Close' })
+    fireEvent.click(closeBtn)
+    expect(mockOnOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('AC-2: while notice is shown, Escape and pointer down outside do not close it; Done still closes it', async () => {
+    const createdCourierDto: CourierAdminDto = {
+      id: 'courier-new-101',
+      firstName: 'Panos',
+      lastName: 'Giannopoulos',
+      phoneNumber: '+306909876543',
+      status: 'OFFLINE' as any,
+      deliverySetting: 'MANUAL' as any,
+      createdAt: new Date(),
+    } as any
+
+    mockCreateCourier.mockReturnValue({
+      unwrap: () => Promise.resolve(createdCourierDto),
+    })
+
+    render(
+      <AddCourierDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        returnFocusTo={returnFocusTo}
+        onOpenCourier={mockOnOpenCourier}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText(/^First name/i), { target: { value: 'Panos' } })
+    fireEvent.change(screen.getByLabelText(/^Last name/i), { target: { value: 'Giannopoulos' } })
+    fireEvent.change(screen.getByLabelText(/^Phone/i), { target: { value: '+30 690 987 6543' } })
+    fireEvent.change(screen.getByLabelText(/^Email/i), { target: { value: 'panos@example.com' } })
+    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'pass12345' } })
+    fireEvent.change(screen.getByLabelText(/^Password again$/i), { target: { value: 'pass12345' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /create courier/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Panos Giannopoulos can log in')).toBeInTheDocument()
+    })
+
+    // Escape does not close the dialog while notice is shown
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' })
+    expect(mockOnOpenChange).not.toHaveBeenCalled()
+
+    // Pointer down outside does not close the dialog while notice is shown
+    fireEvent.pointerDown(document.body)
+    expect(mockOnOpenChange).not.toHaveBeenCalled()
+
+    // Done still closes it
+    const doneBtn = screen.getByRole('button', { name: 'Done' })
+    fireEvent.click(doneBtn)
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('AC-11: returns focus to the Add courier button after dialog closes', async () => {
+    function Harness() {
+      const [open, setOpen] = React.useState(true)
+      const buttonRef = React.useRef<HTMLButtonElement>(null)
+      return (
+        <div>
+          <button ref={buttonRef} type="button">
+            Add courier
+          </button>
+          <AddCourierDialog
+            open={open}
+            onOpenChange={setOpen}
+            returnFocusTo={buttonRef}
+            onOpenCourier={jest.fn()}
+          />
+        </div>
+      )
+    }
+
+    render(<Harness />)
+    const addBtn = screen.getByRole('button', { name: 'Add courier', hidden: true })
+
+    const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
+    fireEvent.click(cancelBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(document.activeElement).toBe(addBtn)
+    })
+  })
+
+  it('dialog-level 72 and 73 character password boundary: 73 characters keeps submit disabled and shows "At most 72 characters."; 72 is accepted', () => {
+    render(
+      <AddCourierDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        returnFocusTo={returnFocusTo}
+        onOpenCourier={mockOnOpenCourier}
+      />
+    )
+
+    const submitBtn = screen.getByRole('button', { name: /create courier/i })
+    const firstNameInput = screen.getByLabelText(/^First name/i)
+    const lastNameInput = screen.getByLabelText(/^Last name/i)
+    const phoneInput = screen.getByLabelText(/^Phone/i)
+    const emailInput = screen.getByLabelText(/^Email/i)
+    const passwordInput = screen.getByLabelText(/^Password$/i)
+    const confirmInput = screen.getByLabelText(/^Password again$/i)
+
+    fireEvent.change(firstNameInput, { target: { value: 'Kostas' } })
+    fireEvent.change(lastNameInput, { target: { value: 'Oikonomou' } })
+    fireEvent.change(phoneInput, { target: { value: '+30 690 000 0000' } })
+    fireEvent.change(emailInput, { target: { value: 'kostas@example.com' } })
+
+    // 73 characters: literal 73
+    const pw73 = 'a'.repeat(73)
+    fireEvent.change(passwordInput, { target: { value: pw73 } })
+    fireEvent.change(confirmInput, { target: { value: pw73 } })
+
+    expect(submitBtn).toBeDisabled()
+    expect(screen.getByText('At most 72 characters.')).toBeInTheDocument()
+
+    // 72 characters: literal 72
+    const pw72 = 'a'.repeat(72)
+    fireEvent.change(passwordInput, { target: { value: pw72 } })
+    fireEvent.change(confirmInput, { target: { value: pw72 } })
+
+    expect(screen.queryByText('At most 72 characters.')).not.toBeInTheDocument()
+    expect(submitBtn).toBeEnabled()
+  })
 })

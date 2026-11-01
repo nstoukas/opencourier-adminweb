@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import CouriersPage from '@/pages/couriers'
 import { EnumCourierStatus } from '@/shared-types'
 import type { CourierAdminDto } from '@/backend-admin-sdk'
@@ -621,6 +621,31 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
       expect(
         screen.getByText('Creates the rider and their login. You will see the password once, to pass on to them.')
       ).toBeInTheDocument()
+    })
+
+    it('returns focus to "Add courier" button after dialog is cancelled (AC-11)', async () => {
+      mockUseGetCouriersQuery.mockReturnValue({
+        data: {
+          data: [],
+          pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 1 },
+        },
+        isLoading: false,
+      })
+
+      render(<CouriersPage />)
+
+      const addBtn = screen.getByRole('button', { name: /add courier/i })
+      fireEvent.click(addBtn)
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
+      fireEvent.click(cancelBtn)
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(document.activeElement).toBe(addBtn)
+      })
     })
   })
 })

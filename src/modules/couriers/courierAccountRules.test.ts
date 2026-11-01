@@ -141,5 +141,17 @@ describe('courierAccountRules (spec 0013, AC-3)', () => {
       expect(backendMessage({ message: 404 }, fallback)).toBe(fallback)
       expect(backendMessage({ message: null }, fallback)).toBe(fallback)
     })
+
+    it('joins a message array of strings with spaces (spec 0013, review fixes)', () => {
+      const err = { message: ['email must be an email', 'phone must be a valid phone number'] }
+      expect(backendMessage(err, fallback)).toBe('email must be an email phone must be a valid phone number')
+      expect(backendMessage({ message: ['single error'] }, fallback)).toBe('single error')
+    })
+
+    it('returns the fallback for an empty array or an array of non-strings or empty strings', () => {
+      expect(backendMessage({ message: [] }, fallback)).toBe(fallback)
+      expect(backendMessage({ message: [123, null, undefined, {}] }, fallback)).toBe(fallback)
+      expect(backendMessage({ message: ['', ''] }, fallback)).toBe(fallback)
+    })
   })
 })

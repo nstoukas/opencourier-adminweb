@@ -187,4 +187,70 @@ describe('RotateCourierPasswordDialog component (spec 0013, AC-4 to AC-6)', () =
       'This rider is carrying a delivery. Steps still waiting on their phone are sent only when they log in again on that phone. If the phone is lost, reassign the delivery.'
     )
   })
+
+  it('AC-11: returns focus to the Change password button after dialog closes', async () => {
+    function Harness() {
+      const [open, setOpen] = React.useState(true)
+      const buttonRef = React.useRef<HTMLButtonElement>(null)
+      return (
+        <div>
+          <button ref={buttonRef} type="button">
+            Change password
+          </button>
+          <RotateCourierPasswordDialog
+            open={open}
+            onOpenChange={setOpen}
+            courierId="courier-123"
+            firstName="Nikos"
+            carryingDelivery={false}
+            returnFocusTo={buttonRef}
+          />
+        </div>
+      )
+    }
+
+    render(<Harness />)
+    const changePwBtn = screen.getByRole('button', { name: 'Change password', hidden: true })
+
+    const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
+    fireEvent.click(cancelBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(document.activeElement).toBe(changePwBtn)
+    })
+  })
+
+  it('dialog-level 72 and 73 character password boundary: 73 characters keeps submit disabled and shows "At most 72 characters."; 72 is accepted', () => {
+    render(
+      <RotateCourierPasswordDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        courierId="courier-123"
+        firstName="Nikos"
+        carryingDelivery={false}
+        returnFocusTo={returnFocusTo}
+      />
+    )
+
+    const submitBtn = screen.getByRole('button', { name: /set new password/i })
+    const passwordInput = screen.getByLabelText(/^New password$/i)
+    const confirmInput = screen.getByLabelText(/^New password again$/i)
+
+    // 73 characters: literal 73
+    const pw73 = 'b'.repeat(73)
+    fireEvent.change(passwordInput, { target: { value: pw73 } })
+    fireEvent.change(confirmInput, { target: { value: pw73 } })
+
+    expect(submitBtn).toBeDisabled()
+    expect(screen.getByText('At most 72 characters.')).toBeInTheDocument()
+
+    // 72 characters: literal 72
+    const pw72 = 'b'.repeat(72)
+    fireEvent.change(passwordInput, { target: { value: pw72 } })
+    fireEvent.change(confirmInput, { target: { value: pw72 } })
+
+    expect(screen.queryByText('At most 72 characters.')).not.toBeInTheDocument()
+    expect(submitBtn).toBeEnabled()
+  })
 })

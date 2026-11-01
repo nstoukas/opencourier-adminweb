@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { CourierDetails } from './CourierDetails'
 import ViewCourierPage from '@/pages/couriers/[courierId]'
 import { EnumCourierStatus, EnumDeliveryStatus } from '@/shared-types'
@@ -689,6 +689,29 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       expect(screen.getByRole('dialog')).toBeInTheDocument()
       expect(screen.getByText(/Nikos is signed out of the app on their phone and set Offline/i)).toBeInTheDocument()
       expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    })
+
+    it('returns focus to "Change password" button after dialog is cancelled (AC-11)', async () => {
+      activeDeliveriesResult = {
+        data: { data: [] },
+        isLoading: false,
+        isError: false,
+      }
+
+      render(<CourierDetails courierId="c1" />)
+
+      const changePwBtn = screen.getByRole('button', { name: /change password/i })
+      fireEvent.click(changePwBtn)
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
+      fireEvent.click(cancelBtn)
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(document.activeElement).toBe(changePwBtn)
+      })
     })
   })
 
