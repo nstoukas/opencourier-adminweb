@@ -22,7 +22,9 @@ export function Breadcrumb({ steps, className }: { steps: BreadcrumbStep[]; clas
                 <a
                   href={step.href}
                   onClick={(event) => {
-                    if (step.onClick) {
+                    // A ctrl, cmd, shift or middle click opens a new tab as the browser normally does.
+                    const plainClick = event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey
+                    if (step.onClick && plainClick) {
                       event.preventDefault()
                       step.onClick()
                     }

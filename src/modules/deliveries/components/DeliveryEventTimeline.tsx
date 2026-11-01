@@ -55,8 +55,11 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
               // A step a rider sent late from a dead spot (spec 0011, AC-4): shown at the time it
               // happened, with when it arrived under it.
               const late = lateStepOf(event)
-              const sameDay =
-                late !== null && formatDate(late.occurredAt).slice(0, 10) === formatDate(late.arrivedAt).slice(0, 10)
+              const sameDay = late !== null && late.occurredAt.toDateString() === late.arrivedAt.toDateString()
+              // "Not applied" only for the backend's no transition path (decision 20.13), which is
+              // the one failed row stored without a new status; a late step that failed for another
+              // reason keeps "Did not take effect" and its message (row 88 review).
+              const notApplied = isFailed && late !== null && !event.newStatus
 
               return (
                 <div
@@ -71,10 +74,10 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{humanizeEventType(event.type)}</span>
-                      {isFailed && late !== null && (
+                      {notApplied && (
                         <Badge variant="destructive">Not applied: the delivery had already changed</Badge>
                       )}
-                      {isFailed && late === null && <Badge variant="destructive">Did not take effect</Badge>}
+                      {isFailed && !notApplied && <Badge variant="destructive">Did not take effect</Badge>}
                     </div>
                     <span className="text-right text-xs text-muted-foreground">
                       {formatDate(late ? late.occurredAt : event.createdAt)}

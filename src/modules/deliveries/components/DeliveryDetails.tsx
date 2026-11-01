@@ -90,10 +90,9 @@ function PriceBreakdownCard({ delivery }: { delivery: DeliveryAdminDto }) {
           items={[
             { label: 'Base fee', value: money(delivery.baseFee) },
             { label: 'Distance fee', value: money(delivery.distanceFee) },
-            { label: 'Rider gets', value: money(delivery.totalCompensation) },
+            { label: 'Rider gets (base fee + distance fee)', value: money(delivery.totalCompensation) },
             { label: feeLabel, value: money(delivery.fee) },
             { label: 'Customer pays', value: money(delivery.totalCost) },
-            { label: 'Rider pay recorded', value: money(delivery.pay) },
             { label: 'Currency', value: delivery.currencyCode },
           ]}
         />
@@ -240,8 +239,11 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
 
   const { data: delivery } = getDeliveryResponse
   const possibleEvents = adminEventsForStatus(delivery.status, delivery)
-  // The order reference when the restaurant gave one, else the end of the id (spec 0011).
-  const title = `Delivery ${delivery.orderReference || shortId(delivery.id)}`
+  // The order reference and the end of the id: the legs of one order share a reference (locked
+  // design: N legs, one orderReference), so the id is what tells them apart (row 88 review).
+  const title = delivery.orderReference
+    ? `Delivery ${delivery.orderReference} · ${shortId(delivery.id)}`
+    : `Delivery ${shortId(delivery.id)}`
 
   return (
     <>
@@ -249,7 +251,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       <PageHeader
         title={title}
         action={
-          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap items-center gap-2">
             {/* Only while nobody has accepted: once a rider holds it there is nothing to assign. */}
             {isLookingForRider(delivery) ? <AssignCourierCell delivery={delivery} /> : null}
             <ReassignCourierDialog delivery={delivery} />

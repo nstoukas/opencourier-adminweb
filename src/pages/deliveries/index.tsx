@@ -5,10 +5,8 @@ import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
 import { usePageVisible } from '@/hooks/usePageVisible'
-import {
-  AssignCourierCell,
-  isDeliveryAwaitingCourierAssignment,
-} from '@/modules/deliveries/components/AssignCourierCell'
+import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import { deliveryOffer, isLookingForRider } from '@/modules/deliveries/utils/offer'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import { DeliveryAdminDto } from '../../backend-admin-sdk'
@@ -110,8 +108,9 @@ const OrdersPage: NextPage = () => {
         cell: ({ row }) => {
           const d = row.original
           if (d.courierId) return <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
-          const offer = <OfferSummary delivery={d} now={now} />
-          return d.status === 'ASSIGNING_COURIER' ? offer : <span className="text-muted-foreground">—</span>
+          if (!isLookingForRider(d)) return <span className="text-muted-foreground">—</span>
+          // The offer's own words, or "Looking for a rider" before the first offer goes out.
+          return deliveryOffer(d) ? <OfferSummary delivery={d} now={now} /> : <span>Looking for a rider</span>
         },
       },
       {
@@ -131,20 +130,22 @@ const OrdersPage: NextPage = () => {
           return (
             // The row itself opens the delivery; the buttons stop that click from also firing.
             <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-              {/* "Assign courier" only while the delivery waits for one; "Open" otherwise. */}
-              {isDeliveryAwaitingCourierAssignment(d) ? (
-                <AssignCourierCell delivery={d} />
-              ) : (
+              {/* "Assign courier" while the delivery waits for a rider; "Open" always, so the
+                  delivery can be opened from the keyboard too (the row click is mouse only). */}
+              <div className="flex items-center gap-2">
+                {isLookingForRider(d) ? <AssignCourierCell delivery={d} /> : null}
                 <Button type="button" variant="outline" size="sm" onClick={() => goToDeliveryDetails(d.id)}>
                   Open
                 </Button>
-              )}
+              </div>
             </div>
           )
         },
       },
     ],
-    [courierNameById, now, goToDeliveryDetails],
+    // goToDeliveryDetails is left out: the navigator builds a new one each render, which would
+    // rebuild every column for nothing; the one it closes over always works.
+    [courierNameById, now],
   )
 
   return (

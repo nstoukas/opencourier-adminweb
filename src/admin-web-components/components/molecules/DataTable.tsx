@@ -109,7 +109,7 @@ export function DataTable<TData extends ObjectWithId>({
               const clickable = !!onRowClick
               return (
                 <TableRow
-                  className={clickable ? 'cursor-pointer hover:bg-gray-50/50' : ''}
+                  className={clickable ? 'cursor-pointer hover:bg-muted/50' : ''}
                   onClick={() => onRowClick && onRowClick(row.original)}
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
