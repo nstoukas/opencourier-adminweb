@@ -379,6 +379,21 @@ export interface DeliveryAdminDto {
      * @memberof DeliveryAdminDto
      */
     waitingForCourierSince: Date | null;
+    /**
+     * Spec 0015: who asked for the cancellation (RESTAURANT, CUSTOMER or COOP), null if not cancelled.
+     * Hand edited.
+     */
+    cancelledBy?: string | null;
+    /** Spec 0015: the status the cancellation came from. Hand edited. */
+    cancelledFromStatus?: string | null;
+    /** Spec 0015. Hand edited. */
+    cancelledAt?: Date | null;
+    /** Spec 0015: RETURNED or NOT_RETURNED, as the rider recorded it. Hand edited. */
+    foodOutcome?: string | null;
+    /** Spec 0015. Hand edited. */
+    foodOutcomeAt?: Date | null;
+    /** Spec 0015: what the restaurant was charged for its own cancellation (cents). Hand edited. */
+    partnerCharge?: { amount: number; currencyCode: string; createdAt: string } | null;
 }
 
 
@@ -550,6 +565,12 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'offerExpiresAt': !exists(json, 'offerExpiresAt') ? null : new Date(json['offerExpiresAt']),
         'matchedCourierName': !exists(json, 'matchedCourierName') ? null : json['matchedCourierName'],
         'waitingForCourierSince': !exists(json, 'waitingForCourierSince') ? null : new Date(json['waitingForCourierSince']),
+        'cancelledBy': !exists(json, 'cancelledBy') ? null : json['cancelledBy'],
+        'cancelledFromStatus': !exists(json, 'cancelledFromStatus') ? null : json['cancelledFromStatus'],
+        'cancelledAt': !exists(json, 'cancelledAt') ? null : new Date(json['cancelledAt']),
+        'foodOutcome': !exists(json, 'foodOutcome') ? null : json['foodOutcome'],
+        'foodOutcomeAt': !exists(json, 'foodOutcomeAt') ? null : new Date(json['foodOutcomeAt']),
+        'partnerCharge': !exists(json, 'partnerCharge') ? null : json['partnerCharge'],
     };
 }
 
@@ -623,6 +644,12 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'offerExpiresAt': value.offerExpiresAt == null ? null : value.offerExpiresAt.toISOString(),
         'matchedCourierName': value.matchedCourierName,
         'waitingForCourierSince': value.waitingForCourierSince == null ? null : value.waitingForCourierSince.toISOString(),
+        'cancelledBy': value.cancelledBy,
+        'cancelledFromStatus': value.cancelledFromStatus,
+        'cancelledAt': value.cancelledAt == null ? null : value.cancelledAt.toISOString(),
+        'foodOutcome': value.foodOutcome,
+        'foodOutcomeAt': value.foodOutcomeAt == null ? null : value.foodOutcomeAt.toISOString(),
+        'partnerCharge': value.partnerCharge,
     };
 }
 

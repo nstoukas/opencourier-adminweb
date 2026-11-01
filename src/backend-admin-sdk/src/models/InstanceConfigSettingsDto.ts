@@ -177,6 +177,13 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   dispatchPhoneNumber?: string | null;
+  /**
+   * Spec 0015: the payout policy (a key of reassignmentPayoutPolicies) that pays a rider whose job
+   * is cancelled after they accepted it; FULL_COMPENSATION when none is stored. Hand edited.
+   * @type {string}
+   * @memberof InstanceConfigSettingsDto
+   */
+  cancellationPayoutPolicy?: string | null;
 }
 
 /**
@@ -352,6 +359,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
+    cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
+      ? null
+      : json["cancellationPayoutPolicy"],
   };
 }
 
@@ -392,5 +402,6 @@ export function InstanceConfigSettingsDtoToJSON(
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
+    cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };
 }

@@ -176,6 +176,13 @@ export interface InstanceConfigSettingsAdminInput {
    * @memberof InstanceConfigSettingsAdminInput
    */
   dispatchPhoneNumber?: string;
+  /**
+   * Spec 0015: which payout policy pays a rider whose job is cancelled; a key of
+   * reassignmentPayoutPolicies, checked by the backend. Hand edited.
+   * @type {string}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  cancellationPayoutPolicy?: string;
 }
 
 /**
@@ -376,6 +383,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
+    cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
+      ? undefined
+      : json["cancellationPayoutPolicy"],
   };
 }
 
@@ -419,5 +429,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
+    // Without this line a save would drop the cancellation rule before it left the browser.
+    cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };
 }

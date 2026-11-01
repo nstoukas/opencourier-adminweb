@@ -77,9 +77,15 @@ export const deliveriesApi = baseApi.injectEndpoints({
     }),
     submitDeliveryEvent: build.mutation<
       DeliveryAdminDto,
-      { deliveryId: string; eventType: EnumDeliveryEventType; courierId?: string }
+      // cancelledBy only with CANCELED (spec 0015): who asked, which decides a restaurant charge.
+      {
+        deliveryId: string
+        eventType: EnumDeliveryEventType
+        courierId?: string
+        cancelledBy?: 'RESTAURANT' | 'CUSTOMER' | 'COOP'
+      }
     >({
-      queryFn: async ({ deliveryId, eventType, courierId }, api) => {
+      queryFn: async ({ deliveryId, eventType, courierId, cancelledBy }, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
           const sdk = prepareAdminSdk(accessToken || '')
@@ -93,6 +99,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
               // which come from STATE_MACHINE, and that table never lists those three.
               eventType: eventType as DeliverySubmitEventAdminInputEventTypeEnum,
               ...(courierId ? { courierId } : {}),
+              ...(cancelledBy ? { cancelledBy } : {}),
             },
           })
           return { data }

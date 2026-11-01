@@ -163,6 +163,9 @@ const InstanceConfigurationPage: NextPage = () => {
   // The dispatch line riders call from the job screen (row 72), as typed. null until loaded.
   const [dispatchPhoneNumber, setDispatchPhoneNumber] = useState<string | null>(null);
   const [isSavingDispatchPhone, setIsSavingDispatchPhone] = useState(false);
+  // Spec 0015: which payout policy pays a rider whose job is cancelled. null until loaded.
+  const [cancellationPayoutPolicy, setCancellationPayoutPolicy] = useState<string | null>(null);
+  const [isSavingCancellationPolicy, setIsSavingCancellationPolicy] = useState(false);
 
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
@@ -241,6 +244,8 @@ const InstanceConfigurationPage: NextPage = () => {
           : String(data.savedCustomerRetentionMonths),
       );
       setDispatchPhoneNumber(data.dispatchPhoneNumber ?? "");
+      // The backend answers the rule in force (FULL_COMPENSATION when none is stored).
+      setCancellationPayoutPolicy(data.cancellationPayoutPolicy ?? "FULL_COMPENSATION");
       setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
       setTermsOfServiceContent(details.termsOfServiceContent ?? "");
       setRulesContent(details.rulesContent ?? "");
@@ -714,6 +719,30 @@ const InstanceConfigurationPage: NextPage = () => {
       console.error("Failed to save the dispatch number:", error);
     } finally {
       setIsSavingDispatchPhone(false);
+    }
+  };
+
+  const handleSaveCancellationPolicy = async () => {
+    // The button is off until the settings have loaded.
+    if (cancellationPayoutPolicy === null) return;
+    setIsSavingCancellationPolicy(true);
+    try {
+      // The backend checks the key against the policy menu and refuses with a sentence the toast shows.
+      await setInstanceConfigMutation({ cancellationPayoutPolicy }).unwrap();
+      toast({
+        title: "Success!",
+        description: "Cancelled job pay saved. It applies to cancellations from now on.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message || "Failed to save the cancelled job pay. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save the cancelled job pay:", error);
+    } finally {
+      setIsSavingCancellationPolicy(false);
     }
   };
 
@@ -1313,6 +1342,49 @@ const InstanceConfigurationPage: NextPage = () => {
                   onClick={handleSaveRetention}
                 >
                   {isSavingRetention ? "Saving…" : "Save saved customer setting"}
+                </Button>
+              </div>
+            </section>
+            {/* Spec 0015: what a rider is paid when a job they accepted is cancelled. One of the
+                payout policies below, so the votable percentages stay in one place. */}
+            <section
+              aria-labelledby="cancelled-job-pay-heading"
+              className="max-w-[500px] rounded-md border border-border p-4 flex flex-col gap-3"
+            >
+              <h3 id="cancelled-job-pay-heading" className="text-lg font-medium">
+                Pay when a job is cancelled
+              </h3>
+              <div>
+                <Label htmlFor="cancellationPayoutPolicy">Payout policy</Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  A rider whose job is cancelled after they accepted it (by the
+                  restaurant, the customer or the co-op) is paid this share of
+                  the job&apos;s pay. Choose from the payout policies below.
+                </p>
+                <select
+                  id="cancellationPayoutPolicy"
+                  className="border-[1px] border-input rounded-md h-10 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                  value={cancellationPayoutPolicy ?? ""}
+                  // Off until the settings load: choosing here first would only be overwritten.
+                  disabled={cancellationPayoutPolicy === null}
+                  onChange={(event) => setCancellationPayoutPolicy(event.target.value)}
+                >
+                  {Object.entries(
+                    instanceConfigResponse.data?.reassignmentPayoutPolicies ?? {},
+                  ).map(([policy, percent]) => (
+                    <option key={policy} value={policy}>
+                      {policy} ({percent}%)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  disabled={isSavingCancellationPolicy || cancellationPayoutPolicy === null}
+                  onClick={handleSaveCancellationPolicy}
+                >
+                  {isSavingCancellationPolicy ? "Saving…" : "Save cancelled job pay"}
                 </Button>
               </div>
             </section>

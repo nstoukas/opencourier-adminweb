@@ -43,6 +43,14 @@ export interface DeliverySubmitEventAdminInput {
      * @memberof DeliverySubmitEventAdminInput
      */
     courierId?: string | null;
+    /**
+     * Only with eventType CANCELED (spec 0015): who asked for the cancellation, RESTAURANT,
+     * CUSTOMER or COOP (the backend's default). The backend refuses it with any other event type.
+     * Hand edited.
+     * @type {string}
+     * @memberof DeliverySubmitEventAdminInput
+     */
+    cancelledBy?: 'RESTAURANT' | 'CUSTOMER' | 'COOP';
 }
 
 
@@ -92,6 +100,7 @@ export function DeliverySubmitEventAdminInputFromJSONTyped(json: any, ignoreDisc
         'eventType': json['eventType'],
         'prepareTimeEstimate': !exists(json, 'prepareTimeEstimate') ? undefined : json['prepareTimeEstimate'],
         'courierId': !exists(json, 'courierId') ? undefined : json['courierId'],
+        'cancelledBy': !exists(json, 'cancelledBy') ? undefined : json['cancelledBy'],
     };
 }
 
@@ -108,6 +117,8 @@ export function DeliverySubmitEventAdminInputToJSON(value?: DeliverySubmitEventA
         'eventType': value.eventType,
         'prepareTimeEstimate': value.prepareTimeEstimate,
         'courierId': value.courierId,
+        // Without this line the admin's choice of who cancelled would never leave the browser.
+        'cancelledBy': value.cancelledBy,
     };
 }
 

@@ -6,6 +6,8 @@ import { usePageVisible } from '@/hooks/usePageVisible'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
+import { CancelDeliveryDialog } from '@/modules/deliveries/components/CancelDeliveryDialog'
+import { CancellationCard } from '@/modules/deliveries/components/CancellationCard'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { DeliveryIssues } from '@/modules/deliveries/components/DeliveryIssues'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
@@ -238,7 +240,10 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
     )
 
   const { data: delivery } = getDeliveryResponse
-  const possibleEvents = adminEventsForStatus(delivery.status, delivery)
+  const allowedEvents = adminEventsForStatus(delivery.status, delivery)
+  // A cancel has its own button and dialog, which asks who asked for it (spec 0015, AC-5).
+  const canCancel = allowedEvents.includes(EnumDeliveryEventType.CANCELED)
+  const possibleEvents = allowedEvents.filter((eventType) => eventType !== EnumDeliveryEventType.CANCELED)
   // The order reference and the end of the id: the legs of one order share a reference (locked
   // design: N legs, one orderReference), so the id is what tells them apart (row 88 review).
   const title = delivery.orderReference
@@ -255,6 +260,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             {/* Only while nobody has accepted: once a rider holds it there is nothing to assign. */}
             {isLookingForRider(delivery) ? <AssignCourierCell delivery={delivery} /> : null}
             <ReassignCourierDialog delivery={delivery} />
+            {canCancel ? <CancelDeliveryDialog delivery={delivery} /> : null}
             {possibleEvents.length ? (
               <Menu>
                 <MenuTrigger>Change status</MenuTrigger>
@@ -285,6 +291,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="flex min-w-0 flex-col gap-6">
           <OfferCard delivery={delivery} now={now} />
+          <CancellationCard delivery={delivery} />
           <DeliveryIssues deliveryId={delivery.id} />
           <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
         </div>
