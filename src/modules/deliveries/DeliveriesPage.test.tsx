@@ -13,6 +13,11 @@ jest.mock('../../components/layouts/DefaultLayout', () => ({
   ),
 }))
 
+// Mock DispatchPanel on the deliveries page (spec 0014)
+jest.mock('../dispatch-stop/DispatchPanel', () => ({
+  DispatchPanel: () => <div data-testid="dispatch-panel" />,
+}))
+
 // Mock admin page navigator
 const mockGoToDeliveryDetails = jest.fn()
 jest.mock('../../hooks/useAdminPageNavigator', () => ({
