@@ -102,3 +102,123 @@ describe('DeliveriesApi.getDeliveryIssues (decision 66.11)', () => {
     expect(issues).toEqual([])
   })
 })
+
+describe('DeliveriesApi.getDeliveries and getDeliveriesRaw (row 96: state filter and search query parameters)', () => {
+  const mockFetch = jest.fn()
+  let api: DeliveriesApi
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    const config = new Configuration({
+      fetchApi: mockFetch,
+      basePath: 'http://localhost:3000',
+      accessToken: () => Promise.resolve('test-token'),
+    })
+    api = new DeliveriesApi(config)
+  })
+
+  it('puts state and search in the query string when given', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse({
+        data: [],
+        pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+      })
+    )
+
+    await api.getDeliveriesRaw({
+      page: 1,
+      perPage: 10,
+      state: 'active',
+      search: 'ORD-123',
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+    const url = new URL(calledUrl)
+
+    expect(url.pathname).toBe('/api/admin/v1/deliveries')
+    expect(url.searchParams.get('page')).toBe('1')
+    expect(url.searchParams.get('perPage')).toBe('10')
+    expect(url.searchParams.get('state')).toBe('active')
+    expect(url.searchParams.get('search')).toBe('ORD-123')
+    expect(calledInit.method).toBe('GET')
+    expect(calledInit.headers['Authorization']).toBe('Bearer test-token')
+  })
+
+  it.each(['all', 'active', 'dropped_off', 'canceled'] as const)(
+    'puts state="%s" in the query string when given',
+    async (state) => {
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse({
+          data: [],
+          pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+        })
+      )
+
+      await api.getDeliveriesRaw({ state })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const [calledUrl] = mockFetch.mock.calls[0]
+      const url = new URL(calledUrl)
+      expect(url.searchParams.get('state')).toBe(state)
+    }
+  )
+
+  it('URL-encodes search query parameter with special characters or spaces', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse({
+        data: [],
+        pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+      })
+    )
+
+    await api.getDeliveriesRaw({
+      search: 'Souvlaki & Pizza #1',
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl] = mockFetch.mock.calls[0]
+    const url = new URL(calledUrl)
+    expect(url.searchParams.get('search')).toBe('Souvlaki & Pizza #1')
+    expect(calledUrl).toContain('search=Souvlaki%20%26%20Pizza%20%231')
+  })
+
+  it('leaves state and search out of the query string when undefined', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse({
+        data: [],
+        pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+      })
+    )
+
+    await api.getDeliveriesRaw({
+      page: 2,
+      perPage: 20,
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl] = mockFetch.mock.calls[0]
+    const url = new URL(calledUrl)
+
+    expect(url.searchParams.has('state')).toBe(false)
+    expect(url.searchParams.has('search')).toBe(false)
+    expect(url.searchParams.get('page')).toBe('2')
+    expect(url.searchParams.get('perPage')).toBe('20')
+  })
+
+  it('leaves query string empty when getDeliveries is called with no arguments', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse({
+        data: [],
+        pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+      })
+    )
+
+    const result = await api.getDeliveries()
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/deliveries')
+    expect(result.data).toEqual([])
+  })
+})

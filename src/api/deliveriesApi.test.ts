@@ -1,10 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { deliveriesApi, useGetDeliveryIssuesQuery } from './deliveriesApi'
+import { deliveriesApi, useGetDeliveryIssuesQuery, useGetDeliveriesQuery } from './deliveriesApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
 import { authSlice } from '@/modules/auth/slices/authSlice'
 import { ApiError } from '../backend-admin-sdk'
-import type { DeliveryIssueAdminDto } from '../backend-admin-sdk'
+import type { DeliveryIssueAdminDto, DeliveryAdminPaginatedDto } from '../backend-admin-sdk'
 
 jest.mock('.', () => {
   const actual = jest.requireActual('.')
@@ -36,15 +36,18 @@ function setupTestStore(accessToken: string | null = 'test-token') {
 describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
   let mockGetDeliveryIssues: jest.Mock
   let mockGetDeliveryEvents: jest.Mock
+  let mockGetDeliveries: jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
     mockGetDeliveryIssues = jest.fn()
     mockGetDeliveryEvents = jest.fn()
+    mockGetDeliveries = jest.fn()
     mockPrepareAdminSdk.mockReturnValue({
       deliveries: () => ({
         getDeliveryIssues: mockGetDeliveryIssues,
         getDeliveryEvents: mockGetDeliveryEvents,
+        getDeliveries: mockGetDeliveries,
       }),
     })
   })
@@ -115,5 +118,49 @@ describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
     // Data is undefined, never an empty array []
     expect(result.data).toBeUndefined()
     expect(result.data).not.toEqual([])
+  })
+
+  describe('getDeliveries endpoint (row 96: forwards state and search)', () => {
+    it('exports useGetDeliveriesQuery hook function', () => {
+      expect(typeof useGetDeliveriesQuery).toBe('function')
+    })
+
+    it('defines getDeliveries endpoint on deliveriesApi with deliveries tag', () => {
+      expect(deliveriesApi.endpoints.getDeliveries).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.getDeliveries.initiate).toBe('function')
+      expect(Tags.deliveries).toBe('Deliveries')
+    })
+
+    it('forwards state, search, page and perPage parameters to sdk.deliveries().getDeliveries', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockResult: DeliveryAdminPaginatedDto = {
+        data: [],
+        pagination: {
+          totalItems: 0,
+          perPage: 10,
+          totalPages: 0,
+          currentItems: 0,
+          currentPage: 1,
+          prevPage: null,
+          nextPage: null,
+        },
+      }
+      mockGetDeliveries.mockResolvedValueOnce(mockResult)
+
+      const queryParams = {
+        state: 'active' as const,
+        search: 'Nikou',
+        page: 1,
+        perPage: 10,
+      }
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.getDeliveries.initiate(queryParams)
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockGetDeliveries).toHaveBeenCalledWith(queryParams)
+      expect(result.data).toEqual(mockResult)
+    })
   })
 })

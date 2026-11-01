@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import OrdersPage from '../../pages/deliveries'
 import { EnumDeliveryStatus } from '../../shared-types'
 import type { DeliveryAdminDto } from '../../backend-admin-sdk'
@@ -456,5 +456,181 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     )
 
     visibilitySpy.mockRestore()
+  })
+
+  describe('Deliveries list page filter and search wiring (row 96, Done when)', () => {
+    beforeEach(() => {
+      mockUseGetDeliveriesQuery.mockReturnValue({
+        data: {
+          data: [],
+          pagination: { totalItems: 25, page: 1, perPage: 10, totalPages: 3 },
+        },
+        isLoading: false,
+      })
+    })
+
+    it('calls the deliveries query with state "all" and search undefined at first on page 1', () => {
+      render(<OrdersPage />)
+
+      // Initial call on mount
+      expect(mockUseGetDeliveriesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          state: 'all',
+          search: undefined,
+          page: 1,
+          perPage: 10,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('choosing Active calls query with state "active" and page 1', () => {
+      render(<OrdersPage />)
+
+      const activeButton = screen.getByRole('button', { name: 'Active' })
+      fireEvent.click(activeButton)
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          state: 'active',
+          page: 1,
+        }),
+        expect.anything()
+      )
+    })
+
+    it.each([
+      { label: 'Dropped off', expectedState: 'dropped_off' },
+      { label: 'Canceled', expectedState: 'canceled' },
+      { label: 'All', expectedState: 'all' },
+    ])('choosing $label calls query with state "$expectedState" and page 1', ({ label, expectedState }) => {
+      render(<OrdersPage />)
+
+      const button = screen.getByRole('button', { name: label })
+      fireEvent.click(button)
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          state: expectedState,
+          page: 1,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('calls query with trimmed search and page 1, 300 ms after typing', () => {
+      render(<OrdersPage />)
+
+      const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+      fireEvent.change(searchInput, { target: { value: '   ORD-999   ' } })
+
+      // Before the 300 ms debounce delay, search is not sent
+      expect(mockUseGetDeliveriesQuery).not.toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'ORD-999',
+        }),
+        expect.anything()
+      )
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Query called with trimmed search text and page 1
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'ORD-999',
+          page: 1,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('resets pagination to page 1 when filter changes while on page 2', () => {
+      render(<OrdersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 2,
+        }),
+        expect.anything()
+      )
+
+      // Switch to Active filter
+      const activeButton = screen.getByRole('button', { name: 'Active' })
+      fireEvent.click(activeButton)
+
+      // Must reset to page 1 with active state
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          state: 'active',
+          page: 1,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('resets pagination to page 1 when searching while on page 2', () => {
+      render(<OrdersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 2,
+        }),
+        expect.anything()
+      )
+
+      // Enter search text
+      const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+      fireEvent.change(searchInput, { target: { value: 'Souvlaki' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Must reset to page 1 with search
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: 'Souvlaki',
+          page: 1,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('fails if state or search is dropped on the way to the query (row 96 Done when)', () => {
+      render(<OrdersPage />)
+
+      // Select Active state filter
+      const activeButton = screen.getByRole('button', { name: 'Active' })
+      fireEvent.click(activeButton)
+
+      // Enter search text
+      const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+      fireEvent.change(searchInput, { target: { value: 'ORD-555' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Assert both state and search are passed into the query call
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          state: 'active',
+          search: 'ORD-555',
+          page: 1,
+          perPage: 10,
+        }),
+        expect.anything()
+      )
+    })
   })
 })
