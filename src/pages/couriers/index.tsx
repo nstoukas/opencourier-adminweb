@@ -58,7 +58,9 @@ const CouriersPage: NextPage = () => {
         ),
       },
     ],
-    // goToCourierDetails is left out: the navigator builds a new one each render.
+    // goToCourierDetails is left out on purpose. That is safe here only because it calls Next's
+    // router, whose push always reaches the one live router, so the first render's copy keeps
+    // working. A function that read state or props could not be left out like this.
     [],
   )
 

@@ -2,6 +2,7 @@ import { useGetCourierQuery } from '@/api/couriersApi'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
+import { usePageVisible } from '@/hooks/usePageVisible'
 import { formatMoney } from '@/utils/formatMoney'
 import { shortId } from '@/utils/shortId'
 import { formatDate } from '@/ui-shared-utils'
@@ -12,6 +13,10 @@ import { courierName, deliverySettingLabel, memberSince } from './courierDisplay
 
 // How many deliveries each card asks for (spec 0012). A rider carries one or two at a time.
 const DELIVERIES_PER_CARD = 10
+
+// A rider's progress is made in the courier app and reaches this page only if the page asks
+// again, so it asks every 30 s, as the deliveries list and a delivery's page do (row 89 review).
+const REFRESH_MS = 30_000
 
 // One delivery in a card: its reference and short id, restaurant → customer, status, and
 // whatever the card adds on the right (the rider's pay in Recent deliveries). Links to it.
@@ -47,8 +52,9 @@ function DeliveryRow({
       </div>
       <div className="flex items-center gap-3">
         {extra}
-        {/* A fixed slot, so the date and pay line up whatever the badge's length. */}
-        <span className="flex w-28 justify-end">
+        {/* A minimum width, so the date and pay line up for the usual labels, and a long one
+            ("Courier at Dropoff") widens the slot instead of covering the pay. */}
+        <span className="flex min-w-28 justify-end">
           <StatusBadge status={delivery.status} />
         </span>
       </div>
@@ -61,14 +67,22 @@ function DeliveryRow({
 // no totals, no location.
 export function CourierDetails({ courierId }: { courierId: string }) {
   const { goToCouriers, goToDeliveryDetails } = useAdminPageNavigator()
-  const courierQuery = useGetCourierQuery({ id: courierId }, { skip: !courierId })
-  const courier = courierQuery.data
+  // 0 while the tab is in the background: RTK Query does not poll at 0.
+  const pageVisible = usePageVisible()
+  const pollingInterval = pageVisible ? REFRESH_MS : 0
+  const courierQuery = useGetCourierQuery({ id: courierId }, { skip: !courierId, pollingInterval })
+  // `currentData` is the answer for THIS id only (`data` would keep the previous rider's record
+  // while the next one loads, so going back between two riders would flash the wrong name).
+  const courier = courierQuery.currentData
   // The two delivery lists wait for the courier, so a wrong id asks for nothing more.
   const nowQuery = useGetDeliveriesQuery(
     { courierId, state: 'active', page: 1, perPage: DELIVERIES_PER_CARD },
-    { skip: !courier }
+    { skip: !courier, pollingInterval }
   )
-  const recentQuery = useGetDeliveriesQuery({ courierId, page: 1, perPage: DELIVERIES_PER_CARD }, { skip: !courier })
+  const recentQuery = useGetDeliveriesQuery(
+    { courierId, page: 1, perPage: DELIVERIES_PER_CARD },
+    { skip: !courier, pollingInterval }
+  )
 
   // The h1 is there in every state ("Courier" while loading or on an error).
   if (courierQuery.isLoading || (!courier && !courierQuery.isError && courierId)) {
