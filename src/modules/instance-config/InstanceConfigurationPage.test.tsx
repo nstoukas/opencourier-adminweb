@@ -195,8 +195,8 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
 
       expect(links).toHaveLength(expectedSections.length)
       expectedSections.forEach((section, index) => {
-        expect(links[index].textContent).toBe(section.title)
-        expect(links[index].getAttribute('href')).toBe(section.href)
+        expect(links[index]?.textContent).toBe(section.title)
+        expect(links[index]?.getAttribute('href')).toBe(section.href)
       })
     })
 
@@ -267,7 +267,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         })
       })
 
-      it(`clearing box is a blocker and is never sent (row 56)`, async () => {
+      it(`clearing box is a blocker and is never sent (row 56)`, () => {
         mockSetInstanceConfig.mockReturnValue({
           unwrap: () => Promise.resolve({}),
         })

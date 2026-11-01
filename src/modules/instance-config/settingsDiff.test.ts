@@ -4,8 +4,6 @@ import {
   formFromSettings,
   normalizeRegion,
   pendingChanges,
-  publicPageUrls,
-  sanitizeURL,
   savePayload,
   successMessage,
   type SettingsForm,
@@ -117,11 +115,11 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       }
       const changes = pendingChanges(baseSavedForm, edited)
       expect(changes).toHaveLength(1)
-      expect(changes[0].key).toBe('region')
-      expect(changes[0].label).toBe('Service area')
+      expect(changes[0]?.key).toBe('region')
+      expect(changes[0]?.label).toBe('Service area')
       // Region 'from' and 'to' are empty in shown(), SaveBar renders it as 'redrawn'
-      expect(changes[0].from).toBe('')
-      expect(changes[0].to).toBe('')
+      expect(changes[0]?.from).toBe('')
+      expect(changes[0]?.to).toBe('')
     })
 
     it('formats cents fields as money in the currency (AC-11)', () => {
@@ -131,10 +129,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       }
       const changes = pendingChanges(baseSavedForm, edited)
       expect(changes).toHaveLength(1)
-      expect(changes[0].key).toBe('quoteBaseFee')
-      expect(changes[0].label).toBe('Base fee')
-      expect(changes[0].from).toBe('€2.00')
-      expect(changes[0].to).toBe('€2.50')
+      expect(changes[0]?.key).toBe('quoteBaseFee')
+      expect(changes[0]?.label).toBe('Base fee')
+      expect(changes[0]?.from).toBe('€2.00')
+      expect(changes[0]?.to).toBe('€2.50')
     })
 
     it('uses optionLabel mapping for select changes', () => {
@@ -149,8 +147,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       }
       const changes = pendingChanges(baseSavedForm, edited, optionLabel as any)
       expect(changes).toHaveLength(1)
-      expect(changes[0].from).toBe('Nearest free courier')
-      expect(changes[0].to).toBe('Most senior courier')
+      expect(changes[0]?.from).toBe('Nearest free courier')
+      expect(changes[0]?.to).toBe('Most senior courier')
     })
   })
 
