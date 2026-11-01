@@ -34,3 +34,29 @@ export function describeTransition(event: {
 
   return `${oldHuman} → ${newHuman}`
 }
+
+// A step that reached the server more than this long after it happened is shown as late
+// (spec 0011, AC-4): one threshold for the time shown and for "Not applied".
+export const LATE_STEP_THRESHOLD_MS = 60 * 1000
+
+export type LateStep = {
+  // When the step happened (the rider's tap).
+  occurredAt: Date
+  // When the server received it.
+  arrivedAt: Date
+  // Whole minutes between the two, rounded.
+  minutesLater: number
+}
+
+// The tap and arrival of an event that arrived more than a minute after it happened, or null
+// for every other event (including one from a backend that sends no occurredAt).
+export function lateStepOf(event: { occurredAt?: Date; createdAt: Date }): LateStep | null {
+  if (!event.occurredAt) return null
+  const gap = event.createdAt.getTime() - event.occurredAt.getTime()
+  if (gap <= LATE_STEP_THRESHOLD_MS) return null
+  return {
+    occurredAt: event.occurredAt,
+    arrivedAt: event.createdAt,
+    minutesLater: Math.round(gap / 60000),
+  }
+}

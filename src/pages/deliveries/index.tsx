@@ -5,12 +5,15 @@ import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
 import { usePageVisible } from '@/hooks/usePageVisible'
-import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import {
+  AssignCourierCell,
+  isDeliveryAwaitingCourierAssignment,
+} from '@/modules/deliveries/components/AssignCourierCell'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
-import { DeliveriesFilters, DeliveriesTableFilters } from '@/modules/deliveries/components/DeliveriesTableFilters'
-import { DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
+import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import { DeliveryAdminDto } from '../../backend-admin-sdk'
-import { formatDate } from '../../ui-shared-utils'
+import { formatMoney } from '@/utils/formatMoney'
+import { shortId } from '@/utils/shortId'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
 import { useMemo, useState } from 'react'
@@ -34,7 +37,6 @@ const OFFER_REFRESH_MS = 30_000
 
 const OrdersPage: NextPage = () => {
   const { goToDeliveryDetails } = useAdminPageNavigator()
-  const [filters, setFilters] = useState<DeliveriesFilters>()
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -46,8 +48,6 @@ const OrdersPage: NextPage = () => {
   const pageVisible = usePageVisible()
   const getOrdersResponse = useGetDeliveriesQuery(
     {
-      state: filters?.state,
-      search: filters?.search,
       page: pagination.pageIndex + 1,
       perPage: pagination.pageSize,
     },
@@ -67,11 +67,25 @@ const OrdersPage: NextPage = () => {
     return map
   }, [couriersPayload?.data])
 
+  // The board's columns (spec 0011, AC-1). The list has no working filter or search today: the
+  // admin list route takes only the page, so the old ones filtered nothing (row 96 adds them).
   const columns: ColumnDef<DeliveryAdminDto>[] = useMemo(
     () => [
       {
-        accessorKey: 'id',
-        header: 'Delivery ID',
+        id: 'order',
+        header: 'Order',
+        cell: ({ row }) => {
+          const d = row.original
+          return (
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{d.orderReference || '—'}</span>
+              {/* The last characters of the id, enough to tell deliveries apart; the full id on hover. */}
+              <span className="font-mono text-xs text-muted-foreground" title={d.id}>
+                {shortId(d.id)}
+              </span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'status',
@@ -79,67 +93,64 @@ const OrdersPage: NextPage = () => {
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
-        // Spec 0002, AC-11: who holds the open offer and for how long, or how long nobody
-        // has been free. Empty for a delivery that is not looking for a rider.
-        id: 'offer',
-        header: 'Offer',
-        cell: ({ row }) => <OfferSummary delivery={row.original} now={now} />,
+        id: 'restaurant',
+        header: 'Restaurant',
+        cell: ({ row }) => <span className="text-sm">{row.original.pickupBusinessName || '—'}</span>,
       },
       {
-        id: 'courierId',
+        id: 'deliverTo',
+        header: 'Deliver to',
+        cell: ({ row }) => <span className="text-sm">{row.original.dropoffName || '—'}</span>,
+      },
+      {
+        // The rider who accepted; while the delivery is offered, who holds the offer and for how
+        // long (spec 0002, AC-11); a dash when neither.
+        id: 'courier',
         header: 'Courier',
         cell: ({ row }) => {
           const d = row.original
+          if (d.courierId) return <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
+          const offer = <OfferSummary delivery={d} now={now} />
+          return d.status === 'ASSIGNING_COURIER' ? offer : <span className="text-muted-foreground">—</span>
+        },
+      },
+      {
+        id: 'price',
+        header: 'Price',
+        cell: ({ row }) => (
+          <span className="text-sm tabular-nums">
+            {formatMoney(row.original.totalCost, row.original.currencyCode) ?? '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'action',
+        header: () => <span className="sr-only">Action</span>,
+        cell: ({ row }) => {
+          const d = row.original
           return (
-            <div
-              className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="min-w-0">
-                {/* Only the rider who accepted. While the delivery is looking for a rider, the
-                    Offer column already says who holds the offer, so this one shows a dash. */}
-                {d.courierId ? (
-                  <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </div>
-              <AssignCourierCell delivery={d} />
+            // The row itself opens the delivery; the buttons stop that click from also firing.
+            <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+              {/* "Assign courier" only while the delivery waits for one; "Open" otherwise. */}
+              {isDeliveryAwaitingCourierAssignment(d) ? (
+                <AssignCourierCell delivery={d} />
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={() => goToDeliveryDetails(d.id)}>
+                  Open
+                </Button>
+              )}
             </div>
           )
         },
       },
-      // {
-      //   header: 'Customer',
-      //   accessorFn: ({ customer }) => (customer ? `${customer.firstName} ${customer.lastName}` : 'N/A'),
-      // },
-      // {
-      //   header: 'Customer Phone',
-      //   accessorFn: ({ customer }) => (customer && customer.cellPhone ? formatPhone(customer.cellPhone) : 'N/A'),
-      // },
-      {
-        header: 'Created At',
-        accessorFn: ({ createdAt }) => formatDate(createdAt),
-      },
-      // {
-      //   header: 'Subtotal',
-      //   accessorFn: ({ cost }) => (cost ? `$${formatPennies(cost.subtotalAmount)}` : 'N/A'),
-      // },
     ],
-    [courierNameById, now],
+    [courierNameById, now, goToDeliveryDetails],
   )
 
   return (
     <DefaultLayout>
       {/* "Deliveries", not "Orders": the co-op's word for the thing a courier moves. */}
       <PageHeader title="Deliveries" />
-
-      <DeliveriesTableFilters
-        onFiltersChange={(newFilters) => {
-          setFilters((prevFilters) => ({ ...prevFilters, ...newFilters }))
-          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
-        }}
-      />
 
       <DataTable
         columns={columns}

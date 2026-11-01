@@ -12,13 +12,17 @@ import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
 import { formatMoney } from '@/utils/formatMoney'
 import {
-  Button,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  Breadcrumb,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   DetailList,
-  Label,
+  type DetailListItem,
   Menu,
   MenuItem,
   MenuItems,
@@ -29,9 +33,9 @@ import {
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryEventType } from '../../../shared-types'
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
-import { cn, formatDate, formatOptionalDate, formatTimeWithSeconds } from '../../../ui-shared-utils'
+import { formatDate, formatOptionalDate, formatTimeWithSeconds } from '../../../ui-shared-utils'
+import { shortId } from '@/utils/shortId'
 import capitalize from 'lodash/capitalize'
-import { ArrowLeft } from '@phosphor-icons/react'
 import { PageHeader } from '@/components/layouts/PageHeader'
 
 // The server's 3 s grace plus one 30 s refresh of this page.
@@ -67,42 +71,35 @@ function OrderItemsSection({ items }: { items: DeliveryAdminDto['orderItems'] })
   )
 }
 
-// One row of the price breakdown: a label and an amount in minor currency units.
-function MoneyRow({ label, amount, currencyCode }: { label: string; amount: number | null | undefined; currencyCode: string }) {
-  return (
-    <Label className="flex flex-col space-y-1">
-      <span>{label}</span>
-      <span className="font-normal leading-snug text-muted-foreground">{formatMoney(amount, currencyCode) ?? '—'}</span>
-    </Label>
-  )
-}
-
 // How this delivery's price and the rider's pay were built (spec 0001), so members can audit
 // it without reading the database. The base and distance fees come from the delivery's quote;
-// the rest is written when the delivery is first offered to a rider. Total cost, fee and total
-// compensation are shown here only, under clearer names, rather than twice on the page.
+// the rest is written when the delivery is first offered to a rider. The last line is what the
+// customer pays: delivery is charged to the customer, never billed through the restaurant.
 function PriceBreakdownCard({ delivery }: { delivery: DeliveryAdminDto }) {
+  const money = (amount: number | null | undefined) => formatMoney(amount, delivery.currencyCode)
   const feeLabel = delivery.feePercentage != null ? `Co-op fee (${delivery.feePercentage}%)` : 'Co-op fee'
   const notOfferedYet = delivery.totalCompensation == null
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Price breakdown</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Price, from the quote</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
-        <MoneyRow label="Base fee" amount={delivery.baseFee} currencyCode={delivery.currencyCode} />
-        <MoneyRow label="Distance fee" amount={delivery.distanceFee} currencyCode={delivery.currencyCode} />
-        <MoneyRow
-          label="Rider pay (base fee + distance fee)"
-          amount={delivery.totalCompensation}
-          currencyCode={delivery.currencyCode}
+      <CardContent className="space-y-3 text-sm">
+        <DetailList
+          items={[
+            { label: 'Base fee', value: money(delivery.baseFee) },
+            { label: 'Distance fee', value: money(delivery.distanceFee) },
+            { label: 'Rider gets', value: money(delivery.totalCompensation) },
+            { label: feeLabel, value: money(delivery.fee) },
+            { label: 'Customer pays', value: money(delivery.totalCost) },
+            { label: 'Rider pay recorded', value: money(delivery.pay) },
+            { label: 'Currency', value: delivery.currencyCode },
+          ]}
         />
-        <MoneyRow label={feeLabel} amount={delivery.fee} currencyCode={delivery.currencyCode} />
-        <MoneyRow label="Customer total" amount={delivery.totalCost} currencyCode={delivery.currencyCode} />
         {notOfferedYet ? (
-          <p className="text-muted-foreground sm:col-span-2">
-            Rider pay, co-op fee and customer total are set when the delivery is first offered to a rider.
+          <p className="text-muted-foreground">
+            Rider pay, co-op fee and what the customer pays are set when the delivery is first offered to a rider.
           </p>
         ) : null}
       </CardContent>
@@ -159,9 +156,28 @@ function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date })
 
 type DeliveryDetailsProps = {
   deliveryId: string
-  isSheet?: boolean
 }
 
+// A card holding one DetailList, used for the facts on the right of the page.
+function FactsCard({ title, items }: { title: string; items: DetailListItem[] }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm">
+        <DetailList items={items} />
+      </CardContent>
+    </Card>
+  )
+}
+
+const yesNo = (value: boolean) => (value ? 'Yes' : 'No')
+const joined = (list: string[], separator = ', ') => (list.length ? list.join(separator) : null)
+
+// A delivery's page in the redesign (spec 0011): breadcrumb, title, status and actions; on the
+// left what is happening and what happened, on the right the facts. Everything the old page
+// showed is still here (AC-3).
 export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { goToDeliveries } = useAdminPageNavigator()
 
@@ -206,337 +222,150 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
     }
   }
 
-  // On its own page the h1 is there in every state ("Delivery" while loading or on an error).
+  // The h1 is there in every state ("Delivery" while loading or on an error).
   if (getDeliveryResponse.isLoading)
     return (
       <>
-        {!props.isSheet && <PageHeader title="Delivery" />}
+        <PageHeader title="Delivery" />
         <span>Loading delivery data.</span>
       </>
     )
   if (!getDeliveryResponse.data)
     return (
       <>
-        {!props.isSheet && <PageHeader title="Delivery" />}
+        <PageHeader title="Delivery" />
         <span>There was a problem loading data.</span>
       </>
     )
 
   const { data: delivery } = getDeliveryResponse
-
   const possibleEvents = adminEventsForStatus(delivery.status, delivery)
+  // The order reference when the restaurant gave one, else the end of the id (spec 0011).
+  const title = `Delivery ${delivery.orderReference || shortId(delivery.id)}`
 
   return (
     <>
-      {!props.isSheet && (
-        <Button variant="link" className="p-0" onClick={() => goToDeliveries()}>
-          <div className="bg-gray-100 rounded-full h-6 w-6 flex justify-center items-center mr-1">
-            <ArrowLeft className="w-4" />
+      <Breadcrumb steps={[{ label: 'Deliveries', href: '/deliveries', onClick: () => goToDeliveries() }, { label: title }]} />
+      <PageHeader
+        title={title}
+        action={
+          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {/* Only while nobody has accepted: once a rider holds it there is nothing to assign. */}
+            {isLookingForRider(delivery) ? <AssignCourierCell delivery={delivery} /> : null}
+            <ReassignCourierDialog delivery={delivery} />
+            {possibleEvents.length ? (
+              <Menu>
+                <MenuTrigger>Change status</MenuTrigger>
+                <MenuItems>
+                  {possibleEvents.map((eventType) => (
+                    <MenuItem key={eventType} onClick={() => handleEventSubmit(eventType)}>
+                      {capitalize(eventType.toLowerCase())}
+                    </MenuItem>
+                  ))}
+                </MenuItems>
+              </Menu>
+            ) : null}
           </div>
-          Back to Deliveries
-        </Button>
-      )}
+        }
+      />
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <StatusBadge status={delivery.status} />
+        <span>Created {formatDate(delivery.createdAt)}</span>
+        {/* The same words as the list's Courier column while the delivery is offered. */}
+        {isLookingForRider(delivery) ? (
+          <span>
+            <OfferSummary delivery={delivery} now={now} nameStyle="full" />
+            {deliveryOffer(delivery) ? null : 'Looking for a rider'}
+          </span>
+        ) : null}
+      </div>
 
-      {/* On its own page the title is the page's h1; inside a sheet (over another page) it stays an h2. */}
-      {props.isSheet ? (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-xl font-medium tracking-tight">Delivery {delivery.id}</h2>
-          <span className="text-sm text-muted-foreground">{formatDate(delivery.createdAt)}</span>
-        </div>
-      ) : (
-        <PageHeader title={`Delivery ${delivery.id}`} description={formatDate(delivery.createdAt)} />
-      )}
-
-      {/* PageHeader already leaves 24px under itself; the sheet's plain title does not. */}
-      <div className={cn('grid gap-6', { 'mt-6': props.isSheet })}>
-        <div className={cn('flex flex-col gap-6', { 'md:flex-row': !props.isSheet })}>
-          <div className="flex items-center gap-2">
-            <span>Status</span>
-            <span className="font-normal leading-snug text-muted-foreground">
-              <StatusBadge status={delivery.status} />
-            </span>
-          </div>
-
-          {/* Only while nobody has accepted: once a rider holds it there is no offer to show or assign. */}
-          {isLookingForRider(delivery) ? (
-            <div
-              className="flex flex-wrap items-center gap-2 md:items-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* The same words as the list's Offer column, with the full name. */}
-              <span className="text-sm text-muted-foreground">
-                Offer:{' '}
-                <span className="text-foreground">
-                  <OfferSummary delivery={delivery} now={now} nameStyle="full" />
-                  {deliveryOffer(delivery) ? null : 'looking for a rider'}
-                </span>
-              </span>
-              <AssignCourierCell delivery={delivery} />
-            </div>
-          ) : null}
-
-          <ReassignCourierDialog delivery={delivery} />
-
-          {possibleEvents.length ? (
-            <Menu>
-              <MenuTrigger>Trigger event</MenuTrigger>
-              <MenuItems>
-                {possibleEvents.map((eventType) => (
-                  <MenuItem key={eventType} onClick={() => handleEventSubmit(eventType)}>
-                    {capitalize(eventType.toLowerCase())}
-                  </MenuItem>
-                ))}
-              </MenuItems>
-            </Menu>
-          ) : null}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <OfferCard delivery={delivery} now={now} />
+          <DeliveryIssues deliveryId={delivery.id} />
+          <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
         </div>
 
-        <OfferCard delivery={delivery} now={now} />
-
-        <DeliveryIssues deliveryId={delivery.id} />
-
-        <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Order & identifiers</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
-            <Label className="flex flex-col space-y-1">
-              <span>Order reference</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.orderReference ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Customer</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {delivery.customerName}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Customer phone</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {delivery.customerPhoneNumber ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Currency</span>
-              <span className="font-normal leading-snug text-muted-foreground">{delivery.currencyCode}</span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Order total</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.orderTotalValue, delivery.currencyCode) ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Pay</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.pay, delivery.currencyCode) ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Tips</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {formatMoney(delivery.tips, delivery.currencyCode) ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Courier ID</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.courierId ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Partner ID</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.partnerId ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Delivery quote ID</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.deliveryQuoteId}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>External store ID</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.externalStoreId ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>External ID</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.externalId ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Idempotency key</span>
-              <span className="font-normal leading-snug text-muted-foreground break-all">
-                {delivery.idempotencyKey ?? '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1 sm:col-span-2">
-              <span>Delivery types</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {delivery.deliveryTypes.length ? delivery.deliveryTypes.join(', ') : '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1 sm:col-span-2">
-              <span>Pickup types</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {delivery.pickupTypes.length ? delivery.pickupTypes.join(', ') : '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1 sm:col-span-2">
-              <span>Customer notes</span>
-              <span className="font-normal leading-snug text-muted-foreground whitespace-pre-wrap">
-                {delivery.customerNotes.length ? delivery.customerNotes.join('\n') : '—'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>Dropoff signature required</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {delivery.requiresDropoffSignature ? 'Yes' : 'No'}
-              </span>
-            </Label>
-            <Label className="flex flex-col space-y-1">
-              <span>ID check required</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                {delivery.requiresId ? 'Yes' : 'No'}
-              </span>
-            </Label>
-          </CardContent>
-        </Card>
-
-        <PriceBreakdownCard delivery={delivery} />
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pickup, drop-off & items</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-6 text-sm">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <h3 className="text-sm font-medium sm:col-span-2">Pickup</h3>
-              <Label className="flex flex-col space-y-1">
-                <span>Name</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.pickupName}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Phone</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.pickupPhoneNumber}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1 sm:col-span-2">
-                <span>Business</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.pickupBusinessName}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1 sm:col-span-2">
-                <span>Notes</span>
-                <span className="font-normal leading-snug text-muted-foreground whitespace-pre-wrap">
-                  {delivery.pickupNotes ?? '—'}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Location ID</span>
-                <span className="font-normal leading-snug text-muted-foreground break-all">{delivery.pickupLocationId}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Verification</span>
-                <span className="font-normal leading-snug text-muted-foreground break-all">
-                  {delivery.pickupVerification ?? '—'}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Pickup ready</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  {formatOptionalDate(delivery.pickupReadyAt)}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Pickup deadline</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  {formatOptionalDate(delivery.pickupDeadlineAt)}
-                </span>
-              </Label>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 border-t pt-6">
-              <h3 className="text-sm font-medium sm:col-span-2">Drop-off</h3>
-              <Label className="flex flex-col space-y-1">
-                <span>Name</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.dropoffName}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Phone</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.dropoffPhoneNumber}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1 sm:col-span-2">
-                <span>Business</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  {displayText(delivery.dropoffBusinessName)}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1 sm:col-span-2">
-                <span>Notes</span>
-                <span className="font-normal leading-snug text-muted-foreground whitespace-pre-wrap">
-                  {delivery.dropoffNotes ?? '—'}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1 sm:col-span-2">
-                <span>Seller notes</span>
-                <span className="font-normal leading-snug text-muted-foreground whitespace-pre-wrap">
-                  {delivery.dropoffSellerNotes ?? '—'}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Location ID</span>
-                <span className="font-normal leading-snug text-muted-foreground break-all">{delivery.dropoffLocationId}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Verification</span>
-                <span className="font-normal leading-snug text-muted-foreground break-all">
-                  {displayText(delivery.dropoffVerification)}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Drop-off ready</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  {formatOptionalDate(delivery.dropoffReadyAt)}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Drop-off ETA</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  {formatOptionalDate(delivery.dropoffEta)}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Drop-off deadline</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  {formatOptionalDate(delivery.dropoffDeadlineAt)}
-                </span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Deliverable action</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.deliverableAction}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1">
-                <span>Undeliverable action</span>
-                <span className="font-normal leading-snug text-muted-foreground">{delivery.undeliverableAction}</span>
-              </Label>
-              <Label className="flex flex-col space-y-1 sm:col-span-2">
-                <span>Undeliverable reason</span>
-                <span className="font-normal leading-snug text-muted-foreground whitespace-pre-wrap">
-                  {delivery.undeliverableReason ?? '—'}
-                </span>
-              </Label>
-            </div>
-
-            <OrderItemsSection items={delivery.orderItems} />
-          </CardContent>
-        </Card>
+        <div className="flex min-w-0 flex-col gap-6">
+          <FactsCard
+            title="Pickup"
+            items={[
+              { label: 'Business', value: delivery.pickupBusinessName },
+              { label: 'Name', value: delivery.pickupName },
+              { label: 'Phone', value: delivery.pickupPhoneNumber },
+              { label: 'Ready', value: formatOptionalDate(delivery.pickupReadyAt) },
+              { label: 'Deadline', value: formatOptionalDate(delivery.pickupDeadlineAt) },
+              { label: 'Notes', value: delivery.pickupNotes },
+              { label: 'Verification', value: displayText(delivery.pickupVerification) },
+            ]}
+          />
+          <FactsCard
+            title="Drop off"
+            items={[
+              { label: 'Name', value: delivery.dropoffName },
+              { label: 'Business', value: displayText(delivery.dropoffBusinessName) },
+              { label: 'Phone', value: delivery.dropoffPhoneNumber },
+              { label: 'ETA', value: formatOptionalDate(delivery.dropoffEta) },
+              { label: 'Ready', value: formatOptionalDate(delivery.dropoffReadyAt) },
+              { label: 'Deadline', value: formatOptionalDate(delivery.dropoffDeadlineAt) },
+              { label: 'Notes', value: delivery.dropoffNotes },
+              { label: 'Seller notes', value: delivery.dropoffSellerNotes },
+              { label: 'Verification', value: displayText(delivery.dropoffVerification) },
+              { label: 'When delivered', value: delivery.deliverableAction },
+              { label: 'When undeliverable', value: delivery.undeliverableAction },
+              { label: 'Undeliverable reason', value: delivery.undeliverableReason },
+            ]}
+          />
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Order</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <DetailList
+                items={[
+                  { label: 'Order reference', value: delivery.orderReference },
+                  { label: 'Customer', value: delivery.customerName },
+                  { label: 'Customer phone', value: delivery.customerPhoneNumber },
+                  { label: 'Order total', value: formatMoney(delivery.orderTotalValue, delivery.currencyCode) },
+                  { label: 'Tips', value: formatMoney(delivery.tips, delivery.currencyCode) },
+                  { label: 'Customer notes', value: joined(delivery.customerNotes, '\n') },
+                  { label: 'Delivery types', value: joined(delivery.deliveryTypes) },
+                  { label: 'Pickup types', value: joined(delivery.pickupTypes) },
+                  { label: 'Drop off signature required', value: yesNo(delivery.requiresDropoffSignature) },
+                  { label: 'ID check required', value: yesNo(delivery.requiresId) },
+                ]}
+              />
+              <OrderItemsSection items={delivery.orderItems} />
+            </CardContent>
+          </Card>
+          <PriceBreakdownCard delivery={delivery} />
+          <Card>
+            <CardContent className="pt-2">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="technical">
+                  <AccordionTrigger>Technical details</AccordionTrigger>
+                  <AccordionContent>
+                    <DetailList
+                      items={[
+                        { label: 'Delivery ID', value: delivery.id, mono: true },
+                        { label: 'Delivery quote ID', value: delivery.deliveryQuoteId, mono: true },
+                        { label: 'Partner ID', value: delivery.partnerId, mono: true },
+                        { label: 'Courier ID', value: delivery.courierId, mono: true },
+                        { label: 'Matched courier ID', value: delivery.matchedCourierId, mono: true },
+                        { label: 'Pickup location ID', value: delivery.pickupLocationId, mono: true },
+                        { label: 'Drop off location ID', value: delivery.dropoffLocationId, mono: true },
+                        { label: 'External ID', value: delivery.externalId, mono: true },
+                        { label: 'External store ID', value: delivery.externalStoreId, mono: true },
+                        { label: 'Idempotency key', value: delivery.idempotencyKey, mono: true },
+                      ]}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </>
   )

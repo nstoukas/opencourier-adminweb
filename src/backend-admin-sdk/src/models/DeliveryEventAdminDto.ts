@@ -38,6 +38,13 @@ export interface DeliveryEventAdminDto {
     // (value 5). Hand edited. `?` (optional) as well as null: events built before this field
     // existed, such as the test fixtures, leave it out, and both mean "no rider".
     courierId?: string | null;
+    /**
+     * When the event happened: a rider's tap for a step sent late from a phone with no signal,
+     * otherwise the same moment as createdAt (spec 0009). Missing from a backend before row 20.
+     * @type {Date}
+     * @memberof DeliveryEventAdminDto
+     */
+    occurredAt?: Date;
 }
 
 /**
@@ -71,6 +78,8 @@ export function DeliveryEventAdminDtoFromJSONTyped(json: any, ignoreDiscriminato
         'message': json['message'] === undefined ? null : json['message'],
         'createdAt': (new Date(json['createdAt'])),
         'courierId': json['courierId'] == null ? null : json['courierId'],
+        // Guarded like waitingForCourierSince: new Date(undefined) would be an Invalid Date.
+        'occurredAt': !exists(json, 'occurredAt') || json['occurredAt'] == null ? undefined : new Date(json['occurredAt']),
     };
 }
 
@@ -92,5 +101,6 @@ export function DeliveryEventAdminDtoToJSON(value?: DeliveryEventAdminDto | null
         'message': value.message,
         'createdAt': (value.createdAt.toISOString()),
         'courierId': value.courierId,
+        'occurredAt': value.occurredAt === undefined ? undefined : value.occurredAt.toISOString(),
     };
 }
