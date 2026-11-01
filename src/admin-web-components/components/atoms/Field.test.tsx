@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { Field, FieldGroup, FieldLabel } from './Field'
+import { Field, FieldGroup, FieldLabel, FieldError } from './Field'
 
 describe('Field atom (row 86)', () => {
   it('renders FieldGroup as a vertical stack of fields separated by 24px (gap-6)', () => {
@@ -48,5 +48,14 @@ describe('Field atom (row 86)', () => {
     expect(label).toHaveAttribute('data-slot', 'field-label')
     expect(label.className).toContain('leading-snug')
     expect(label).toHaveAttribute('for', 'test-input')
+  })
+
+  it('renders FieldError with data-slot="field-error" and no role="alert" (row 87 review)', () => {
+    render(<FieldError>Error message</FieldError>)
+    const error = screen.getByText('Error message')
+    expect(error).toBeInTheDocument()
+    expect(error).toHaveAttribute('data-slot', 'field-error')
+    expect(error).not.toHaveAttribute('role', 'alert')
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })

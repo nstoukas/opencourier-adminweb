@@ -137,8 +137,8 @@ const baseMockConfigData = {
 
 const NUMERIC_SETTINGS = [
   { key: 'quoteBaseFee', id: 'quoteBaseFee', label: 'Base fee' },
-  { key: 'quoteRatePerDistanceUnit', id: 'quoteRatePerDistanceUnit', label: 'Per distance rate' },
-  { key: 'feePercentageAmount', id: 'feePercentageAmount', label: 'Co-op fee %' },
+  { key: 'quoteRatePerDistanceUnit', id: 'quoteRatePerDistanceUnit', label: 'Rate per km' },
+  { key: 'feePercentageAmount', id: 'feePercentageAmount', label: 'Co-op fee (%)' },
   { key: 'maxAssignmentDistance', id: 'maxAssignmentDistance', label: 'Furthest courier to offer' },
   { key: 'maxDriftDistance', id: 'maxDriftDistance', label: 'Max drift distance' },
   { key: 'quoteExpirationMinutes', id: 'quoteExpirationMinutes', label: 'Quote stays valid for' },
@@ -575,5 +575,264 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(pageH1s).toHaveLength(1)
       expect(pageH1s[0]).toHaveTextContent('Co-op settings')
     })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Review fixes (row 87 review rulings)
+  // ---------------------------------------------------------------------------
+  describe('Review fixes (row 87 review rulings)', () => {
+    // Fix 1: The major: pending bar change survives refetch; empties after save when refetched data equals edit
+    it('pending bar change survives a refetch (e.g. after payout policy save), and empties after bar save when refetched data equals the edit (fix 1)', async () => {
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      const { rerender } = render(<InstanceConfigurationPage />)
+
+      // Type an edit in a bar-covered field: base fee from 200 to 250
+      const baseFeeInput = document.getElementById('quoteBaseFee') as HTMLInputElement
+      fireEvent.change(baseFeeInput, { target: { value: '250' } })
+
+      // SaveBar appears and lists the change
+      const saveBar = screen.getByTestId('save-bar')
+      expect(saveBar).toBeInTheDocument()
+      expect(within(saveBar).getByText('Base fee')).toBeInTheDocument()
+      expect(baseFeeInput.value).toBe('250')
+
+      // Simulate a refetch (e.g. after payout policy save or tag invalidation)
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          reassignmentPayoutPolicies: { DEFAULT: 60 },
+        },
+        isLoading: false,
+      })
+      rerender(<InstanceConfigurationPage />)
+
+      // The box keeps the edit and the bar still lists it!
+      expect(baseFeeInput.value).toBe('250')
+      const saveBarAfterRefetch = screen.getByTestId('save-bar')
+      expect(saveBarAfterRefetch).toBeInTheDocument()
+      expect(within(saveBarAfterRefetch).getByText('Base fee')).toBeInTheDocument()
+
+      // Save the change via SaveBar
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          quoteBaseFee: 250,
+        })
+      })
+
+      // Once the refetched settings equal the edit (quoteBaseFee is now 250), the bar empties
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          quoteBaseFee: 250,
+        },
+        isLoading: false,
+      })
+      rerender(<InstanceConfigurationPage />)
+
+      expect(baseFeeInput.value).toBe('250')
+      expect(screen.queryByTestId('save-bar')).toBeNull()
+    })
+
+    // Fix 2: Save is off (and shows Saving…) while query is fetching again
+    it('disables Save and shows "Saving…" while the settings query is refetching (isFetching: true) (fix 2)', () => {
+      const { rerender } = render(<InstanceConfigurationPage />)
+
+      // Edit a field so SaveBar appears
+      const baseFeeInput = document.getElementById('quoteBaseFee') as HTMLInputElement
+      fireEvent.change(baseFeeInput, { target: { value: '250' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).not.toBeDisabled()
+
+      // Simulate settings query refetching in the background
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: baseMockConfigData,
+        isLoading: false,
+        isFetching: true,
+      })
+      rerender(<InstanceConfigurationPage />)
+
+      // Save button is disabled and shows "Saving…"
+      const savingButton = screen.getByRole('button', { name: /saving…/i })
+      expect(savingButton).toBeDisabled()
+
+      // Clicking it does not call mutation
+      fireEvent.click(savingButton)
+      expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+    })
+
+    // Fix 3: No full bar flash: on first render with data, no change is listed
+    it('renders no pending changes and mounts no save bar on initial render with data (no full bar flash) (fix 3)', () => {
+      render(<InstanceConfigurationPage />)
+
+      // No save bar rendered
+      expect(screen.queryByTestId('save-bar')).toBeNull()
+      expect(screen.queryByText(/unsaved change/i)).toBeNull()
+
+      // Live region is present and empty
+      const liveRegion = screen.getByRole('status')
+      expect(liveRegion).toBeInTheDocument()
+      expect(liveRegion).toHaveTextContent('')
+    })
+
+    // Fix 4: Live region is in page even with no change, and announces blockers when there are some
+    it('live region is in the page even with no change, and announces blockers when there are some (fix 4)', () => {
+      render(<InstanceConfigurationPage />)
+
+      // Initially no change, live region is present and empty
+      const liveRegion = screen.getByRole('status')
+      expect(liveRegion).toBeInTheDocument()
+      expect(liveRegion).toHaveTextContent('')
+
+      // Clear quoteBaseFee to create a blocker
+      const baseFeeInput = document.getElementById('quoteBaseFee') as HTMLInputElement
+      fireEvent.change(baseFeeInput, { target: { value: '' } })
+
+      expect(liveRegion).toHaveTextContent(
+        'Save is off until you fix: Base fee: enter a whole number of cents, zero or more'
+      )
+    })
+
+    // Fix 5: Rate label reads "Rate per km" or "Rate per mile" in box and bar
+    it('rate reads "Rate per km" by default and "Rate per mile" when distance unit is MILES, in box and bar alike (fix 5)', () => {
+      const { rerender } = render(<InstanceConfigurationPage />)
+
+      // With default KILOMETERS, input label is "Rate per km (cents)"
+      expect(screen.getByLabelText(/Rate per km \(cents\)/i)).toBeInTheDocument()
+
+      // Change rate to 180
+      const rateInput = document.getElementById('quoteRatePerDistanceUnit') as HTMLInputElement
+      fireEvent.change(rateInput, { target: { value: '180' } })
+      expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+      expect(screen.getByText('Rate per km')).toBeInTheDocument()
+
+      // Now switch distanceUnit to MILES
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          distanceUnit: 'MILES',
+        },
+        isLoading: false,
+      })
+      rerender(<InstanceConfigurationPage />)
+
+      // Input label is now "Rate per mile (cents)" and bar says "Rate per mile"
+      expect(screen.getByLabelText(/Rate per mile \(cents\)/i)).toBeInTheDocument()
+      expect(screen.getByText('Rate per mile')).toBeInTheDocument()
+    })
+
+    // Fix 6: Select whose value is '' shows "Not set" option and nothing else selected
+    it('a select whose value is "" shows a "Not set" option and nothing else selected (fix 6)', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          currency: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const currencySelect = document.getElementById('currency') as HTMLSelectElement
+      expect(currencySelect.value).toBe('')
+
+      const notSetOption = currencySelect.querySelector('option[value=""]') as HTMLOptionElement
+      expect(notSetOption).not.toBeNull()
+      expect(notSetOption.textContent).toBe('Not set')
+      expect(notSetOption.disabled).toBe(true)
+      expect(notSetOption.selected).toBe(true)
+    })
+
+    // Fix 7: Bad URL shows "<Label> is not a valid URL" under box and in bar
+    it('a bad URL shows "<Label> is not a valid URL" under the box and in the bar (fix 7)', () => {
+      render(<InstanceConfigurationPage />)
+
+      const wsInput = document.getElementById('websocketLink') as HTMLInputElement
+      fireEvent.change(wsInput, { target: { value: 'bad-ws-url' } })
+
+      // Under the box (via FieldError)
+      const errorUnderBox = document.querySelector('[data-slot="field-error"]')
+      expect(errorUnderBox).toHaveTextContent('Websocket URL is not a valid URL')
+
+      // In the bar blockers container
+      const blockersContainer = document.getElementById('save-all-blockers')
+      expect(blockersContainer?.textContent).toContain('Websocket URL is not a valid URL')
+
+      // In the live region
+      const liveRegion = screen.getByRole('status')
+      expect(liveRegion.textContent).toContain('Websocket URL is not a valid URL')
+    })
+
+    // Fix 9: The public pages: each Edit opens editor with saved text and title; Save sends details with saved keys kept and that page's text
+    const PUBLIC_PAGES_TO_TEST = [
+      {
+        view: 'rules',
+        key: 'rulesContent',
+        title: 'Courier rules',
+        savedText: '# Courier rules\nAlways wear a helmet.',
+      },
+      {
+        view: 'description',
+        key: 'descriptionContent',
+        title: 'About the co-op',
+        savedText: '# About the co-op\nWorker owned courier platform.',
+      },
+      {
+        view: 'terms-of-service',
+        key: 'termsOfServiceContent',
+        title: 'Terms of service',
+        savedText: '# Terms of Service\nFair terms.',
+      },
+      {
+        view: 'privacy-policy',
+        key: 'privacyPolicyContent',
+        title: 'Privacy policy',
+        savedText: '# Privacy Policy\nData is protected.',
+      },
+    ] as const
+
+    describe.each(PUBLIC_PAGES_TO_TEST)(
+      'public page editor and save: $title ($view -> $key) (fix 9)',
+      ({ key, title, savedText }) => {
+        it(`opens editor with saved text and title, and Save sends details keeping saved keys and updated text`, async () => {
+          mockSetInstanceConfig.mockReturnValue({
+            unwrap: () => Promise.resolve({}),
+          })
+
+          render(<InstanceConfigurationPage />)
+
+          // Click Edit button for this public page
+          const editButton = screen.getByRole('button', { name: new RegExp(`Edit ${title}`, 'i') })
+          fireEvent.click(editButton)
+
+          // Editor displays page title in heading and saved text in textarea
+          expect(screen.getByRole('heading', { level: 2, name: `Editing ${title}` })).toBeInTheDocument()
+          const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+          expect(textarea.value).toBe(savedText)
+
+          // Edit text and save
+          const newText = `${savedText}\nUpdated addition.`
+          fireEvent.change(textarea, { target: { value: newText } })
+
+          const saveButton = screen.getByRole('button', { name: /^Save$/i })
+          fireEvent.click(saveButton)
+
+          await waitFor(() => {
+            expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+              details: {
+                ...baseMockConfigData.details,
+                [key]: newText,
+              },
+            })
+          })
+        })
+      }
+    )
   })
 })

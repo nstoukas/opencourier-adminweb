@@ -9,8 +9,8 @@ describe('SaveBar component (spec 0010, AC-3, AC-4, AC-14)', () => {
     { key: 'maxAssignmentDistance', label: 'Furthest courier to offer', from: '20', to: '15' },
   ]
 
-  it('renders nothing when there are no changes', () => {
-    const { container } = render(
+  it('renders always mounted, empty role="status" live region and no bar or buttons when there are no changes', () => {
+    render(
       <SaveBar
         changes={[]}
         blockers={[]}
@@ -19,7 +19,28 @@ describe('SaveBar component (spec 0010, AC-3, AC-4, AC-14)', () => {
         onSave={jest.fn()}
       />
     )
-    expect(container.firstChild).toBeNull()
+    const liveRegion = screen.getByRole('status')
+    expect(liveRegion).toBeInTheDocument()
+    expect(liveRegion).toHaveClass('sr-only')
+    expect(liveRegion).toHaveTextContent('')
+    expect(screen.queryByTestId('save-bar')).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('announces blockers in the role="status" live region when changes and blockers exist', () => {
+    const blockersList = ['Rate per km is empty', 'URL is not a valid URL']
+    render(
+      <SaveBar
+        changes={dummyChanges}
+        blockers={blockersList}
+        isSaving={false}
+        onDiscard={jest.fn()}
+        onSave={jest.fn()}
+      />
+    )
+    const liveRegion = screen.getByRole('status')
+    expect(liveRegion).toBeInTheDocument()
+    expect(liveRegion).toHaveTextContent('Save is off until you fix: Rate per km is empty; URL is not a valid URL')
   })
 
   it('renders "1 unsaved change:" for a single change', () => {

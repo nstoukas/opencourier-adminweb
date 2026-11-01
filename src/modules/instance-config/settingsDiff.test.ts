@@ -2,10 +2,13 @@ import {
   blockers,
   EMPTY_FORM,
   formFromSettings,
+  labelOf,
   normalizeRegion,
   pendingChanges,
+  sameValue,
   savePayload,
   successMessage,
+  urlErrorText,
   type SettingsForm,
 } from './settingsDiff'
 
@@ -149,6 +152,30 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(changes).toHaveLength(1)
       expect(changes[0]?.from).toBe('Nearest free courier')
       expect(changes[0]?.to).toBe('Most senior courier')
+    })
+
+    it('sets rate change label to "Rate per mile" when edited distanceUnit is MILES (row 87 review, fix 5)', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        distanceUnit: 'MILES',
+        quoteRatePerDistanceUnit: '180',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const rateChange = changes.find((c) => c.key === 'quoteRatePerDistanceUnit')
+      expect(rateChange).toBeDefined()
+      expect(rateChange?.label).toBe('Rate per mile')
+    })
+
+    it('sets rate change label to "Rate per km" when edited distanceUnit is KILOMETERS (row 87 review, fix 5)', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        distanceUnit: 'KILOMETERS',
+        quoteRatePerDistanceUnit: '180',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const rateChange = changes.find((c) => c.key === 'quoteRatePerDistanceUnit')
+      expect(rateChange).toBeDefined()
+      expect(rateChange?.label).toBe('Rate per km')
     })
   })
 
@@ -354,6 +381,75 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(EMPTY_FORM.quoteBaseFee).toBe('')
       expect(EMPTY_FORM.offerExpiryEnabled).toBeNull()
       expect(EMPTY_FORM.region).toBeNull()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Review fixes (row 87 review): labelOf, sameValue, and urlErrorText
+  // ---------------------------------------------------------------------------
+  describe('labelOf (row 87 review, fix 5)', () => {
+    it('returns "Rate per km" when distanceUnit is KILOMETERS or omitted', () => {
+      expect(labelOf('quoteRatePerDistanceUnit', { distanceUnit: 'KILOMETERS' })).toBe('Rate per km')
+      expect(labelOf('quoteRatePerDistanceUnit')).toBe('Rate per km')
+    })
+
+    it('returns "Rate per mile" when distanceUnit is MILES', () => {
+      expect(labelOf('quoteRatePerDistanceUnit', { distanceUnit: 'MILES' })).toBe('Rate per mile')
+    })
+
+    it('returns defined labels for settings (e.g. "Co-op fee (%)", "Base fee")', () => {
+      expect(labelOf('quoteBaseFee')).toBe('Base fee')
+      expect(labelOf('feePercentageAmount')).toBe('Co-op fee (%)')
+      expect(labelOf('savedCustomerRetentionMonths')).toBe('Saved customer retention (months)')
+      expect(labelOf('link')).toBe('URL')
+      expect(labelOf('websocketLink')).toBe('Websocket URL')
+      expect(labelOf('imageUrl')).toBe('Logo image URL')
+    })
+  })
+
+  describe('sameValue (row 87 review, fix 5)', () => {
+    it('treats trimmed URLs without trailing slashes as identical', () => {
+      expect(sameValue('link', 'https://volos.courier.coop/ ', 'https://volos.courier.coop')).toBe(true)
+      expect(sameValue('websocketLink', 'wss://volos.courier.coop/ws/ ', 'wss://volos.courier.coop/ws')).toBe(true)
+      expect(sameValue('imageUrl', 'https://volos.coop/logo.png', ' https://volos.coop/logo.png/ ')).toBe(true)
+      expect(sameValue('link', 'https://volos.courier.coop', 'https://other.courier.coop')).toBe(false)
+    })
+
+    it('treats reordered multi-select options as identical', () => {
+      expect(
+        sameValue('defaultDietaryRestrictions', ['VEGAN', 'VEGETARIAN', 'NONE'], ['NONE', 'VEGAN', 'VEGETARIAN'])
+      ).toBe(true)
+      expect(sameValue('defaultDietaryRestrictions', ['VEGAN'], ['NONE'])).toBe(false)
+    })
+
+    it('treats equal cents (string vs number) as identical', () => {
+      expect(sameValue('quoteBaseFee', '200', 200)).toBe(true)
+      expect(sameValue('quoteBaseFee', '200', '250')).toBe(false)
+    })
+
+    it('compares standard text and numeric values correctly', () => {
+      expect(sameValue('name', 'Volos Co-op', 'Volos Co-op')).toBe(true)
+      expect(sameValue('name', 'Volos Co-op', 'Other Co-op')).toBe(false)
+      expect(sameValue('maxAssignmentDistance', '20', 20)).toBe(true)
+      expect(sameValue('maxAssignmentDistance', '20', 25)).toBe(false)
+    })
+  })
+
+  describe('urlErrorText & URL blockers (row 87 review, fix 7)', () => {
+    it('formats "<Label> is not a valid URL"', () => {
+      expect(urlErrorText('URL')).toBe('URL is not a valid URL')
+      expect(urlErrorText('Websocket URL')).toBe('Websocket URL is not a valid URL')
+      expect(urlErrorText('Logo image URL')).toBe('Logo image URL is not a valid URL')
+    })
+
+    it('reports "<Label> is not a valid URL" for websocketLink and imageUrl blockers', () => {
+      const wsChange = [{ key: 'websocketLink', label: 'Websocket URL', from: '', to: 'bad-ws' }]
+      const wsEdited: SettingsForm = { ...baseSavedForm, websocketLink: 'bad-ws' }
+      expect(blockers(wsChange as any, wsEdited)).toContain('Websocket URL is not a valid URL')
+
+      const imgChange = [{ key: 'imageUrl', label: 'Logo image URL', from: '', to: 'bad-img' }]
+      const imgEdited: SettingsForm = { ...baseSavedForm, imageUrl: 'bad-img' }
+      expect(blockers(imgChange as any, imgEdited)).toContain('Logo image URL is not a valid URL')
     })
   })
 })
