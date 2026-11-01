@@ -38,5 +38,7 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 - A rider's progress is made in the courier app and invalidates nothing here: a page that shows it (deliveries
   list, a delivery, a courier) polls every 30 s while `usePageVisible()` is true. A page read by an id from the URL
   takes RTK Query's `currentData`, so going back between two ids never shows the previous record.
+- An RTK `queryFn` with no result (a 204) returns `{ data: null }`: `{ data: undefined }` makes RTK Query log an error
+  (`rotatePartnerPassword` and the saved customer delete still do, a follow up of spec 0013).
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
