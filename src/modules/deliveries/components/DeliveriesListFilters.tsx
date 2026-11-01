@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Input } from '@/admin-web-components'
+import type { DeliveriesApiGetDeliveriesRequest } from '@/backend-admin-sdk'
+import { useDebouncedValue } from '@/ui-shared-utils'
 
 // The deliveries list's filter row (row 96, the board's ToggleGroup and search): which deliveries
 // to show, and a search by order reference, customer, restaurant or the end of the id. Both reach
 // the backend (they did not before row 96).
-export type DeliveryListState = 'all' | 'active' | 'dropped_off' | 'canceled'
+// The values come from the SDK's request, so the two can never disagree (row 96 review).
+// `NonNullable<…>` drops `undefined` from the optional field's type.
+export type DeliveryListState = NonNullable<DeliveriesApiGetDeliveriesRequest['state']>
 
 export const DELIVERY_LIST_STATES: { value: DeliveryListState; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -25,14 +29,20 @@ type Props = {
 
 export function DeliveriesListFilters({ state, onStateChange, onSearchChange }: Props) {
   const [text, setText] = useState('')
+  // The text as it was SEARCH_DELAY_MS after the last key (the shared debounce hook).
+  const settled = useDebouncedValue(text, SEARCH_DELAY_MS)
+  // The search last handed to the page, so an unchanged one (on first render, or "abc" then
+  // "abc ") does not reset the page for nothing (row 96 review).
+  const lastSent = useRef<string | undefined>(undefined)
 
-  // Sends the search SEARCH_DELAY_MS after typing stops; an empty box clears it.
   useEffect(() => {
-    const timer = setTimeout(() => onSearchChange(text.trim() || undefined), SEARCH_DELAY_MS)
-    return () => clearTimeout(timer)
+    const next = settled.trim() || undefined
+    if (next === lastSent.current) return
+    lastSent.current = next
+    onSearchChange(next)
     // onSearchChange is left out on purpose: the page passes a new one each render, and the
     // search must follow the text, not the render.
-  }, [text])
+  }, [settled])
 
   return (
     <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
