@@ -30,7 +30,7 @@ describe('courierDisplay helpers (spec 0012, AC-1, AC-2, cross-check precisions)
     })
 
     it('formats earlier join dates as "MMMM YYYY"', () => {
-      const date = new Date('2025-03-01T00:00:00.000Z')
+      const date = new Date('2025-03-01T12:00:00.000Z')
       expect(memberSince(date)).toBe('March 2025')
     })
   })

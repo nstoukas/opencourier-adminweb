@@ -32,6 +32,12 @@ jest.mock('next/router', () => ({
   useRouter: () => mockRouter,
 }))
 
+// Mock page visibility
+const mockUsePageVisible = jest.fn()
+jest.mock('../../hooks/usePageVisible', () => ({
+  usePageVisible: () => mockUsePageVisible(),
+}))
+
 // Mock RTK Query hooks
 const mockUseGetCourierQuery = jest.fn()
 jest.mock('../../api/couriersApi', () => ({
@@ -60,6 +66,8 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
   beforeEach(() => {
     jest.clearAllMocks()
 
+    mockUsePageVisible.mockReturnValue(true)
+
     activeDeliveriesResult = {
       data: { data: [] },
       isLoading: false,
@@ -73,7 +81,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
     }
 
     mockUseGetCourierQuery.mockReturnValue({
-      data: baseCourier,
+      currentData: baseCourier,
       isLoading: false,
       isError: false,
     })
@@ -121,7 +129,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
     it('renders "Call" alone when first name is empty', () => {
       mockUseGetCourierQuery.mockReturnValue({
-        data: {
+        currentData: {
           ...baseCourier,
           firstName: '   ',
           lastName: 'Pappas',
@@ -139,7 +147,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
     it('renders no call link when phone is null, showing "No phone" in header metadata', () => {
       mockUseGetCourierQuery.mockReturnValue({
-        data: {
+        currentData: {
           ...baseCourier,
           phoneNumber: null,
         },
@@ -157,7 +165,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
   describe('Loading and Error States', () => {
     it('renders h1 "Courier" and "Loading…" while courier is loading, and skips deliveries queries', () => {
       mockUseGetCourierQuery.mockReturnValue({
-        data: undefined,
+        currentData: undefined,
         isLoading: true,
         isError: false,
       })
@@ -171,13 +179,13 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       const deliveriesCalls = mockUseGetDeliveriesQuery.mock.calls
       expect(deliveriesCalls.length).toBeGreaterThan(0)
       for (const call of deliveriesCalls) {
-        expect(call[1]?.skip).toBe(true)
+        expect(call?.[1]?.skip).toBe(true)
       }
     })
 
     it('renders h1 "Courier" and "Courier not found or could not be loaded." on error, skipping delivery queries', () => {
       mockUseGetCourierQuery.mockReturnValue({
-        data: undefined,
+        currentData: undefined,
         isLoading: false,
         isError: true,
       })
@@ -189,13 +197,13 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
       const deliveriesCalls = mockUseGetDeliveriesQuery.mock.calls
       for (const call of deliveriesCalls) {
-        expect(call[1]?.skip).toBe(true)
+        expect(call?.[1]?.skip).toBe(true)
       }
     })
 
     it('renders h1 "Courier" and "Courier not found or could not be loaded." when courierId is empty', () => {
       mockUseGetCourierQuery.mockReturnValue({
-        data: undefined,
+        currentData: undefined,
         isLoading: false,
         isError: false,
       })
@@ -206,7 +214,31 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       expect(screen.getByText('Courier not found or could not be loaded.')).toBeInTheDocument()
 
       // useGetCourierQuery was skipped because courierId is empty
-      expect(mockUseGetCourierQuery).toHaveBeenCalledWith({ id: '' }, { skip: true })
+      expect(mockUseGetCourierQuery).toHaveBeenCalledWith(
+        { id: '' },
+        { skip: true, pollingInterval: 30000 }
+      )
+    })
+
+    it('shows h1 "Courier" and "Loading…", not previous courier name, when data has previous record but currentData is undefined', () => {
+      mockUseGetCourierQuery.mockReturnValue({
+        data: {
+          ...baseCourier,
+          firstName: 'Stale',
+          lastName: 'Courier',
+        },
+        currentData: undefined,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<CourierDetails courierId="c2" />)
+
+      // Shows generic header and loading message, not the previous courier
+      expect(screen.getByRole('heading', { level: 1, name: 'Courier' })).toBeInTheDocument()
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
+      expect(screen.queryByText(/stale/i)).toBeNull()
+      expect(screen.queryByRole('heading', { name: /stale/i })).toBeNull()
     })
   })
 
@@ -232,7 +264,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       // Verified exact arguments passed to query
       expect(mockUseGetDeliveriesQuery).toHaveBeenCalledWith(
         { courierId: 'c1', state: 'active', page: 1, perPage: 10 },
-        { skip: false }
+        { skip: false, pollingInterval: 30000 }
       )
 
       // Right now card content
@@ -253,6 +285,73 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       // Clicking link navigates to delivery details
       fireEvent.click(deliveryLink)
       expect(mockGoToDeliveryDetails).toHaveBeenCalledWith('del-act-123456')
+    })
+
+    it('intercepts only plain left click on delivery link, letting ctrl, meta, shift, and middle click pass to browser', () => {
+      const activeDelivery: DeliveryAdminDto = {
+        id: 'del-act-123456',
+        orderReference: 'ORD-REF-42',
+        status: EnumDeliveryStatus.ACCEPTED,
+        pickupBusinessName: 'Souvlaki Bar',
+        dropoffName: 'Giannis S.',
+        createdAt: new Date('2026-10-31T18:00:00.000Z'),
+      } as any
+
+      activeDeliveriesResult = {
+        data: { data: [activeDelivery] },
+        isLoading: false,
+        isError: false,
+      }
+
+      render(<CourierDetails courierId="c1" />)
+
+      const deliveryLink = screen.getByRole('link', { name: /ORD-REF-42 · 123456/i })
+
+      // 1. Ctrl + click: browser handles new tab, goToDeliveryDetails is NOT called
+      fireEvent.click(deliveryLink, { button: 0, ctrlKey: true })
+      expect(mockGoToDeliveryDetails).not.toHaveBeenCalled()
+
+      // 2. Meta (Cmd) + click: browser handles new tab, goToDeliveryDetails is NOT called
+      fireEvent.click(deliveryLink, { button: 0, metaKey: true })
+      expect(mockGoToDeliveryDetails).not.toHaveBeenCalled()
+
+      // 3. Shift + click: browser handles new window, goToDeliveryDetails is NOT called
+      fireEvent.click(deliveryLink, { button: 0, shiftKey: true })
+      expect(mockGoToDeliveryDetails).not.toHaveBeenCalled()
+
+      // 4. Middle click (button 1): browser handles new tab, goToDeliveryDetails is NOT called
+      fireEvent.click(deliveryLink, { button: 1 })
+      expect(mockGoToDeliveryDetails).not.toHaveBeenCalled()
+
+      // 5. Plain left click (button 0, no modifiers): calls goToDeliveryDetails
+      fireEvent.click(deliveryLink, { button: 0 })
+      expect(mockGoToDeliveryDetails).toHaveBeenCalledTimes(1)
+      expect(mockGoToDeliveryDetails).toHaveBeenCalledWith('del-act-123456')
+    })
+
+    it('renders status badge in a container with min-w-28 minimum width', () => {
+      const activeDelivery: DeliveryAdminDto = {
+        id: 'del-act-123456',
+        status: EnumDeliveryStatus.ACCEPTED,
+        pickupBusinessName: 'Souvlaki Bar',
+        dropoffName: 'Giannis S.',
+        createdAt: new Date('2026-10-31T18:00:00.000Z'),
+      } as any
+
+      activeDeliveriesResult = {
+        data: { data: [activeDelivery] },
+        isLoading: false,
+        isError: false,
+      }
+
+      render(<CourierDetails courierId="c1" />)
+
+      const deliveryLink = screen.getByRole('link', { name: /123456/i })
+      const rowItem = deliveryLink.closest('li')
+      expect(rowItem).not.toBeNull()
+      const badgeSlot = rowItem?.querySelector('span.min-w-28')
+      expect(badgeSlot).not.toBeNull()
+      expect(badgeSlot?.className).toContain('min-w-28')
     })
 
     it('falls back to "—" when pickupBusinessName or dropoffName is missing in Right now', () => {
@@ -336,14 +435,14 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
       // Verified exact arguments passed to query (NO state field)
       const calls = mockUseGetDeliveriesQuery.mock.calls
-      const recentCall = calls.find((c) => c[0]?.courierId === 'c1' && c[0]?.state === undefined)
+      const recentCall = calls.find((c) => c?.[0]?.courierId === 'c1' && c?.[0]?.state === undefined)
       expect(recentCall).toBeDefined()
       expect(recentCall?.[0]).toEqual({
         courierId: 'c1',
         page: 1,
         perPage: 10,
       })
-      expect(recentCall?.[1]).toEqual({ skip: false })
+      expect(recentCall?.[1]).toEqual({ skip: false, pollingInterval: 30000 })
 
       // Recent deliveries card content
       const recentCard = screen.getByText('Recent deliveries').closest('.rounded-lg') as HTMLElement
@@ -445,7 +544,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
     it('shows "Not set" in Setup when deliverySetting is NONE', () => {
       mockUseGetCourierQuery.mockReturnValue({
-        data: {
+        currentData: {
           ...baseCourier,
           deliverySetting: 'NONE',
         },
@@ -457,6 +556,71 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
       const setupCard = screen.getByText('Setup').closest('.rounded-lg') as HTMLElement
       expect(within(setupCard).getByText('Not set')).toBeInTheDocument()
+    })
+  })
+
+  describe('Polling intervals and tab visibility (spec 0012, row 89 review fixes)', () => {
+    it('polls every 30 s on courier query and both delivery queries while tab is visible', () => {
+      mockUsePageVisible.mockReturnValue(true)
+
+      render(<CourierDetails courierId="c1" />)
+
+      // Courier query polls at 30 s (30000 ms)
+      expect(mockUseGetCourierQuery).toHaveBeenCalledWith(
+        { id: 'c1' },
+        { skip: false, pollingInterval: 30000 }
+      )
+
+      // Both delivery queries poll at 30 s (30000 ms)
+      const calls = mockUseGetDeliveriesQuery.mock.calls
+      const activeCall = calls.find((c) => c?.[0]?.courierId === 'c1' && c?.[0]?.state === 'active')
+      const recentCall = calls.find((c) => c?.[0]?.courierId === 'c1' && c?.[0]?.state === undefined)
+
+      expect(activeCall).toBeDefined()
+      expect(activeCall?.[1]).toEqual({ skip: false, pollingInterval: 30000 })
+
+      expect(recentCall).toBeDefined()
+      expect(recentCall?.[1]).toEqual({ skip: false, pollingInterval: 30000 })
+    })
+
+    it('disables polling (pollingInterval: 0) on courier query and both delivery queries while tab is hidden', () => {
+      mockUsePageVisible.mockReturnValue(false)
+
+      render(<CourierDetails courierId="c1" />)
+
+      // Courier query pollingInterval is 0 when tab is hidden
+      expect(mockUseGetCourierQuery).toHaveBeenCalledWith(
+        { id: 'c1' },
+        { skip: false, pollingInterval: 0 }
+      )
+
+      // Both delivery queries have pollingInterval: 0 when tab is hidden
+      const calls = mockUseGetDeliveriesQuery.mock.calls
+      const activeCall = calls.find((c) => c?.[0]?.courierId === 'c1' && c?.[0]?.state === 'active')
+      const recentCall = calls.find((c) => c?.[0]?.courierId === 'c1' && c?.[0]?.state === undefined)
+
+      expect(activeCall).toBeDefined()
+      expect(activeCall?.[1]).toEqual({ skip: false, pollingInterval: 0 })
+
+      expect(recentCall).toBeDefined()
+      expect(recentCall?.[1]).toEqual({ skip: false, pollingInterval: 0 })
+    })
+
+    it('skips deliveries queries while courier has not yet loaded, preserving pollingInterval', () => {
+      mockUsePageVisible.mockReturnValue(true)
+      mockUseGetCourierQuery.mockReturnValue({
+        currentData: undefined,
+        isLoading: true,
+        isError: false,
+      })
+
+      render(<CourierDetails courierId="c1" />)
+
+      const calls = mockUseGetDeliveriesQuery.mock.calls
+      expect(calls.length).toBe(2)
+      for (const call of calls) {
+        expect(call?.[1]).toEqual({ skip: true, pollingInterval: 30000 })
+      }
     })
   })
 
@@ -483,7 +647,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       // router.query.courierId is 'courier-router-id'
       expect(mockUseGetCourierQuery).toHaveBeenCalledWith(
         { id: 'courier-router-id' },
-        { skip: false }
+        { skip: false, pollingInterval: 30000 }
       )
     })
   })
