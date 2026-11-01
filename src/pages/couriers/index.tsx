@@ -5,12 +5,16 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import type { CourierAdminDto } from '../../backend-admin-sdk'
 import { courierName, deliverySettingLabel, memberSince } from '@/modules/couriers/courierDisplay'
+import { CouriersListFilters, type CourierListStatus } from '@/modules/couriers/CouriersListFilters'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
 import { useMemo, useState } from 'react'
 
 const CouriersPage: NextPage = () => {
   const { goToCourierDetails } = useAdminPageNavigator()
+  // Which riders to show and the search text, both sent to the backend (row 97).
+  const [status, setStatus] = useState<CourierListStatus>('all')
+  const [search, setSearch] = useState<string | undefined>(undefined)
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -65,6 +69,8 @@ const CouriersPage: NextPage = () => {
   )
 
   const getCouriersResponse = useGetCouriersQuery({
+    status,
+    search,
     page: pagination.pageIndex + 1,
     perPage: pagination.pageSize,
   })
@@ -72,6 +78,19 @@ const CouriersPage: NextPage = () => {
   return (
     <DefaultLayout>
       <PageHeader title="Couriers" />
+
+      <CouriersListFilters
+        status={status}
+        onStatusChange={(next) => {
+          setStatus(next)
+          // A new tab starts again from the first page.
+          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+        }}
+        onSearchChange={(next) => {
+          setSearch(next)
+          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+        }}
+      />
 
       <div>
         <DataTable

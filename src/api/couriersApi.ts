@@ -1,4 +1,4 @@
-import type { CourierAdminDto, CourierPaginatedAdminDto } from '../backend-admin-sdk'
+import type { CourierAdminDto, CourierApiGetManyCouriersRequest, CourierPaginatedAdminDto } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
 import { api as baseApi, prepareAdminSdk } from '.'
 import { AppState } from '@/redux/store'
@@ -9,7 +9,8 @@ export const couriersApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getCouriers: build.query<
       CourierPaginatedAdminDto,
-      { page?: number; perPage?: number }
+      // The tab and the search are optional (row 97): the pickers that use this query send neither.
+      { page?: number; perPage?: number; status?: CourierApiGetManyCouriersRequest['status']; search?: string }
     >({
       queryFn: async (params, api) => {
         try {
@@ -18,6 +19,8 @@ export const couriersApi = baseApi.injectEndpoints({
           const data = await sdk.couriers().getManyCouriers({
             page: params.page ?? 1,
             perPage: params.perPage ?? 100,
+            status: params.status,
+            search: params.search,
           })
           return { data }
         } catch (error) {

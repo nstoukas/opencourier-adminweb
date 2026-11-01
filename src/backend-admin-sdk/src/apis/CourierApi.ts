@@ -41,6 +41,10 @@ export interface CourierApiGetCourierByIdRequest {
 export interface CourierApiGetManyCouriersRequest {
     page?: number;
     perPage?: number;
+    // Which riders (row 97): 'all', 'working' (Online or Last call) or 'offline'.
+    status?: 'all' | 'working' | 'offline';
+    // First name, last name or phone; every word must match (row 97).
+    search?: string;
 }
 
 export interface CourierApiUpdateCourierRequest {
@@ -103,6 +107,14 @@ export class CourierApi extends runtime.BaseAPI {
 
         if (requestParameters.perPage !== undefined) {
             queryParameters['perPage'] = requestParameters.perPage;
+        }
+
+        if (requestParameters.status !== undefined) {
+            queryParameters['status'] = requestParameters.status;
+        }
+
+        if (requestParameters.search !== undefined) {
+            queryParameters['search'] = requestParameters.search;
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
