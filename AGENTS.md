@@ -40,5 +40,9 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   takes RTK Query's `currentData`, so going back between two ids never shows the previous record.
 - An RTK `queryFn` with no result (a 204) returns `{ data: null }`: `{ data: undefined }` makes RTK Query log an error
   (`rotatePartnerPassword` and the saved customer delete still do, a follow up of spec 0013).
+- Times a co-op enters for the instance (dispatch stops, spec 0014) are Athens time: format with `Intl` and
+  `timeZone: 'Europe/Athens'` (`src/modules/dispatch-stop/dispatchStopDisplay.ts`), never the browser's zone. A dialog
+  whose title or focus target derives from its open state changes them during Radix's closing animation: keep open and
+  mode in separate state (JSDOM has no animation, so a test passes either way).
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
