@@ -56,6 +56,37 @@ describe('Breadcrumb atom component (spec 0011, AC-2)', () => {
     expect(screen.getAllByText('›')).toHaveLength(2)
   })
 
+  it('pins Fix 6: a ctrl, cmd, shift or middle click on the link does not call onClick (browser handles it), while plain left click calls onClick', () => {
+    const handleDeliveriesClick = jest.fn()
+    const steps = [
+      { label: 'Deliveries', href: '/deliveries', onClick: handleDeliveriesClick },
+      { label: 'Delivery ORD-100' },
+    ]
+
+    render(<Breadcrumb steps={steps} />)
+    const deliveriesLink = screen.getByRole('link', { name: 'Deliveries' })
+
+    // 1. Ctrl + click: browser handles new tab, onClick is NOT called
+    fireEvent.click(deliveriesLink, { button: 0, ctrlKey: true })
+    expect(handleDeliveriesClick).not.toHaveBeenCalled()
+
+    // 2. Cmd / Meta + click: browser handles new tab, onClick is NOT called
+    fireEvent.click(deliveriesLink, { button: 0, metaKey: true })
+    expect(handleDeliveriesClick).not.toHaveBeenCalled()
+
+    // 3. Shift + click: browser handles new window, onClick is NOT called
+    fireEvent.click(deliveriesLink, { button: 0, shiftKey: true })
+    expect(handleDeliveriesClick).not.toHaveBeenCalled()
+
+    // 4. Middle click (button === 1): browser handles new tab, onClick is NOT called
+    fireEvent.click(deliveriesLink, { button: 1 })
+    expect(handleDeliveriesClick).not.toHaveBeenCalled()
+
+    // 5. Plain left click (button === 0, no modifiers): handled in-app, calls onClick
+    fireEvent.click(deliveriesLink, { button: 0 })
+    expect(handleDeliveriesClick).toHaveBeenCalledTimes(1)
+  })
+
   it('applies custom className to the nav element', () => {
     const { container } = render(
       <Breadcrumb steps={[{ label: 'Deliveries' }]} className="custom-breadcrumb-class" />

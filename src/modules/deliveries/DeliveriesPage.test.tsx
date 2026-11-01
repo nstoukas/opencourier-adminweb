@@ -200,23 +200,27 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     expect(row1).toHaveTextContent('Ana P., 2 min')
     // Price: formatted totalCost
     expect(row1).toHaveTextContent('€15.50')
-    // Action: "Assign courier" button while awaiting assignment
-    const assignBtn1 = row1.querySelector('button')
-    expect(assignBtn1?.textContent).toContain('Assign courier')
+    // Action: "Assign courier" button while awaiting assignment, and "Open" button on every row
+    const buttons1 = row1.querySelectorAll('button')
+    expect(buttons1).toHaveLength(2)
+    expect(buttons1[0]?.textContent).toContain('Assign courier')
+    expect(buttons1[1]?.textContent).toContain('Open')
 
     // Row 2 assertions (null fallbacks):
-    // Order: '—' for orderReference, and shortId '789ABC' with full id in title
-    expect(row2).toHaveTextContent('789ABC')
+    // Order: '—' for orderReference, and shortId '789abc' as stored (no upper case) with full id in title
+    expect(row2).toHaveTextContent('789abc')
     const shortId2 = row2.querySelector('span[title="del-wait-789abc"]')
     expect(shortId2).not.toBeNull()
-    expect(shortId2?.textContent).toBe('789ABC')
+    expect(shortId2?.textContent).toBe('789abc')
     // Courier: 'No rider free, 4 min'
     expect(row2).toHaveTextContent('No rider free, 4 min')
     // Price: '—' when totalCost is null
     expect(row2).toHaveTextContent('—')
-    // Action: "Assign courier" button
-    const assignBtn2 = row2.querySelector('button')
-    expect(assignBtn2?.textContent).toContain('Assign courier')
+    // Action: both "Assign courier" and "Open" buttons
+    const buttons2 = row2.querySelectorAll('button')
+    expect(buttons2).toHaveLength(2)
+    expect(buttons2[0]?.textContent).toContain('Assign courier')
+    expect(buttons2[1]?.textContent).toContain('Open')
 
     // Row 3 assertions (accepted):
     expect(row3).toHaveTextContent('ORD-REF-3')
@@ -226,9 +230,10 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     // Courier: accepted rider full name from lookup
     expect(row3).toHaveTextContent('Ana Papadopoulou')
     expect(row3).toHaveTextContent('€20.00')
-    // Action: "Open" button (not awaiting assignment)
-    const openBtn3 = row3.querySelector('button')
-    expect(openBtn3?.textContent).toContain('Open')
+    // Action: only "Open" button (not awaiting assignment)
+    const buttons3 = row3.querySelectorAll('button')
+    expect(buttons3).toHaveLength(1)
+    expect(buttons3[0]?.textContent).toContain('Open')
 
     // Row 4 assertions (unknown courier):
     expect(row4).toHaveTextContent('Dispatched')
@@ -236,8 +241,137 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     const courierMonoSpan = screen.getByText('courier-unknown-id')
     expect(courierMonoSpan).toBeInTheDocument()
     expect(courierMonoSpan).toHaveClass('font-mono')
-    const openBtn4 = row4.querySelector('button')
-    expect(openBtn4?.textContent).toContain('Open')
+    const buttons4 = row4.querySelectorAll('button')
+    expect(buttons4).toHaveLength(1)
+    expect(buttons4[0]?.textContent).toContain('Open')
+  })
+
+  it('pins Fix 4: Courier column renders "Looking for a rider" for ASSIGNING_COURIER with no offer yet, offer text while offered, and "—" otherwise', () => {
+    // Delivery A: ASSIGNING_COURIER with no matched courier and no waiting time yet (no offer yet)
+    const noOfferYetDelivery: DeliveryAdminDto = {
+      id: 'del-no-offer-111111',
+      orderReference: 'ORD-NO-OFFER',
+      status: EnumDeliveryStatus.ASSIGNING_COURIER,
+      courierId: null,
+      matchedCourierId: null,
+      matchedCourierName: null,
+      offeredAt: null,
+      offerExpiresAt: null,
+      waitingForCourierSince: null,
+      pickupBusinessName: 'Bakery A',
+      dropoffName: 'Customer A',
+      totalCost: 1000,
+      currencyCode: 'EUR',
+      createdAt: new Date('2026-10-26T10:00:00Z'),
+    } as any
+
+    // Delivery B: ASSIGNING_COURIER while offered (matched courier present)
+    const offeredDelivery: DeliveryAdminDto = {
+      id: 'del-offered-222222',
+      orderReference: 'ORD-OFFERED',
+      status: EnumDeliveryStatus.ASSIGNING_COURIER,
+      courierId: null,
+      matchedCourierId: 'c1',
+      matchedCourierName: 'Ana Papadopoulou',
+      offeredAt: new Date(fixedNow.getTime() - 60_000), // 1 min ago
+      offerExpiresAt: new Date(fixedNow.getTime() + 60_000),
+      waitingForCourierSince: null,
+      pickupBusinessName: 'Bakery B',
+      dropoffName: 'Customer B',
+      totalCost: 1200,
+      currencyCode: 'EUR',
+      createdAt: new Date('2026-10-26T10:00:00Z'),
+    } as any
+
+    // Delivery C: CANCELED with no courier assigned (not looking for rider) -> should render "—"
+    const canceledDelivery: DeliveryAdminDto = {
+      id: 'del-canceled-333333',
+      orderReference: 'ORD-CANCELED',
+      status: EnumDeliveryStatus.CANCELED,
+      courierId: null,
+      matchedCourierId: null,
+      matchedCourierName: null,
+      offeredAt: null,
+      offerExpiresAt: null,
+      waitingForCourierSince: null,
+      pickupBusinessName: 'Bakery C',
+      dropoffName: 'Customer C',
+      totalCost: null,
+      currencyCode: 'EUR',
+      createdAt: new Date('2026-10-26T10:00:00Z'),
+    } as any
+
+    mockUseGetDeliveriesQuery.mockReturnValue({
+      data: {
+        data: [noOfferYetDelivery, offeredDelivery, canceledDelivery],
+        pagination: { totalItems: 3, page: 1, perPage: 10, totalPages: 1 },
+      },
+      isLoading: false,
+    })
+
+    render(<OrdersPage />)
+
+    const rows = screen.getAllByRole('row')
+    const rowA = rows[1] as HTMLElement
+    const rowB = rows[2] as HTMLElement
+    const rowC = rows[3] as HTMLElement
+
+    // Delivery A (ASSIGNING_COURIER without offer yet): Courier column is "Looking for a rider"
+    expect(rowA).toHaveTextContent('Looking for a rider')
+
+    // Delivery B (ASSIGNING_COURIER with active offer): Courier column is the offer text
+    expect(rowB).toHaveTextContent('Ana P., 1 min')
+
+    // Delivery C (CANCELED without courier): Courier column is em dash "—"
+    expect(rowC).toHaveTextContent('—')
+  })
+
+  it('pins Fix 5: Open button is keyboard reachable on every row and navigates to delivery detail, even when Assign courier is present', () => {
+    // Delivery awaiting courier (has both Assign courier and Open)
+    const awaitingDelivery: DeliveryAdminDto = {
+      id: 'del-awaiting-open',
+      orderReference: 'ORD-AWAIT-1',
+      status: EnumDeliveryStatus.ASSIGNING_COURIER,
+      courierId: null,
+      createdAt: new Date('2026-10-26T10:00:00Z'),
+    } as any
+
+    // Delivery not awaiting courier (has only Open)
+    const completedDelivery: DeliveryAdminDto = {
+      id: 'del-completed-open',
+      orderReference: 'ORD-COMP-2',
+      status: EnumDeliveryStatus.DROPPED_OFF,
+      courierId: 'c1',
+      createdAt: new Date('2026-10-26T10:00:00Z'),
+    } as any
+
+    mockUseGetDeliveriesQuery.mockReturnValue({
+      data: {
+        data: [awaitingDelivery, completedDelivery],
+        pagination: { totalItems: 2, page: 1, perPage: 10, totalPages: 1 },
+      },
+      isLoading: false,
+    })
+
+    render(<OrdersPage />)
+
+    // Both rows must render a keyboard-reachable Open button (role="button" with name="Open")
+    const openButtons = screen.getAllByRole('button', { name: 'Open' })
+    expect(openButtons).toHaveLength(2)
+
+    // The first row also has the "Assign courier" button beside "Open"
+    const assignButton = screen.getByRole('button', { name: /Assign courier/i })
+    expect(assignButton).toBeInTheDocument()
+
+    // Clicking Open on the row that also has "Assign courier" successfully navigates
+    const firstOpenBtn = openButtons[0] as HTMLElement
+    fireEvent.click(firstOpenBtn)
+    expect(mockGoToDeliveryDetails).toHaveBeenCalledWith('del-awaiting-open')
+
+    // Clicking Open on the completed row also navigates
+    const secondOpenBtn = openButtons[1] as HTMLElement
+    fireEvent.click(secondOpenBtn)
+    expect(mockGoToDeliveryDetails).toHaveBeenCalledWith('del-completed-open')
   })
 
   it('clicking Open button navigates to delivery detail without triggering row click twice', () => {

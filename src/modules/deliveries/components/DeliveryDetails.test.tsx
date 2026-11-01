@@ -249,17 +249,50 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(mockGoToDeliveries).toHaveBeenCalledTimes(1)
 
       // Current page step is marked with aria-current="page" and is not a link
-      const currentStep = screen.getByText('Delivery ORD-EUR-1', { selector: 'span[aria-current="page"]' })
+      const currentStep = screen.getByText('Delivery ORD-EUR-1 · d100', { selector: 'span[aria-current="page"]' })
       expect(currentStep).toBeInTheDocument()
 
-      // Exactly one h1 on the page with title "Delivery ORD-EUR-1"
+      // Exactly one h1 on the page with title "Delivery ORD-EUR-1 · d100"
       const headings = screen.getAllByRole('heading', { level: 1 })
       expect(headings).toHaveLength(1)
-      expect(headings[0]).toHaveTextContent('Delivery ORD-EUR-1')
+      expect(headings[0]).toHaveTextContent('Delivery ORD-EUR-1 · d100')
 
       // Status badge and created date under header
       expect(screen.getByText('Dispatched')).toBeInTheDocument()
       expect(screen.getByText(/Created 30\/07\/2026/)).toBeInTheDocument()
+    })
+
+    it('pins Fix 1: two legs with the same orderReference get different titles (their short ids differ) in h1, breadcrumb and tab', () => {
+      const leg1: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        id: 'del-order-leg-aaaa11',
+        orderReference: 'ORD-MULTI-LEG',
+      }
+      const leg2: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        id: 'del-order-leg-bbbb22',
+        orderReference: 'ORD-MULTI-LEG',
+      }
+
+      // Render Leg 1
+      mockUseGetDeliveryQuery.mockReturnValue({ data: leg1, isLoading: false })
+      const { unmount } = render(<DeliveryDetails deliveryId="del-order-leg-aaaa11" />)
+
+      const expectedTitle1 = 'Delivery ORD-MULTI-LEG · aaaa11'
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(expectedTitle1)
+      expect(screen.getByText(expectedTitle1, { selector: 'span[aria-current="page"]' })).toBeInTheDocument()
+      unmount()
+
+      // Render Leg 2
+      mockUseGetDeliveryQuery.mockReturnValue({ data: leg2, isLoading: false })
+      render(<DeliveryDetails deliveryId="del-order-leg-bbbb22" />)
+
+      const expectedTitle2 = 'Delivery ORD-MULTI-LEG · bbbb22'
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(expectedTitle2)
+      expect(screen.getByText(expectedTitle2, { selector: 'span[aria-current="page"]' })).toBeInTheDocument()
+
+      // The two titles differ despite sharing orderReference
+      expect(expectedTitle1).not.toBe(expectedTitle2)
     })
 
     it('falls back to short id in title and breadcrumb when orderReference is missing', () => {
@@ -272,7 +305,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       render(<DeliveryDetails deliveryId="clabc123456" />)
 
-      // Short id is the last 6 characters in uppercase: "123456"
+      // Short id is the last 6 characters as stored: "123456"
       const expectedTitle = 'Delivery 123456'
       expect(screen.getByRole('heading', { level: 1, name: expectedTitle })).toBeInTheDocument()
       expect(screen.getByText(expectedTitle, { selector: 'span[aria-current="page"]' })).toBeInTheDocument()
@@ -300,9 +333,10 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(screen.getByText('€112.04')).toBeInTheDocument() // Order total
       expect(screen.getByText('€5.00')).toBeInTheDocument() // Customer pays (totalCost)
       expect(screen.getByText('€3.00')).toBeInTheDocument() // Co-op fee
-      expect(screen.getByText('€2.50')).toBeInTheDocument() // Rider pay recorded
       expect(screen.getByText('€1.00')).toBeInTheDocument() // Tips
       expect(screen.getByText('€3.50')).toBeInTheDocument() // Rider gets (totalCompensation)
+      // Rider pay recorded is removed (nothing in backend writes it)
+      expect(screen.queryByText(/Rider pay recorded/i)).toBeNull()
     })
 
     it('Case 2: regression anti-test - EUR delivery contains no $ symbol anywhere in rendered container', () => {
@@ -366,7 +400,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
   })
 
   describe('Price breakdown card (AC-3, AC-7)', () => {
-    it('renders Price breakdown card with Base fee, Distance fee, Rider gets, "Co-op fee (10%)" and Customer pays', () => {
+    it('renders Price breakdown card with Base fee, Distance fee, Rider gets (base fee + distance fee), "Co-op fee (10%)" and Customer pays', () => {
       const ac7Delivery: DeliveryAdminDto = {
         ...sampleEurDelivery,
         baseFee: 200,
@@ -391,7 +425,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       const distanceFeeDt = screen.getByText('Distance fee')
       expect(distanceFeeDt.nextElementSibling?.textContent).toBe('€1.07')
 
-      const riderGetsDt = screen.getByText('Rider gets')
+      const riderGetsDt = screen.getByText('Rider gets (base fee + distance fee)')
       expect(riderGetsDt.nextElementSibling?.textContent).toBe('€3.07')
 
       const coopFeeDt = screen.getByText('Co-op fee (10%)')
@@ -400,12 +434,44 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       const customerPaysDt = screen.getByText('Customer pays')
       expect(customerPaysDt.nextElementSibling?.textContent).toBe('€3.38')
 
+      // "Rider pay recorded" must NOT be in the price breakdown card
+      expect(screen.queryByText(/Rider pay recorded/i)).toBeNull()
+
       // Since pay fields are present, the "not offered yet" note is absent
       expect(
         screen.queryByText(
           /Rider pay, co-op fee and what the customer pays are set when the delivery is first offered to a rider\./
         )
       ).toBeNull()
+    })
+
+    it('pins Fix 3: no "Rider pay recorded" row, even when pay has a value', () => {
+      const deliveryWithPay: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        baseFee: 200,
+        distanceFee: 150,
+        totalCompensation: 350,
+        fee: 50,
+        feePercentage: 10,
+        totalCost: 400,
+        pay: 9999, // upstream pay column has a value
+        currencyCode: 'EUR',
+      } as unknown as DeliveryAdminDto
+
+      mockUseGetDeliveryQuery.mockReturnValue({ data: deliveryWithPay, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Even when delivery.pay has a value, no "Rider pay recorded" row exists
+      expect(screen.queryByText(/Rider pay recorded/i)).toBeNull()
+
+      // The exact price rows are: Base fee, Distance fee, "Rider gets (base fee + distance fee)", Co-op fee (10%), Customer pays, Currency
+      expect(screen.getByText('Base fee')).toBeInTheDocument()
+      expect(screen.getByText('Distance fee')).toBeInTheDocument()
+      expect(screen.getByText('Rider gets (base fee + distance fee)')).toBeInTheDocument()
+      expect(screen.getByText('Co-op fee (10%)')).toBeInTheDocument()
+      expect(screen.getByText('Customer pays')).toBeInTheDocument()
+      expect(screen.getByText('Currency')).toBeInTheDocument()
     })
 
     it('shows the not offered yet note and dashes when pay fields are null', () => {
@@ -433,10 +499,10 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       expect(screen.getByText('Base fee').nextElementSibling?.textContent).toBe('—')
       expect(screen.getByText('Distance fee').nextElementSibling?.textContent).toBe('—')
-      expect(screen.getByText('Rider gets').nextElementSibling?.textContent).toBe('—')
+      expect(screen.getByText('Rider gets (base fee + distance fee)').nextElementSibling?.textContent).toBe('—')
       expect(screen.getByText('Co-op fee').nextElementSibling?.textContent).toBe('—')
       expect(screen.getByText('Customer pays').nextElementSibling?.textContent).toBe('—')
-      expect(screen.getByText('Rider pay recorded').nextElementSibling?.textContent).toBe('—')
+      expect(screen.queryByText(/Rider pay recorded/i)).toBeNull()
     })
   })
 

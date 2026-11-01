@@ -268,14 +268,14 @@ describe('DeliveryEventTimeline component', () => {
       expect(lateStepNote).toHaveTextContent(/arrived \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}, 2 min later/)
     })
 
-    it('displays "Not applied: the delivery had already changed" for a failed late event', () => {
+    it('displays "Not applied: the delivery had already changed" for a failed late event with empty newStatus', () => {
       const failedLateEvent: DeliveryEventAdminDto = {
         id: 'ev-failed-late',
         type: 'DROPPED_OFF',
         actor: 'COURIER',
         eventSource: 'OPENCOURIER',
         oldStatus: 'ON_THE_WAY',
-        newStatus: 'DELIVERED',
+        newStatus: null, // empty newStatus for no transition path
         transitionSuccessful: false,
         message: 'Order already canceled by dispatcher',
         createdAt: new Date('2026-10-30T12:05:00Z'),
@@ -293,6 +293,94 @@ describe('DeliveryEventTimeline component', () => {
 
       expect(screen.getByText('Not applied: the delivery had already changed')).toBeInTheDocument()
       expect(screen.queryByText('Did not take effect')).toBeNull()
+    })
+
+    it('pins Fix 2: a failed late event WITH a newStatus shows "Did not take effect", not "Not applied"', () => {
+      const failedLateEventWithStatus: DeliveryEventAdminDto = {
+        id: 'ev-failed-with-status',
+        type: 'DROPPED_OFF',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ON_THE_WAY',
+        newStatus: 'DROPPED_OFF', // has newStatus (e.g. backend catch path)
+        transitionSuccessful: false,
+        message: 'Database connection failed during state update',
+        createdAt: new Date('2026-10-30T12:05:00Z'),
+        occurredAt: new Date('2026-10-30T12:00:00Z'), // 5 min earlier (> 60 s)
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [failedLateEventWithStatus],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      // Must show "Did not take effect", NOT "Not applied: the delivery had already changed"
+      expect(screen.getByText('Did not take effect')).toBeInTheDocument()
+      expect(screen.queryByText(/Not applied/)).toBeNull()
+      expect(screen.getByText('Database connection failed during state update')).toBeInTheDocument()
+    })
+
+    it('pins Fix 7: compares same day by calendar day (cross midnight shows arrival date, within same day shows only time) and verifies calendar day comparison', () => {
+      const toDateStringSpy = jest.spyOn(Date.prototype, 'toDateString')
+
+      // Case A: Within same calendar day (e.g. 14:00 to 14:05 on same day) -> shows only time
+      const sameDayEvent: DeliveryEventAdminDto = {
+        id: 'ev-same-day-cal',
+        type: 'DROPPED_OFF',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ON_THE_WAY',
+        newStatus: 'DROPPED_OFF',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: new Date('2026-10-30T14:05:00'),
+        occurredAt: new Date('2026-10-30T14:00:00'),
+      }
+
+      // Case B: Cross midnight (e.g. 23:58 on Oct 30 to 00:03 on Oct 31, 5 min later) -> shows arrival date
+      const crossMidnightEvent: DeliveryEventAdminDto = {
+        id: 'ev-cross-midnight-cal',
+        type: 'PICKED_UP',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ACCEPTED',
+        newStatus: 'PICKED_UP',
+        transitionSuccessful: true,
+        message: null,
+        createdAt: new Date('2026-10-31T00:03:00'),
+        occurredAt: new Date('2026-10-30T23:58:00'),
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [sameDayEvent, crossMidnightEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      // Calendar day comparison method must be invoked (not string slicing)
+      expect(toDateStringSpy).toHaveBeenCalled()
+
+      const lateNotes = screen.getAllByTestId('late-step')
+      expect(lateNotes).toHaveLength(2)
+
+      const note0 = lateNotes[0] as HTMLElement
+      const note1 = lateNotes[1] as HTMLElement
+
+      // Same day event note: only time (no slash in date)
+      expect(note0).toHaveTextContent(/arrived \d{2}:\d{2}, 5 min later/)
+      expect(note0.textContent).not.toMatch(/\d{2}\/\d{2}\/\d{4}/)
+
+      // Cross midnight event note: includes full arrival date DD/MM/YYYY
+      expect(note1).toHaveTextContent(/arrived \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}, 5 min later/)
+
+      toDateStringSpy.mockRestore()
     })
 
     it('shows createdAt without late note when event has no occurredAt or gap is exactly 60 seconds', () => {
