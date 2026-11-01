@@ -1,10 +1,16 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { deliveriesApi, useGetDeliveryIssuesQuery, useGetDeliveriesQuery } from './deliveriesApi'
+import {
+  deliveriesApi,
+  useGetDeliveryIssuesQuery,
+  useGetDeliveriesQuery,
+  useSubmitDeliveryEventMutation,
+} from './deliveriesApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
 import { authSlice } from '@/modules/auth/slices/authSlice'
 import { ApiError } from '../backend-admin-sdk'
-import type { DeliveryIssueAdminDto, DeliveryAdminPaginatedDto } from '../backend-admin-sdk'
+import type { DeliveryIssueAdminDto, DeliveryAdminPaginatedDto, DeliveryAdminDto } from '../backend-admin-sdk'
+import { EnumDeliveryEventType } from '../shared-types'
 
 jest.mock('.', () => {
   const actual = jest.requireActual('.')
@@ -37,17 +43,20 @@ describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
   let mockGetDeliveryIssues: jest.Mock
   let mockGetDeliveryEvents: jest.Mock
   let mockGetDeliveries: jest.Mock
+  let mockSubmitOrderEvent: jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
     mockGetDeliveryIssues = jest.fn()
     mockGetDeliveryEvents = jest.fn()
     mockGetDeliveries = jest.fn()
+    mockSubmitOrderEvent = jest.fn()
     mockPrepareAdminSdk.mockReturnValue({
       deliveries: () => ({
         getDeliveryIssues: mockGetDeliveryIssues,
         getDeliveryEvents: mockGetDeliveryEvents,
         getDeliveries: mockGetDeliveries,
+        submitOrderEvent: mockSubmitOrderEvent,
       }),
     })
   })
@@ -161,6 +170,86 @@ describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
       expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
       expect(mockGetDeliveries).toHaveBeenCalledWith(queryParams)
       expect(result.data).toEqual(mockResult)
+    })
+  })
+
+  describe('submitDeliveryEvent endpoint (spec 0015, AC-5)', () => {
+    it('exports useSubmitDeliveryEventMutation hook function', () => {
+      expect(typeof useSubmitDeliveryEventMutation).toBe('function')
+    })
+
+    it('passes cancelledBy to sdk.deliveries().submitOrderEvent when cancelling as COOP, RESTAURANT, or CUSTOMER', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockDelivery= {
+        id: 'del-101',
+        status: 'CANCELED',
+        currencyCode: 'EUR',
+      } as DeliveryAdminDto
+      mockSubmitOrderEvent.mockResolvedValueOnce(mockDelivery)
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.submitDeliveryEvent.initiate({
+          deliveryId: 'del-101',
+          eventType: EnumDeliveryEventType.CANCELED,
+          cancelledBy: 'COOP',
+        })
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockSubmitOrderEvent).toHaveBeenCalledWith({
+        id: 'del-101',
+        deliverySubmitEventAdminInput: {
+          deliveryId: 'del-101',
+          eventType: 'CANCELED',
+          cancelledBy: 'COOP',
+        },
+      })
+      expect('data' in result ? result.data : undefined).toEqual(mockDelivery)
+
+      // Test with RESTAURANT
+      mockSubmitOrderEvent.mockResolvedValueOnce(mockDelivery)
+      await store.dispatch(
+        deliveriesApi.endpoints.submitDeliveryEvent.initiate({
+          deliveryId: 'del-101',
+          eventType: EnumDeliveryEventType.CANCELED,
+          cancelledBy: 'RESTAURANT',
+        })
+      )
+      expect(mockSubmitOrderEvent).toHaveBeenLastCalledWith({
+        id: 'del-101',
+        deliverySubmitEventAdminInput: {
+          deliveryId: 'del-101',
+          eventType: 'CANCELED',
+          cancelledBy: 'RESTAURANT',
+        },
+      })
+    })
+
+    it('does not include cancelledBy when not provided', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockDelivery= {
+        id: 'del-102',
+        status: 'DISPATCHED',
+        currencyCode: 'EUR',
+      } as DeliveryAdminDto
+      mockSubmitOrderEvent.mockResolvedValueOnce(mockDelivery)
+
+      await store.dispatch(
+        deliveriesApi.endpoints.submitDeliveryEvent.initiate({
+          deliveryId: 'del-102',
+          eventType: EnumDeliveryEventType.ARRIVED_AT_PICKUP_LOCATION,
+        })
+      )
+
+      expect(mockSubmitOrderEvent).toHaveBeenCalledWith({
+        id: 'del-102',
+        deliverySubmitEventAdminInput: {
+          deliveryId: 'del-102',
+          eventType: 'ARRIVED_AT_PICKUP_LOCATION',
+        },
+      })
+      const payload = mockSubmitOrderEvent.mock.calls[0][0].deliverySubmitEventAdminInput
+      expect(payload).not.toHaveProperty('cancelledBy')
     })
   })
 })

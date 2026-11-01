@@ -43,6 +43,23 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(allTransitions).not.toContain('NO_COURIER_AVAILABLE')
     })
 
+    it('ensures EnumDeliveryEventType contains COURIER_PAID_FOR_CANCELLATION, FOOD_RETURNED, and FOOD_NOT_RETURNED (spec 0015)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('COURIER_PAID_FOR_CANCELLATION')
+      expect(eventTypes).toContain('FOOD_RETURNED')
+      expect(eventTypes).toContain('FOOD_NOT_RETURNED')
+    })
+
+    it('ensures STATE_MACHINE transition table does NOT contain COURIER_PAID_FOR_CANCELLATION, FOOD_RETURNED, or FOOD_NOT_RETURNED (decision 32.6)', () => {
+      // These are platform-only events recorded directly by the backend; keeping them out of STATE_MACHINE prevents admin event trigger menus from offering them
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('COURIER_PAID_FOR_CANCELLATION')
+      expect(allTransitions).not.toContain('FOOD_RETURNED')
+      expect(allTransitions).not.toContain('FOOD_NOT_RETURNED')
+    })
+
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {
       // Value 5 / AC-12 rule: An expired offer is never held against a rider.
       // No rating, streak, acceptance rate, or missed offer count may exist per rider.

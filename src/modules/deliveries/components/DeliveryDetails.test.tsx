@@ -617,6 +617,84 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       confirmSpy.mockRestore()
     })
+
+    it('never lists CANCELED in the Change status menu, even when CANCELED is allowed by state machine (spec 0015, AC-5)', () => {
+      // In DISPATCHED status, STATE_MACHINE permits CANCELED, but CANCELED is routed to its own dedicated dialog
+      mockUseGetDeliveryQuery.mockReturnValue({ data: sampleEurDelivery, isLoading: false })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      // Open Change status menu
+      fireEvent.click(screen.getByText('Change status'))
+
+      // CANCELED must NOT be an option in the menu
+      expect(screen.queryByText(/^Canceled$/i)).toBeNull()
+      // Other events like ARRIVED_AT_PICKUP_LOCATION remain in the menu
+      expect(screen.getByText(/Arrived_at_pickup_location/i)).toBeInTheDocument()
+    })
+
+    it('shows Cancel delivery button exactly when adminEventsForStatus allows CANCELED (spec 0015, AC-5)', () => {
+      // 1. Allowed statuses: DISPATCHED, ASSIGNING_COURIER, ACCEPTED, PICKED_UP
+      const allowedStatuses = [
+        EnumDeliveryStatus.ASSIGNING_COURIER,
+        EnumDeliveryStatus.ACCEPTED,
+        EnumDeliveryStatus.DISPATCHED,
+        EnumDeliveryStatus.PICKED_UP,
+      ]
+
+      for (const status of allowedStatuses) {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, status },
+          isLoading: false,
+        })
+        const { unmount } = render(<DeliveryDetails deliveryId="d100" />)
+        expect(screen.getByRole('button', { name: 'Cancel delivery' })).toBeInTheDocument()
+        unmount()
+      }
+
+      // 2. Disallowed terminal statuses: DROPPED_OFF, CANCELED, FAILED
+      const disallowedStatuses = [
+        EnumDeliveryStatus.DROPPED_OFF,
+        EnumDeliveryStatus.CANCELED,
+        EnumDeliveryStatus.FAILED,
+      ]
+
+      for (const status of disallowedStatuses) {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, status },
+          isLoading: false,
+        })
+        const { unmount } = render(<DeliveryDetails deliveryId="d100" />)
+        expect(screen.queryByRole('button', { name: 'Cancel delivery' })).toBeNull()
+        unmount()
+      }
+    })
+
+    it('renders CancellationCard when delivery is cancelled, and nothing when not cancelled (spec 0015, AC-13)', () => {
+      // When not cancelled (cancelledAt is null)
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: { ...sampleEurDelivery, cancelledAt: null },
+        isLoading: false,
+      })
+      const { unmount } = render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.queryByRole('heading', { name: 'Cancellation' })).toBeNull()
+      unmount()
+
+      // When cancelled (cancelledAt is set)
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleEurDelivery,
+          status: EnumDeliveryStatus.CANCELED,
+          cancelledAt: new Date('2026-11-01T10:00:00.000Z'),
+          cancelledBy: 'COOP',
+          cancelledFromStatus: 'DISPATCHED',
+        },
+        isLoading: false,
+      })
+      render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.getByRole('heading', { name: 'Cancellation' })).toBeInTheDocument()
+      expect(screen.getByText('The co-op')).toBeInTheDocument()
+    })
   })
 
   describe('DeliveryEventTimeline integration & regression guards (Test Plan C)', () => {

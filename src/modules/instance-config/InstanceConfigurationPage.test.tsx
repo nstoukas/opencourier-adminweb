@@ -1553,6 +1553,214 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     })
   })
 
+  describe('Pay when a job is cancelled section (spec 0015, AC-4)', () => {
+    const configWithPolicies = {
+      ...baseMockConfigData,
+      reassignmentPayoutPolicies: {
+        FULL_COMPENSATION: 100,
+        HALF_COMPENSATION: 50,
+        TOKEN_PAY: 20,
+      },
+      cancellationPayoutPolicy: 'HALF_COMPENSATION',
+    }
+
+    it('lists every key of reassignmentPayoutPolicies with its percent in the select dropdown', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPolicies,
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Payout policy') as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+
+      const options = Array.from(select.options).map((opt) => ({
+        value: opt.value,
+        text: opt.textContent?.trim(),
+      }))
+
+      expect(options).toEqual([
+        { value: 'FULL_COMPENSATION', text: 'FULL_COMPENSATION (100%)' },
+        { value: 'HALF_COMPENSATION', text: 'HALF_COMPENSATION (50%)' },
+        { value: 'TOKEN_PAY', text: 'TOKEN_PAY (20%)' },
+      ])
+    })
+
+    it('starts at the loaded rule (or FULL_COMPENSATION when the response has none)', () => {
+      // 1. Starts at the loaded rule
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPolicies,
+        isLoading: false,
+      })
+
+      const { unmount } = render(<InstanceConfigurationPage />)
+      const select = screen.getByLabelText('Payout policy') as HTMLSelectElement
+      expect(select.value).toBe('HALF_COMPENSATION')
+
+      unmount()
+
+      // 2. Starts at FULL_COMPENSATION when backend response has none (null or missing)
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...configWithPolicies,
+          cancellationPayoutPolicy: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+      const fallbackSelect = screen.getByLabelText('Payout policy') as HTMLSelectElement
+      expect(fallbackSelect.value).toBe('FULL_COMPENSATION')
+    })
+
+    it('is disabled until the instance configuration has loaded', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Payout policy') as HTMLSelectElement
+      const saveButton = screen.getByRole('button', { name: /save cancelled job pay/i })
+
+      expect(select).toBeDisabled()
+      expect(saveButton).toBeDisabled()
+    })
+
+    it('shows a rule not on the menu as a disabled option "<KEY> (no longer on the menu)" and is the selected value', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          reassignmentPayoutPolicies: {
+            FULL_COMPENSATION: 100,
+            HALF_COMPENSATION: 50,
+          },
+          cancellationPayoutPolicy: 'SEVENTY_PERCENT',
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Payout policy') as HTMLSelectElement
+      expect(select.value).toBe('SEVENTY_PERCENT')
+
+      const offMenuOption = Array.from(select.options).find(
+        (opt) => opt.value === 'SEVENTY_PERCENT'
+      )
+      expect(offMenuOption).toBeDefined()
+      expect(offMenuOption?.textContent?.trim()).toBe('SEVENTY_PERCENT (no longer on the menu)')
+      expect(offMenuOption?.disabled).toBe(true)
+    })
+
+    it('Save sends exactly { cancellationPayoutPolicy } and nothing else', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPolicies,
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({ cancellationPayoutPolicy: 'FULL_COMPENSATION' }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = screen.getByLabelText('Payout policy') as HTMLSelectElement
+      const saveButton = screen.getByRole('button', { name: /save cancelled job pay/i })
+
+      fireEvent.change(select, { target: { value: 'FULL_COMPENSATION' } })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          cancellationPayoutPolicy: 'FULL_COMPENSATION',
+        })
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(Object.keys(payload)).toEqual(['cancellationPayoutPolicy'])
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Success!',
+            description: 'Cancelled job pay saved. It applies to cancellations from now on.',
+          })
+        )
+      })
+    })
+
+    it('"Save All Changes" never sends cancellationPayoutPolicy', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPolicies,
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.click(saveAllButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload).not.toHaveProperty('cancellationPayoutPolicy')
+      })
+    })
+
+    it('a refusal shows the backend\'s message in the error toast', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPolicies,
+        isLoading: false,
+      })
+      const backendMessage = 'cancellationPayoutPolicy must be a key of reassignmentPayoutPolicies'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: backendMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveButton = screen.getByRole('button', { name: /save cancelled job pay/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: backendMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+    })
+
+    it('falls back to generic error text when refusal error has no message', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPolicies,
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveButton = screen.getByRole('button', { name: /save cancelled job pay/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: 'Failed to save the cancelled job pay. Please try again.',
+            variant: 'destructive',
+          })
+        )
+      })
+    })
+  })
+
   describe('Markdown heading rendering and single h1 invariant (row 86 review fix 4df8ba6)', () => {
     it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({

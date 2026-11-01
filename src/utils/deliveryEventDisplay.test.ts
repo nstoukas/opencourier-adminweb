@@ -12,6 +12,9 @@ describe('deliveryEventDisplay utils', () => {
   it('humanizes UPPER_SNAKE_CASE event types to sentence case', () => {
     expect(humanizeEventType('ARRIVED_AT_PICKUP_LOCATION')).toBe('Arrived at pickup location')
     expect(humanizeEventType('REASSIGNED')).toBe('Reassigned')
+    expect(humanizeEventType('COURIER_PAID_FOR_CANCELLATION')).toBe('Courier paid for cancellation')
+    expect(humanizeEventType('FOOD_RETURNED')).toBe('Food returned')
+    expect(humanizeEventType('FOOD_NOT_RETURNED')).toBe('Food not returned')
     expect(humanizeEventType('')).toBe('—')
   })
 

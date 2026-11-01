@@ -181,6 +181,36 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const emptySerialized = InstanceConfigSettingsAdminInputToJSON(emptyModel)
       expect(emptySerialized.dispatchPhoneNumber).toBe('')
     })
+
+    it('preserves cancellationPayoutPolicy in ToJSON serialization (spec 0015, AC-4)', () => {
+      // Load-bearing test guard: without cancellationPayoutPolicy in ToJSON, the SDK silently drops
+      // it and the save reports success for a rule never sent to the backend.
+      const input = {
+        cancellationPayoutPolicy: 'FULL_COMPENSATION',
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
+
+      const inputHalf = {
+        cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      }
+      const jsonHalf = InstanceConfigSettingsAdminInputToJSON(inputHalf)
+      expect(jsonHalf.cancellationPayoutPolicy).toBe('HALF_COMPENSATION')
+    })
+
+    it('round-trips cancellationPayoutPolicy through FromJSON and ToJSON (spec 0015, AC-4)', () => {
+      const originalJson = {
+        cancellationPayoutPolicy: 'SEVENTY_PERCENT',
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.cancellationPayoutPolicy).toBe('SEVENTY_PERCENT')
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.cancellationPayoutPolicy).toBe('SEVENTY_PERCENT')
+    })
   })
 
   describe('InstanceConfigSettingsDto (response deserialization guard - AC-5)', () => {
@@ -359,6 +389,36 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.dispatchPhoneNumber).toBe('+302421012345')
     })
+
+    it('deserializes cancellationPayoutPolicy when present (spec 0015, AC-4)', () => {
+      const json = {
+        details: {},
+        cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.cancellationPayoutPolicy).toBe('HALF_COMPENSATION')
+    })
+
+    it('deserializes cancellationPayoutPolicy as null when absent in backend response (spec 0015, AC-4)', () => {
+      // Missing key means "no row configured" / "older backend", mapped to null so fallback logic applies
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.cancellationPayoutPolicy).toBeNull()
+    })
+
+    it('serializes DTO carrying cancellationPayoutPolicy back to JSON (spec 0015, AC-4)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        cancellationPayoutPolicy: 'FULL_COMPENSATION',
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
+    })
   })
 
   describe('DeliveryAdminDto (price breakdown field serializer guard - AC-7)', () => {
@@ -501,6 +561,116 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.offeredAt).toBeNull()
       expect(json.offerExpiresAt).toBeNull()
       expect(json.waitingForCourierSince).toBeNull()
+    })
+
+    it('keeps cancellation fields and partnerCharge through FromJSON and ToJSON serialization (spec 0015, AC-13)', () => {
+      const jsonInput = {
+        id: 'del-cancelled-1',
+        status: 'CANCELED',
+        currencyCode: 'EUR',
+        orderTotalValue: 1000,
+        totalCost: 500,
+        fee: 30,
+        totalCompensation: 350,
+        pickupReadyAt: '2026-11-01T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-01T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-01T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-01T10:45:00.000Z',
+        createdAt: '2026-11-01T09:00:00.000Z',
+        updatedAt: '2026-11-01T09:00:00.000Z',
+        cancelledBy: 'RESTAURANT',
+        cancelledFromStatus: 'PICKED_UP',
+        cancelledAt: '2026-11-01T10:00:00.000Z',
+        foodOutcome: 'RETURNED',
+        foodOutcomeAt: '2026-11-01T10:15:00.000Z',
+        partnerCharge: {
+          amount: 500,
+          currencyCode: 'EUR',
+          createdAt: '2026-11-01T10:00:05.000Z',
+        },
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.cancelledBy).toBe('RESTAURANT')
+      expect(dto.cancelledFromStatus).toBe('PICKED_UP')
+      expect(dto.cancelledAt).toEqual(new Date('2026-11-01T10:00:00.000Z'))
+      expect(dto.foodOutcome).toBe('RETURNED')
+      expect(dto.foodOutcomeAt).toEqual(new Date('2026-11-01T10:15:00.000Z'))
+      expect(dto.partnerCharge).toEqual({
+        amount: 500,
+        currencyCode: 'EUR',
+        createdAt: '2026-11-01T10:00:05.000Z',
+      })
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.cancelledBy).toBe('RESTAURANT')
+      expect(serialized.cancelledFromStatus).toBe('PICKED_UP')
+      expect(serialized.cancelledAt).toBe('2026-11-01T10:00:00.000Z')
+      expect(serialized.foodOutcome).toBe('RETURNED')
+      expect(serialized.foodOutcomeAt).toBe('2026-11-01T10:15:00.000Z')
+      expect(serialized.partnerCharge).toEqual({
+        amount: 500,
+        currencyCode: 'EUR',
+        createdAt: '2026-11-01T10:00:05.000Z',
+      })
+    })
+
+    it('reads missing cancellation fields and partnerCharge as null (never undefined or invalid Date) (spec 0015, AC-13)', () => {
+      const jsonInput = {
+        id: 'del-active',
+        status: 'DISPATCHED',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-11-01T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-01T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-01T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-01T10:45:00.000Z',
+        createdAt: '2026-11-01T09:00:00.000Z',
+        updatedAt: '2026-11-01T09:00:00.000Z',
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.cancelledBy).toBeNull()
+      expect(dto.cancelledFromStatus).toBeNull()
+      expect(dto.cancelledAt).toBeNull()
+      expect(dto.foodOutcome).toBeNull()
+      expect(dto.foodOutcomeAt).toBeNull()
+      expect(dto.partnerCharge).toBeNull()
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.cancelledBy).toBeNull()
+      expect(serialized.cancelledFromStatus).toBeNull()
+      expect(serialized.cancelledAt).toBeNull()
+      expect(serialized.foodOutcome).toBeNull()
+      expect(serialized.foodOutcomeAt).toBeNull()
+      expect(serialized.partnerCharge).toBeNull()
+    })
+
+    it('tolerates undefined cancellation dates in DeliveryAdminDtoToJSON', () => {
+      const baseDto = DeliveryAdminDtoFromJSON({
+        id: 'del-cancellation-undef',
+        status: 'CANCELED',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-11-01T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-01T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-01T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-01T10:45:00.000Z',
+        createdAt: '2026-11-01T09:00:00.000Z',
+        updatedAt: '2026-11-01T09:00:00.000Z',
+      })
+
+      const dtoWithUndefinedDates = {
+        ...baseDto,
+        cancelledAt: undefined as any,
+        foodOutcomeAt: undefined as any,
+      }
+
+      expect(() => DeliveryAdminDtoToJSON(dtoWithUndefinedDates)).not.toThrow()
+      const json = DeliveryAdminDtoToJSON(dtoWithUndefinedDates)
+      expect(json.cancelledAt).toBeNull()
+      expect(json.foodOutcomeAt).toBeNull()
     })
   })
 
