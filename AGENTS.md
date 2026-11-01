@@ -35,5 +35,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 - A delivery event's `occurredAt` (row 20) is when a step happened; `lateStepOf` in `src/utils/deliveryEventDisplay.ts` is the one rule for showing a step as late (over 60 s) and "Not applied" (also failed, with no `newStatus`). The legs of one order share an `orderReference`: show the short id beside it wherever a delivery is named.
 - The value 5 guard (`src/shared-types/regression.test.ts`) fails on any count or grouping of events
   or offers per courier anywhere in `src`.
+- A rider's progress is made in the courier app and invalidates nothing here: a page that shows it (deliveries
+  list, a delivery, a courier) polls every 30 s while `usePageVisible()` is true. A page read by an id from the URL
+  takes RTK Query's `currentData`, so going back between two ids never shows the previous record.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
