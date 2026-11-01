@@ -32,6 +32,7 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   (saving); without the second, a save drops it silently.
 - `OFFERED`, `OFFER_EXPIRED` and `NO_COURIER_AVAILABLE` are platform events: in the enum copy, never
   in `STATE_MACHINE`, so the admin trigger menu cannot send them.
+- A delivery event's `occurredAt` (row 20) is when a step happened; `lateStepOf` in `src/utils/deliveryEventDisplay.ts` is the one rule for showing a step as late (over 60 s) and "Not applied" (also failed, with no `newStatus`). The legs of one order share an `orderReference`: show the short id beside it wherever a delivery is named.
 - The value 5 guard (`src/shared-types/regression.test.ts`) fails on any count or grouping of events
   or offers per courier anywhere in `src`.
 
