@@ -19,15 +19,22 @@ jest.mock('../../hooks/useAdminPageNavigator', () => ({
   }),
 }))
 
+// Mock page visibility
+const mockUsePageVisible = jest.fn()
+jest.mock('../../hooks/usePageVisible', () => ({
+  usePageVisible: () => mockUsePageVisible(),
+}))
+
 // Mock RTK Query couriersApi
 const mockUseGetCouriersQuery = jest.fn()
 jest.mock('../../api/couriersApi', () => ({
-  useGetCouriersQuery: (args: any) => mockUseGetCouriersQuery(args),
+  useGetCouriersQuery: (args: any, options: any) => mockUseGetCouriersQuery(args, options),
 }))
 
 describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUsePageVisible.mockReturnValue(true)
   })
 
   it('renders Couriers title (h1), redesign columns, and no vehicle column (AC-1)', () => {
@@ -260,7 +267,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
           search: undefined,
           page: 1,
           perPage: 10,
-        })
+        }),
+        expect.anything()
       )
 
       // "All" button in the group is pressed by default
@@ -278,7 +286,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           status: 'working',
           page: 1,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -296,7 +305,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           status: expectedStatus,
           page: 1,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -310,7 +320,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
       expect(mockUseGetCouriersQuery).not.toHaveBeenLastCalledWith(
         expect.objectContaining({
           search: 'Nikos Pappas',
-        })
+        }),
+        expect.anything()
       )
 
       act(() => {
@@ -322,7 +333,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           search: 'Nikos Pappas',
           page: 1,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -340,7 +352,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           search: undefined,
           page: 1,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -354,7 +367,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
       expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
         expect.objectContaining({
           page: 2,
-        })
+        }),
+        expect.anything()
       )
 
       // Switch to Working now tab
@@ -366,7 +380,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           status: 'working',
           page: 1,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -380,7 +395,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
       expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
         expect.objectContaining({
           page: 2,
-        })
+        }),
+        expect.anything()
       )
 
       // Enter search text
@@ -396,7 +412,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           search: 'Nikos',
           page: 1,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -415,7 +432,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           search: 'nikos',
           page: 1,
-        })
+        }),
+        expect.anything()
       )
 
       // Move to page 2 via table pagination Next button
@@ -426,7 +444,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           search: 'nikos',
           page: 2,
-        })
+        }),
+        expect.anything()
       )
 
       // Type "nikos " (trims to same search "nikos")
@@ -441,7 +460,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
         expect.objectContaining({
           search: 'nikos',
           page: 2,
-        })
+        }),
+        expect.anything()
       )
     })
 
@@ -467,7 +487,111 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
           search: '010003',
           page: 1,
           perPage: 10,
-        })
+        }),
+        expect.anything()
+      )
+    })
+
+    it('refreshes couriers query every 30 seconds via pollingInterval while page is visible (row 97 review)', () => {
+      mockUsePageVisible.mockReturnValue(true)
+
+      render(<CouriersPage />)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        { pollingInterval: 30000 }
+      )
+      const calls = mockUseGetCouriersQuery.mock.calls
+      expect(calls[0]?.[1]).toEqual({ pollingInterval: 30000 })
+    })
+
+    it('disables polling (pollingInterval: 0) while page is hidden / in background (row 97 review)', () => {
+      mockUsePageVisible.mockReturnValue(false)
+
+      render(<CouriersPage />)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        { pollingInterval: 0 }
+      )
+      const calls = mockUseGetCouriersQuery.mock.calls
+      expect(calls[0]?.[1]).toEqual({ pollingInterval: 0 })
+    })
+
+    it('clicking the tab that is already pressed changes nothing and keeps current page (row 97 review)', () => {
+      render(<CouriersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'all',
+          page: 2,
+        }),
+        expect.anything()
+      )
+
+      const callsBefore = mockUseGetCouriersQuery.mock.calls.length
+
+      // Click 'All' tab, which is already pressed
+      const allButton = screen.getByRole('button', { name: 'All' })
+      expect(allButton).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.click(allButton)
+
+      // Guard (next === status) returns early: query not called again, pagination unchanged on page 2
+      expect(mockUseGetCouriersQuery.mock.calls.length).toBe(callsBefore)
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'all',
+          page: 2,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('clicking already-pressed Working now tab changes nothing and keeps current page (row 97 review)', () => {
+      render(<CouriersPage />)
+
+      // Switch to Working now tab
+      const workingButton = screen.getByRole('button', { name: 'Working now' })
+      fireEvent.click(workingButton)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'working',
+          page: 1,
+        }),
+        expect.anything()
+      )
+
+      // Move to page 2
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'working',
+          page: 2,
+        }),
+        expect.anything()
+      )
+
+      const callsBefore = mockUseGetCouriersQuery.mock.calls.length
+
+      // Click Working now again while already pressed
+      expect(workingButton).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.click(workingButton)
+
+      // Query not called again, pagination stays on page 2
+      expect(mockUseGetCouriersQuery.mock.calls.length).toBe(callsBefore)
+      expect(mockUseGetCouriersQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'working',
+          page: 2,
+        }),
+        expect.anything()
       )
     })
   })
