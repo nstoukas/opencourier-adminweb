@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import InstanceConfigurationPage from '../../pages/instance-configuration'
 import {
   useGetInstanceConfigOptionsQuery,
@@ -7,7 +7,7 @@ import {
   useSetInstanceConfigMutation,
 } from '../../api/configApi'
 
-// Mock ESM-only react-markdown dependency for Jest runner, rendering headings through custom components
+// Mock react-markdown for Jest, ensuring markdown headings render through component overrides
 jest.mock('react-markdown', () => ({
   __esModule: true,
   default: ({
@@ -39,15 +39,15 @@ jest.mock('react-markdown', () => ({
   },
 }))
 
-// Mock DefaultLayout to avoid requiring Redux provider wrapper in page tests
+// Mock DefaultLayout to avoid requiring Redux store wrapper in page tests
 jest.mock('../../components/layouts/DefaultLayout', () => ({
   DefaultLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-// Mock dynamic map component to bypass Leaflet map loading in tests
+// Mock dynamic map component to avoid loading Leaflet in Jest environment
 jest.mock('next/dynamic', () => () => () => <div data-testid="mock-map">Map</div>)
 
-// Mock toast system to verify error toast content on refused save
+// Mock toast system to inspect success and error feedback
 const mockToast = jest.fn()
 jest.mock('../../admin-web-components', () => {
   const actual = jest.requireActual('../../admin-web-components')
@@ -57,7 +57,7 @@ jest.mock('../../admin-web-components', () => {
   }
 })
 
-// Mock RTK Query config API hooks
+// Mock RTK Query configApi endpoints
 jest.mock('../../api/configApi', () => ({
   useGetInstanceConfigOptionsQuery: jest.fn(),
   useGetInstanceConfigQuery: jest.fn(),
@@ -69,12 +69,12 @@ const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 const mockUseSetInstanceConfigMutation = useSetInstanceConfigMutation as jest.Mock
 
 const mockOptionsData = {
-  courierMatcherType: ['NEAREST_COURIER'],
+  courierMatcherType: ['NEAREST_COURIER', 'COURIER_SENIORITY', 'STATIC'],
   quoteCalculationType: ['BY_DISTANCE'],
   geoCalculationType: ['HAVERSINE'],
   deliveryDurationCalculationType: ['SIMPLE'],
   courierCompensationCalculationType: ['FROM_QUOTE_FROM'],
-  defaultDietaryRestrictions: ['NONE'],
+  defaultDietaryRestrictions: ['NONE', 'VEGAN', 'VEGETARIAN'],
   distanceUnit: ['KILOMETERS'],
   currency: ['EUR'],
 }
@@ -88,20 +88,29 @@ const baseMockConfigData = {
   defaultDietaryRestrictions: ['NONE'],
   distanceUnit: 'KILOMETERS',
   currency: 'EUR',
+  quoteBaseFee: 200,
+  quoteRatePerDistanceUnit: 150,
+  feePercentageAmount: 10,
   maxAssignmentDistance: 20,
   maxDriftDistance: 5,
   quoteExpirationMinutes: 15,
   defaultCourierPayRate: 250,
-  defaultMinimumCourierPay: 250,
   defaultMaxWorkingHours: 8,
-  feePercentageAmount: 10,
-  quoteRatePerDistanceUnit: 150,
-  registeredRegistries: [],
+  offerExpiryEnabled: true,
+  offerExpirySeconds: 60,
+  noCourierRetrySeconds: 30,
+  savedCustomerRetentionMonths: 12,
+  reassignmentPayoutPolicies: { DEFAULT: 50 },
+  reassignmentPayoutDefaultPolicy: 'DEFAULT',
   details: {
     name: 'Volos Co-op Courier',
     link: 'https://volos.courier.coop',
     websocketLink: 'wss://volos.courier.coop/ws',
     imageUrl: 'https://volos.courier.coop/logo.png',
+    rulesContent: '# Courier rules\nAlways wear a helmet.',
+    descriptionContent: '# About the co-op\nWorker owned courier platform.',
+    termsOfServiceContent: '# Terms of Service\nFair terms.',
+    privacyPolicyContent: '# Privacy Policy\nData is protected.',
     region: {
       type: 'FeatureCollection',
       features: [
@@ -126,37 +135,31 @@ const baseMockConfigData = {
   },
 }
 
-// Helper function to find input element adjacent to its label text
-const getInputByLabel = (labelText: string): HTMLInputElement => {
-  const elements = screen.getAllByText(labelText)
-  for (const el of elements) {
-    const container = el.parentElement ?? el
-    const input = container.querySelector('input')
-    if (input) {
-      return input as HTMLInputElement
-    }
-  }
-  throw new Error(`Input for label "${labelText}" not found`)
-}
-
 const NUMERIC_SETTINGS = [
-  { key: 'maxAssignmentDistance', label: 'Max Assignment Distance' },
-  { key: 'maxDriftDistance', label: 'Max Drift Distance' },
-  { key: 'quoteExpirationMinutes', label: 'Quote Expiration Minutes' },
-  { key: 'defaultCourierPayRate', label: 'Default Courier Pay Rate' },
-  { key: 'defaultMaxWorkingHours', label: 'Default Max Working Hours' },
-  { key: 'feePercentageAmount', label: 'Fee Percentage Amount' },
+  { key: 'quoteBaseFee', id: 'quoteBaseFee', label: 'Base fee' },
+  { key: 'quoteRatePerDistanceUnit', id: 'quoteRatePerDistanceUnit', label: 'Per distance rate' },
+  { key: 'feePercentageAmount', id: 'feePercentageAmount', label: 'Co-op fee %' },
+  { key: 'maxAssignmentDistance', id: 'maxAssignmentDistance', label: 'Furthest courier to offer' },
+  { key: 'maxDriftDistance', id: 'maxDriftDistance', label: 'Max drift distance' },
+  { key: 'quoteExpirationMinutes', id: 'quoteExpirationMinutes', label: 'Quote stays valid for' },
+  { key: 'defaultCourierPayRate', id: 'defaultCourierPayRate', label: 'Default courier pay rate' },
+  { key: 'defaultMaxWorkingHours', id: 'defaultMaxWorkingHours', label: 'Default max working hours' },
+  { key: 'offerExpirySeconds', id: 'offerExpirySeconds', label: 'Seconds before an unanswered offer ends' },
+  { key: 'noCourierRetrySeconds', id: 'noCourierRetrySeconds', label: 'Seconds between retries when no rider is free' },
+  { key: 'savedCustomerRetentionMonths', id: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)' },
 ] as const
 
-describe('InstanceConfigurationPage zero-valid settings', () => {
+describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)', () => {
   const mockSetInstanceConfig = jest.fn()
-  const originalFetch = global.fetch
 
   beforeEach(() => {
     jest.clearAllMocks()
-    global.fetch = jest.fn()
     mockUseGetInstanceConfigOptionsQuery.mockReturnValue({
       data: mockOptionsData,
+      isLoading: false,
+    })
+    mockUseGetInstanceConfigQuery.mockReturnValue({
+      data: baseMockConfigData,
       isLoading: false,
     })
     mockUseSetInstanceConfigMutation.mockReturnValue([
@@ -165,1009 +168,301 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     ])
   })
 
-  afterAll(() => {
-    global.fetch = originalFetch
+  // ---------------------------------------------------------------------------
+  // Page structure, Navigation, Pills, Invariants (AC-1, AC-7, AC-8, AC-10)
+  // ---------------------------------------------------------------------------
+  describe('Page Header, Pills and Invariants (AC-1, AC-7, AC-8)', () => {
+    it('renders page titled "Co-op settings" in an h1', () => {
+      render(<InstanceConfigurationPage />)
+      const h1 = screen.getByRole('heading', { level: 1 })
+      expect(h1).toHaveTextContent('Co-op settings')
+    })
+
+    it('renders seven pills in exact order linking to the seven card anchors (AC-1)', () => {
+      render(<InstanceConfigurationPage />)
+      const nav = screen.getByRole('navigation', { name: /Settings sections/i })
+      const links = nav.querySelectorAll('a')
+
+      const expectedSections = [
+        { title: 'Pricing', href: '#pricing' },
+        { title: 'Matching', href: '#matching' },
+        { title: 'Offers', href: '#offers' },
+        { title: 'Rider pay', href: '#rider-pay' },
+        { title: 'Service area', href: '#service-area' },
+        { title: 'Instance', href: '#instance' },
+        { title: 'Public pages', href: '#public-pages' },
+      ]
+
+      expect(links).toHaveLength(expectedSections.length)
+      expectedSections.forEach((section, index) => {
+        expect(links[index].textContent).toBe(section.title)
+        expect(links[index].getAttribute('href')).toBe(section.href)
+      })
+    })
+
+    it('contains no "Recommended" copy and renders honest matcher copy (AC-7)', () => {
+      const { container } = render(<InstanceConfigurationPage />)
+
+      // No option anywhere is marked "Recommended"
+      expect(container.textContent).not.toContain('Recommended')
+
+      // Honest matching card copy
+      expect(screen.getByText('Nearest free courier')).toBeInTheDocument()
+      expect(screen.getByText('The closest rider who is free.')).toBeInTheDocument()
+      expect(screen.getByText('Most senior courier')).toBeInTheDocument()
+      expect(screen.getByText('Members who joined first are offered first.')).toBeInTheDocument()
+      expect(screen.getByText('Fixed courier')).toBeInTheDocument()
+      expect(screen.getByText('The admin assigns each delivery by hand (the override).')).toBeInTheDocument()
+    })
+
+    it('locks the URL input box when a link was previously saved in instance details', () => {
+      render(<InstanceConfigurationPage />)
+      const urlInput = document.getElementById('link') as HTMLInputElement
+      expect(urlInput).toBeDisabled()
+    })
   })
 
-  describe.each(NUMERIC_SETTINGS)('numeric setting: $key ($label)', ({ key, label }) => {
-    it(`renders an empty input box when API returns ${key} as null`, () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          [key]: null,
-        },
-        isLoading: false,
+  // ---------------------------------------------------------------------------
+  // Zero-valid settings & cleared boxes (row 49 & row 56, AC-4)
+  // ---------------------------------------------------------------------------
+  describe('Zero-valid settings & cleared boxes (row 49, row 56, AC-4)', () => {
+    describe.each(NUMERIC_SETTINGS)('numeric setting: $key ($label)', ({ key, id, label }) => {
+      it(`renders "0" when API returns ${key} as 0`, () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            [key]: 0,
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+        const input = document.getElementById(id) as HTMLInputElement
+        expect(input.value).toBe('0')
+      })
+
+      it(`setting box to 0 is a change and Save sends 0 (row 49)`, async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+        const input = document.getElementById(id) as HTMLInputElement
+
+        // Change from loaded positive value to 0
+        fireEvent.change(input, { target: { value: '0' } })
+
+        // Save bar appears with change
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).not.toBeDisabled()
+
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            [key]: 0,
+          })
+        })
+      })
+
+      it(`clearing box is a blocker and is never sent (row 56)`, async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+        const input = document.getElementById(id) as HTMLInputElement
+
+        // Clear box
+        fireEvent.change(input, { target: { value: '' } })
+
+        // Save bar shows blocker
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+        const blockersContainer = document.getElementById('save-all-blockers')
+        expect(blockersContainer).not.toBeNull()
+
+        // Either "<Label> is empty" or cents validation message
+        const isCents = key === 'quoteBaseFee' || key === 'quoteRatePerDistanceUnit'
+        if (isCents) {
+          expect(blockersContainer?.textContent).toContain(`${label}: enter a whole number of cents, zero or more`)
+        } else {
+          expect(blockersContainer?.textContent).toContain(`${label} is empty`)
+        }
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).toBeDisabled()
+        expect(saveButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+
+        // Clicking disabled button never calls mutation
+        fireEvent.click(saveButton)
+        expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Refused save reporting (row 50, AC-5)
+  // ---------------------------------------------------------------------------
+  describe('Refused save reporting (row 50, AC-5)', () => {
+    it('shows server reason in destructive toast and keeps changes in the bar', async () => {
+      const serverErrorMessage = 'maxAssignmentDistance must be 50 or less'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: serverErrorMessage }),
       })
 
       render(<InstanceConfigurationPage />)
+      const input = document.getElementById('maxAssignmentDistance') as HTMLInputElement
 
-      expect(getInputByLabel(label).value).toBe('')
-    })
+      fireEvent.change(input, { target: { value: '60' } })
 
-    it(`renders "0" in input box when API returns ${key} as 0`, () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          [key]: 0,
-        },
-        isLoading: false,
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Not saved',
+            description: serverErrorMessage,
+            variant: 'destructive',
+          })
+        )
       })
 
+      // Every change stays in the bar after refusal
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Furthest courier to offer')).toBeInTheDocument()
+      expect(within(saveBar).getByText(/60/)).toBeInTheDocument()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // SaveBar behavior, Discard, and Partial Payloads (AC-3, AC-4, AC-5, AC-12)
+  // ---------------------------------------------------------------------------
+  describe('SaveBar, Discard, and Partial Updates (AC-3, AC-4, AC-5, AC-12)', () => {
+    it('SaveBar is hidden when there are no changes', () => {
       render(<InstanceConfigurationPage />)
-
-      expect(getInputByLabel(label).value).toBe('0')
+      expect(screen.queryByTestId('save-bar')).toBeNull()
     })
 
-    it(`sends null (not 0) for cleared ${key} box when "Save All Changes" is submitted`, async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: baseMockConfigData,
-        isLoading: false,
-      })
+    it('editing a box shows it in the bar, and Discard restores the value and hides bar', () => {
+      render(<InstanceConfigurationPage />)
+      const baseFeeInput = document.getElementById('quoteBaseFee') as HTMLInputElement
+
+      fireEvent.change(baseFeeInput, { target: { value: '250' } })
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Base fee')).toBeInTheDocument()
+
+      const discardButton = screen.getByRole('button', { name: /discard/i })
+      fireEvent.click(discardButton)
+
+      expect(baseFeeInput.value).toBe('200')
+      expect(screen.queryByTestId('save-bar')).toBeNull()
+    })
+
+    it('Save sends only changed keys through mutation and displays success words (AC-4, AC-5, AC-15)', async () => {
       mockSetInstanceConfig.mockReturnValue({
         unwrap: () => Promise.resolve({}),
       })
 
       render(<InstanceConfigurationPage />)
+      const baseFeeInput = document.getElementById('quoteBaseFee') as HTMLInputElement
 
-      const inputElement = getInputByLabel(label)
-      fireEvent.change(inputElement, { target: { value: '' } })
-      expect(inputElement.value).toBe('')
-
-      const saveButton = screen.getByRole('button', { name: /save all changes/i })
+      fireEvent.change(baseFeeInput, { target: { value: '250' } })
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
       fireEvent.click(saveButton)
 
       await waitFor(() => {
         expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        expect(mockSetInstanceConfig).toHaveBeenCalledWith(
-          expect.objectContaining({
-            [key]: null,
-          })
-        )
-      })
-    })
-  })
-
-  it('displays backend error message in toast when save mutation is refused', async () => {
-    mockUseGetInstanceConfigQuery.mockReturnValue({
-      data: baseMockConfigData,
-      isLoading: false,
-    })
-
-    // Simulate backend refusal with detailed error message on thrown object
-    const backendErrorMessage = 'defaultMaxWorkingHours must be a number'
-    mockSetInstanceConfig.mockReturnValue({
-      unwrap: () => Promise.reject({ message: backendErrorMessage }),
-    })
-
-    render(<InstanceConfigurationPage />)
-
-    // Clear Default Max Working Hours box to trigger backend rejection
-    const workingHoursInput = getInputByLabel('Default Max Working Hours')
-    fireEvent.change(workingHoursInput, { target: { value: '' } })
-
-    const saveButton = screen.getByRole('button', { name: /save all changes/i })
-    fireEvent.click(saveButton)
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledTimes(1)
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Error',
-          description: backendErrorMessage,
-          variant: 'destructive',
-        })
-      )
-    })
-  })
-
-  describe('Base fee per delivery setting (AC-4)', () => {
-    it('renders base fee input with value from API (200), and 0 renders as "0"', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: 200,
-        },
-        isLoading: false,
-      })
-
-      const { rerender } = render(<InstanceConfigurationPage />)
-
-      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement
-      expect(baseFeeInput.value).toBe('200')
-
-      // Rerender with quoteBaseFee as 0
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: 0,
-        },
-        isLoading: false,
-      })
-
-      rerender(<InstanceConfigurationPage />)
-      expect((screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement).value).toBe('0')
-    })
-
-    it('renders base fee input as empty (not "0") and disables "Save base fee" when API returns quoteBaseFee as null', () => {
-      // Mock API returning null for quoteBaseFee (e.g. when unconfigured or corrupted)
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: null,
-        },
-        isLoading: false,
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement
-      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
-
-      expect(baseFeeInput.value).toBe('')
-      expect(saveBaseFeeButton).toBeDisabled()
-    })
-
-    it('shows an error naming base fee and disables "Save base fee" when typing -1, 12.5 or clearing box', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: 200,
-        },
-        isLoading: false,
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery') as HTMLInputElement
-      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
-
-      expect(saveBaseFeeButton).not.toBeDisabled()
-
-      // Typing -1
-      fireEvent.change(baseFeeInput, { target: { value: '-1' } })
-      expect(screen.getByText('Base fee: enter a whole number of cents, zero or more.')).toBeInTheDocument()
-      expect(saveBaseFeeButton).toBeDisabled()
-
-      // Typing 12.5
-      fireEvent.change(baseFeeInput, { target: { value: '12.5' } })
-      expect(screen.getByText('Base fee: enter a whole number of cents, zero or more.')).toBeInTheDocument()
-      expect(saveBaseFeeButton).toBeDisabled()
-
-      // Clearing box
-      fireEvent.change(baseFeeInput, { target: { value: '' } })
-      expect(screen.getByText('Base fee: enter a whole number of cents, zero or more.')).toBeInTheDocument()
-      expect(saveBaseFeeButton).toBeDisabled()
-    })
-
-    it('saving 0 calls config mutation with exactly { quoteBaseFee: 0 } and nothing else', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: 200,
-        },
-        isLoading: false,
-      })
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.resolve({}),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery')
-      fireEvent.change(baseFeeInput, { target: { value: '0' } })
-
-      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
-      fireEvent.click(saveBaseFeeButton)
-
-      await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
         expect(mockSetInstanceConfig).toHaveBeenCalledWith({
-          quoteBaseFee: 0,
+          quoteBaseFee: 250,
         })
-      })
-    })
-
-    it('"Save All Changes" never sends quoteBaseFee', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: 200,
-        },
-        isLoading: false,
-      })
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.resolve({}),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-      fireEvent.click(saveAllButton)
-
-      await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        const payload = mockSetInstanceConfig.mock.calls[0][0]
-        expect(payload).not.toHaveProperty('quoteBaseFee')
-      })
-    })
-
-    it('refused save of base fee shows backend error message in toast', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          quoteBaseFee: 200,
-        },
-        isLoading: false,
-      })
-
-      const backendMessage = 'quoteBaseFee must be a whole number of cents'
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.reject({ message: backendMessage }),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const baseFeeInput = screen.getByLabelText('Base Fee Per Delivery')
-      fireEvent.change(baseFeeInput, { target: { value: '300' } })
-
-      const saveBaseFeeButton = screen.getByRole('button', { name: /save base fee/i })
-      fireEvent.click(saveBaseFeeButton)
-
-      await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith(
           expect.objectContaining({
-            title: 'Error',
-            description: backendMessage,
-            variant: 'destructive',
-          })
-        )
-      })
-    })
-  })
-
-  describe('Minimum Courier Pay floor removal (AC-5)', () => {
-    it('contains no "Minimum Courier Pay" text on the page', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: baseMockConfigData,
-        isLoading: false,
-      })
-
-      const { container } = render(<InstanceConfigurationPage />)
-
-      expect(screen.queryByText(/Minimum Courier Pay/i)).toBeNull()
-      expect(container.textContent).not.toContain('Minimum Courier Pay')
-      expect(container.textContent).not.toContain('defaultMinimumCourierPay')
-    })
-
-    it('"Save All Changes" payload has no defaultMinimumCourierPay key', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: baseMockConfigData,
-        isLoading: false,
-      })
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.resolve({}),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-      fireEvent.click(saveAllButton)
-
-      await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        const payload = mockSetInstanceConfig.mock.calls[0][0]
-        expect(payload).not.toHaveProperty('defaultMinimumCourierPay')
-      })
-    })
-  })
-
-  describe('Honest configuration save reporting (Scope Row 50)', () => {
-    describe.each([
-      {
-        name: 'Privacy Policy',
-        editButtonText: 'Edit Privacy Policy',
-        editorHeading: 'Editing Privacy Policy',
-        successToastDescription: 'Privacy policy saved successfully.',
-        genericErrorMessage: 'Failed to save privacy policy. Please try again.',
-        detailsKey: 'privacyPolicyContent',
-      },
-      {
-        name: 'Terms of Service',
-        editButtonText: 'Edit Terms of Service',
-        editorHeading: 'Editing Terms of Service',
-        successToastDescription: 'Terms of service saved successfully.',
-        genericErrorMessage: 'Failed to save terms of service. Please try again.',
-        detailsKey: 'termsOfServiceContent',
-      },
-      {
-        name: 'Rules',
-        editButtonText: 'Edit Rules',
-        editorHeading: 'Editing Rules',
-        successToastDescription: 'Rules saved successfully.',
-        genericErrorMessage: 'Failed to save rules. Please try again.',
-        detailsKey: 'rulesContent',
-      },
-      {
-        name: 'Description',
-        editButtonText: 'Edit Description',
-        editorHeading: 'Editing Description',
-        successToastDescription: 'Description saved successfully.',
-        genericErrorMessage: 'Failed to save description. Please try again.',
-        detailsKey: 'descriptionContent',
-      },
-    ])(
-      '$name text editor save',
-      ({
-        editButtonText,
-        editorHeading,
-        successToastDescription,
-        genericErrorMessage,
-        detailsKey,
-      }) => {
-        it('shows success toast and returns to main view when save mutation succeeds', async () => {
-          mockUseGetInstanceConfigQuery.mockReturnValue({
-            data: baseMockConfigData,
-            isLoading: false,
-            refetch: jest.fn().mockResolvedValue({}),
-          })
-          mockSetInstanceConfig.mockReturnValue({
-            unwrap: () => Promise.resolve({}),
-          })
-
-          render(<InstanceConfigurationPage />)
-
-          fireEvent.click(screen.getByText(editButtonText))
-          expect(screen.getByText(editorHeading)).toBeInTheDocument()
-
-          const saveButton = screen.getByRole('button', { name: /^Save$/i })
-          fireEvent.click(saveButton)
-
-          await waitFor(() => {
-            expect(mockSetInstanceConfig).toHaveBeenCalledWith(
-              expect.objectContaining({
-                details: expect.objectContaining({
-                  [detailsKey]: expect.any(String),
-                }),
-              })
-            )
-            expect(mockToast).toHaveBeenCalledWith(
-              expect.objectContaining({
-                title: 'Success!',
-                description: successToastDescription,
-              })
-            )
-            expect(screen.queryByText(editorHeading)).toBeNull()
-          })
-        })
-
-        it('shows destructive error toast with backend reason and stays on editor view when save mutation is refused', async () => {
-          mockUseGetInstanceConfigQuery.mockReturnValue({
-            data: baseMockConfigData,
-            isLoading: false,
-            refetch: jest.fn().mockResolvedValue({}),
-          })
-
-          const backendErrorMessage = `${detailsKey} content violates policy format`
-          mockSetInstanceConfig.mockReturnValue({
-            unwrap: () => Promise.reject({ message: backendErrorMessage }),
-          })
-
-          render(<InstanceConfigurationPage />)
-
-          fireEvent.click(screen.getByText(editButtonText))
-          expect(screen.getByText(editorHeading)).toBeInTheDocument()
-
-          const saveButton = screen.getByRole('button', { name: /^Save$/i })
-          fireEvent.click(saveButton)
-
-          await waitFor(() => {
-            expect(mockToast).toHaveBeenCalledWith(
-              expect.objectContaining({
-                title: 'Error',
-                description: backendErrorMessage,
-                variant: 'destructive',
-              })
-            )
-            expect(mockToast).not.toHaveBeenCalledWith(
-              expect.objectContaining({
-                title: 'Success!',
-              })
-            )
-            expect(screen.getByText(editorHeading)).toBeInTheDocument()
-          })
-        })
-
-        it('falls back to generic error text when error has no message', async () => {
-          mockUseGetInstanceConfigQuery.mockReturnValue({
-            data: baseMockConfigData,
-            isLoading: false,
-            refetch: jest.fn().mockResolvedValue({}),
-          })
-
-          mockSetInstanceConfig.mockReturnValue({
-            unwrap: () => Promise.reject({}),
-          })
-
-          render(<InstanceConfigurationPage />)
-
-          fireEvent.click(screen.getByText(editButtonText))
-          const saveButton = screen.getByRole('button', { name: /^Save$/i })
-          fireEvent.click(saveButton)
-
-          await waitFor(() => {
-            expect(mockToast).toHaveBeenCalledWith(
-              expect.objectContaining({
-                title: 'Error',
-                description: genericErrorMessage,
-                variant: 'destructive',
-              })
-            )
-          })
-        })
-      }
-    )
-  })
-
-  describe('Scope Row 55: Registry removal and Save All configuration validation', () => {
-    beforeEach(() => {
-      jest.clearAllMocks()
-      mockUseGetInstanceConfigOptionsQuery.mockReturnValue({
-        data: mockOptionsData,
-        isLoading: false,
-      })
-      mockUseSetInstanceConfigMutation.mockReturnValue([
-        mockSetInstanceConfig,
-        { isLoading: false },
-      ])
-    })
-
-    describe('Clause 1: Instance configuration has no registry controls', () => {
-      it('renders no registry controls or text mentioning a registry on main view and after visiting every other view', () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            registeredRegistries: [
-              { name: 'Demo Registry', url: 'https://registry.example.com' },
-            ],
-          },
-          isLoading: false,
-        })
-
-        const { container } = render(<InstanceConfigurationPage />)
-
-        const assertNoRegistryControlsOrText = (_viewName: string) => {
-          expect(screen.queryByRole('button', { name: /register instance/i })).toBeNull()
-          expect(screen.queryByRole('button', { name: /^register$/i })).toBeNull()
-          expect(screen.queryByRole('button', { name: /^unregister$/i })).toBeNull()
-          expect(screen.queryByLabelText(/registry/i)).toBeNull()
-          expect(screen.queryByPlaceholderText(/registry/i)).toBeNull()
-          expect(container.textContent).not.toMatch(/registry/i)
-        }
-
-        // 1. Main view
-        assertNoRegistryControlsOrText('main')
-
-        // 2. Edit Rules view
-        fireEvent.click(screen.getByText('Edit Rules'))
-        assertNoRegistryControlsOrText('rules')
-
-        // 3. Edit Description view
-        fireEvent.click(screen.getByText('Edit Description'))
-        assertNoRegistryControlsOrText('description')
-
-        // 4. Edit Terms of Service view
-        fireEvent.click(screen.getByText('Edit Terms of Service'))
-        assertNoRegistryControlsOrText('terms-of-service')
-
-        // 5. Edit Privacy Policy view
-        fireEvent.click(screen.getByText('Edit Privacy Policy'))
-        assertNoRegistryControlsOrText('privacy-policy')
-      })
-
-      it('does not send registeredRegistries in Save All Changes payload when API returns non-empty registeredRegistries', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            registeredRegistries: [
-              { name: 'Demo Registry', url: 'https://registry.example.com' },
-            ],
-          },
-          isLoading: false,
-        })
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.resolve({}),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        fireEvent.click(saveAllButton)
-
-        await waitFor(() => {
-          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-          const payload = mockSetInstanceConfig.mock.calls[0][0]
-          expect(payload).not.toHaveProperty('registeredRegistries')
-          expect(payload.details).not.toHaveProperty('registeredRegistries')
-        })
-      })
-    })
-
-    describe('Clause 2: Save All is never disabled by a field only the registry used', () => {
-      it('enables Save All Changes and calls save mutation when Websocket URL is empty', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            details: {
-              ...baseMockConfigData.details,
-              websocketLink: '',
-            },
-          },
-          isLoading: false,
-        })
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.resolve({}),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        expect(saveAllButton).not.toBeDisabled()
-
-        fireEvent.click(saveAllButton)
-
-        await waitFor(() => {
-          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        })
-      })
-
-      it('enables Save All Changes and calls save mutation when Logo Image URL is empty', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            details: {
-              ...baseMockConfigData.details,
-              imageUrl: '',
-            },
-          },
-          isLoading: false,
-        })
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.resolve({}),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        expect(saveAllButton).not.toBeDisabled()
-
-        fireEvent.click(saveAllButton)
-
-        await waitFor(() => {
-          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        })
-      })
-
-      it('enables Save All Changes and calls save mutation when both Websocket URL and Logo Image URL are empty', async () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            details: {
-              ...baseMockConfigData.details,
-              websocketLink: '',
-              imageUrl: '',
-            },
-          },
-          isLoading: false,
-        })
-        mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.resolve({}),
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        expect(saveAllButton).not.toBeDisabled()
-
-        fireEvent.click(saveAllButton)
-
-        await waitFor(() => {
-          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        })
-      })
-
-      it('keeps Websocket URL and Logo Image URL editable, but invalid URL typed into either blocks Save All Changes', () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            details: {
-              ...baseMockConfigData.details,
-              websocketLink: '',
-              imageUrl: '',
-            },
-          },
-          isLoading: false,
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const wsInput = getInputByLabel('Websocket URL')
-        const logoInput = getInputByLabel('Logo Image URL')
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-
-        expect(wsInput).toBeInTheDocument()
-        expect(logoInput).toBeInTheDocument()
-        expect(saveAllButton).not.toBeDisabled()
-
-        // Type invalid Websocket URL
-        fireEvent.change(wsInput, { target: { value: 'not-a-valid-url' } })
-        expect(saveAllButton).toBeDisabled()
-
-        // Fix Websocket URL to empty (which is allowed)
-        fireEvent.change(wsInput, { target: { value: '' } })
-        expect(saveAllButton).not.toBeDisabled()
-
-        // Type invalid Logo Image URL
-        fireEvent.change(logoInput, { target: { value: 'invalid-logo-url' } })
-        expect(saveAllButton).toBeDisabled()
-      })
-    })
-
-    describe('Clause 3: When Save All is disabled the page says which field is missing', () => {
-      it.each([
-        {
-          missingField: 'Name',
-          configOverride: { details: { ...baseMockConfigData.details, name: '' } },
-          expectedText: 'Name is empty',
-        },
-        {
-          missingField: 'URL',
-          configOverride: { details: { ...baseMockConfigData.details, link: '' } },
-          expectedText: 'URL is empty',
-        },
-        {
-          missingField: 'Operating Region',
-          configOverride: { details: { ...baseMockConfigData.details, region: null } },
-          expectedText: 'Operating Region is not drawn',
-        },
-        {
-          missingField: 'Default Dietary Restrictions',
-          configOverride: { defaultDietaryRestrictions: [] },
-          expectedText: 'Default Dietary Restrictions has nothing selected',
-        },
-      ])('disables button and names missing field ($missingField) in save-all-blockers element referenced by aria-describedby', ({ configOverride, expectedText }) => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            ...configOverride,
-          },
-          isLoading: false,
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        expect(saveAllButton).toBeDisabled()
-        expect(saveAllButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
-
-        const blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement).not.toBeNull()
-        expect(blockersElement?.textContent).toContain(expectedText)
-      })
-
-      it('names all missing required fields when several required fields are empty', () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: {
-            ...baseMockConfigData,
-            defaultDietaryRestrictions: [],
-            details: {
-              ...baseMockConfigData.details,
-              name: '',
-              link: '',
-              region: null,
-            },
-          },
-          isLoading: false,
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        expect(saveAllButton).toBeDisabled()
-        expect(saveAllButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
-
-        const blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement).not.toBeNull()
-        expect(blockersElement?.textContent).toContain('Name is empty')
-        expect(blockersElement?.textContent).toContain('URL is empty')
-        expect(blockersElement?.textContent).toContain('Operating Region is not drawn')
-        expect(blockersElement?.textContent).toContain('Default Dietary Restrictions has nothing selected')
-      })
-
-      it('names invalid URL fields and invalid Quote Rate Per Distance Unit in save-all-blockers element', () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: baseMockConfigData,
-          isLoading: false,
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const urlInput = getInputByLabel('URL')
-        const wsInput = getInputByLabel('Websocket URL')
-        const logoInput = getInputByLabel('Logo Image URL')
-        const quoteRateInput = getInputByLabel('Quote Rate Per Distance Unit')
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-
-        // Invalid URL field
-        fireEvent.change(urlInput, { target: { value: 'bad-url' } })
-        expect(saveAllButton).toBeDisabled()
-        let blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement?.textContent).toContain('URL is not a valid URL')
-
-        // Reset URL and type invalid Websocket URL
-        fireEvent.change(urlInput, { target: { value: 'https://volos.courier.coop' } })
-        fireEvent.change(wsInput, { target: { value: 'bad-ws' } })
-        expect(saveAllButton).toBeDisabled()
-        blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement?.textContent).toContain('Websocket URL is not a valid URL')
-
-        // Reset Websocket URL and type invalid Logo Image URL
-        fireEvent.change(wsInput, { target: { value: '' } })
-        fireEvent.change(logoInput, { target: { value: 'bad-logo' } })
-        expect(saveAllButton).toBeDisabled()
-        blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement?.textContent).toContain('Logo Image URL is not a valid URL')
-
-        // Reset Logo Image URL and type invalid quote rate
-        fireEvent.change(logoInput, { target: { value: '' } })
-        fireEvent.change(quoteRateInput, { target: { value: '-10' } })
-        expect(saveAllButton).toBeDisabled()
-        blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement?.textContent).toContain('Quote Rate Per Distance Unit is not a valid number')
-      })
-
-      it('shows no blocker message element and removes aria-describedby from button when nothing blocks save', () => {
-        mockUseGetInstanceConfigQuery.mockReturnValue({
-          data: baseMockConfigData,
-          isLoading: false,
-        })
-
-        render(<InstanceConfigurationPage />)
-
-        const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-        expect(saveAllButton).not.toBeDisabled()
-        expect(saveAllButton).not.toHaveAttribute('aria-describedby')
-
-        const blockersElement = document.getElementById('save-all-blockers')
-        expect(blockersElement).toBeNull()
-      })
-    })
-  })
-
-  describe('Offers to riders section (spec 0002, AC-10)', () => {
-    it('keeps controls and Save button disabled while setting is not loaded yet', () => {
-      // Mock API returning null for offerExpiryEnabled (unloaded state)
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          offerExpiryEnabled: null,
-          offerExpirySeconds: null,
-          noCourierRetrySeconds: null,
-        },
-        isLoading: false,
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
-      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends') as HTMLInputElement
-      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free') as HTMLInputElement
-      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
-
-      expect(select).toBeDisabled()
-      expect(select.value).toBe('')
-      expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
-      expect(screen.getByText('Loading the current setting.')).toBeInTheDocument()
-      expect(expirySecondsInput).toBeDisabled()
-      expect(retrySecondsInput).toBeDisabled()
-      expect(saveOfferButton).toBeDisabled()
-    })
-
-    it('renders loaded values: Off, 60 seconds, 30 seconds retry', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          offerExpiryEnabled: false,
-          offerExpirySeconds: 60,
-          noCourierRetrySeconds: 30,
-        },
-        isLoading: false,
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
-      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends') as HTMLInputElement
-      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free') as HTMLInputElement
-      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
-
-      expect(select).not.toBeDisabled()
-      expect(select.value).toBe('off')
-      expect(expirySecondsInput.value).toBe('60')
-      expect(retrySecondsInput.value).toBe('30')
-      expect(saveOfferButton).not.toBeDisabled()
-
-      // Descriptive text for Off state
-      expect(
-        screen.getByText(/Off: an offer keeps ringing on the rider’s phone until they answer/)
-      ).toBeInTheDocument()
-    })
-
-    it('renders loaded values: On, 45 seconds, 25 seconds retry', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          offerExpiryEnabled: true,
-          offerExpirySeconds: 45,
-          noCourierRetrySeconds: 25,
-        },
-        isLoading: false,
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const select = screen.getByLabelText('Offer expiry') as HTMLSelectElement
-      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends') as HTMLInputElement
-      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free') as HTMLInputElement
-
-      expect(select.value).toBe('on')
-      expect(expirySecondsInput.value).toBe('45')
-      expect(retrySecondsInput.value).toBe('25')
-
-      // Descriptive text for On state mentions the configured seconds and value 5 rule
-      expect(
-        screen.getByText(/On: an offer nobody answers ends after 45 seconds and goes to the next rider/)
-      ).toBeInTheDocument()
-      expect(
-        screen.getByText(/A missed offer is never counted against the rider/)
-      ).toBeInTheDocument()
-    })
-
-    it('saves exactly offerExpiryEnabled, offerExpirySeconds, and noCourierRetrySeconds on button click', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          offerExpiryEnabled: false,
-          offerExpirySeconds: 60,
-          noCourierRetrySeconds: 30,
-        },
-        isLoading: false,
-      })
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.resolve({}),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const select = screen.getByLabelText('Offer expiry')
-      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends')
-      const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free')
-      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
-
-      // Change values: switch On, 45s expiry, 25s retry
-      fireEvent.change(select, { target: { value: 'on' } })
-      fireEvent.change(expirySecondsInput, { target: { value: '45' } })
-      fireEvent.change(retrySecondsInput, { target: { value: '25' } })
-
-      fireEvent.click(saveOfferButton)
-
-      await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
-          offerExpiryEnabled: true,
-          offerExpirySeconds: 45,
-          noCourierRetrySeconds: 25,
-        })
-      })
-
-      // Toast confirms successful save
-      await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'Success!',
-            description: expect.stringContaining('Offer settings saved'),
+            title: 'Saved',
+            description: expect.stringContaining(
+              'Saved: Base fee. Pricing applies to the next quote; deliveries already quoted keep their price.'
+            ),
           })
         )
       })
     })
 
-    it('"Save All Changes" never sends offerExpiryEnabled, offerExpirySeconds, or noCourierRetrySeconds', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          offerExpiryEnabled: true,
-          offerExpirySeconds: 60,
-          noCourierRetrySeconds: 30,
-        },
-        isLoading: false,
-      })
+    it('sends whole details object with saved metadata preserved when an instance detail changes', async () => {
       mockSetInstanceConfig.mockReturnValue({
         unwrap: () => Promise.resolve({}),
       })
 
       render(<InstanceConfigurationPage />)
+      const nameInput = document.getElementById('instanceName') as HTMLInputElement
 
-      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-      fireEvent.click(saveAllButton)
+      fireEvent.change(nameInput, { target: { value: 'Volos Delivery Workers' } })
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
 
       await waitFor(() => {
         expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        const payload = mockSetInstanceConfig.mock.calls[0][0]
-        expect(payload).not.toHaveProperty('offerExpiryEnabled')
-        expect(payload).not.toHaveProperty('offerExpirySeconds')
-        expect(payload).not.toHaveProperty('noCourierRetrySeconds')
-      })
-    })
-
-    it('shows backend refusal error message honestly in toast when save fails', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          offerExpiryEnabled: true,
-          offerExpirySeconds: 60,
-          noCourierRetrySeconds: 30,
-        },
-        isLoading: false,
-      })
-
-      const backendErrorMessage = 'offerExpirySeconds must be 20 or more'
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.reject({ message: backendErrorMessage }),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends')
-      fireEvent.change(expirySecondsInput, { target: { value: '19' } })
-
-      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
-      fireEvent.click(saveOfferButton)
-
-      await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'Error',
-            description: backendErrorMessage,
-            variant: 'destructive',
-          })
-        )
+        const sentPayload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(sentPayload).toHaveProperty('details')
+        expect(sentPayload.details.name).toBe('Volos Delivery Workers')
+        // Preserves existing details like public page contents and links
+        expect(sentPayload.details.rulesContent).toBe('# Courier rules\nAlways wear a helmet.')
+        expect(sentPayload.details.privacyPolicyUrl).toBe('https://volos.courier.coop/privacy-policy')
       })
     })
   })
 
-  describe('Saved customers retention setting (spec 0005, AC-7)', () => {
-    it('loads the stored value into the retention input', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          savedCustomerRetentionMonths: 12,
-        },
-        isLoading: false,
-      })
-
+  // ---------------------------------------------------------------------------
+  // Blocker tests and save-all-blockers ID (row 55, AC-14)
+  // ---------------------------------------------------------------------------
+  describe('Blocker validations and save-all-blockers ID (row 55, AC-14)', () => {
+    it('blocks save and names invalid URL in save-all-blockers when websocketLink is invalid', () => {
       render(<InstanceConfigurationPage />)
+      const wsInput = document.getElementById('websocketLink') as HTMLInputElement
 
-      const retentionInput = screen.getByLabelText(
-        'Delete a saved customer after this many months unused'
-      ) as HTMLInputElement
+      fireEvent.change(wsInput, { target: { value: 'invalid-ws-url' } })
 
-      expect(retentionInput.value).toBe('12')
-      expect(retentionInput).not.toBeDisabled()
-      expect(
-        screen.getByRole('button', { name: /save saved customer setting/i })
-      ).not.toBeDisabled()
+      const blockersElement = document.getElementById('save-all-blockers')
+      expect(blockersElement).not.toBeNull()
+      expect(blockersElement?.textContent).toContain('Websocket URL is not a valid URL')
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).toBeDisabled()
+      expect(saveButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
     })
 
-    it('the field and its save button are disabled until the settings load', () => {
+    it('blocks save when name is changed to empty', () => {
+      render(<InstanceConfigurationPage />)
+      const nameInput = document.getElementById('instanceName') as HTMLInputElement
+
+      fireEvent.change(nameInput, { target: { value: '' } })
+
+      const blockersElement = document.getElementById('save-all-blockers')
+      expect(blockersElement?.textContent).toContain('Name is empty')
+    })
+
+    it('blocks save when dietary restrictions has nothing selected', () => {
+      render(<InstanceConfigurationPage />)
+      const select = document.getElementById('defaultDietaryRestrictions') as HTMLSelectElement
+
+      // Deselect all options
+      const options = select.querySelectorAll('option')
+      options.forEach((opt) => {
+        opt.selected = false
+      })
+      fireEvent.change(select)
+
+      const blockersElement = document.getElementById('save-all-blockers')
+      expect(blockersElement?.textContent).toContain('Default dietary restrictions has nothing selected')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Loading state before settings arrive (AC-13)
+  // ---------------------------------------------------------------------------
+  describe('Before settings load (AC-13)', () => {
+    it('controls are disabled, switch shows "Not loaded yet", and no changes are counted', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -1175,146 +470,91 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
 
       render(<InstanceConfigurationPage />)
 
-      const retentionInput = screen.getByLabelText(
-        'Delete a saved customer after this many months unused'
-      ) as HTMLInputElement
-      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+      // Offer switch & inputs disabled
+      const offerSwitch = document.getElementById('offerExpiryEnabled')
+      expect(offerSwitch).toBeDisabled()
+      expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
 
-      expect(retentionInput.value).toBe('')
-      expect(retentionInput).toBeDisabled()
-      expect(saveButton).toBeDisabled()
+      const baseFeeInput = document.getElementById('quoteBaseFee')
+      expect(baseFeeInput).toBeDisabled()
+
+      // SaveBar is null before load
+      expect(screen.queryByTestId('save-bar')).toBeNull()
     })
+  })
 
-    it('Save sends only { savedCustomerRetentionMonths } (an empty box as null)', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          savedCustomerRetentionMonths: 12,
-        },
-        isLoading: false,
-      })
+  // ---------------------------------------------------------------------------
+  // Independent editors: Reassignment payout policies & Public pages (AC-8)
+  // ---------------------------------------------------------------------------
+  describe('Independent editors keep their own Save and bypass SaveBar (AC-8)', () => {
+    it('reassignment payout policy editor has its own Save and does not appear in SaveBar', async () => {
       mockSetInstanceConfig.mockReturnValue({
         unwrap: () => Promise.resolve({}),
       })
 
       render(<InstanceConfigurationPage />)
 
-      const retentionInput = screen.getByLabelText(
-        'Delete a saved customer after this many months unused'
-      )
-      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+      // The policy editor has its own Save button
+      const policySaveButton = screen.getByRole('button', { name: /save payout policies/i })
+      expect(policySaveButton).toBeInTheDocument()
 
-      // 1. Changing to 24 sends exactly { savedCustomerRetentionMonths: 24 }
-      fireEvent.change(retentionInput, { target: { value: '24' } })
-      fireEvent.click(saveButton)
+      fireEvent.click(policySaveButton)
 
       await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
         expect(mockSetInstanceConfig).toHaveBeenCalledWith({
-          savedCustomerRetentionMonths: 24,
+          reassignmentPayoutPolicies: { DEFAULT: 50 },
+          reassignmentPayoutDefaultPolicy: 'DEFAULT',
         })
       })
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Success!',
-          description: expect.stringContaining('Saved customer retention saved'),
-        })
-      )
-
-      mockSetInstanceConfig.mockClear()
-      mockToast.mockClear()
-
-      // 2. An empty box sends exactly { savedCustomerRetentionMonths: null }
-      fireEvent.change(retentionInput, { target: { value: '' } })
-      fireEvent.click(saveButton)
-
-      await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
-          savedCustomerRetentionMonths: null,
-        })
-      })
+      // SaveBar remains hidden
+      expect(screen.queryByTestId('save-bar')).toBeNull()
     })
 
-    it('"Save All Changes" never sends savedCustomerRetentionMonths', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          savedCustomerRetentionMonths: 12,
-        },
-        isLoading: false,
-      })
+    it('public pages open in their own editor with separate Save and do not appear in SaveBar', async () => {
       mockSetInstanceConfig.mockReturnValue({
         unwrap: () => Promise.resolve({}),
       })
 
       render(<InstanceConfigurationPage />)
 
-      const saveAllButton = screen.getByRole('button', { name: /save all changes/i })
-      fireEvent.click(saveAllButton)
+      // Open Rules editor
+      const editButton = screen.getByRole('button', { name: /Edit Courier rules/i })
+      fireEvent.click(editButton)
+
+      expect(screen.getByRole('heading', { level: 2, name: 'Courier rules' })).toBeInTheDocument()
+      expect(screen.queryByTestId('save-bar')).toBeNull()
+
+      const savePageButton = screen.getByRole('button', { name: /^Save$/i })
+      fireEvent.click(savePageButton)
 
       await waitFor(() => {
-        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
-        const payload = mockSetInstanceConfig.mock.calls[0][0]
-        expect(payload).not.toHaveProperty('savedCustomerRetentionMonths')
-      })
-    })
-
-    it('refused value\'s message appears in the error toast', async () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: {
-          ...baseMockConfigData,
-          savedCustomerRetentionMonths: 12,
-        },
-        isLoading: false,
-      })
-
-      const backendErrorMessage = 'savedCustomerRetentionMonths must be 36 or less'
-      mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.reject({ message: backendErrorMessage }),
-      })
-
-      render(<InstanceConfigurationPage />)
-
-      const retentionInput = screen.getByLabelText(
-        'Delete a saved customer after this many months unused'
-      )
-      fireEvent.change(retentionInput, { target: { value: '37' } })
-
-      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
-      fireEvent.click(saveButton)
-
-      await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith(
           expect.objectContaining({
-            title: 'Error',
-            description: backendErrorMessage,
-            variant: 'destructive',
+            details: expect.objectContaining({
+              rulesContent: expect.any(String),
+            }),
           })
         )
       })
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // Markdown heading rendering & single h1 invariant (row 86 review fix 4df8ba6)
+  // ---------------------------------------------------------------------------
   describe('Markdown heading rendering and single h1 invariant (row 86 review fix 4df8ba6)', () => {
     it('renders a markdown "# Title" as an h2, preserving exactly one h1 on the page', () => {
-      mockUseGetInstanceConfigQuery.mockReturnValue({
-        data: baseMockConfigData,
-        isLoading: false,
-        isError: false,
-      })
-
       render(<InstanceConfigurationPage />)
 
       // Initial view shows exactly one <h1> rendered by PageHeader
       const initialH1s = screen.getAllByRole('heading', { level: 1 })
       expect(initialH1s).toHaveLength(1)
-      expect(initialH1s[0]).toHaveTextContent('Instance Configuration')
+      expect(initialH1s[0]).toHaveTextContent('Co-op settings')
 
       // Switch to editing rules view
-      const editRulesButton = screen.getByRole('button', { name: /Edit Rules/i })
-      fireEvent.click(editRulesButton)
+      const editButton = screen.getByRole('button', { name: /Edit Courier rules/i })
+      fireEvent.click(editButton)
 
       // Enter a top-level markdown heading in the rules editor textarea
       const textarea = screen.getByRole('textbox')
@@ -1330,10 +570,10 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       expect(rulesHeading).toBeInTheDocument()
       expect(rulesHeading.tagName).toBe('H2')
 
-      // The entire page must maintain exactly one <h1> ("Instance Configuration")
+      // The entire page maintains exactly one <h1> ("Co-op settings")
       const pageH1s = screen.getAllByRole('heading', { level: 1 })
       expect(pageH1s).toHaveLength(1)
-      expect(pageH1s[0]).toHaveTextContent('Instance Configuration')
+      expect(pageH1s[0]).toHaveTextContent('Co-op settings')
     })
   })
 })

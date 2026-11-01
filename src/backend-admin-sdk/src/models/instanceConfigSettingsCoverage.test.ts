@@ -25,12 +25,14 @@ const describeSuite = backendExists ? describe : describe.skip
 
 /**
  * Scans comment-stripped page source text for opening tags of input-like elements:
- * <Input ...>, <select ...>, <textarea ...>, <QuoteRateEditor ...>, <ReassignmentPayoutPolicyEditor ...>.
+ * <Input ...>, <NativeSelect ...>, <Select ...>, <select ...>, <textarea ...>, <RadioGroup ...>, <Switch ...>,
+ * <ReassignmentPayoutPolicyEditor ...>, <OptionSelect ...>, <NumberField ...>.
  * Correctly handles JSX attribute expressions {...} and nested quotes so tags spanning
  * multiple lines or containing arrow functions (=>) are fully captured.
  */
 function extractInputTags(sourceText: string): string[] {
-  const inputTagRegex = /<(Input|select|textarea|QuoteRateEditor|ReassignmentPayoutPolicyEditor)\b/g
+  const inputTagRegex =
+    /<(Input|NativeSelect|Select|select|textarea|RadioGroup|Switch|ReassignmentPayoutPolicyEditor|OptionSelect|NumberField)\b/g
   const tags: string[] = []
   let match: RegExpExecArray | null
 
@@ -97,17 +99,24 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
     expect(serialized[key]).toEqual(sentinelValue)
   })
 
-  // Read the adminweb instance configuration page source text from disk
+  // Read the adminweb instance configuration page source text and cards from disk
   const pageFilePath = path.resolve(__dirname, '../../../pages/instance-configuration/index.tsx')
-  const rawPageSourceText = backendExists ? fs.readFileSync(pageFilePath, 'utf-8') : ''
+  const cardsDirPath = path.resolve(__dirname, '../../../modules/instance-config/cards')
+  const cardFiles = fs.existsSync(cardsDirPath)
+    ? fs.readdirSync(cardsDirPath).map((f) => path.join(cardsDirPath, f))
+    : []
+  const allSourceFiles = [pageFilePath, ...cardFiles]
+  const rawSourceTexts = backendExists
+    ? allSourceFiles.map((file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf-8') : '')).join('\n')
+    : ''
 
   // Strip block comments (/* ... */) and line comments (// ...) so prose/comment mentions don't count.
   // Use negative lookbehind (?<!:) so URL strings like "https://registry.example.com" are preserved intact.
-  const commentStrippedPageSource = rawPageSourceText
+  const commentStrippedPageSource = rawSourceTexts
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(?<!:)\/\/.*/g, '')
 
-  // Extract all opening tags of input-like form elements across the page source
+  // Extract all opening tags of input-like form elements across the page source and cards
   const inputTags = extractInputTags(commentStrippedPageSource)
 
   // Check that each non-excluded backend setting is bound to an input value, select, editor component in an input tag
@@ -118,11 +127,11 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
       return
     }
 
-    // Must be bound as a value or editor prop within an input-like tag:
-    // value={...<key>...}, rate={...<key>...}, policies={...<key>...}, or defaultPolicy={...<key>...}.
+    // Must be bound as a value, checked, policies, or defaultPolicy prop within an input-like tag:
+    // value={...<key>...}, checked={...<key>...}, policies={...<key>...}, or defaultPolicy={...<key>...}.
     // React key="<key>" alone does NOT count as a rendered input binding.
     const bindingRegex = new RegExp(
-      `\\b(value|rate|policies|defaultPolicy)\\s*=\\s*\\{[^}]*\\b${key}\\b`
+      `\\b(value|checked|policies|defaultPolicy)\\s*=\\s*\\{[^}]*\\b${key}\\b`
     )
 
     const hasInputBinding = inputTags.some((tag) => bindingRegex.test(tag))

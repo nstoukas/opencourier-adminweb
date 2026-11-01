@@ -148,7 +148,7 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
 
       // Group 3: Co-op
       expect(screen.getByText('Co-op')).toBeInTheDocument()
-      const configLink = screen.getByRole('link', { name: /Instance Configuration/i })
+      const configLink = screen.getByRole('link', { name: /Settings/i })
       expect(configLink).toHaveAttribute('href', '/instance-configuration')
     })
 
