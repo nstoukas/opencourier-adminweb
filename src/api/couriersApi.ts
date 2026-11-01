@@ -51,7 +51,22 @@ export const couriersApi = baseApi.injectEndpoints({
       },
       providesTags: [Tags.couriers],
     }),
+    // One courier by id, for the courier page (spec 0012). Mirrors getDelivery.
+    getCourier: build.query<CourierAdminDto, { id: string }>({
+      queryFn: async ({ id }, api) => {
+        if (!id) return { error: null }
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.couriers().getCourierById({ id })
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      providesTags: [Tags.couriers],
+    }),
   }),
 })
 
-export const { useGetCouriersQuery, useGetAllCouriersQuery } = couriersApi
+export const { useGetCouriersQuery, useGetAllCouriersQuery, useGetCourierQuery } = couriersApi
