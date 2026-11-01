@@ -30,7 +30,7 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
     jest.clearAllMocks()
   })
 
-  it('renders Couriers title (h1), redesign columns, and removes tabs, search box, and vehicle column (AC-1)', () => {
+  it('renders Couriers title (h1), redesign columns, and no vehicle column (AC-1)', () => {
     mockUseGetCouriersQuery.mockReturnValue({
       data: {
         data: [],
@@ -51,11 +51,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
     expect(screen.getByRole('columnheader', { name: 'Member since' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument()
 
-    // Absent per AC-1 & Value 5: No vehicle column, no tabs, no search box
+    // Absent per AC-1 & Value 5: no vehicle column (all mopeds). The tabs and search came with row 97.
     expect(screen.queryByRole('columnheader', { name: /vehicle/i })).toBeNull()
-    expect(screen.queryByRole('tab')).toBeNull()
-    expect(screen.queryByRole('textbox')).toBeNull()
-    expect(screen.queryByPlaceholderText(/search/i)).toBeNull()
   })
 
   it('renders courier rows with name, phone or "—", status, offers in words, member since, and Open button', () => {

@@ -2,6 +2,7 @@ import { useGetCouriersQuery } from '@/api/couriersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
+import { usePageVisible } from '@/hooks/usePageVisible'
 import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import type { CourierAdminDto } from '../../backend-admin-sdk'
 import { courierName, deliverySettingLabel, memberSince } from '@/modules/couriers/courierDisplay'
@@ -68,12 +69,18 @@ const CouriersPage: NextPage = () => {
     [],
   )
 
-  const getCouriersResponse = useGetCouriersQuery({
-    status,
-    search,
-    page: pagination.pageIndex + 1,
-    perPage: pagination.pageSize,
-  })
+  // Riders go Online and Offline on their own, so the list asks again every 30 s while the tab is
+  // visible, as the deliveries list does (row 97 review); 0 while hidden: RTK Query does not poll at 0.
+  const pageVisible = usePageVisible()
+  const getCouriersResponse = useGetCouriersQuery(
+    {
+      status,
+      search,
+      page: pagination.pageIndex + 1,
+      perPage: pagination.pageSize,
+    },
+    { pollingInterval: pageVisible ? 30_000 : 0 },
+  )
 
   return (
     <DefaultLayout>
@@ -82,6 +89,8 @@ const CouriersPage: NextPage = () => {
       <CouriersListFilters
         status={status}
         onStatusChange={(next) => {
+          // The tab already shown: nothing changes, so the page stays where it is.
+          if (next === status) return
           setStatus(next)
           // A new tab starts again from the first page.
           setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
