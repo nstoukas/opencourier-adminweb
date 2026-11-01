@@ -6,6 +6,7 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import { DispatchPanel } from '@/modules/dispatch-stop/DispatchPanel'
 import {
   DeliveriesListFilters,
   type DeliveryListState,
@@ -160,6 +161,9 @@ const OrdersPage: NextPage = () => {
     <DefaultLayout>
       {/* "Deliveries", not "Orders": the co-op's word for the thing a courier moves. */}
       <PageHeader title="Deliveries" />
+
+      {/* Stop dispatch for heat or a storm, and see when it restarts (spec 0014). */}
+      <DispatchPanel />
 
       <DeliveriesListFilters
         state={listState}

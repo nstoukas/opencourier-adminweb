@@ -9,6 +9,7 @@ const tagTypes = {
   partners: 'Partners',
   deliveryEvents: 'DeliveryEvents',
   deliveryIssues: 'DeliveryIssues',
+  dispatchStops: 'DispatchStops',
 }
 
 export const Tags = {
@@ -26,4 +27,5 @@ export const Tags = {
   partners: tagTypes['partners'],
   deliveryEvents: tagTypes['deliveryEvents'],
   deliveryIssues: tagTypes['deliveryIssues'],
+  dispatchStops: tagTypes['dispatchStops'],
 }
