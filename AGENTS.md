@@ -32,6 +32,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   (saving); without the second, a save drops it silently.
 - `OFFERED`, `OFFER_EXPIRED` and `NO_COURIER_AVAILABLE` are platform events: in the enum copy, never
   in `STATE_MACHINE`, so the admin trigger menu cannot send them.
+- The backend replaces the instance config's `details` object whole on save: always send the saved details with your change, as `savePayload` in `src/modules/instance-config/settingsDiff.ts` does (spec 0010).
+- The co-op settings page keeps the representative's edits as overrides laid over the saved settings; copying the fetched settings into the boxes on every fetch wipes pending changes (row 87 review). A new setting needs an entry in `SETTINGS` there and a bound control in `src/modules/instance-config/cards/`, or the coverage guard fails.
 - The value 5 guard (`src/shared-types/regression.test.ts`) fails on any count or grouping of events
   or offers per courier anywhere in `src`.
 
