@@ -32,6 +32,12 @@ export function athensTime(iso: string): string {
   }).format(new Date(iso))
 }
 
+// An end time, with its date only when it falls on another Athens day than `fromIso`
+// ("17:00", or "Sun 2 Nov, 06:00").
+export function athensEnd(fromIso: string, endIso: string): string {
+  return athensToday(new Date(fromIso)) === athensToday(new Date(endIso)) ? athensTime(endIso) : athensDateTime(endIso)
+}
+
 // Today's date in Athens as YYYY-MM-DD, the default of the date fields.
 export function athensToday(now: Date = new Date()): string {
   // en-CA formats a date as YYYY-MM-DD.
@@ -39,9 +45,16 @@ export function athensToday(now: Date = new Date()): string {
 }
 
 // What happened to a stop, in words, for the history.
+// Who ended or cancelled it is shown by the end of their user id, as who started it is (row 29 review).
 export function stopOutcome(stop: DispatchStopAdminDto): string {
-  if (stop.cancelledAt) return `Cancelled ${athensDateTime(stop.cancelledAt)}`
-  if (stop.endedAt) return `Restarted ${athensDateTime(stop.endedAt)}`
+  if (stop.cancelledAt) {
+    return `Cancelled ${athensDateTime(stop.cancelledAt)}${
+      stop.cancelledByUserId ? ` by ${stop.cancelledByUserId.slice(-6)}` : ''
+    }`
+  }
+  if (stop.endedAt) {
+    return `Restarted ${athensDateTime(stop.endedAt)}${stop.endedByUserId ? ` by ${stop.endedByUserId.slice(-6)}` : ''}`
+  }
   if (stop.endWorkDoneAt) return 'Ended as planned'
   if (stop.startedAt) return 'On'
   return 'Scheduled'

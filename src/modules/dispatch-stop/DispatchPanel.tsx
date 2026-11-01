@@ -14,7 +14,7 @@ import { useEndDispatchStopMutation, useGetDispatchStopsQuery } from '@/api/disp
 import type { DispatchStopAdminDto } from '@/backend-admin-sdk'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { backendMessage } from '@/modules/couriers/courierAccountRules'
-import { REASON_LABELS, athensDateTime, athensTime, effectiveEnd, stopOutcome } from './dispatchStopDisplay'
+import { REASON_LABELS, athensDateTime, athensEnd, effectiveEnd, stopOutcome } from './dispatchStopDisplay'
 import { StopDispatchDialog } from './StopDispatchDialog'
 
 // Who sees this: any admin. It shows whether dispatch is on, the stop on now, and the next one, with
@@ -26,14 +26,22 @@ export function DispatchPanel() {
   const pageVisible = usePageVisible()
   const overview = useGetDispatchStopsQuery(undefined, { pollingInterval: pageVisible ? 30_000 : 0 })
   const [endStop, { isLoading: ending }] = useEndDispatchStopMutation()
-  const [dialog, setDialog] = useState<'now' | 'schedule' | null>(null)
+  // Open and mode are kept apart, so closing the dialog changes only `open`: Radix plays the closing
+  // animation with the same title and the same focus target (row 29 review).
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<'now' | 'schedule'>('now')
+  const openDialog = (mode: 'now' | 'schedule') => {
+    setDialogMode(mode)
+    setDialogOpen(true)
+  }
   const [historyOpen, setHistoryOpen] = useState(false)
   const stopNowRef = useRef<HTMLButtonElement>(null)
   const scheduleRef = useRef<HTMLButtonElement>(null)
   const historyRef = useRef<HTMLButtonElement>(null)
 
   const current = overview.data?.current ?? null
-  const next = overview.data?.scheduled[0] ?? null
+  // Every scheduled stop, soonest first: a heat circular can cover several days (row 29 review).
+  const scheduled = overview.data?.scheduled ?? []
 
   const end = async (stop: DispatchStopAdminDto, what: 'restart' | 'cancel') => {
     try {
@@ -55,25 +63,32 @@ export function DispatchPanel() {
           ) : current ? (
             <p className="font-medium text-destructive">
               Dispatch is stopped{' '}
-              {effectiveEnd(current) ? `until ${athensTime(effectiveEnd(current) as string)}` : 'until you restart it'} (
-              {REASON_LABELS[current.reason]}).
+              {effectiveEnd(current)
+                ? `until ${athensEnd(new Date().toISOString(), effectiveEnd(current) as string)}`
+                : 'until you restart it'}{' '}
+              ({REASON_LABELS[current.reason]}).
             </p>
           ) : (
             <p className="font-medium">Dispatch is on.</p>
           )}
-          {next ? (
-            <p className="text-muted-foreground">
-              Next stop: {athensDateTime(next.startsAt)}
-              {next.endsAt ? ` to ${athensTime(next.endsAt)}` : ''} ({REASON_LABELS[next.reason]}).{' '}
-              <button
-                type="button"
-                className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                disabled={ending}
-                onClick={() => end(next, 'cancel')}
-              >
-                Cancel it
-              </button>
-            </p>
+          {scheduled.length > 0 ? (
+            <ul className="text-muted-foreground">
+              {scheduled.map((stop) => (
+                <li key={stop.id}>
+                  Scheduled: {athensDateTime(stop.startsAt)}
+                  {stop.endsAt ? ` to ${athensEnd(stop.startsAt, stop.endsAt)}` : ''} ({REASON_LABELS[stop.reason]}).{' '}
+                  <button
+                    type="button"
+                    className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    disabled={ending}
+                    aria-label={`Cancel the stop on ${athensDateTime(stop.startsAt)}`}
+                    onClick={() => end(stop, 'cancel')}
+                  >
+                    Cancel
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -83,11 +98,11 @@ export function DispatchPanel() {
               Restart now
             </Button>
           ) : (
-            <Button ref={stopNowRef} type="button" variant="destructive" onClick={() => setDialog('now')}>
+            <Button ref={stopNowRef} type="button" variant="destructive" onClick={() => openDialog('now')}>
               Stop now
             </Button>
           )}
-          <Button ref={scheduleRef} type="button" variant="outline" onClick={() => setDialog('schedule')}>
+          <Button ref={scheduleRef} type="button" variant="outline" onClick={() => openDialog('schedule')}>
             Schedule a stop
           </Button>
           <Button ref={historyRef} type="button" variant="ghost" onClick={() => setHistoryOpen(true)}>
@@ -97,12 +112,11 @@ export function DispatchPanel() {
       </CardContent>
 
       <StopDispatchDialog
-        open={dialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setDialog(null)
-        }}
-        mode={dialog ?? 'now'}
-        returnFocusTo={dialog === 'schedule' ? scheduleRef : stopNowRef}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode={dialogMode}
+        // After Stop now the button may be gone (Restart now replaces it): focus Schedule instead.
+        returnFocusTo={dialogMode === 'schedule' || current ? scheduleRef : stopNowRef}
       />
 
       {/* The record (spec 0014, AC-8): every stop, who started it and how it ended. */}

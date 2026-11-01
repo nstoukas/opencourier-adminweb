@@ -34,7 +34,10 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
   const { toast } = useToast()
   const [createStop, { isLoading }] = useCreateDispatchStopMutation()
   // The counts are read each time Stop now opens (spec 0014, AC-9); skipped for a schedule.
-  const preview = useGetDispatchStopPreviewQuery(undefined, { skip: !open || mode !== 'now', refetchOnMountOrArgChange: true })
+  const preview = useGetDispatchStopPreviewQuery(undefined, {
+    skip: !open || mode !== 'now',
+    refetchOnMountOrArgChange: true,
+  })
   const [reason, setReason] = useState<DispatchStopReason>('HEAT')
   const [hasEnd, setHasEnd] = useState(false)
   const [startDate, setStartDate] = useState('')
@@ -57,8 +60,7 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
   }, [open, mode])
 
   const needsEnd = mode === 'schedule' || hasEnd
-  const isValid =
-    (mode === 'now' || (startDate && startTime)) && (!needsEnd || (endDate !== '' && endTime !== ''))
+  const isValid = (mode === 'now' || (startDate && startTime)) && (!needsEnd || (endDate !== '' && endTime !== ''))
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -97,15 +99,21 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
           <DialogHeader>
             <DialogTitle>{mode === 'now' ? 'Stop dispatch now' : 'Schedule a stop'}</DialogTitle>
             <DialogDescription>
-              No rider gets an offer and no restaurant can order delivery while it is on. Deliveries already
-              picked up are finished. Times are Athens time.
+              No rider gets an offer and no restaurant can order delivery while it is on. Deliveries already picked up
+              are finished. Times are Athens time.
             </DialogDescription>
           </DialogHeader>
 
           {mode === 'now' ? (
             <p role="note" className="mt-3 rounded-md border border-border bg-muted p-3 text-sm">
-              {preview.data
-                ? `This ends ${preview.data.offersToEnd} open ${preview.data.offersToEnd === 1 ? 'offer' : 'offers'} and sends ${preview.data.deliveriesToReturn} ${preview.data.deliveriesToReturn === 1 ? 'delivery' : 'deliveries'} not yet picked up back to waiting. Riders who lose a delivery are paid by the co-op's reassignment setting.`
+              {preview.isError
+                ? 'Could not count the open offers and deliveries; stopping still works.'
+                : preview.data
+                ? `This ends ${preview.data.offersToEnd} open ${
+                    preview.data.offersToEnd === 1 ? 'offer' : 'offers'
+                  } and sends ${preview.data.deliveriesToReturn} ${
+                    preview.data.deliveriesToReturn === 1 ? 'delivery' : 'deliveries'
+                  } not yet picked up back to waiting. Riders who lose a delivery are paid by the co-op's reassignment setting.`
                 : 'Counting open offers and deliveries not yet picked up…'}
             </p>
           ) : null}
@@ -137,11 +145,21 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="stop-start-date">Starts on</Label>
-                  <Input id="stop-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <Input
+                    id="stop-start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="stop-start-time">At</Label>
-                  <Input id="stop-start-time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input
+                    id="stop-start-time"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
                 </div>
               </div>
             ) : (
