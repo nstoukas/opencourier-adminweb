@@ -6,6 +6,10 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import {
+  DeliveriesListFilters,
+  type DeliveryListState,
+} from '@/modules/deliveries/components/DeliveriesListFilters'
 import { deliveryOffer, isLookingForRider } from '@/modules/deliveries/utils/offer'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
@@ -35,6 +39,9 @@ const OFFER_REFRESH_MS = 30_000
 
 const OrdersPage: NextPage = () => {
   const { goToDeliveryDetails } = useAdminPageNavigator()
+  // Which deliveries to show and the search text, both sent to the backend (row 96).
+  const [listState, setListState] = useState<DeliveryListState>('all')
+  const [search, setSearch] = useState<string | undefined>(undefined)
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -46,6 +53,8 @@ const OrdersPage: NextPage = () => {
   const pageVisible = usePageVisible()
   const getOrdersResponse = useGetDeliveriesQuery(
     {
+      state: listState,
+      search,
       page: pagination.pageIndex + 1,
       perPage: pagination.pageSize,
     },
@@ -65,8 +74,7 @@ const OrdersPage: NextPage = () => {
     return map
   }, [couriersPayload?.data])
 
-  // The board's columns (spec 0011, AC-1). The list has no working filter or search today: the
-  // admin list route takes only the page, so the old ones filtered nothing (row 96 adds them).
+  // The board's columns (spec 0011, AC-1).
   const columns: ColumnDef<DeliveryAdminDto>[] = useMemo(
     () => [
       {
@@ -152,6 +160,19 @@ const OrdersPage: NextPage = () => {
     <DefaultLayout>
       {/* "Deliveries", not "Orders": the co-op's word for the thing a courier moves. */}
       <PageHeader title="Deliveries" />
+
+      <DeliveriesListFilters
+        state={listState}
+        onStateChange={(next) => {
+          setListState(next)
+          // A new filter starts again from the first page.
+          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+        }}
+        onSearchChange={(next) => {
+          setSearch(next)
+          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+        }}
+      />
 
       <DataTable
         columns={columns}

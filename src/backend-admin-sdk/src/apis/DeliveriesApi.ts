@@ -47,6 +47,10 @@ export interface DeliveriesApiGetDeliveriesRequest {
     page?: number;
     perPage?: number;
     courierId?: string;
+    // Which deliveries (row 96): 'all', 'active', 'dropped_off' or 'canceled'.
+    state?: 'all' | 'active' | 'dropped_off' | 'canceled';
+    // Order reference, customer, restaurant, or the end of the id (row 96).
+    search?: string;
 }
 
 export interface DeliveriesApiGetDeliveryRequest {
@@ -92,6 +96,14 @@ export class DeliveriesApi extends runtime.BaseAPI {
 
         if (requestParameters.courierId !== undefined) {
             queryParameters['courierId'] = requestParameters.courierId;
+        }
+
+        if (requestParameters.state !== undefined) {
+            queryParameters['state'] = requestParameters.state;
+        }
+
+        if (requestParameters.search !== undefined) {
+            queryParameters['search'] = requestParameters.search;
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
