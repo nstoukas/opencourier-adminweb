@@ -170,6 +170,13 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   savedCustomerRetentionMonths?: number | null;
+  /**
+   * The co-op's dispatch line riders call from the job screen; null when none is set.
+   * Hand edited (row 72).
+   * @type {string}
+   * @memberof InstanceConfigSettingsDto
+   */
+  dispatchPhoneNumber?: string | null;
 }
 
 /**
@@ -342,6 +349,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? null
       : json["savedCustomerRetentionMonths"],
+    dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
+      ? null
+      : json["dispatchPhoneNumber"],
   };
 }
 
@@ -381,5 +391,6 @@ export function InstanceConfigSettingsDtoToJSON(
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
+    dispatchPhoneNumber: value.dispatchPhoneNumber,
   };
 }

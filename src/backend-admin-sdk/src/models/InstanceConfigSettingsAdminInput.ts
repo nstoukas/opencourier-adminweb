@@ -168,6 +168,14 @@ export interface InstanceConfigSettingsAdminInput {
    * @memberof InstanceConfigSettingsAdminInput
    */
   savedCustomerRetentionMonths?: number;
+  /**
+   * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
+   * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
+   * optional leading +. An empty text clears it. Hand edited (row 72).
+   * @type {string}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  dispatchPhoneNumber?: string;
 }
 
 /**
@@ -365,6 +373,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? undefined
       : json["savedCustomerRetentionMonths"],
+    dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
+      ? undefined
+      : json["dispatchPhoneNumber"],
   };
 }
 
@@ -406,5 +417,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     // Without this line a save would drop the retention setting before it left the browser.
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
+    // Without this line a save would drop the dispatch number before it left the browser.
+    dispatchPhoneNumber: value.dispatchPhoneNumber,
   };
 }

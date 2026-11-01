@@ -160,6 +160,9 @@ const InstanceConfigurationPage: NextPage = () => {
   // Saved customers (spec 0005): months an unused saved customer is kept. null until loaded.
   const [savedCustomerRetentionMonths, setSavedCustomerRetentionMonths] = useState<string | null>(null);
   const [isSavingRetention, setIsSavingRetention] = useState(false);
+  // The dispatch line riders call from the job screen (row 72), as typed. null until loaded.
+  const [dispatchPhoneNumber, setDispatchPhoneNumber] = useState<string | null>(null);
+  const [isSavingDispatchPhone, setIsSavingDispatchPhone] = useState(false);
 
   const [privacyPolicyContent, setPrivacyPolicyContent] = useState("");
   const [termsOfServiceContent, setTermsOfServiceContent] = useState("");
@@ -237,6 +240,7 @@ const InstanceConfigurationPage: NextPage = () => {
           ? ""
           : String(data.savedCustomerRetentionMonths),
       );
+      setDispatchPhoneNumber(data.dispatchPhoneNumber ?? "");
       setPrivacyPolicyContent(details.privacyPolicyContent ?? "");
       setTermsOfServiceContent(details.termsOfServiceContent ?? "");
       setRulesContent(details.rulesContent ?? "");
@@ -679,6 +683,37 @@ const InstanceConfigurationPage: NextPage = () => {
       console.error("Failed to save saved customer retention:", error);
     } finally {
       setIsSavingRetention(false);
+    }
+  };
+
+  const handleSaveDispatchPhone = async () => {
+    // The button is off until the settings have loaded.
+    if (dispatchPhoneNumber === null) return;
+    setIsSavingDispatchPhone(true);
+    try {
+      // Sent as typed: the backend owns the rule and refuses a bad number with a sentence the
+      // toast shows. It answers with the number as stored (spaces removed), shown back in the box.
+      const saved = await setInstanceConfigMutation({
+        dispatchPhoneNumber,
+      }).unwrap();
+      setDispatchPhoneNumber(saved.dispatchPhoneNumber ?? "");
+      toast({
+        title: "Success!",
+        description: saved.dispatchPhoneNumber
+          ? "Dispatch number saved. Riders see the Call dispatch button within ten minutes."
+          : "Dispatch number cleared. Riders no longer see a Call dispatch button.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message ||
+          "Failed to save the dispatch number. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to save the dispatch number:", error);
+    } finally {
+      setIsSavingDispatchPhone(false);
     }
   };
 
@@ -1278,6 +1313,44 @@ const InstanceConfigurationPage: NextPage = () => {
                   onClick={handleSaveRetention}
                 >
                   {isSavingRetention ? "Saving…" : "Save saved customer setting"}
+                </Button>
+              </div>
+            </section>
+            {/* Row 72: the number riders call in one tap from the job screen. */}
+            <section
+              aria-labelledby="dispatch-line-heading"
+              className="max-w-[500px] rounded-md border border-border p-4 flex flex-col gap-3"
+            >
+              <h3 id="dispatch-line-heading" className="text-lg font-medium">
+                Dispatch line
+              </h3>
+              <div>
+                <Label htmlFor="dispatchPhoneNumber">Dispatch phone number</Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Riders call it from the job screen. Digits, optionally starting
+                  with +; spaces and dashes are fine. Leave it empty and riders
+                  see no Call dispatch button.
+                </p>
+                <Input
+                  id="dispatchPhoneNumber"
+                  key="dispatchPhoneNumber"
+                  type="tel"
+                  autoComplete="off"
+                  placeholder="+30 24210 12345"
+                  value={dispatchPhoneNumber ?? ""}
+                  // Off until the settings load: typing here first would only be overwritten.
+                  disabled={dispatchPhoneNumber === null}
+                  onChange={(event) => setDispatchPhoneNumber(event.target.value)}
+                  className="max-w-[240px]"
+                />
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  disabled={isSavingDispatchPhone || dispatchPhoneNumber === null}
+                  onClick={handleSaveDispatchPhone}
+                >
+                  {isSavingDispatchPhone ? "Saving…" : "Save dispatch number"}
                 </Button>
               </div>
             </section>
