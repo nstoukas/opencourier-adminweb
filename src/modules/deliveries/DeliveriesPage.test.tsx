@@ -606,6 +606,37 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
       )
     })
 
+    it('does not reset pagination when search is unchanged (row 96 review nit)', () => {
+      render(<OrdersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 2,
+        }),
+        expect.anything()
+      )
+
+      // Type spaces only into the search box
+      const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+      fireEvent.change(searchInput, { target: { value: '    ' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      // Must remain on page 2 (not reset to page 1)
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 2,
+        }),
+        expect.anything()
+      )
+    })
+
     it('fails if state or search is dropped on the way to the query (row 96 Done when)', () => {
       render(<OrdersPage />)
 

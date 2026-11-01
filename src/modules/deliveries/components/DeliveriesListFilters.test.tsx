@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import type { DeliveriesApiGetDeliveriesRequest } from '@/backend-admin-sdk'
 import {
   DeliveriesListFilters,
   DELIVERY_LIST_STATES,
@@ -194,14 +195,136 @@ describe('DeliveriesListFilters (row 96: filter and search controls)', () => {
     )
 
     const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
-    fireEvent.change(searchInput, { target: { value: '     ' } })
 
+    // Spaces only typed into an empty box sends nothing (trimmed search unchanged from undefined)
+    fireEvent.change(searchInput, { target: { value: '     ' } })
     act(() => {
       jest.advanceTimersByTime(SEARCH_DELAY_MS)
     })
+    expect(onSearchChange).not.toHaveBeenCalled()
 
+    // Typing "abc", waiting, then clearing to spaces only calls onSearchChange(undefined) once
+    fireEvent.change(searchInput, { target: { value: 'abc' } })
+    act(() => {
+      jest.advanceTimersByTime(SEARCH_DELAY_MS)
+    })
     expect(onSearchChange).toHaveBeenCalledTimes(1)
-    expect(onSearchChange).toHaveBeenCalledWith(undefined)
+    expect(onSearchChange).toHaveBeenCalledWith('abc')
+
+    // Clearing to spaces only triggers onSearchChange(undefined)
+    fireEvent.change(searchInput, { target: { value: '   ' } })
+    act(() => {
+      jest.advanceTimersByTime(SEARCH_DELAY_MS)
+    })
+    expect(onSearchChange).toHaveBeenCalledTimes(2)
+    expect(onSearchChange).toHaveBeenLastCalledWith(undefined)
+    expect(onSearchChange.mock.calls.filter((call) => call[0] === undefined)).toHaveLength(1)
+  })
+
+  it('does not call onSearchChange on the first render (mount)', () => {
+    const onSearchChange = jest.fn()
+    render(
+      <DeliveriesListFilters
+        state="all"
+        onStateChange={jest.fn()}
+        onSearchChange={onSearchChange}
+      />
+    )
+
+    // Advancing past the debounce delay does not fire onSearchChange on mount
+    act(() => {
+      jest.advanceTimersByTime(SEARCH_DELAY_MS * 2)
+    })
+    expect(onSearchChange).not.toHaveBeenCalled()
+  })
+
+  it('does not call onSearchChange when settled text trims to the same search as last sent ("abc" then "abc ")', () => {
+    const onSearchChange = jest.fn()
+    render(
+      <DeliveriesListFilters
+        state="all"
+        onStateChange={jest.fn()}
+        onSearchChange={onSearchChange}
+      />
+    )
+
+    const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+
+    // First search: "abc"
+    fireEvent.change(searchInput, { target: { value: 'abc' } })
+    act(() => {
+      jest.advanceTimersByTime(SEARCH_DELAY_MS)
+    })
+    expect(onSearchChange).toHaveBeenCalledTimes(1)
+    expect(onSearchChange).toHaveBeenCalledWith('abc')
+
+    // Append space: "abc " trims to "abc", which matches last sent
+    fireEvent.change(searchInput, { target: { value: 'abc ' } })
+    act(() => {
+      jest.advanceTimersByTime(SEARCH_DELAY_MS)
+    })
+    // No second call because the trimmed search did not change
+    expect(onSearchChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends search 300 ms after the last key through the shared useDebouncedValue hook (fake timers)', () => {
+    const onSearchChange = jest.fn()
+    render(
+      <DeliveriesListFilters
+        state="all"
+        onStateChange={jest.fn()}
+        onSearchChange={onSearchChange}
+      />
+    )
+
+    const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+
+    // Typing sets state and schedules debounce via useDebouncedValue
+    fireEvent.change(searchInput, { target: { value: 'Athens' } })
+
+    // 150 ms in: still waiting
+    act(() => {
+      jest.advanceTimersByTime(150)
+    })
+    expect(onSearchChange).not.toHaveBeenCalled()
+
+    // Typing another key before 300 ms resets the debounce timer in useDebouncedValue
+    fireEvent.change(searchInput, { target: { value: 'Athens central' } })
+
+    // Advance 299 ms after the second key: still pending
+    act(() => {
+      jest.advanceTimersByTime(299)
+    })
+    expect(onSearchChange).not.toHaveBeenCalled()
+
+    // Exactly 300 ms after the last key: hook settles and fires onSearchChange
+    act(() => {
+      jest.advanceTimersByTime(1)
+    })
+    expect(onSearchChange).toHaveBeenCalledTimes(1)
+    expect(onSearchChange).toHaveBeenCalledWith('Athens central')
+  })
+
+  it('derives DeliveryListState from DeliveriesApiGetDeliveriesRequest["state"] (compile-time check)', () => {
+    // DeliveryListState comes from DeliveriesApiGetDeliveriesRequest['state'] (row 96 review ruling).
+    // Assigning each of the four values to a DeliveriesApiGetDeliveriesRequest['state']
+    // confirms compile-time compatibility between the two types.
+    const all: DeliveryListState = 'all'
+    const active: DeliveryListState = 'active'
+    const droppedOff: DeliveryListState = 'dropped_off'
+    const canceled: DeliveryListState = 'canceled'
+
+    const sdkAll: DeliveriesApiGetDeliveriesRequest['state'] = all
+    const sdkActive: DeliveriesApiGetDeliveriesRequest['state'] = active
+    const sdkDroppedOff: DeliveriesApiGetDeliveriesRequest['state'] = droppedOff
+    const sdkCanceled: DeliveriesApiGetDeliveriesRequest['state'] = canceled
+
+    expect([sdkAll, sdkActive, sdkDroppedOff, sdkCanceled]).toEqual([
+      'all',
+      'active',
+      'dropped_off',
+      'canceled',
+    ])
   })
 
   it('calls onSearchChange with undefined when the search box is emptied', () => {
