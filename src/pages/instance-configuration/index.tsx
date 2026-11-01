@@ -25,6 +25,7 @@ import {
   RiderPayCard,
   SECTIONS,
   ServiceAreaCard,
+  PUBLIC_PAGES,
   type PublicPage,
 } from "@/modules/instance-config/cards/SettingsCards";
 import { PublicPageEditor } from "@/modules/instance-config/PublicPageEditor";
@@ -33,6 +34,7 @@ import { SaveBar } from "@/modules/instance-config/SaveBar";
 import {
   EMPTY_FORM,
   blockers as findBlockers,
+  sameValue,
   formFromSettings,
   pendingChanges,
   savePayload,
@@ -70,36 +72,17 @@ const optionLabel = (key: SettingKey, option: string): string =>
     ? MATCHER_COPY[option]?.title ?? option
     : OPTION_LABELS[key]?.[option] ?? option;
 
-// Which public page text lives in which `details` key, and how it is named in messages.
-const PUBLIC_PAGE_FIELDS: Record<
-  PublicPage,
-  { key: string; title: string; placeholder: string }
-> = {
-  rules: {
-    key: "rulesContent",
-    title: "Courier rules",
-    placeholder: "# Courier rules\n\nWrite your content in markdown...",
-  },
-  description: {
-    key: "descriptionContent",
-    title: "About the co-op",
-    placeholder: "# About the co-op\n\nWrite your content in markdown...",
-  },
-  "terms-of-service": {
-    key: "termsOfServiceContent",
-    title: "Terms of service",
-    placeholder: "# Terms of Service\n\n## Agreement\nWrite your content in markdown...",
-  },
-  "privacy-policy": {
-    key: "privacyPolicyContent",
-    title: "Privacy policy",
-    placeholder: "# Privacy Policy\n\nWrite your content in markdown...",
-  },
-};
-
 // Co-op settings (spec 0010): the instance's settings in seven cards, one save bar that lists
 // every change as "old → new" and sends only those. The dropped rider pay policies and the
 // public pages keep their own Save.
+// The public page entry for a view (the table lives beside the card that lists them).
+// Every view has an entry, so the throw is never reached; it only tells TypeScript so.
+const pageOf = (view: PublicPage) => {
+  const page = PUBLIC_PAGES.find((candidate) => candidate.view === view);
+  if (!page) throw new Error(`No public page entry for ${view}`);
+  return page;
+};
+
 const InstanceConfigurationPage: NextPage = () => {
   const instanceConfigOptionsResponse = useGetInstanceConfigOptionsQuery({});
   const instanceConfigResponse = useGetInstanceConfigQuery({});
@@ -119,22 +102,41 @@ const InstanceConfigurationPage: NextPage = () => {
     () => (data ? formFromSettings(data as Record<string, any>) : null),
     [data],
   );
-  const [edited, setEdited] = useState<SettingsForm>(EMPTY_FORM);
+  // The representative's edits, laid over the saved settings. A refetch (after any save on this
+  // page, the policy editor's and the public pages' included) then only moves the "old" values;
+  // an edit stays until Discard, or until it equals the saved value (row 87 review).
+  // `Partial<SettingsForm>` = the same shape with every field optional.
+  const [overrides, setOverrides] = useState<Partial<SettingsForm>>({});
+  const edited = useMemo<SettingsForm>(
+    () => ({ ...(saved ?? EMPTY_FORM), ...overrides }),
+    [saved, overrides],
+  );
   // Bumped on Discard so the map draws the saved area again (it reads its shape only when it mounts).
   const [mapKey, setMapKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingPayoutPolicies, setIsSavingPayoutPolicies] = useState(false);
 
-  // Each time the settings arrive (first load, after a save), the boxes show them.
+  // Each time the settings arrive, an edit that now equals its saved value is dropped: after the
+  // bar's own save, its changes become the saved values and leave the bar.
   useEffect(() => {
-    if (saved) setEdited(saved);
+    if (!saved) return;
+    setOverrides((current) => {
+      const kept: Partial<SettingsForm> = {};
+      // `Object.keys(...) as SettingKey[]`: TypeScript types Object.keys as string[].
+      for (const key of Object.keys(current) as SettingKey[]) {
+        if (!sameValue(key, current[key], saved[key])) {
+          (kept as Record<string, unknown>)[key] = current[key];
+        }
+      }
+      return kept;
+    });
   }, [saved]);
 
   // `useCallback` keeps the same function between draws, so the cards and the map do not
   // redraw for nothing.
   const set = useCallback(
     <K extends SettingKey>(key: K, value: SettingsForm[K]) =>
-      setEdited((current) => ({ ...current, [key]: value })),
+      setOverrides((current) => ({ ...current, [key]: value })),
     [],
   );
   const handleMapUpdate = useCallback(
@@ -149,12 +151,12 @@ const InstanceConfigurationPage: NextPage = () => {
   const blockers = useMemo(() => findBlockers(changes, edited), [changes, edited]);
 
   const handleDiscard = () => {
-    if (saved) setEdited(saved);
+    setOverrides({});
     setMapKey((key) => key + 1);
   };
 
   const handleSave = async () => {
-    if (changes.length === 0 || blockers.length > 0) return;
+    if (changes.length === 0 || blockers.length > 0 || refetching) return;
     setIsSaving(true);
     try {
       // .unwrap() makes a refused save throw; configApi's queryFn returns `{ error }` instead of
@@ -214,13 +216,13 @@ const InstanceConfigurationPage: NextPage = () => {
   const [isSavingPage, setIsSavingPage] = useState(false);
 
   const openPage = (view: PublicPage) => {
-    setPageText(String(savedDetails[PUBLIC_PAGE_FIELDS[view].key] ?? ""));
+    setPageText(String(savedDetails[pageOf(view).key] ?? ""));
     setCurrentView(view);
   };
 
   const handleSavePage = async () => {
     if (currentView === "main") return;
-    const page = PUBLIC_PAGE_FIELDS[currentView];
+    const page = pageOf(currentView);
     setIsSavingPage(true);
     try {
       // `details` is replaced whole by the backend, so the saved details go with the new text.
@@ -242,6 +244,10 @@ const InstanceConfigurationPage: NextPage = () => {
       setIsSavingPage(false);
     }
   };
+
+  // True while the settings are being fetched again (after any save): Save waits, so it never
+  // sends a change that has just been saved (row 87 review).
+  const refetching = instanceConfigResponse.isFetching;
 
   const cardProps = {
     form: edited,
@@ -311,16 +317,16 @@ const InstanceConfigurationPage: NextPage = () => {
           <SaveBar
             changes={changes}
             blockers={blockers}
-            isSaving={isSaving}
+            isSaving={isSaving || refetching}
             onDiscard={handleDiscard}
             onSave={handleSave}
           />
         </>
       ) : (
         <PublicPageEditor
-          title={PUBLIC_PAGE_FIELDS[currentView].title}
+          title={pageOf(currentView).title}
           value={pageText}
-          placeholder={PUBLIC_PAGE_FIELDS[currentView].placeholder}
+          placeholder={pageOf(currentView).placeholder}
           isSaving={isSavingPage}
           onChange={setPageText}
           onSave={handleSavePage}

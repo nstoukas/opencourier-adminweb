@@ -69,17 +69,24 @@ export function PricingExample({ baseFeeText, rateText, feePercentText, currency
           />
           <Row label="Rider gets" value={money(breakdown.riderPay)} strong />
           <Row label={`Co-op fee ${feePercentText.trim()}%`} value={money(breakdown.coopFee)} />
-          <div className="my-1 border-t border-border" />
-          <Row label="Customer pays" value={money(breakdown.customerPays)} strong />
+          <Row
+            label="Customer pays"
+            value={money(breakdown.customerPays)}
+            strong
+            className="mt-1 border-t border-border pt-2"
+          />
         </dl>
       )}
     </section>
   )
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+// One line of the example: a <div> holding a <dt> and its <dd>, which is valid inside a <dl>.
+function Row({ label, value, strong, className = '' }: { label: string; value: string; strong?: boolean; className?: string }) {
   return (
-    <div className={`flex justify-between gap-4 ${strong ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+    <div
+      className={`flex justify-between gap-4 ${strong ? 'font-semibold text-foreground' : 'text-muted-foreground'} ${className}`}
+    >
       <dt>{label}</dt>
       <dd className="tabular-nums">{value}</dd>
     </div>

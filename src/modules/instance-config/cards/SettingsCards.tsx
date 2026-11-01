@@ -29,7 +29,15 @@ import { describeBaseFee } from '@/utils/baseFee'
 import { describeOfferExpiry } from '@/utils/offerExpiry'
 import { describeQuoteRate, parseQuoteRateInput } from '@/utils/quoteRate'
 import { PricingExample } from '../PricingExample'
-import { CENTS_ERROR, isValidURL, sanitizeURL, type SettingKey, type SettingsForm } from '../settingsDiff'
+import {
+  CENTS_ERROR,
+  isValidURL,
+  labelOf,
+  sanitizeURL,
+  urlErrorText,
+  type SettingKey,
+  type SettingsForm,
+} from '../settingsDiff'
 
 // The option lists the backend offers for each choice (today's options query).
 export type SettingsOptions = {
@@ -77,16 +85,19 @@ function SettingsSection({
   children: ReactNode
 }) {
   return (
-    // scroll-mt keeps the title clear of the top edge when a pill jumps here.
-    <Card id={id} aria-labelledby={`${id}-title`} className="scroll-mt-4">
-      <CardHeader>
-        <h2 id={`${id}-title`} className="text-2xl font-semibold">
-          {title}
-        </h2>
-        {description && <CardDescription>{description}</CardDescription>}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    // A <section> named by its title is a landmark a screen reader can jump to; scroll-mt keeps
+    // the title clear of the top edge when a pill jumps here.
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-4">
+      <Card>
+        <CardHeader>
+          <h2 id={`${id}-title`} className="text-2xl font-semibold">
+            {title}
+          </h2>
+          {description && <CardDescription>{description}</CardDescription>}
+        </CardHeader>
+        <CardContent>{children}</CardContent>
+      </Card>
+    </section>
   )
 }
 
@@ -112,6 +123,12 @@ function OptionSelect({
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <NativeSelect id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        {/* A setting with no saved value shows "Not set" instead of looking like its first option. */}
+        {value === '' && (
+          <option value="" disabled>
+            Not set
+          </option>
+        )}
         {(options ?? []).map((option) => (
           <option key={option} value={option}>
             {labels[option] ?? option}
@@ -180,7 +197,7 @@ export function PricingCard({ form, set, options, loaded }: CardProps) {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <NumberField
               id="quoteBaseFee"
-              label="Base fee (cents)"
+              label={`${labelOf('quoteBaseFee')} (cents)`}
               value={form.quoteBaseFee}
               min={0}
               disabled={!loaded}
@@ -190,17 +207,17 @@ export function PricingCard({ form, set, options, loaded }: CardProps) {
             />
             <NumberField
               id="quoteRatePerDistanceUnit"
-              label={`Per ${unitWord(form.distanceUnit)} (cents)`}
+              label={`${labelOf('quoteRatePerDistanceUnit', form)} (cents)`}
               value={form.quoteRatePerDistanceUnit}
               min={0}
               disabled={!loaded}
               description={rate === null ? 'Road distance.' : describeQuoteRate(rate, form.currency, form.distanceUnit)}
-              error={loaded && rate === null ? CENTS_ERROR('Per distance rate') : undefined}
+              error={loaded && rate === null ? CENTS_ERROR(labelOf('quoteRatePerDistanceUnit', form)) : undefined}
               onChange={(value) => set('quoteRatePerDistanceUnit', value)}
             />
             <NumberField
               id="feePercentageAmount"
-              label="Co-op fee (%)"
+              label={labelOf('feePercentageAmount')}
               value={form.feePercentageAmount}
               min={0}
               disabled={!loaded}
@@ -293,7 +310,7 @@ export function MatchingCard({ form, set, options, loaded }: CardProps) {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <NumberField
             id="maxAssignmentDistance"
-            label={`Furthest courier to offer (${unit})`}
+            label={`${labelOf('maxAssignmentDistance')} (${unit})`}
             value={form.maxAssignmentDistance}
             min={0}
             disabled={!loaded}
@@ -346,7 +363,7 @@ export function MatchingCard({ form, set, options, loaded }: CardProps) {
 export function OffersCard({ form, set, loaded }: CardProps) {
   const notLoaded = form.offerExpiryEnabled === null
   return (
-    <SettingsSection id="offers" title="Offers" description="How long an offer to a rider lasts (row 61).">
+    <SettingsSection id="offers" title="Offers" description="How long an offer to a rider lasts.">
       <FieldGroup>
         <Field>
           <div className="flex items-center gap-3">
@@ -440,8 +457,8 @@ export function ServiceAreaCard({ map }: { map: ReactNode }) {
 }
 
 export function InstanceCard({ form, set, options, loaded, linkLocked }: CardProps & { linkLocked: boolean }) {
-  const urlError = (value: string) =>
-    value && !isValidURL(sanitizeURL(value)) ? 'Invalid URL format' : undefined
+  const urlError = (key: SettingKey, value: string) =>
+    value && !isValidURL(sanitizeURL(value)) ? urlErrorText(labelOf(key)) : undefined
   return (
     <SettingsSection id="instance" title="Instance" description="The co-op's name, links and data rules.">
       <FieldGroup>
@@ -461,7 +478,7 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
               id="link"
               value={form.link}
               disabled={!loaded || linkLocked}
-              aria-invalid={urlError(form.link) ? true : undefined}
+              aria-invalid={urlError('link', form.link) ? true : undefined}
               onChange={(event) => set('link', event.target.value)}
             />
             <FieldDescription>
@@ -469,7 +486,7 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
                 ? 'Saved. The URL cannot be changed.'
                 : 'Once the URL is saved it cannot be changed. Check it before saving.'}
             </FieldDescription>
-            {urlError(form.link) && <FieldError>{urlError(form.link)}</FieldError>}
+            {urlError('link', form.link) && <FieldError>{urlError('link', form.link)}</FieldError>}
           </Field>
           <Field>
             <FieldLabel htmlFor="websocketLink">Websocket URL</FieldLabel>
@@ -477,10 +494,10 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
               id="websocketLink"
               value={form.websocketLink}
               disabled={!loaded}
-              aria-invalid={urlError(form.websocketLink) ? true : undefined}
+              aria-invalid={urlError('websocketLink', form.websocketLink) ? true : undefined}
               onChange={(event) => set('websocketLink', event.target.value)}
             />
-            {urlError(form.websocketLink) && <FieldError>{urlError(form.websocketLink)}</FieldError>}
+            {urlError('websocketLink', form.websocketLink) && <FieldError>{urlError('websocketLink', form.websocketLink)}</FieldError>}
           </Field>
           <Field>
             <FieldLabel htmlFor="imageUrl">Logo image URL</FieldLabel>
@@ -488,10 +505,10 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
               id="imageUrl"
               value={form.imageUrl}
               disabled={!loaded}
-              aria-invalid={urlError(form.imageUrl) ? true : undefined}
+              aria-invalid={urlError('imageUrl', form.imageUrl) ? true : undefined}
               onChange={(event) => set('imageUrl', event.target.value)}
             />
-            {urlError(form.imageUrl) && <FieldError>{urlError(form.imageUrl)}</FieldError>}
+            {urlError('imageUrl', form.imageUrl) && <FieldError>{urlError('imageUrl', form.imageUrl)}</FieldError>}
           </Field>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -516,16 +533,16 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
                 </option>
               ))}
             </NativeSelect>
-            <FieldDescription>Select one or more.</FieldDescription>
+            <FieldDescription>Hold Ctrl (Cmd on a Mac) and click to pick more than one.</FieldDescription>
           </Field>
           <NumberField
             id="savedCustomerRetentionMonths"
-            label="Delete a saved customer after this many months unused"
+            label={labelOf('savedCustomerRetentionMonths')}
             value={form.savedCustomerRetentionMonths}
             min={1}
             max={36}
             disabled={!loaded}
-            description="Restaurants' customers are personal data the co-op keeps for them. This is how long one nobody orders for is kept. Whole months, 1 to 36."
+            description="How long a restaurant's saved customer nobody orders for is kept, then deleted. Customers are personal data the co-op keeps for restaurants. Whole months, 1 to 36."
             onChange={(value) => set('savedCustomerRetentionMonths', value)}
           />
         </div>
@@ -536,11 +553,35 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
 
 export type PublicPage = 'rules' | 'description' | 'terms-of-service' | 'privacy-policy'
 
-export const PUBLIC_PAGES: { view: PublicPage; title: string; where?: string }[] = [
-  { view: 'rules', title: 'Courier rules', where: 'Shown before a courier joins.' },
-  { view: 'description', title: 'About the co-op', where: 'Shown in the courier app.' },
-  { view: 'terms-of-service', title: 'Terms of service' },
-  { view: 'privacy-policy', title: 'Privacy policy' },
+// The four public pages: where each text lives in `details`, its name, and its editor's
+// placeholder. One table for the card and the page (row 87 review).
+export const PUBLIC_PAGES: { view: PublicPage; key: string; title: string; where?: string; placeholder: string }[] = [
+  {
+    view: 'rules',
+    key: 'rulesContent',
+    title: 'Courier rules',
+    where: 'Shown before a courier joins.',
+    placeholder: '# Courier rules\n\nWrite your content in markdown...',
+  },
+  {
+    view: 'description',
+    key: 'descriptionContent',
+    title: 'About the co-op',
+    where: 'Shown in the courier app.',
+    placeholder: '# About the co-op\n\nWrite your content in markdown...',
+  },
+  {
+    view: 'terms-of-service',
+    key: 'termsOfServiceContent',
+    title: 'Terms of service',
+    placeholder: '# Terms of Service\n\n## Agreement\nWrite your content in markdown...',
+  },
+  {
+    view: 'privacy-policy',
+    key: 'privacyPolicyContent',
+    title: 'Privacy policy',
+    placeholder: '# Privacy Policy\n\nWrite your content in markdown...',
+  },
 ]
 
 export function PublicPagesCard({ onEdit }: { onEdit: (view: PublicPage) => void }) {

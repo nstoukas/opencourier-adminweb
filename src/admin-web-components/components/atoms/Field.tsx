@@ -29,9 +29,10 @@ function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return <p data-slot="field-description" className={cn('text-sm text-muted-foreground', className)} {...props} />
 }
 
-// A problem with the value, in the destructive colour (row 87).
+// A problem with the value, in the destructive colour (row 87). No role="alert": the page's save
+// bar already announces the same problem, and two announcements would repeat it.
 function FieldError({ className, ...props }: React.ComponentProps<'p'>) {
-  return <p data-slot="field-error" role="alert" className={cn('text-sm text-destructive', className)} {...props} />
+  return <p data-slot="field-error" className={cn('text-sm text-destructive', className)} {...props} />
 }
 
 export { Field, FieldGroup, FieldLabel, FieldDescription, FieldError }

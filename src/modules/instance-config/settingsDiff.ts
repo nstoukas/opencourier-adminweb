@@ -57,8 +57,8 @@ export type SettingDefinition = { key: SettingKey; label: string; kind: Kind; de
 // live inside the backend's `details` object, which is replaced whole (spec 0010, AC-12).
 export const SETTINGS: SettingDefinition[] = [
   { key: 'quoteBaseFee', label: 'Base fee', kind: 'cents' },
-  { key: 'quoteRatePerDistanceUnit', label: 'Per distance rate', kind: 'cents' },
-  { key: 'feePercentageAmount', label: 'Co-op fee %', kind: 'number' },
+  { key: 'quoteRatePerDistanceUnit', label: 'Rate per km', kind: 'cents' },
+  { key: 'feePercentageAmount', label: 'Co-op fee (%)', kind: 'number' },
   { key: 'currency', label: 'Currency', kind: 'select' },
   { key: 'distanceUnit', label: 'Distance unit', kind: 'select' },
   { key: 'quoteCalculationType', label: 'Quote calculation', kind: 'select' },
@@ -82,6 +82,16 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'defaultDietaryRestrictions', label: 'Default dietary restrictions', kind: 'multi' },
   { key: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)', kind: 'number' },
 ]
+
+// The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
+// distance unit in the boxes.
+export function labelOf(key: SettingKey, form?: Pick<SettingsForm, 'distanceUnit'>): string {
+  if (key === 'quoteRatePerDistanceUnit') {
+    return form?.distanceUnit === 'MILES' ? 'Rate per mile' : 'Rate per km'
+  }
+  return SETTINGS.find((definition) => definition.key === key)?.label ?? key
+}
+
 
 // A link as it is saved: trimmed, without a trailing slash (today's sanitizeURL).
 export const sanitizeURL = (url: string): string => url.trim().replace(/\/$/, '')
@@ -124,6 +134,13 @@ function comparable(definition: SettingDefinition, value: unknown): string {
   }
 }
 
+// True when two values of a setting save the same (an edit that now equals the saved value is
+// no longer a change: after a save, the page drops it).
+export function sameValue(key: SettingKey, a: unknown, b: unknown): boolean {
+  const definition = SETTINGS.find((candidate) => candidate.key === key)
+  return definition ? comparable(definition, a) === comparable(definition, b) : a === b
+}
+
 export type PendingChange = { key: SettingKey; label: string; from: string; to: string }
 
 // How a value reads in the bar. `optionLabel` turns an option's code into its words.
@@ -161,12 +178,15 @@ export function pendingChanges(
     (definition) => comparable(definition, saved[definition.key]) !== comparable(definition, edited[definition.key]),
   ).map((definition) => ({
     key: definition.key,
-    label: definition.label,
+    label: labelOf(definition.key, edited),
     // Money shows in the currency it was saved in, and the new value in the one being saved.
     from: shown(definition, saved[definition.key], saved.currency, optionLabel),
     to: shown(definition, edited[definition.key], edited.currency, optionLabel),
   }))
 }
+
+// One wording for a bad link, in the box and in the bar (row 87 review).
+export const urlErrorText = (label: string) => `${label} is not a valid URL`
 
 export const CENTS_ERROR = (label: string) => `${label}: enter a whole number of cents, zero or more`
 
@@ -186,7 +206,7 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
     if (!changed.has(definition.key)) continue
     const value = edited[definition.key]
     if (definition.kind === 'url' && !isValidURL(sanitizeURL(String(value ?? '')))) {
-      found.push(`${definition.label} is not a valid URL`)
+      found.push(urlErrorText(definition.label))
     }
     if (definition.kind === 'multi' && ((value as string[] | undefined) ?? []).length === 0) {
       found.push(`${definition.label} has nothing selected`)
