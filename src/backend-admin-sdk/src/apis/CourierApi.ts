@@ -47,6 +47,25 @@ export interface CourierApiGetManyCouriersRequest {
     search?: string;
 }
 
+// Hand edited (row 16, spec 0013): what an admin sends to create a rider and their login.
+export interface CourierCreateAdminInput {
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email: string;
+    password: string;
+}
+
+export interface CourierApiCreateCourierRequest {
+    courierCreateAdminInput: CourierCreateAdminInput;
+}
+
+// Hand edited (row 16): a new password for a rider; the old phone is signed out.
+export interface CourierApiRotateCourierPasswordRequest {
+    id: string;
+    password: string;
+}
+
 export interface CourierApiUpdateCourierRequest {
     id: string;
     courierUpdateAdminInput: CourierUpdateAdminInput;
@@ -180,6 +199,47 @@ export class CourierApi extends runtime.BaseAPI {
         }, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => CourierAdminDtoFromJSON(jsonValue));
+    }
+
+    /**
+     * Create a courier and their login (row 16, spec 0013). Answers the new courier.
+     */
+    async createCourier(requestParameters: CourierApiCreateCourierRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CourierAdminDto> {
+        const headerParameters: runtime.HTTPHeaders = { 'Content-Type': 'application/json' };
+        if (this.configuration && this.configuration.accessToken) {
+            const tokenString = await this.configuration.accessToken("bearer", []);
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const response = await this.request({
+            path: `/api/admin/v1/courier`,
+            method: 'POST',
+            headers: headerParameters,
+            query: {},
+            body: requestParameters.courierCreateAdminInput,
+        }, initOverrides);
+        return await new runtime.JSONApiResponse(response, (jsonValue) => CourierAdminDtoFromJSON(jsonValue)).value();
+    }
+
+    /**
+     * Set a new password for a courier (row 16, spec 0013). 204, no body.
+     */
+    async rotateCourierPassword(requestParameters: CourierApiRotateCourierPasswordRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        const headerParameters: runtime.HTTPHeaders = { 'Content-Type': 'application/json' };
+        if (this.configuration && this.configuration.accessToken) {
+            const tokenString = await this.configuration.accessToken("bearer", []);
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        await this.request({
+            path: `/api/admin/v1/courier/{id}/rotate-password`.replace(`{${"id"}}`, encodeURIComponent(String(requestParameters.id))),
+            method: 'POST',
+            headers: headerParameters,
+            query: {},
+            body: { password: requestParameters.password },
+        }, initOverrides);
     }
 
     /**

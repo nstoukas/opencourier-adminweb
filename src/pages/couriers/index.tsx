@@ -7,12 +7,17 @@ import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-w
 import type { CourierAdminDto } from '../../backend-admin-sdk'
 import { courierName, deliverySettingLabel, memberSince } from '@/modules/couriers/courierDisplay'
 import { CouriersListFilters, type CourierListStatus } from '@/modules/couriers/CouriersListFilters'
+import { AddCourierDialog } from '@/modules/couriers/AddCourierDialog'
+import { UserPlus } from '@phosphor-icons/react'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 const CouriersPage: NextPage = () => {
   const { goToCourierDetails } = useAdminPageNavigator()
+  // The Add courier dialog (spec 0013), and its button, which gets focus back on close.
+  const [addOpen, setAddOpen] = useState(false)
+  const addButtonRef = useRef<HTMLButtonElement>(null)
   // Which riders to show and the search text, both sent to the backend (row 97).
   const [status, setStatus] = useState<CourierListStatus>('all')
   const [search, setSearch] = useState<string | undefined>(undefined)
@@ -84,7 +89,22 @@ const CouriersPage: NextPage = () => {
 
   return (
     <DefaultLayout>
-      <PageHeader title="Couriers" />
+      <PageHeader
+        title="Couriers"
+        action={
+          <Button ref={addButtonRef} type="button" onClick={() => setAddOpen(true)}>
+            <UserPlus aria-hidden="true" className="mr-2 h-4 w-4" />
+            Add courier
+          </Button>
+        }
+      />
+      {/* The co-op issues every rider's login here: there is no public sign up (spec 0013). */}
+      <AddCourierDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        returnFocusTo={addButtonRef}
+        onOpenCourier={(id) => goToCourierDetails(id)}
+      />
 
       <CouriersListFilters
         status={status}

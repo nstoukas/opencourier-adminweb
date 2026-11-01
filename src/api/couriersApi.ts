@@ -1,4 +1,9 @@
-import type { CourierAdminDto, CourierApiGetManyCouriersRequest, CourierPaginatedAdminDto } from '../backend-admin-sdk'
+import type {
+  CourierAdminDto,
+  CourierApiGetManyCouriersRequest,
+  CourierCreateAdminInput,
+  CourierPaginatedAdminDto,
+} from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
 import { api as baseApi, prepareAdminSdk } from '.'
 import { AppState } from '@/redux/store'
@@ -69,7 +74,42 @@ export const couriersApi = baseApi.injectEndpoints({
       },
       providesTags: [Tags.couriers],
     }),
+    // An admin creates a rider and their login (row 16, spec 0013). The list refetches.
+    createCourier: build.mutation<CourierAdminDto, CourierCreateAdminInput>({
+      queryFn: async (courierCreateAdminInput, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.couriers().createCourier({ courierCreateAdminInput })
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      invalidatesTags: [Tags.couriers],
+    }),
+    // A new password for a rider (row 16). The backend also sets them Offline and ends their open
+    // offers, so the courier and the deliveries are asked again.
+    rotateCourierPassword: build.mutation<void, { id: string; password: string }>({
+      queryFn: async ({ id, password }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          await sdk.couriers().rotateCourierPassword({ id, password })
+          return { data: undefined }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      invalidatesTags: [Tags.couriers, Tags.deliveries],
+    }),
   }),
 })
 
-export const { useGetCouriersQuery, useGetAllCouriersQuery, useGetCourierQuery } = couriersApi
+export const {
+  useGetCouriersQuery,
+  useGetAllCouriersQuery,
+  useGetCourierQuery,
+  useCreateCourierMutation,
+  useRotateCourierPasswordMutation,
+} = couriersApi

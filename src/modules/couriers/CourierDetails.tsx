@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { useGetCourierQuery } from '@/api/couriersApi'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { PageHeader } from '@/components/layouts/PageHeader'
@@ -6,10 +7,11 @@ import { usePageVisible } from '@/hooks/usePageVisible'
 import { formatMoney } from '@/utils/formatMoney'
 import { shortId } from '@/utils/shortId'
 import { formatDate } from '@/ui-shared-utils'
-import { PhoneCall } from '@phosphor-icons/react'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle, DetailList, StatusBadge } from '@/admin-web-components'
+import { Key, PhoneCall } from '@phosphor-icons/react'
+import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle, DetailList, StatusBadge } from '@/admin-web-components'
 import type { DeliveryAdminDto } from '@/backend-admin-sdk'
 import { courierName, deliverySettingLabel, memberSince } from './courierDisplay'
+import { RotateCourierPasswordDialog } from './RotateCourierPasswordDialog'
 
 // How many deliveries each card asks for (spec 0012). A rider carries one or two at a time.
 const DELIVERIES_PER_CARD = 10
@@ -67,6 +69,9 @@ function DeliveryRow({
 // no totals, no location.
 export function CourierDetails({ courierId }: { courierId: string }) {
   const { goToCouriers, goToDeliveryDetails } = useAdminPageNavigator()
+  // The Change password dialog (spec 0013), and its button, which gets focus back on close.
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const passwordButtonRef = useRef<HTMLButtonElement>(null)
   // 0 while the tab is in the background: RTK Query does not poll at 0.
   const pageVisible = usePageVisible()
   const pollingInterval = pageVisible ? REFRESH_MS : 0
@@ -120,17 +125,31 @@ export function CourierDetails({ courierId }: { courierId: string }) {
       <PageHeader
         title={name}
         action={
-          courier.phoneNumber ? (
-            // A plain link styled as the design system's default button: the phone dials it.
-            <a
-              href={`tel:${courier.phoneNumber}`}
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <PhoneCall aria-hidden="true" className="h-4 w-4" />
-              {firstName ? `Call ${firstName}` : 'Call'}
-            </a>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <Button ref={passwordButtonRef} type="button" variant="outline" onClick={() => setPasswordDialogOpen(true)}>
+              <Key aria-hidden="true" className="mr-2 h-4 w-4" />
+              Change password
+            </Button>
+            {courier.phoneNumber ? (
+              // A plain link styled as the design system's default button: the phone dials it.
+              <a
+                href={`tel:${courier.phoneNumber}`}
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <PhoneCall aria-hidden="true" className="h-4 w-4" />
+                {firstName ? `Call ${firstName}` : 'Call'}
+              </a>
+            ) : null}
+          </div>
         }
+      />
+      <RotateCourierPasswordDialog
+        open={passwordDialogOpen}
+        onOpenChange={setPasswordDialogOpen}
+        courierId={courier.id}
+        firstName={firstName}
+        carryingDelivery={(nowQuery.data?.data ?? []).length > 0}
+        returnFocusTo={passwordButtonRef}
       />
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <StatusBadge kind="courier" status={courier.status} />
