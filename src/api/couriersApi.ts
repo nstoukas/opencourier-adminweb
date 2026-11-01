@@ -90,13 +90,15 @@ export const couriersApi = baseApi.injectEndpoints({
     }),
     // A new password for a rider (row 16). The backend also sets them Offline and ends their open
     // offers, so the courier and the deliveries are asked again.
-    rotateCourierPassword: build.mutation<void, { id: string; password: string }>({
+    rotateCourierPassword: build.mutation<null, { id: string; password: string }>({
       queryFn: async ({ id, password }, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
           const sdk = prepareAdminSdk(accessToken || '')
           await sdk.couriers().rotateCourierPassword({ id, password })
-          return { data: undefined }
+          // null, not undefined: RTK Query reads `data: undefined` as "no result" and logs an error
+          // (seen live, row 16 review). The backend answers 204, so there is nothing else to return.
+          return { data: null }
         } catch (error) {
           return { error: handleBackendError(error, api) }
         }

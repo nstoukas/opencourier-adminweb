@@ -36,6 +36,11 @@ export function backendMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
     const message = (err as { message: unknown }).message
     if (typeof message === 'string' && message) return message
+    // A 400 from the backend's validation carries a list ("email must be an email").
+    if (Array.isArray(message)) {
+      const parts = message.filter((part): part is string => typeof part === 'string' && part.length > 0)
+      if (parts.length > 0) return parts.join(' ')
+    }
   }
   return fallback
 }

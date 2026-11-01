@@ -98,9 +98,25 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Never close while the rider is being created: the password would be lost with a rider
+        // nobody can log in as (row 16 review).
+        if (!next && isLoading) return
+        onOpenChange(next)
+      }}
+    >
       <DialogContent
         className="sm:max-w-md"
+        // Escape or a click outside does not close the notice by accident: it is the only time
+        // the password is shown. Done, Open and the close button still close it.
+        onEscapeKeyDown={(event) => {
+          if (created || isLoading) event.preventDefault()
+        }}
+        onPointerDownOutside={(event) => {
+          if (created || isLoading) event.preventDefault()
+        }}
         onCloseAutoFocus={(event) => {
           // Radix would leave focus on the page body; put it back on the Add courier button.
           event.preventDefault()
@@ -234,7 +250,7 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="ghost" disabled={isLoading} onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={!isValid || isLoading}>
