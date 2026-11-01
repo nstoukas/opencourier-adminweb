@@ -1,8 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DispatchPanel } from './DispatchPanel'
-import { useGetDispatchStopsQuery, useEndDispatchStopMutation } from '../../api/dispatchStopApi'
-import { usePageVisible } from '../../hooks/usePageVisible'
 import type { DispatchStopAdminDto } from '../../backend-admin-sdk'
 
 const mockToast = jest.fn()

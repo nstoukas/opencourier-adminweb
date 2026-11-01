@@ -1,10 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { StopDispatchDialog } from './StopDispatchDialog'
-import {
-  useCreateDispatchStopMutation,
-  useGetDispatchStopPreviewQuery,
-} from '../../api/dispatchStopApi'
 import { athensToday } from './dispatchStopDisplay'
 
 const mockToast = jest.fn()
