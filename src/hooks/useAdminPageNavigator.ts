@@ -10,6 +10,9 @@ export enum EAdminRoutes {
   DELIVERY_DETAILS = '/deliveries/[deliveryId]',
   COURIERS = '/couriers',
   COURIER_DETAILS = '/couriers/[courierId]',
+  // Riders' SOS incidents (spec 0022).
+  SOS = '/sos',
+  SOS_DETAILS = '/sos/[sosId]',
 }
 
 export const Routes = Object.values(EAdminRoutes)

@@ -626,6 +626,18 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
             description="A restaurant sees its ended orders from this many days back, and every order still open. Admins always see every order. Whole days, 1 to 365."
             onChange={(value) => set('restaurantHistoryDays', value)}
           />
+          {/* Spec 0022: the positions a rider's phone shares during an SOS are personal data, kept only
+              this long after the incident's last position, then deleted by a daily job (value 5). */}
+          <NumberField
+            id="sosLocationRetentionDays"
+            label={labelOf('sosLocationRetentionDays')}
+            value={form.sosLocationRetentionDays}
+            min={1}
+            max={365}
+            disabled={!loaded}
+            description="The positions a rider's phone shares during an SOS are deleted this many days after the SOS's last position, at 04:00. The record of each SOS and how it ended stays. Whole days, 1 to 365."
+            onChange={(value) => set('sosLocationRetentionDays', value)}
+          />
           {/* Row 72: the number riders call in one tap from the job screen. */}
           <Field>
             <FieldLabel htmlFor="dispatchPhoneNumber">{labelOf('dispatchPhoneNumber')}</FieldLabel>

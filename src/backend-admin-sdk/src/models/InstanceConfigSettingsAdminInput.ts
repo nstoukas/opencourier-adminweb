@@ -176,6 +176,13 @@ export interface InstanceConfigSettingsAdminInput {
    */
   restaurantHistoryDays?: number;
   /**
+   * How many days the positions shared during an SOS are kept after its last position (spec 0022).
+   * Whole days, 1 to 365. Hand edited (row 73).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  sosLocationRetentionDays?: number;
+  /**
    * Seconds after accepting in which a rider may hand an order back for free; 0 switches it off
    * (spec 0020). Hand edited (row 71).
    * @type {number}
@@ -404,6 +411,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
       ? undefined
       : json["restaurantHistoryDays"],
+    sosLocationRetentionDays: !exists(json, "sosLocationRetentionDays")
+      ? undefined
+      : json["sosLocationRetentionDays"],
     handBackSeconds: !exists(json, "handBackSeconds")
       ? undefined
       : json["handBackSeconds"],
@@ -459,6 +469,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     // Without this line a save would drop the order history period before it left the browser.
     restaurantHistoryDays: value.restaurantHistoryDays,
+    // Without this line a save would drop the SOS retention period before it left the browser.
+    sosLocationRetentionDays: value.sosLocationRetentionDays,
     // Without this line a save would drop the hand back window before it left the browser.
     handBackSeconds: value.handBackSeconds,
     arrivalRadiusMetres: value.arrivalRadiusMetres,

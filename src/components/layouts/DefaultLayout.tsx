@@ -3,6 +3,7 @@ import { cn } from '../../ui-shared-utils'
 import { usePathname } from 'next/navigation'
 import React, { useEffect } from 'react'
 import { AdminSidebar, useCoopName } from './AdminSidebar'
+import { SosAlerts } from '@/modules/sos/SosAlerts'
 
 interface DefaultLayoutProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -25,6 +26,8 @@ export function DefaultLayout({ children, className }: DefaultLayoutProps) {
       <CloseSheetOnNavigation />
       <SidebarInset>
         <MobileBar />
+        {/* Riders' SOS on every page, polled every 10 s (spec 0022, AC-8). */}
+        <SosAlerts />
         <div className={cn('flex-1 p-4 sm:p-6', className)}>{children}</div>
       </SidebarInset>
     </SidebarProvider>

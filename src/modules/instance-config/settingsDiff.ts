@@ -40,6 +40,7 @@ export type SettingsForm = {
   cancellationPayoutPolicy: string
   savedCustomerRetentionMonths: string
   restaurantHistoryDays: string
+  sosLocationRetentionDays: string
   dispatchPhoneNumber: string
 }
 
@@ -91,6 +92,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'defaultDietaryRestrictions', label: 'Default dietary restrictions', kind: 'multi' },
   { key: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)', kind: 'number' },
   { key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', kind: 'number' },
+  { key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', kind: 'number' },
   { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', kind: 'phone' },
 ]
 
@@ -323,6 +325,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     cancellationPayoutPolicy: data.cancellationPayoutPolicy ?? '',
     savedCustomerRetentionMonths: text(data.savedCustomerRetentionMonths),
     restaurantHistoryDays: text(data.restaurantHistoryDays),
+    sosLocationRetentionDays: text(data.sosLocationRetentionDays),
     dispatchPhoneNumber: data.dispatchPhoneNumber ?? '',
   }
 }
@@ -354,6 +357,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('restaurantHistoryDays')) {
     parts.push('Restaurants see the new order history period at once.')
+  }
+  if (keys.has('sosLocationRetentionDays')) {
+    parts.push('The daily job deletes SOS positions under the new period from its next run.')
   }
   const dispatchPhone = changes.find((change) => change.key === 'dispatchPhoneNumber')
   if (dispatchPhone) {

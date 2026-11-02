@@ -10,6 +10,7 @@ const tagTypes = {
   deliveryEvents: 'DeliveryEvents',
   deliveryIssues: 'DeliveryIssues',
   dispatchStops: 'DispatchStops',
+  sos: 'Sos',
 }
 
 export const Tags = {
@@ -28,4 +29,5 @@ export const Tags = {
   deliveryEvents: tagTypes['deliveryEvents'],
   deliveryIssues: tagTypes['deliveryIssues'],
   dispatchStops: tagTypes['dispatchStops'],
+  sos: tagTypes['sos'],
 }

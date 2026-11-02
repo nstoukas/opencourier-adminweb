@@ -18,7 +18,7 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { GearSix, Moped, Package, SignOut, SquaresFour, Storefront } from '@phosphor-icons/react'
+import { GearSix, Moped, Package, SignOut, Siren, SquaresFour, Storefront } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -41,6 +41,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: 'Overview', icon: SquaresFour, href: EAdminRoutes.HOME },
       { title: 'Deliveries', icon: Package, href: EAdminRoutes.DELIVERIES },
+      // Riders' SOS incidents (spec 0022).
+      { title: 'SOS', icon: Siren, href: EAdminRoutes.SOS },
     ],
   },
   {

@@ -177,6 +177,12 @@ export interface InstanceConfigSettingsDto {
    */
   restaurantHistoryDays?: number | null;
   /**
+   * How many days the positions shared during an SOS are kept (spec 0022). Hand edited (row 73).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  sosLocationRetentionDays?: number | null;
+  /**
    * Seconds after accepting in which a rider may hand an order back for free; 0 switches it off (spec 0020).
    * Hand edited (row 71).
    * @type {number}
@@ -379,6 +385,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
       ? null
       : json["restaurantHistoryDays"],
+    sosLocationRetentionDays: !exists(json, "sosLocationRetentionDays")
+      ? null
+      : json["sosLocationRetentionDays"],
     handBackSeconds: !exists(json, "handBackSeconds")
       ? null
       : json["handBackSeconds"],
@@ -431,6 +440,7 @@ export function InstanceConfigSettingsDtoToJSON(
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     restaurantHistoryDays: value.restaurantHistoryDays,
+    sosLocationRetentionDays: value.sosLocationRetentionDays,
     handBackSeconds: value.handBackSeconds,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
