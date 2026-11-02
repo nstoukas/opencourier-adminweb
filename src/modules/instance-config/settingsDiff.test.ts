@@ -52,6 +52,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     feePercentageAmount: '10',
     maxAssignmentDistance: '20',
     maxDriftDistance: '5',
+    arrivalRadiusMetres: '50',
     quoteExpirationMinutes: '15',
     defaultCourierPayRate: '250',
     defaultMaxWorkingHours: '8',
@@ -249,6 +250,24 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(changes[0]?.from).toBe('30')
       expect(changes[0]?.to).toBe('7')
     })
+
+    it('detects changes to arrivalRadiusMetres including setting to 0 (spec 0021, AC-11)', () => {
+      const editedTo80: SettingsForm = { ...baseSavedForm, arrivalRadiusMetres: '80' }
+      const changes80 = pendingChanges(baseSavedForm, editedTo80)
+      expect(changes80).toHaveLength(1)
+      expect(changes80[0]?.key).toBe('arrivalRadiusMetres')
+      expect(changes80[0]?.label).toBe('Arrival radius (metres)')
+      expect(changes80[0]?.from).toBe('50')
+      expect(changes80[0]?.to).toBe('80')
+
+      const editedTo0: SettingsForm = { ...baseSavedForm, arrivalRadiusMetres: '0' }
+      const changes0 = pendingChanges(baseSavedForm, editedTo0)
+      expect(changes0).toHaveLength(1)
+      expect(changes0[0]?.key).toBe('arrivalRadiusMetres')
+      expect(changes0[0]?.label).toBe('Arrival radius (metres)')
+      expect(changes0[0]?.from).toBe('50')
+      expect(changes0[0]?.to).toBe('0')
+    })
   })
 
   describe('blockers (spec AC-14)', () => {
@@ -316,6 +335,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         handBackSeconds: '',
       }
       expect(blockers(handBackChanges as any, handBackEdited)).toContain('Seconds a rider can hand back an order for free is empty')
+
+      const arrivalRadiusChanges = [{ key: 'arrivalRadiusMetres', label: 'Arrival radius (metres)', from: '50', to: '(empty)' }]
+      const arrivalRadiusEdited: SettingsForm = {
+        ...baseSavedForm,
+        arrivalRadiusMetres: '',
+      }
+      expect(blockers(arrivalRadiusChanges as any, arrivalRadiusEdited)).toContain('Arrival radius (metres) is empty')
     })
 
     it('does not block save when dispatchPhoneNumber is empty (clearing is allowed)', () => {
@@ -482,6 +508,33 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         dispatchPhoneNumber: '',
       })
     })
+
+    it('sends arrivalRadiusMetres as a number and 0 as number 0 (spec 0021, AC-11)', () => {
+      const changes80 = [
+        { key: 'arrivalRadiusMetres', label: 'Arrival radius (metres)', from: '50', to: '80' },
+      ]
+      const edited80: SettingsForm = {
+        ...baseSavedForm,
+        arrivalRadiusMetres: '80',
+      }
+      const payload80 = savePayload(changes80 as any, edited80, savedDetails)
+      expect(payload80).toEqual({
+        arrivalRadiusMetres: 80,
+      })
+      expect(payload80).not.toHaveProperty('details')
+
+      const changes0 = [
+        { key: 'arrivalRadiusMetres', label: 'Arrival radius (metres)', from: '50', to: '0' },
+      ]
+      const edited0: SettingsForm = {
+        ...baseSavedForm,
+        arrivalRadiusMetres: '0',
+      }
+      const payload0 = savePayload(changes0 as any, edited0, savedDetails)
+      expect(payload0).toEqual({
+        arrivalRadiusMetres: 0,
+      })
+    })
   })
 
   describe('successMessage (spec AC-15)', () => {
@@ -543,6 +596,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         'Saved: Dispatch phone number. Riders no longer see a Call dispatch button.'
       )
     })
+
+    it('appends arrivalRadiusMetres sentence when arrival radius is changed (spec 0021, AC-11)', () => {
+      const changes = [{ key: 'arrivalRadiusMetres', label: 'Arrival radius (metres)', from: '50', to: '80' }]
+      expect(successMessage(changes as any)).toBe(
+        "Saved: Arrival radius (metres). Riders' apps use the new arrival radius within ten minutes."
+      )
+    })
   })
 
   describe('formFromSettings & EMPTY_FORM', () => {
@@ -551,6 +611,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         quoteBaseFee: 200,
         quoteRatePerDistanceUnit: null,
         details: { name: 'Test' },
+        arrivalRadiusMetres: 50,
         handBackSeconds: 60,
         cancellationPayoutPolicy: 'FULL_COMPENSATION',
         restaurantHistoryDays: 30,
@@ -560,12 +621,14 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(form.quoteRatePerDistanceUnit).toBe('')
       expect(form.name).toBe('Test')
       expect(form.offerExpiryEnabled).toBeNull()
+      expect(form.arrivalRadiusMetres).toBe('50')
       expect(form.handBackSeconds).toBe('60')
       expect(form.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
       expect(form.restaurantHistoryDays).toBe('30')
       expect(form.dispatchPhoneNumber).toBe('+302421012345')
 
-      const zeroForm = formFromSettings({ handBackSeconds: 0 })
+      const zeroForm = formFromSettings({ arrivalRadiusMetres: 0, handBackSeconds: 0 })
+      expect(zeroForm.arrivalRadiusMetres).toBe('0')
       expect(zeroForm.handBackSeconds).toBe('0')
     })
 
@@ -574,6 +637,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(EMPTY_FORM.quoteBaseFee).toBe('')
       expect(EMPTY_FORM.offerExpiryEnabled).toBeNull()
       expect(EMPTY_FORM.region).toBeNull()
+      expect(EMPTY_FORM.arrivalRadiusMetres).toBe('')
       expect(EMPTY_FORM.handBackSeconds).toBe('')
       expect(EMPTY_FORM.cancellationPayoutPolicy).toBe('')
       expect(EMPTY_FORM.restaurantHistoryDays).toBe('')
@@ -601,6 +665,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(labelOf('link')).toBe('URL')
       expect(labelOf('websocketLink')).toBe('Websocket URL')
       expect(labelOf('imageUrl')).toBe('Logo image URL')
+      expect(labelOf('arrivalRadiusMetres')).toBe('Arrival radius (metres)')
       expect(labelOf('handBackSeconds')).toBe('Seconds a rider can hand back an order for free')
       expect(labelOf('cancellationPayoutPolicy')).toBe('Pay when a job is cancelled')
       expect(labelOf('restaurantHistoryDays')).toBe('Restaurant order history (days)')
@@ -633,6 +698,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(sameValue('name', 'Volos Co-op', 'Other Co-op')).toBe(false)
       expect(sameValue('maxAssignmentDistance', '20', 20)).toBe(true)
       expect(sameValue('maxAssignmentDistance', '20', 25)).toBe(false)
+      expect(sameValue('arrivalRadiusMetres', '50', 50)).toBe(true)
+      expect(sameValue('arrivalRadiusMetres', '0', 0)).toBe(true)
+      expect(sameValue('arrivalRadiusMetres', '50', '80')).toBe(false)
       expect(sameValue('handBackSeconds', '60', 60)).toBe(true)
       expect(sameValue('handBackSeconds', '0', 0)).toBe(true)
       expect(sameValue('handBackSeconds', '60', '45')).toBe(false)

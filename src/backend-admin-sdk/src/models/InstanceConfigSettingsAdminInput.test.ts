@@ -220,6 +220,54 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.handBackSeconds).toBeUndefined()
     })
 
+    it('preserves arrivalRadiusMetres in ToJSON serialization, including 0 (spec 0021, AC-11)', () => {
+      // Load-bearing test guard: without arrivalRadiusMetres in ToJSON, the SDK silently drops
+      // it and the save reports success for a setting never sent to the backend.
+      const input = {
+        arrivalRadiusMetres: 80,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.arrivalRadiusMetres).toBe(80)
+
+      // 0 is the off switch and must be preserved (not dropped as falsy)
+      const inputZero = {
+        arrivalRadiusMetres: 0,
+      }
+
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.arrivalRadiusMetres).toBe(0)
+    })
+
+    it('round-trips arrivalRadiusMetres through FromJSON and ToJSON (spec 0021, AC-11)', () => {
+      const originalJson = {
+        arrivalRadiusMetres: 50,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.arrivalRadiusMetres).toBe(50)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.arrivalRadiusMetres).toBe(50)
+
+      const zeroModel = InstanceConfigSettingsAdminInputFromJSON({
+        arrivalRadiusMetres: 0,
+      })
+      expect(zeroModel.arrivalRadiusMetres).toBe(0)
+
+      const zeroSerialized = InstanceConfigSettingsAdminInputToJSON(zeroModel)
+      expect(zeroSerialized.arrivalRadiusMetres).toBe(0)
+    })
+
+    it('handles undefined arrivalRadiusMetres in FromJSON and ToJSON (spec 0021, AC-11)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.arrivalRadiusMetres).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.arrivalRadiusMetres).toBeUndefined()
+    })
+
     it('preserves dispatchPhoneNumber in ToJSON serialization, including empty text (row 72)', () => {
       // Load-bearing test guard: without dispatchPhoneNumber in ToJSON, the SDK silently drops
       // it and the save reports success for a number never sent to the backend.
@@ -505,6 +553,44 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.handBackSeconds).toBe(60)
+    })
+
+    it('deserializes arrivalRadiusMetres when present, including 0 (spec 0021, AC-11)', () => {
+      const json = {
+        details: {},
+        arrivalRadiusMetres: 50,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.arrivalRadiusMetres).toBe(50)
+
+      const jsonZero = {
+        details: {},
+        arrivalRadiusMetres: 0,
+      }
+
+      const dtoZero = InstanceConfigSettingsDtoFromJSON(jsonZero)
+      expect(dtoZero.arrivalRadiusMetres).toBe(0)
+    })
+
+    it('deserializes arrivalRadiusMetres as null when absent in backend response (spec 0021, AC-11)', () => {
+      // Missing key means absent in backend, mapped to null
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.arrivalRadiusMetres).toBeNull()
+    })
+
+    it('serializes DTO carrying arrivalRadiusMetres back to JSON (spec 0021, AC-11)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        arrivalRadiusMetres: 50,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.arrivalRadiusMetres).toBe(50)
     })
 
     it('deserializes dispatchPhoneNumber when present (row 72)', () => {

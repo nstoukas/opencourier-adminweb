@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import {
   PricingCard,
+  MatchingCard,
   OffersCard,
   RiderPayCard,
   InstanceCard,
@@ -358,6 +359,66 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       expect(screen.getByLabelText('Restaurant order history (days)')).toBeDisabled()
       expect(screen.getByLabelText('Dispatch phone number')).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // MatchingCard: arrivalRadiusMetres (spec 0021, AC-11, row 19)
+  // ---------------------------------------------------------------------------
+  describe('MatchingCard (spec 0021, AC-11)', () => {
+    it('renders arrivalRadiusMetres with loaded value, min 0 max 300, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, arrivalRadiusMetres: '50' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Arrival radius (metres)') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('arrivalRadiusMetres')
+      expect(input.value).toBe('50')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '300')
+      expect(input).not.toBeDisabled()
+
+      fireEvent.change(input, { target: { value: '80' } })
+      expect(mockSet).toHaveBeenCalledWith('arrivalRadiusMetres', '80')
+    })
+
+    it('renders description explaining 0 switches detection off and town GPS accuracy', () => {
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, arrivalRadiusMetres: '50' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(
+        screen.getByText(/0 switches detection off \(riders tap I'm here or swipe\); otherwise 20 to 300/i)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/GPS in town is often only good to 10 to 30 m/i)
+      ).toBeInTheDocument()
+    })
+
+    it('disables arrivalRadiusMetres input before settings load', () => {
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, arrivalRadiusMetres: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = screen.getByLabelText('Arrival radius (metres)') as HTMLInputElement
+      expect(input).toBeDisabled()
     })
   })
 

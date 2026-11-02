@@ -93,6 +93,7 @@ const baseMockConfigData = {
   feePercentageAmount: 10,
   maxAssignmentDistance: 20,
   maxDriftDistance: 5,
+  arrivalRadiusMetres: 50,
   quoteExpirationMinutes: 15,
   defaultCourierPayRate: 250,
   defaultMaxWorkingHours: 8,
@@ -477,6 +478,9 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
 
       const baseFeeInput = document.getElementById('quoteBaseFee')
       expect(baseFeeInput).toBeDisabled()
+
+      const arrivalRadiusInput = document.getElementById('arrivalRadiusMetres')
+      expect(arrivalRadiusInput).toBeDisabled()
 
       // SaveBar is null before load
       expect(screen.queryByTestId('save-bar')).toBeNull()
@@ -1210,6 +1214,122 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
             })
           )
         })
+      })
+    })
+
+    // Setting 5: arrivalRadiusMetres (Matching card, spec 0021, AC-11, row 19)
+    describe('arrivalRadiusMetres (Matching card, spec 0021, AC-11)', () => {
+      it('loads fetched arrivalRadiusMetres into its box (id arrivalRadiusMetres)', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('arrivalRadiusMetres') as HTMLInputElement
+        expect(input).toBeInTheDocument()
+        expect(input.value).toBe('50')
+        expect(input).not.toBeDisabled()
+      })
+
+      it('editing arrivalRadiusMetres shows in save bar as "Arrival radius (metres) 50 → 80" and Save sends ONLY changed key as number with success toast', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('arrivalRadiusMetres') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '80' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Arrival radius (metres)')).toBeInTheDocument()
+        const barLine = within(saveBar).getByRole('listitem')
+        expect(barLine).toHaveTextContent(/^Arrival radius \(metres\)\s*50\s*→\s*(?:changes to\s*)?80$/)
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            arrivalRadiusMetres: 80,
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description: expect.stringContaining(
+                "Saved: Arrival radius (metres). Riders' apps use the new arrival radius within ten minutes."
+              ),
+            })
+          )
+        })
+      })
+
+      it('0 is a real change sent as number 0', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('arrivalRadiusMetres') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '0' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        const barLine = within(saveBar).getByRole('listitem')
+        expect(barLine).toHaveTextContent(/^Arrival radius \(metres\)\s*50\s*→\s*(?:changes to\s*)?0$/)
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            arrivalRadiusMetres: 0,
+          })
+        })
+      })
+
+      it('emptying arrivalRadiusMetres blocks Save and is never sent', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('arrivalRadiusMetres') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '' } })
+
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+        const blockers = document.getElementById('save-all-blockers')
+        expect(blockers?.textContent).toContain('Arrival radius (metres) is empty')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).toBeDisabled()
+        expect(saveButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+        fireEvent.click(saveButton)
+        expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+      })
+
+      it('shows backend refusal sentence in destructive toast when backend rejects value and keeps change in bar', async () => {
+        const serverErrorMessage = 'arrivalRadiusMetres must be 20 or more, or 0 to switch detection off'
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.reject({ message: serverErrorMessage }),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('arrivalRadiusMetres') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '15' } })
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Not saved',
+              description: serverErrorMessage,
+              variant: 'destructive',
+            })
+          )
+        })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Arrival radius (metres)')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/15/)).toBeInTheDocument()
       })
     })
   })
