@@ -50,18 +50,17 @@ const OrdersPage: NextPage = () => {
     pageSize: DEFAULT_PAGE_SIZE,
   })
   // One restaurant's whole history (spec 0017, AC-7), the only filter kept in the URL (?partnerId=), so a
-  // restaurant's page can link here. Read once the router knows the query; written back without a reload.
+  // restaurant's page can link here. The list follows the URL (a link, Back, or the Deliveries link in the
+  // menu, which drops it); the select writes the URL without a reload. The list waits for the router to
+  // know the query, so a link never flashes the unfiltered list first.
+  // The URL is the one place the filter lives, so the list never asks without it first.
   const router = useRouter()
-  const [partnerId, setPartnerId] = useState('')
+  const partnerId = typeof router.query.partnerId === 'string' ? router.query.partnerId : ''
+  // Another restaurant (from the select, a link or Back) starts again from the first page.
   useEffect(() => {
-    if (!router.isReady) return
-    const fromUrl = typeof router.query.partnerId === 'string' ? router.query.partnerId : ''
-    setPartnerId(fromUrl)
-    // Read once: later changes come from the select, which writes the URL itself.
-  }, [router.isReady])
-  const changePartner = (next: string) => {
-    setPartnerId(next)
     setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+  }, [partnerId])
+  const changePartner = (next: string) => {
     const query = { ...router.query }
     if (next) query.partnerId = next
     else delete query.partnerId
@@ -88,8 +87,8 @@ const OrdersPage: NextPage = () => {
       page: pagination.pageIndex + 1,
       perPage: pagination.pageSize,
     },
-    // 0 while the tab is in the background: RTK Query does not poll at 0.
-    { pollingInterval: pageVisible ? OFFER_REFRESH_MS : 0 },
+    // 0 while the tab is in the background: RTK Query does not poll at 0. `skip` until the URL is read.
+    { pollingInterval: pageVisible ? OFFER_REFRESH_MS : 0, skip: !router.isReady },
   )
   const now = useNow(OFFER_REFRESH_MS)
 
