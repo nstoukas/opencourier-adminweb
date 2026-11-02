@@ -835,4 +835,378 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       }
     )
   })
+
+  // ---------------------------------------------------------------------------
+  // Ported settings (merge commit 2d8ad04, rows 71, 32, 28, 72)
+  // ---------------------------------------------------------------------------
+  describe('Ported settings on the save bar (rows 71, 32, 28, 72)', () => {
+    const configWithPortedSettings = {
+      ...baseMockConfigData,
+      handBackSeconds: 60,
+      cancellationPayoutPolicy: 'FULL_COMPENSATION',
+      restaurantHistoryDays: 30,
+      dispatchPhoneNumber: '+302421012345',
+      reassignmentPayoutPolicies: {
+        DEFAULT: 50,
+        FULL_COMPENSATION: 100,
+        HALF_COMPENSATION: 50,
+      },
+    }
+
+    beforeEach(() => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: configWithPortedSettings,
+        isLoading: false,
+      })
+    })
+
+    // Setting 1: handBackSeconds (spec 0020, row 71)
+    describe('handBackSeconds (Offers card, spec 0020)', () => {
+      it('loads fetched handBackSeconds into its box and is editable even when offerExpiryEnabled is false', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...configWithPortedSettings,
+            offerExpiryEnabled: false,
+            handBackSeconds: 60,
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('handBackSeconds') as HTMLInputElement
+        expect(input).toBeInTheDocument()
+        expect(input.value).toBe('60')
+        expect(input).not.toBeDisabled()
+      })
+
+      it('editing handBackSeconds shows in save bar and Save sends ONLY changed key with number and toast sentence', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('handBackSeconds') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '45' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Seconds a rider can hand back an order for free')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/60/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/45/)).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            handBackSeconds: 45,
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description:
+                'Saved: Seconds a rider can hand back an order for free. The hand back applies to the next accept; a running hand back keeps its end.',
+            })
+          )
+        })
+      })
+
+      it('saving handBackSeconds as 0 switches it off and sends number 0', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('handBackSeconds') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '0' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText(/60/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/0/)).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            handBackSeconds: 0,
+          })
+        })
+      })
+
+      it('emptying handBackSeconds blocks Save', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('handBackSeconds') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '' } })
+
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+        const blockers = document.getElementById('save-all-blockers')
+        expect(blockers?.textContent).toContain('Seconds a rider can hand back an order for free is empty')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).toBeDisabled()
+      })
+    })
+
+    // Setting 2: cancellationPayoutPolicy (spec 0015, row 32)
+    describe('cancellationPayoutPolicy (Rider pay card, spec 0015)', () => {
+      it('loads fetched policy and formats options as KEY (N%) from reassignmentPayoutPolicies', () => {
+        render(<InstanceConfigurationPage />)
+
+        const select = document.getElementById('cancellationPayoutPolicy') as HTMLSelectElement
+        expect(select).toBeInTheDocument()
+        expect(select.value).toBe('FULL_COMPENSATION')
+
+        const options = Array.from(select.options).map((opt) => opt.text)
+        expect(options).toEqual(
+          expect.arrayContaining(['DEFAULT (50%)', 'FULL_COMPENSATION (100%)', 'HALF_COMPENSATION (50%)'])
+        )
+      })
+
+      it('shows a saved policy no longer on the menu as disabled option "KEY (no longer on the menu)" and the box holds it', () => {
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...configWithPortedSettings,
+            cancellationPayoutPolicy: 'OLD_RULE',
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const select = document.getElementById('cancellationPayoutPolicy') as HTMLSelectElement
+        expect(select.value).toBe('OLD_RULE')
+
+        const oldOption = Array.from(select.options).find((opt) => opt.value === 'OLD_RULE')
+        expect(oldOption).toBeDefined()
+        expect(oldOption?.text).toBe('OLD_RULE (no longer on the menu)')
+        expect(oldOption?.disabled).toBe(true)
+      })
+
+      it('changing cancellationPayoutPolicy shows in save bar and Save sends ONLY changed key with toast sentence', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const select = document.getElementById('cancellationPayoutPolicy') as HTMLSelectElement
+        fireEvent.change(select, { target: { value: 'HALF_COMPENSATION' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Pay when a job is cancelled')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/FULL_COMPENSATION/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/HALF_COMPENSATION/)).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            cancellationPayoutPolicy: 'HALF_COMPENSATION',
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description:
+                'Saved: Pay when a job is cancelled. Cancelled job pay applies to cancellations from now on.',
+            })
+          )
+        })
+      })
+    })
+
+    // Setting 3: restaurantHistoryDays (spec 0017, row 28)
+    describe('restaurantHistoryDays (Instance card, spec 0017)', () => {
+      it('loads fetched restaurantHistoryDays into its box', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('restaurantHistoryDays') as HTMLInputElement
+        expect(input).toBeInTheDocument()
+        expect(input.value).toBe('30')
+      })
+
+      it('editing restaurantHistoryDays shows in save bar and Save sends ONLY changed key with number and toast sentence', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('restaurantHistoryDays') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '60' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Restaurant order history (days)')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/30/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/60/)).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            restaurantHistoryDays: 60,
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description:
+                'Saved: Restaurant order history (days). Restaurants see the new order history period at once.',
+            })
+          )
+        })
+      })
+
+      it('emptying restaurantHistoryDays blocks Save', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('restaurantHistoryDays') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '' } })
+
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+        const blockers = document.getElementById('save-all-blockers')
+        expect(blockers?.textContent).toContain('Restaurant order history (days) is empty')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).toBeDisabled()
+      })
+    })
+
+    // Setting 4: dispatchPhoneNumber (scope row 72)
+    describe('dispatchPhoneNumber (Instance card, scope row 72)', () => {
+      it('loads fetched dispatchPhoneNumber into its box', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('dispatchPhoneNumber') as HTMLInputElement
+        expect(input).toBeInTheDocument()
+        expect(input.value).toBe('+302421012345')
+      })
+
+      it('typing phone with spaces, dashes, dots or brackets over saved stripped number is NOT a pending change', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('dispatchPhoneNumber') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '+30 24210 12345' } })
+
+        expect(screen.queryByTestId('save-bar')).toBeNull()
+
+        fireEvent.change(input, { target: { value: '+30-24210-12345' } })
+        expect(screen.queryByTestId('save-bar')).toBeNull()
+
+        fireEvent.change(input, { target: { value: '+30 (24210) 12345' } })
+        expect(screen.queryByTestId('save-bar')).toBeNull()
+      })
+
+      it('editing dispatchPhoneNumber shows in save bar and Save sends ONLY changed phone as typed with toast sentence', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('dispatchPhoneNumber') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '+30 24210 99999' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Dispatch phone number')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/\+302421012345/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/\+30 24210 99999/)).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            dispatchPhoneNumber: '+30 24210 99999',
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description:
+                'Saved: Dispatch phone number. Riders see the Call dispatch button within ten minutes.',
+            })
+          )
+        })
+      })
+
+      it('after a save whose refetch returns the stripped number the edit leaves the bar', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        const { rerender } = render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('dispatchPhoneNumber') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '+30 24210 99999' } })
+
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        })
+
+        // Refetch returns the stripped number from the backend
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...configWithPortedSettings,
+            dispatchPhoneNumber: '+302421099999',
+          },
+          isLoading: false,
+        })
+
+        rerender(<InstanceConfigurationPage />)
+
+        // The edit leaves the bar because comparable('+30 24210 99999') === comparable('+302421099999')
+        expect(screen.queryByTestId('save-bar')).toBeNull()
+      })
+
+      it('emptying dispatchPhoneNumber is allowed and Save sends empty string with cleared toast sentence', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('dispatchPhoneNumber') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('Dispatch phone number')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/\+302421012345/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/\(empty\)/)).toBeInTheDocument()
+
+        // Empty phone does NOT block save
+        expect(document.getElementById('save-all-blockers')).toBeNull()
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).not.toBeDisabled()
+
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            dispatchPhoneNumber: '',
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description:
+                'Saved: Dispatch phone number. Riders no longer see a Call dispatch button.',
+            })
+          )
+        })
+      })
+    })
+  })
 })

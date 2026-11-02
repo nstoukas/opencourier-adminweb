@@ -58,7 +58,11 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     offerExpiryEnabled: true,
     offerExpirySeconds: '60',
     noCourierRetrySeconds: '30',
+    handBackSeconds: '60',
+    cancellationPayoutPolicy: 'FULL_COMPENSATION',
     savedCustomerRetentionMonths: '12',
+    restaurantHistoryDays: '30',
+    dispatchPhoneNumber: '+302421012345',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {
@@ -177,6 +181,74 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(rateChange).toBeDefined()
       expect(rateChange?.label).toBe('Rate per km')
     })
+
+    // Ported settings: dispatchPhoneNumber, handBackSeconds, cancellationPayoutPolicy, restaurantHistoryDays
+    it('compares dispatchPhoneNumber without spaces, dashes, dots and brackets', () => {
+      const saved: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+302421012345' }
+      const withSpaces: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+30 24210 12345' }
+      const withDashes: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+30-24210-12345' }
+      const withBrackets: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+30 (24210) 12345' }
+      const withDots: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+30.24210.12345' }
+
+      expect(pendingChanges(saved, withSpaces)).toEqual([])
+      expect(pendingChanges(saved, withDashes)).toEqual([])
+      expect(pendingChanges(saved, withBrackets)).toEqual([])
+      expect(pendingChanges(saved, withDots)).toEqual([])
+
+      const different: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+30 24210 99999' }
+      const changes = pendingChanges(saved, different)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('dispatchPhoneNumber')
+      expect(changes[0]?.label).toBe('Dispatch phone number')
+      expect(changes[0]?.from).toBe('+302421012345')
+      expect(changes[0]?.to).toBe('+30 24210 99999')
+    })
+
+    it('shows cleared dispatchPhoneNumber as (empty)', () => {
+      const saved: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '+302421012345' }
+      const cleared: SettingsForm = { ...baseSavedForm, dispatchPhoneNumber: '' }
+      const changes = pendingChanges(saved, cleared)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('dispatchPhoneNumber')
+      expect(changes[0]?.to).toBe('(empty)')
+    })
+
+    it('detects changes to handBackSeconds including setting to 0', () => {
+      const editedTo0: SettingsForm = { ...baseSavedForm, handBackSeconds: '0' }
+      const changes0 = pendingChanges(baseSavedForm, editedTo0)
+      expect(changes0).toHaveLength(1)
+      expect(changes0[0]?.key).toBe('handBackSeconds')
+      expect(changes0[0]?.label).toBe('Seconds a rider can hand back an order for free')
+      expect(changes0[0]?.from).toBe('60')
+      expect(changes0[0]?.to).toBe('0')
+
+      const editedTo45: SettingsForm = { ...baseSavedForm, handBackSeconds: '45' }
+      const changes45 = pendingChanges(baseSavedForm, editedTo45)
+      expect(changes45).toHaveLength(1)
+      expect(changes45[0]?.key).toBe('handBackSeconds')
+      expect(changes45[0]?.from).toBe('60')
+      expect(changes45[0]?.to).toBe('45')
+    })
+
+    it('detects changes to cancellationPayoutPolicy', () => {
+      const edited: SettingsForm = { ...baseSavedForm, cancellationPayoutPolicy: 'HALF_COMPENSATION' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('cancellationPayoutPolicy')
+      expect(changes[0]?.label).toBe('Pay when a job is cancelled')
+      expect(changes[0]?.from).toBe('FULL_COMPENSATION')
+      expect(changes[0]?.to).toBe('HALF_COMPENSATION')
+    })
+
+    it('detects changes to restaurantHistoryDays', () => {
+      const edited: SettingsForm = { ...baseSavedForm, restaurantHistoryDays: '7' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('restaurantHistoryDays')
+      expect(changes[0]?.label).toBe('Restaurant order history (days)')
+      expect(changes[0]?.from).toBe('30')
+      expect(changes[0]?.to).toBe('7')
+    })
   })
 
   describe('blockers (spec AC-14)', () => {
@@ -228,6 +300,31 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         defaultDietaryRestrictions: [],
       }
       expect(blockers(changes as any, edited)).toContain('Default dietary restrictions has nothing selected')
+    })
+
+    it('blocks save when restaurantHistoryDays or handBackSeconds is empty', () => {
+      const historyChanges = [{ key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', from: '30', to: '(empty)' }]
+      const historyEdited: SettingsForm = {
+        ...baseSavedForm,
+        restaurantHistoryDays: '',
+      }
+      expect(blockers(historyChanges as any, historyEdited)).toContain('Restaurant order history (days) is empty')
+
+      const handBackChanges = [{ key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '(empty)' }]
+      const handBackEdited: SettingsForm = {
+        ...baseSavedForm,
+        handBackSeconds: '',
+      }
+      expect(blockers(handBackChanges as any, handBackEdited)).toContain('Seconds a rider can hand back an order for free is empty')
+    })
+
+    it('does not block save when dispatchPhoneNumber is empty (clearing is allowed)', () => {
+      const changes = [{ key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '+302421012345', to: '(empty)' }]
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        dispatchPhoneNumber: '',
+      }
+      expect(blockers(changes as any, edited)).toEqual([])
     })
 
     it('only checks details blockers (name, link, region) when a detail changed', () => {
@@ -333,6 +430,58 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       })
       expect(payload.details).toBeUndefined()
     })
+
+    it('sends ported settings with numbers as numbers and phone as typed string', () => {
+      const changes = [
+        { key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '45' },
+        { key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', from: '30', to: '7' },
+        { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '+302421012345', to: '+30 24210 99999' },
+        { key: 'cancellationPayoutPolicy', label: 'Pay when a job is cancelled', from: 'FULL_COMPENSATION', to: 'HALF_COMPENSATION' },
+      ]
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        handBackSeconds: '45',
+        restaurantHistoryDays: '7',
+        dispatchPhoneNumber: '+30 24210 99999',
+        cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      }
+      const payload = savePayload(changes as any, edited, savedDetails)
+      expect(payload).toEqual({
+        handBackSeconds: 45,
+        restaurantHistoryDays: 7,
+        dispatchPhoneNumber: '+30 24210 99999',
+        cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      })
+      expect(payload).not.toHaveProperty('details')
+    })
+
+    it('sends handBackSeconds 0 as number 0', () => {
+      const changes = [
+        { key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '0' },
+      ]
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        handBackSeconds: '0',
+      }
+      const payload = savePayload(changes as any, edited, savedDetails)
+      expect(payload).toEqual({
+        handBackSeconds: 0,
+      })
+    })
+
+    it('sends empty dispatchPhoneNumber as empty string', () => {
+      const changes = [
+        { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '+302421012345', to: '(empty)' },
+      ]
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        dispatchPhoneNumber: '',
+      }
+      const payload = savePayload(changes as any, edited, savedDetails)
+      expect(payload).toEqual({
+        dispatchPhoneNumber: '',
+      })
+    })
   })
 
   describe('successMessage (spec AC-15)', () => {
@@ -361,6 +510,39 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         'Saved: Saved customer retention (months). The daily job uses the retention from its next run.'
       )
     })
+
+    it('appends handBackSeconds sentence when hand back setting is changed', () => {
+      const changes = [{ key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '45' }]
+      expect(successMessage(changes as any)).toBe(
+        'Saved: Seconds a rider can hand back an order for free. The hand back applies to the next accept; a running hand back keeps its end.'
+      )
+    })
+
+    it('appends cancellationPayoutPolicy sentence when cancelled job pay is changed', () => {
+      const changes = [{ key: 'cancellationPayoutPolicy', label: 'Pay when a job is cancelled', from: 'FULL_COMPENSATION', to: 'HALF_COMPENSATION' }]
+      expect(successMessage(changes as any)).toBe(
+        'Saved: Pay when a job is cancelled. Cancelled job pay applies to cancellations from now on.'
+      )
+    })
+
+    it('appends restaurantHistoryDays sentence when history days is changed', () => {
+      const changes = [{ key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', from: '30', to: '7' }]
+      expect(successMessage(changes as any)).toBe(
+        'Saved: Restaurant order history (days). Restaurants see the new order history period at once.'
+      )
+    })
+
+    it('appends dispatchPhoneNumber sentence when set or cleared', () => {
+      const setChanges = [{ key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '', to: '+30 24210 12345' }]
+      expect(successMessage(setChanges as any)).toBe(
+        'Saved: Dispatch phone number. Riders see the Call dispatch button within ten minutes.'
+      )
+
+      const clearedChanges = [{ key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '+302421012345', to: '(empty)' }]
+      expect(successMessage(clearedChanges as any)).toBe(
+        'Saved: Dispatch phone number. Riders no longer see a Call dispatch button.'
+      )
+    })
   })
 
   describe('formFromSettings & EMPTY_FORM', () => {
@@ -369,11 +551,22 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         quoteBaseFee: 200,
         quoteRatePerDistanceUnit: null,
         details: { name: 'Test' },
+        handBackSeconds: 60,
+        cancellationPayoutPolicy: 'FULL_COMPENSATION',
+        restaurantHistoryDays: 30,
+        dispatchPhoneNumber: '+302421012345',
       })
       expect(form.quoteBaseFee).toBe('200')
       expect(form.quoteRatePerDistanceUnit).toBe('')
       expect(form.name).toBe('Test')
       expect(form.offerExpiryEnabled).toBeNull()
+      expect(form.handBackSeconds).toBe('60')
+      expect(form.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
+      expect(form.restaurantHistoryDays).toBe('30')
+      expect(form.dispatchPhoneNumber).toBe('+302421012345')
+
+      const zeroForm = formFromSettings({ handBackSeconds: 0 })
+      expect(zeroForm.handBackSeconds).toBe('0')
     })
 
     it('EMPTY_FORM has empty strings for all text/number fields and null for switch and region', () => {
@@ -381,6 +574,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(EMPTY_FORM.quoteBaseFee).toBe('')
       expect(EMPTY_FORM.offerExpiryEnabled).toBeNull()
       expect(EMPTY_FORM.region).toBeNull()
+      expect(EMPTY_FORM.handBackSeconds).toBe('')
+      expect(EMPTY_FORM.cancellationPayoutPolicy).toBe('')
+      expect(EMPTY_FORM.restaurantHistoryDays).toBe('')
+      expect(EMPTY_FORM.dispatchPhoneNumber).toBe('')
     })
   })
 
@@ -404,6 +601,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(labelOf('link')).toBe('URL')
       expect(labelOf('websocketLink')).toBe('Websocket URL')
       expect(labelOf('imageUrl')).toBe('Logo image URL')
+      expect(labelOf('handBackSeconds')).toBe('Seconds a rider can hand back an order for free')
+      expect(labelOf('cancellationPayoutPolicy')).toBe('Pay when a job is cancelled')
+      expect(labelOf('restaurantHistoryDays')).toBe('Restaurant order history (days)')
+      expect(labelOf('dispatchPhoneNumber')).toBe('Dispatch phone number')
     })
   })
 
@@ -432,6 +633,22 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(sameValue('name', 'Volos Co-op', 'Other Co-op')).toBe(false)
       expect(sameValue('maxAssignmentDistance', '20', 20)).toBe(true)
       expect(sameValue('maxAssignmentDistance', '20', 25)).toBe(false)
+      expect(sameValue('handBackSeconds', '60', 60)).toBe(true)
+      expect(sameValue('handBackSeconds', '0', 0)).toBe(true)
+      expect(sameValue('handBackSeconds', '60', '45')).toBe(false)
+      expect(sameValue('restaurantHistoryDays', '30', 30)).toBe(true)
+      expect(sameValue('restaurantHistoryDays', '30', '7')).toBe(false)
+      expect(sameValue('cancellationPayoutPolicy', 'FULL_COMPENSATION', 'FULL_COMPENSATION')).toBe(true)
+      expect(sameValue('cancellationPayoutPolicy', 'FULL_COMPENSATION', 'HALF_COMPENSATION')).toBe(false)
+    })
+
+    it('compares dispatchPhoneNumber as stripped phone string', () => {
+      expect(sameValue('dispatchPhoneNumber', '+30 24210 12345', '+302421012345')).toBe(true)
+      expect(sameValue('dispatchPhoneNumber', '+30-24210-12345', '+302421012345')).toBe(true)
+      expect(sameValue('dispatchPhoneNumber', '+30 (24210) 12345', '+302421012345')).toBe(true)
+      expect(sameValue('dispatchPhoneNumber', '+30.24210.12345', '+302421012345')).toBe(true)
+      expect(sameValue('dispatchPhoneNumber', '+30 24210 12345', '+30 24210 99999')).toBe(false)
+      expect(sameValue('dispatchPhoneNumber', '', '')).toBe(true)
     })
   })
 

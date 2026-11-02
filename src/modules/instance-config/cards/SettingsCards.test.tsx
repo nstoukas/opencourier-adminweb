@@ -2,6 +2,8 @@ import React from 'react'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import {
   PricingCard,
+  OffersCard,
+  RiderPayCard,
   InstanceCard,
   PublicPagesCard,
   PUBLIC_PAGES,
@@ -148,6 +150,214 @@ describe('SettingsCards components (row 87 review fixes)', () => {
         />
       )
       expect(screen.getByText('URL is not a valid URL')).toBeInTheDocument()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Ported settings: OffersCard (handBackSeconds), RiderPayCard (cancellationPayoutPolicy),
+  // InstanceCard (restaurantHistoryDays, dispatchPhoneNumber)
+  // ---------------------------------------------------------------------------
+  describe('OffersCard (spec 0020, row 71)', () => {
+    it('renders handBackSeconds with loaded value and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <OffersCard
+          form={{ ...dummyForm, handBackSeconds: '60', offerExpiryEnabled: true }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Seconds a rider can hand back an order for free') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.value).toBe('60')
+      expect(input).not.toBeDisabled()
+
+      fireEvent.change(input, { target: { value: '45' } })
+      expect(mockSet).toHaveBeenCalledWith('handBackSeconds', '45')
+    })
+
+    it('handBackSeconds is editable once loaded even when offerExpiryEnabled is false', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, handBackSeconds: '60', offerExpiryEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Seconds a rider can hand back an order for free') as HTMLInputElement
+      expect(input).not.toBeDisabled()
+    })
+
+    it('handBackSeconds is disabled before settings load', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, handBackSeconds: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = screen.getByLabelText('Seconds a rider can hand back an order for free') as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+  })
+
+  describe('RiderPayCard (spec 0015, row 32)', () => {
+    const mockPayoutPolicies = {
+      DEFAULT: 50,
+      FULL_COMPENSATION: 100,
+      HALF_COMPENSATION: 50,
+    }
+
+    it('renders cancellationPayoutPolicy select with keys of reassignmentPayoutPolicies menu formatted as KEY (N%)', () => {
+      const mockSet = jest.fn()
+      render(
+        <RiderPayCard
+          form={{ ...dummyForm, cancellationPayoutPolicy: 'FULL_COMPENSATION' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+          policyEditor={<div data-testid="policy-editor">Policy Editor</div>}
+          payoutPolicies={mockPayoutPolicies}
+        />
+      )
+
+      const select = screen.getByLabelText('Pay when a job is cancelled') as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+      expect(select.value).toBe('FULL_COMPENSATION')
+      expect(select).not.toBeDisabled()
+
+      const options = Array.from(select.options).map((opt) => opt.text)
+      expect(options).toContain('DEFAULT (50%)')
+      expect(options).toContain('FULL_COMPENSATION (100%)')
+      expect(options).toContain('HALF_COMPENSATION (50%)')
+
+      fireEvent.change(select, { target: { value: 'DEFAULT' } })
+      expect(mockSet).toHaveBeenCalledWith('cancellationPayoutPolicy', 'DEFAULT')
+    })
+
+    it('shows a saved policy no longer on the menu as a disabled option and the box holds it', () => {
+      render(
+        <RiderPayCard
+          form={{ ...dummyForm, cancellationPayoutPolicy: 'RETIRED_POLICY' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+          policyEditor={null}
+          payoutPolicies={mockPayoutPolicies}
+        />
+      )
+
+      const select = screen.getByLabelText('Pay when a job is cancelled') as HTMLSelectElement
+      expect(select.value).toBe('RETIRED_POLICY')
+
+      const retiredOption = Array.from(select.options).find((opt) => opt.value === 'RETIRED_POLICY')
+      expect(retiredOption).toBeDefined()
+      expect(retiredOption?.text).toBe('RETIRED_POLICY (no longer on the menu)')
+      expect(retiredOption?.disabled).toBe(true)
+    })
+
+    it('shows "Not set" disabled option when cancellationPayoutPolicy is empty', () => {
+      render(
+        <RiderPayCard
+          form={{ ...dummyForm, cancellationPayoutPolicy: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+          policyEditor={null}
+          payoutPolicies={mockPayoutPolicies}
+        />
+      )
+
+      const select = screen.getByLabelText('Pay when a job is cancelled') as HTMLSelectElement
+      expect(select.value).toBe('')
+      const notSetOption = Array.from(select.options).find((opt) => opt.value === '')
+      expect(notSetOption).toBeDefined()
+      expect(notSetOption?.text).toBe('Not set')
+      expect(notSetOption?.disabled).toBe(true)
+    })
+
+    it('is disabled before settings load', () => {
+      render(
+        <RiderPayCard
+          form={{ ...dummyForm, cancellationPayoutPolicy: 'FULL_COMPENSATION' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+          policyEditor={null}
+          payoutPolicies={mockPayoutPolicies}
+        />
+      )
+
+      const select = screen.getByLabelText('Pay when a job is cancelled') as HTMLSelectElement
+      expect(select).toBeDisabled()
+    })
+  })
+
+  describe('InstanceCard ported settings (spec 0017 row 28, scope row 72)', () => {
+    it('renders restaurantHistoryDays with min 1 max 365 and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <InstanceCard
+          form={{ ...dummyForm, restaurantHistoryDays: '30' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+          linkLocked={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Restaurant order history (days)') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.value).toBe('30')
+      expect(input).toHaveAttribute('min', '1')
+      expect(input).toHaveAttribute('max', '365')
+      expect(input).not.toBeDisabled()
+
+      fireEvent.change(input, { target: { value: '60' } })
+      expect(mockSet).toHaveBeenCalledWith('restaurantHistoryDays', '60')
+    })
+
+    it('renders dispatchPhoneNumber with type tel and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <InstanceCard
+          form={{ ...dummyForm, dispatchPhoneNumber: '+30 24210 12345' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+          linkLocked={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Dispatch phone number') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.value).toBe('+30 24210 12345')
+      expect(input).toHaveAttribute('type', 'tel')
+      expect(input).not.toBeDisabled()
+
+      fireEvent.change(input, { target: { value: '+30 24210 99999' } })
+      expect(mockSet).toHaveBeenCalledWith('dispatchPhoneNumber', '+30 24210 99999')
+    })
+
+    it('disables restaurantHistoryDays and dispatchPhoneNumber when not loaded', () => {
+      render(
+        <InstanceCard
+          form={{ ...dummyForm, restaurantHistoryDays: '', dispatchPhoneNumber: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+          linkLocked={true}
+        />
+      )
+
+      expect(screen.getByLabelText('Restaurant order history (days)')).toBeDisabled()
+      expect(screen.getByLabelText('Dispatch phone number')).toBeDisabled()
     })
   })
 
