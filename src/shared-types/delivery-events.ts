@@ -21,7 +21,10 @@ export enum EnumDeliveryEventType {
   // in STATE_MACHINE or the admin menus.
   COURIER_PAID_FOR_CANCELLATION = 'COURIER_PAID_FOR_CANCELLATION',
   FOOD_RETURNED = 'FOOD_RETURNED',
-  FOOD_NOT_RETURNED = 'FOOD_NOT_RETURNED'
+  FOOD_NOT_RETURNED = 'FOOD_NOT_RETURNED',
+  // A rider gave an order back inside the free window (spec 0020). The rider's own step, recorded
+  // by the backend: never in STATE_MACHINE or the admin menus. The timeline reads "Handed back".
+  HANDED_BACK = 'HANDED_BACK'
 }
 
 export enum EnumEventActor {

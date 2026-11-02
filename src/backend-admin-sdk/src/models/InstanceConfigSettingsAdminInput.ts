@@ -176,6 +176,13 @@ export interface InstanceConfigSettingsAdminInput {
    */
   restaurantHistoryDays?: number;
   /**
+   * Seconds after accepting in which a rider may hand an order back for free; 0 switches it off
+   * (spec 0020). Hand edited (row 71).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  handBackSeconds?: number;
+  /**
    * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
    * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
    * optional leading +. An empty text clears it. Hand edited (row 72).
@@ -390,6 +397,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
       ? undefined
       : json["restaurantHistoryDays"],
+    handBackSeconds: !exists(json, "handBackSeconds")
+      ? undefined
+      : json["handBackSeconds"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
@@ -439,6 +449,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     // Without this line a save would drop the order history period before it left the browser.
     restaurantHistoryDays: value.restaurantHistoryDays,
+    // Without this line a save would drop the hand back window before it left the browser.
+    handBackSeconds: value.handBackSeconds,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     // Without this line a save would drop the cancellation rule before it left the browser.

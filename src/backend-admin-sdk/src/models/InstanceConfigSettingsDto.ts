@@ -177,6 +177,13 @@ export interface InstanceConfigSettingsDto {
    */
   restaurantHistoryDays?: number | null;
   /**
+   * Seconds after accepting in which a rider may hand an order back for free; 0 = off (spec 0020).
+   * Hand edited (row 71).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  handBackSeconds?: number | null;
+  /**
    * The co-op's dispatch line riders call from the job screen; null when none is set.
    * Hand edited (row 72).
    * @type {string}
@@ -365,6 +372,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
       ? null
       : json["restaurantHistoryDays"],
+    handBackSeconds: !exists(json, "handBackSeconds")
+      ? null
+      : json["handBackSeconds"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
@@ -411,6 +421,7 @@ export function InstanceConfigSettingsDtoToJSON(
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     restaurantHistoryDays: value.restaurantHistoryDays,
+    handBackSeconds: value.handBackSeconds,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };

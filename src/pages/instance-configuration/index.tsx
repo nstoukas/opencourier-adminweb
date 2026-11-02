@@ -156,6 +156,8 @@ const InstanceConfigurationPage: NextPage = () => {
   // The two number boxes hold the text typed (a string), like the base fee box.
   const [offerExpirySeconds, setOfferExpirySeconds] = useState("");
   const [noCourierRetrySeconds, setNoCourierRetrySeconds] = useState("");
+  // The free hand back (spec 0020): seconds after accepting, 0 = off. Saved with the offer card.
+  const [handBackSeconds, setHandBackSeconds] = useState("");
   const [isSavingOfferSettings, setIsSavingOfferSettings] = useState(false);
   // Saved customers (spec 0005): months an unused saved customer is kept. null until loaded.
   const [savedCustomerRetentionMonths, setSavedCustomerRetentionMonths] = useState<string | null>(null);
@@ -239,6 +241,9 @@ const InstanceConfigurationPage: NextPage = () => {
         data.noCourierRetrySeconds == null
           ? ""
           : String(data.noCourierRetrySeconds),
+      );
+      setHandBackSeconds(
+        data.handBackSeconds == null ? "" : String(data.handBackSeconds),
       );
       setSavedCustomerRetentionMonths(
         data.savedCustomerRetentionMonths == null
@@ -638,7 +643,7 @@ const InstanceConfigurationPage: NextPage = () => {
     if (offerExpiryEnabled === null) return;
     setIsSavingOfferSettings(true);
     try {
-      // The three go in one request and nothing else does. What is in the boxes is sent as is
+      // The four go in one request and nothing else does. What is in the boxes is sent as is
       // (an empty box as null): the backend owns the rules (whole seconds, 20 to 300 and 10 to
       // 300) and refuses a bad value with a message naming the setting, which the toast shows.
       // `as number` only quiets the SDK type, which has no room for null; the backend refuses null.
@@ -646,6 +651,8 @@ const InstanceConfigurationPage: NextPage = () => {
         offerExpiryEnabled,
         offerExpirySeconds: parseNumberInput(offerExpirySeconds) as number,
         noCourierRetrySeconds: parseNumberInput(noCourierRetrySeconds) as number,
+        // Spec 0020: 0 to 300, 0 switches the hand back off; the backend owns the rule.
+        handBackSeconds: parseNumberInput(handBackSeconds) as number,
       }).unwrap();
       toast({
         title: "Success!",
@@ -1295,6 +1302,30 @@ const InstanceConfigurationPage: NextPage = () => {
                   onChange={(event) =>
                     setNoCourierRetrySeconds(event.target.value)
                   }
+                  className="max-w-[120px]"
+                />
+              </div>
+              <div>
+                <Label htmlFor="handBackSeconds">
+                  Seconds a rider can hand back an order for free
+                </Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Whole seconds, 0 to 300; 0 switches it off. Counted from the
+                  accept, and only before the rider reaches the restaurant. The
+                  order goes back to matching and nothing is paid or charged.
+                  A change applies to the next accept.
+                </p>
+                <Input
+                  id="handBackSeconds"
+                  key="handBackSeconds"
+                  type="number"
+                  min={0}
+                  max={300}
+                  step={1}
+                  value={handBackSeconds}
+                  // Off until the settings load, like the select above.
+                  disabled={offerExpiryEnabled === null}
+                  onChange={(event) => setHandBackSeconds(event.target.value)}
                   className="max-w-[120px]"
                 />
               </div>
