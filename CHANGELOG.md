@@ -71,6 +71,26 @@ Needs the backend's row 71.
 - Fixed after review: the offer card's toast names the hand back, one wording for 0 (`b6cf56d`).
 - Tests by agy (`0080c0e`): 1022 pass; 6 checked by hand by putting their bug back.
 
+### The co-op settings page, one save bar (scope row 87, spec 0010): `815bcc1` to `bc6ee15`
+- **Seven cards** (Pricing, Matching, Offers, Rider pay, Service area, Instance, Public pages), with
+  pills to jump between them, and **one save bar**: "2 unsaved changes: Base fee €2.00 → €2.50".
+  Save sends only what changed, so a half typed pay value is never sent with another setting. The
+  dropped rider pay policies and the public pages keep their own Save.
+- Merged on 2 November after porting four settings that other rows had added to the old page:
+  the hand back seconds, cancelled job pay, order history days and the dispatch number (`2d8ad04`).
+  A dispatch number typed with spaces compares equal to the stored one, so it leaves the bar
+  after saving.
+- Tests by agy: 1082 pass at the merge; put back by hand each round. Reviewed by Fable twice
+  (the page, then the port).
+
+### The arrival radius (scope row 19, spec 0021): `b28273b` to `d245fd2`
+Needs the backend's row 19.
+- **Co-op settings, Matching**: "Arrival radius (metres)", saved through the save bar. 0 switches
+  the riders' arrival detection off, otherwise 20 to 300. The backend owns the range, and its
+  refusal shows in the toast. The hand edited SDK carries it both ways.
+- Tests by agy (`c3ec1be`): 1101 pass; 3 checked by hand. Reviewed by Fable (approve; one layout
+  nit fixed in `d245fd2`).
+
 ### Pay when a job is cancelled, in admin (scope row 32, spec 0015): `b06157e` to `d0d0d82`
 Needs the backend's row 32.
 - **"Pay when a job is cancelled"** on Instance configuration: the co-op's rule, from the payout
