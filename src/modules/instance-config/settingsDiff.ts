@@ -156,6 +156,9 @@ export function sameValue(key: SettingKey, a: unknown, b: unknown): boolean {
 
 export type PendingChange = { key: SettingKey; label: string; from: string; to: string }
 
+// How an empty box reads in the bar; successMessage also reads it to tell a cleared number (review nit).
+export const EMPTY_SHOWN = '(empty)'
+
 // How a value reads in the bar. `optionLabel` turns an option's code into its words.
 function shown(
   definition: SettingDefinition,
@@ -170,7 +173,7 @@ function shown(
     return list.length ? list.map((option) => optionLabel(definition.key, option)).join(', ') : '(none)'
   }
   const text = definition.kind === 'url' ? sanitizeURL(String(value ?? '')) : String(value ?? '').trim()
-  if (text === '') return '(empty)'
+  if (text === '') return EMPTY_SHOWN
   if (definition.kind === 'select') return optionLabel(definition.key, text)
   if (definition.kind === 'cents') {
     const cents = parseQuoteRateInput(text)
@@ -349,7 +352,7 @@ export function successMessage(changes: PendingChange[]): string {
   const dispatchPhone = changes.find((change) => change.key === 'dispatchPhoneNumber')
   if (dispatchPhone) {
     parts.push(
-      dispatchPhone.to === '(empty)'
+      dispatchPhone.to === EMPTY_SHOWN
         ? 'Riders no longer see a Call dispatch button.'
         : 'Riders see the Call dispatch button within ten minutes.',
     )
