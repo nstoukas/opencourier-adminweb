@@ -15,6 +15,7 @@ describe('deliveryEventDisplay utils', () => {
     expect(humanizeEventType('COURIER_PAID_FOR_CANCELLATION')).toBe('Courier paid for cancellation')
     expect(humanizeEventType('FOOD_RETURNED')).toBe('Food returned')
     expect(humanizeEventType('FOOD_NOT_RETURNED')).toBe('Food not returned')
+    expect(humanizeEventType('HANDED_BACK')).toBe('Handed back')
     expect(humanizeEventType('')).toBe('—')
   })
 

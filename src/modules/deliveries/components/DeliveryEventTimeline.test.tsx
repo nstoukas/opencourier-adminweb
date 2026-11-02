@@ -553,6 +553,35 @@ describe('DeliveryEventTimeline component', () => {
       expect(screen.queryByText('Rider')).toBeNull()
     })
 
+    it('renders the timeline row for a HANDED_BACK event as "Handed back" (spec 0020, AC-8)', () => {
+      const handedBackEvent: DeliveryEventAdminDto = {
+        id: 'e-hb',
+        type: 'HANDED_BACK',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'ACCEPTED',
+        newStatus: 'ASSIGNING_COURIER',
+        transitionSuccessful: true,
+        message: 'Handed back within the free window',
+        createdAt: new Date('2026-11-02T10:05:00Z'),
+        courierId: 'c-rider-1',
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [handedBackEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      const courierMap = new Map([['c-rider-1', 'Nikos Kazantzakis']])
+      render(<DeliveryEventTimeline deliveryId="d100" courierNameById={courierMap} />)
+
+      expect(screen.getByText('Handed back')).toBeInTheDocument()
+      expect(screen.getByText('Handed back within the free window')).toBeInTheDocument()
+      expect(screen.getByText('Nikos Kazantzakis')).toBeInTheDocument()
+    })
+
     it('polls for delivery events every 30 seconds via pollingInterval (spec 0002, AC-11)', () => {
       mockUseGetDeliveryEventsQuery.mockReturnValue({
         data: [],

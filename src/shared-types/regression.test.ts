@@ -60,6 +60,19 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(allTransitions).not.toContain('FOOD_NOT_RETURNED')
     })
 
+    it('ensures EnumDeliveryEventType contains HANDED_BACK (spec 0020, AC-8)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('HANDED_BACK')
+    })
+
+    it('ensures STATE_MACHINE transition table does NOT contain HANDED_BACK (spec 0020, AC-8)', () => {
+      // A hand back is the rider's own step; keeping it out of STATE_MACHINE prevents admin event menus from offering it
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('HANDED_BACK')
+    })
+
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {
       // Value 5 / AC-12 rule: An expired offer is never held against a rider.
       // No rating, streak, acceptance rate, or missed offer count may exist per rider.
@@ -116,6 +129,8 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
         // Value 5 / decision 66.11: No counting, scoring, or aggregation of rider issue reports per courier
         /(?:courier|rider)Issue(s?)(Count|Total|Rate|Score)/i,
         /(?:courier|rider)Report(s?)(Count|Total|Rate|Score)/i,
+        // Value 5 / spec 0020, AC-8: No counting, scoring, or aggregation of hand backs or automatic accepts per rider
+        /(?:handedBack|handBack|autoAccept)(s?)(Count|Total|Rate|Score)/i,
       ]
 
       for (const file of sourceFiles) {

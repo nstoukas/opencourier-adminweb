@@ -1032,13 +1032,14 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       ).toBeInTheDocument()
     })
 
-    it('saves exactly offerExpiryEnabled, offerExpirySeconds, and noCourierRetrySeconds on button click', async () => {
+    it('saves exactly offerExpiryEnabled, offerExpirySeconds, noCourierRetrySeconds, and handBackSeconds on button click', async () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
           ...baseMockConfigData,
           offerExpiryEnabled: false,
           offerExpirySeconds: 60,
           noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
         },
         isLoading: false,
       })
@@ -1051,12 +1052,14 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       const select = screen.getByLabelText('Offer expiry')
       const expirySecondsInput = screen.getByLabelText('Seconds before an unanswered offer ends')
       const retrySecondsInput = screen.getByLabelText('Seconds between retries when no rider is free')
+      const handBackSecondsInput = screen.getByLabelText('Seconds a rider can hand back an order for free')
       const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
 
-      // Change values: switch On, 45s expiry, 25s retry
+      // Change values: switch On, 45s expiry, 25s retry, 45s hand back
       fireEvent.change(select, { target: { value: 'on' } })
       fireEvent.change(expirySecondsInput, { target: { value: '45' } })
       fireEvent.change(retrySecondsInput, { target: { value: '25' } })
+      fireEvent.change(handBackSecondsInput, { target: { value: '45' } })
 
       fireEvent.click(saveOfferButton)
 
@@ -1066,10 +1069,11 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
           offerExpiryEnabled: true,
           offerExpirySeconds: 45,
           noCourierRetrySeconds: 25,
+          handBackSeconds: 45,
         })
       })
 
-      // Toast confirms successful save
+      // Toast confirms successful save and mentions the accept (spec 0020, AC-2)
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -1078,15 +1082,21 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
           })
         )
       })
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: expect.stringMatching(/accept/i),
+        })
+      )
     })
 
-    it('"Save All Changes" never sends offerExpiryEnabled, offerExpirySeconds, or noCourierRetrySeconds', async () => {
+    it('"Save All Changes" never sends offerExpiryEnabled, offerExpirySeconds, noCourierRetrySeconds, or handBackSeconds', async () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
           ...baseMockConfigData,
           offerExpiryEnabled: true,
           offerExpirySeconds: 60,
           noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
         },
         isLoading: false,
       })
@@ -1105,6 +1115,7 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
         expect(payload).not.toHaveProperty('offerExpiryEnabled')
         expect(payload).not.toHaveProperty('offerExpirySeconds')
         expect(payload).not.toHaveProperty('noCourierRetrySeconds')
+        expect(payload).not.toHaveProperty('handBackSeconds')
       })
     })
 
@@ -1138,6 +1149,222 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
             title: 'Error',
             description: backendErrorMessage,
             variant: 'destructive',
+          })
+        )
+      })
+    })
+  })
+
+  describe('Hand back window setting (spec 0020, AC-2)', () => {
+    it('loads a stored 60 as "60"', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      ) as HTMLInputElement
+      expect(input.value).toBe('60')
+      expect(input).not.toBeDisabled()
+    })
+
+    it('loads a stored 0 as "0", not an empty box (0 switches the hand back off)', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: 0,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      ) as HTMLInputElement
+      expect(input.value).toBe('0')
+      expect(input).not.toBeDisabled()
+    })
+
+    it('loads null as an empty box', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      ) as HTMLInputElement
+      expect(input.value).toBe('')
+      expect(input).not.toBeDisabled()
+    })
+
+    it('the handBackSeconds input is disabled until the settings load', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: null,
+          handBackSeconds: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      ) as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+
+    it('typing 0 and saving sends handBackSeconds: 0 (not null)', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      )
+      fireEvent.change(input, { target: { value: '0' } })
+
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+      fireEvent.click(saveOfferButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload.handBackSeconds).toBe(0)
+        expect(payload.handBackSeconds).not.toBeNull()
+      })
+    })
+
+    it('typing 45 sends handBackSeconds: 45', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      )
+      fireEvent.change(input, { target: { value: '45' } })
+
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+      fireEvent.click(saveOfferButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+        const payload = mockSetInstanceConfig.mock.calls[0][0]
+        expect(payload.handBackSeconds).toBe(45)
+      })
+    })
+
+    it('shows backend refusal error message honestly in toast when handBackSeconds is invalid', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
+        },
+        isLoading: false,
+      })
+
+      const backendErrorMessage = 'handBackSeconds must be 300 or less'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: backendErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = screen.getByLabelText(
+        'Seconds a rider can hand back an order for free'
+      )
+      fireEvent.change(input, { target: { value: '350' } })
+
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+      fireEvent.click(saveOfferButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error',
+            description: backendErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+    })
+
+    it('the success toast mentions the accept when offer settings are saved', async () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerExpiryEnabled: true,
+          offerExpirySeconds: 60,
+          noCourierRetrySeconds: 30,
+          handBackSeconds: 60,
+        },
+        isLoading: false,
+      })
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.resolve({}),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const saveOfferButton = screen.getByRole('button', { name: /save offer settings/i })
+      fireEvent.click(saveOfferButton)
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Success!',
+            description: expect.stringMatching(/accept/i),
           })
         )
       })

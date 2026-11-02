@@ -172,6 +172,54 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.restaurantHistoryDays).toBeUndefined()
     })
 
+    it('preserves handBackSeconds in ToJSON serialization, including 0 (spec 0020, AC-2)', () => {
+      // Load-bearing test guard: without handBackSeconds in ToJSON, the SDK silently drops
+      // it and the save reports success for a setting never sent to the backend.
+      const input = {
+        handBackSeconds: 60,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.handBackSeconds).toBe(60)
+
+      // 0 is the off switch and must be preserved (not dropped as falsy)
+      const inputZero = {
+        handBackSeconds: 0,
+      }
+
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.handBackSeconds).toBe(0)
+    })
+
+    it('round-trips handBackSeconds through FromJSON and ToJSON (spec 0020, AC-2)', () => {
+      const originalJson = {
+        handBackSeconds: 45,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.handBackSeconds).toBe(45)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.handBackSeconds).toBe(45)
+
+      const zeroModel = InstanceConfigSettingsAdminInputFromJSON({
+        handBackSeconds: 0,
+      })
+      expect(zeroModel.handBackSeconds).toBe(0)
+
+      const zeroSerialized = InstanceConfigSettingsAdminInputToJSON(zeroModel)
+      expect(zeroSerialized.handBackSeconds).toBe(0)
+    })
+
+    it('handles undefined handBackSeconds in FromJSON and ToJSON (spec 0020, AC-2)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.handBackSeconds).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.handBackSeconds).toBeUndefined()
+    })
+
     it('preserves dispatchPhoneNumber in ToJSON serialization, including empty text (row 72)', () => {
       // Load-bearing test guard: without dispatchPhoneNumber in ToJSON, the SDK silently drops
       // it and the save reports success for a number never sent to the backend.
@@ -419,6 +467,44 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.restaurantHistoryDays).toBe(7)
+    })
+
+    it('deserializes handBackSeconds when present, including 0 (spec 0020, AC-2)', () => {
+      const json = {
+        details: {},
+        handBackSeconds: 60,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.handBackSeconds).toBe(60)
+
+      const jsonZero = {
+        details: {},
+        handBackSeconds: 0,
+      }
+
+      const dtoZero = InstanceConfigSettingsDtoFromJSON(jsonZero)
+      expect(dtoZero.handBackSeconds).toBe(0)
+    })
+
+    it('deserializes handBackSeconds as null when absent in backend response (spec 0020, AC-2)', () => {
+      // Missing key means absent in backend, mapped to null so the page can distinguish from 0
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.handBackSeconds).toBeNull()
+    })
+
+    it('serializes DTO carrying handBackSeconds back to JSON (spec 0020, AC-2)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        handBackSeconds: 60,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.handBackSeconds).toBe(60)
     })
 
     it('deserializes dispatchPhoneNumber when present (row 72)', () => {
