@@ -171,6 +171,12 @@ export interface InstanceConfigSettingsDto {
    */
   savedCustomerRetentionMonths?: number | null;
   /**
+   * How many days back a restaurant sees its ended orders (spec 0017). Hand edited (row 28).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  restaurantHistoryDays?: number | null;
+  /**
    * The co-op's dispatch line riders call from the job screen; null when none is set.
    * Hand edited (row 72).
    * @type {string}
@@ -356,6 +362,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? null
       : json["savedCustomerRetentionMonths"],
+    restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
+      ? null
+      : json["restaurantHistoryDays"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
@@ -401,6 +410,7 @@ export function InstanceConfigSettingsDtoToJSON(
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
+    restaurantHistoryDays: value.restaurantHistoryDays,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };

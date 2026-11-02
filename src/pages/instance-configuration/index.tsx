@@ -160,6 +160,8 @@ const InstanceConfigurationPage: NextPage = () => {
   // Saved customers (spec 0005): months an unused saved customer is kept. null until loaded.
   const [savedCustomerRetentionMonths, setSavedCustomerRetentionMonths] = useState<string | null>(null);
   const [isSavingRetention, setIsSavingRetention] = useState(false);
+  // Order history (spec 0017): days back a restaurant sees its ended orders. Null until loaded.
+  const [restaurantHistoryDays, setRestaurantHistoryDays] = useState<string | null>(null);
   // The dispatch line riders call from the job screen (row 72), as typed. null until loaded.
   const [dispatchPhoneNumber, setDispatchPhoneNumber] = useState<string | null>(null);
   const [isSavingDispatchPhone, setIsSavingDispatchPhone] = useState(false);
@@ -242,6 +244,9 @@ const InstanceConfigurationPage: NextPage = () => {
         data.savedCustomerRetentionMonths == null
           ? ""
           : String(data.savedCustomerRetentionMonths),
+      );
+      setRestaurantHistoryDays(
+        data.restaurantHistoryDays == null ? "" : String(data.restaurantHistoryDays),
       );
       setDispatchPhoneNumber(data.dispatchPhoneNumber ?? "");
       // The backend answers the rule in force (FULL_COMPENSATION when none is stored).
@@ -663,29 +668,31 @@ const InstanceConfigurationPage: NextPage = () => {
 
   const handleSaveRetention = async () => {
     // The button is off until the settings have loaded.
-    if (savedCustomerRetentionMonths === null) return;
+    if (savedCustomerRetentionMonths === null || restaurantHistoryDays === null) return;
     setIsSavingRetention(true);
     try {
-      // Sent as typed (an empty box as null): the backend owns the rule (whole months, 1 to 36)
-      // and refuses a bad value with a message naming the setting, which the toast shows.
+      // Sent as typed (an empty box as null): the backend owns the rules (whole months 1 to 36, whole
+      // days 1 to 365) and refuses a bad value with a message naming the setting, which the toast shows.
       // `as number` only quiets the SDK type, which has no room for null; the backend refuses null.
+      // Both settings of the card in one save (spec 0017, AC-1).
       await setInstanceConfigMutation({
         savedCustomerRetentionMonths: parseNumberInput(savedCustomerRetentionMonths) as number,
+        restaurantHistoryDays: parseNumberInput(restaurantHistoryDays) as number,
       }).unwrap();
       toast({
         title: "Success!",
         description:
-          "Saved customer retention saved. The daily job uses it from its next run.",
+          "Customer data settings saved. Restaurants see the new order history period at once; the retention job uses its setting from its next run.",
       });
     } catch (error: any) {
       toast({
         title: "Error",
         description:
           error?.message ||
-          "Failed to save the saved customer retention. Please try again.",
+          "Failed to save the customer data settings. Please try again.",
         variant: "destructive",
       });
-      console.error("Failed to save saved customer retention:", error);
+      console.error("Failed to save the customer data settings:", error);
     } finally {
       setIsSavingRetention(false);
     }
@@ -1335,13 +1342,37 @@ const InstanceConfigurationPage: NextPage = () => {
                   className="max-w-[120px]"
                 />
               </div>
+              {/* Spec 0017: how far back a restaurant sees its own orders on My Orders. */}
+              <div>
+                <Label htmlFor="restaurantHistoryDays">Restaurant order history (days)</Label>
+                <p className="text-sm text-muted-foreground mb-1">
+                  A restaurant sees its ended orders from this many days back, and every order
+                  still open. Admins always see every order. Whole days, 1 to 365.
+                </p>
+                <Input
+                  id="restaurantHistoryDays"
+                  key="restaurantHistoryDays"
+                  type="number"
+                  min={1}
+                  max={365}
+                  step={1}
+                  value={restaurantHistoryDays ?? ""}
+                  disabled={restaurantHistoryDays === null}
+                  onChange={(event) => setRestaurantHistoryDays(event.target.value)}
+                  className="max-w-[120px]"
+                />
+              </div>
               <div>
                 <Button
                   type="button"
-                  disabled={isSavingRetention || savedCustomerRetentionMonths === null}
+                  disabled={
+                    isSavingRetention ||
+                    savedCustomerRetentionMonths === null ||
+                    restaurantHistoryDays === null
+                  }
                   onClick={handleSaveRetention}
                 >
-                  {isSavingRetention ? "Saving…" : "Save saved customer setting"}
+                  {isSavingRetention ? "Saving…" : "Save customer data settings"}
                 </Button>
               </div>
             </section>

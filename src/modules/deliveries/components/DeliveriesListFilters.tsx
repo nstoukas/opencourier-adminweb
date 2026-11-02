@@ -21,13 +21,27 @@ export const DELIVERY_LIST_STATES: { value: DeliveryListState; label: string }[]
 // How long after the last key the search is sent, so typing a word sends one request, not one per letter.
 export const SEARCH_DELAY_MS = 300
 
+// A restaurant the Restaurant select offers (spec 0017, AC-7).
+export type RestaurantOption = { id: string; name: string }
+
 type Props = {
   state: DeliveryListState
   onStateChange: (state: DeliveryListState) => void
   onSearchChange: (search: string | undefined) => void
+  // One restaurant's whole history (spec 0017): '' is every restaurant.
+  partnerId?: string
+  restaurants?: RestaurantOption[]
+  onPartnerChange?: (partnerId: string) => void
 }
 
-export function DeliveriesListFilters({ state, onStateChange, onSearchChange }: Props) {
+export function DeliveriesListFilters({
+  state,
+  onStateChange,
+  onSearchChange,
+  partnerId = '',
+  restaurants = [],
+  onPartnerChange,
+}: Props) {
   const [text, setText] = useState('')
   // The text as it was SEARCH_DELAY_MS after the last key (the shared debounce hook).
   const settled = useDebouncedValue(text, SEARCH_DELAY_MS)
@@ -65,6 +79,26 @@ export function DeliveriesListFilters({ state, onStateChange, onSearchChange }: 
           )
         })}
       </div>
+      {onPartnerChange ? (
+        // A plain select: one control, keyboard and screen reader friendly as it is.
+        <select
+          aria-label="Restaurant"
+          value={partnerId}
+          onChange={(event) => onPartnerChange(event.target.value)}
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm md:max-w-[14rem]"
+        >
+          <option value="">All restaurants</option>
+          {restaurants.map((restaurant) => (
+            <option key={restaurant.id} value={restaurant.id}>
+              {restaurant.name}
+            </option>
+          ))}
+          {/* A restaurant from the URL that the list does not have (deleted, or past 500) still shows. */}
+          {partnerId && !restaurants.some((restaurant) => restaurant.id === partnerId) ? (
+            <option value={partnerId}>{partnerId}</option>
+          ) : null}
+        </select>
+      ) : null}
       <div className="relative w-full md:max-w-xs">
         <MagnifyingGlass
           aria-hidden="true"

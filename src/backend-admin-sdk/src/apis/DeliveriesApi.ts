@@ -51,6 +51,8 @@ export interface DeliveriesApiGetDeliveriesRequest {
     state?: 'all' | 'active' | 'dropped_off' | 'canceled';
     // Order reference, customer, restaurant, or the end of the id (row 96).
     search?: string;
+    // One restaurant's whole history (spec 0017, AC-7). Hand edited (row 28).
+    partnerId?: string;
 }
 
 export interface DeliveriesApiGetDeliveryRequest {
@@ -104,6 +106,10 @@ export class DeliveriesApi extends runtime.BaseAPI {
 
         if (requestParameters.search !== undefined) {
             queryParameters['search'] = requestParameters.search;
+        }
+
+        if (requestParameters.partnerId !== undefined) {
+            queryParameters['partnerId'] = requestParameters.partnerId;
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

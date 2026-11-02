@@ -169,6 +169,13 @@ export interface InstanceConfigSettingsAdminInput {
    */
   savedCustomerRetentionMonths?: number;
   /**
+   * How many days back a restaurant sees its ended orders (spec 0017). Whole days, 1 to 365.
+   * Hand edited (row 28).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  restaurantHistoryDays?: number;
+  /**
    * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
    * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
    * optional leading +. An empty text clears it. Hand edited (row 72).
@@ -380,6 +387,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? undefined
       : json["savedCustomerRetentionMonths"],
+    restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
+      ? undefined
+      : json["restaurantHistoryDays"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
@@ -427,6 +437,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     // Without this line a save would drop the retention setting before it left the browser.
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
+    // Without this line a save would drop the order history period before it left the browser.
+    restaurantHistoryDays: value.restaurantHistoryDays,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     // Without this line a save would drop the cancellation rule before it left the browser.

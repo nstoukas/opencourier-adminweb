@@ -19,7 +19,9 @@ import { formatMoney } from '@/utils/formatMoney'
 import { shortId } from '@/utils/shortId'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/router'
+import { useGetPartnersQuery } from '@/api/partnersApi'
 
 function CourierResolvedName({
   courierId,
@@ -47,6 +49,32 @@ const OrdersPage: NextPage = () => {
     pageIndex: 0,
     pageSize: DEFAULT_PAGE_SIZE,
   })
+  // One restaurant's whole history (spec 0017, AC-7), the only filter kept in the URL (?partnerId=), so a
+  // restaurant's page can link here. Read once the router knows the query; written back without a reload.
+  const router = useRouter()
+  const [partnerId, setPartnerId] = useState('')
+  useEffect(() => {
+    if (!router.isReady) return
+    const fromUrl = typeof router.query.partnerId === 'string' ? router.query.partnerId : ''
+    setPartnerId(fromUrl)
+    // Read once: later changes come from the select, which writes the URL itself.
+  }, [router.isReady])
+  const changePartner = (next: string) => {
+    setPartnerId(next)
+    setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+    const query = { ...router.query }
+    if (next) query.partnerId = next
+    else delete query.partnerId
+    void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true })
+  }
+  const { data: partnersPayload } = useGetPartnersQuery({ page: 1, perPage: 500 })
+  const restaurants = useMemo(
+    () =>
+      (partnersPayload?.data ?? [])
+        .map((partner) => ({ id: partner.id, name: partner.name || partner.id }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [partnersPayload?.data],
+  )
 
   // The Offer column changes on its own (an offer expires, moves to the next rider, a rider
   // comes free), so the list asks the backend again every 30 s; `pollingInterval` is RTK
@@ -56,6 +84,7 @@ const OrdersPage: NextPage = () => {
     {
       state: listState,
       search,
+      partnerId: partnerId || undefined,
       page: pagination.pageIndex + 1,
       perPage: pagination.pageSize,
     },
@@ -176,6 +205,9 @@ const OrdersPage: NextPage = () => {
           setSearch(next)
           setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
         }}
+        partnerId={partnerId}
+        restaurants={restaurants}
+        onPartnerChange={changePartner}
       />
 
       <DataTable
