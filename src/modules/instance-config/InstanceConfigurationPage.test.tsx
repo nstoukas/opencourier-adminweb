@@ -924,8 +924,8 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         fireEvent.change(input, { target: { value: '0' } })
 
         const saveBar = screen.getByTestId('save-bar')
-        expect(within(saveBar).getByText(/60/)).toBeInTheDocument()
-        expect(within(saveBar).getByText(/0/)).toBeInTheDocument()
+        const barLine = within(saveBar).getByRole('listitem')
+        expect(barLine).toHaveTextContent(/^Seconds a rider can hand back an order for free 60 →\s*(?:changes to )?0$/)
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         fireEvent.click(saveButton)
@@ -949,6 +949,8 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         expect(saveButton).toBeDisabled()
+        fireEvent.click(saveButton)
+        expect(mockSetInstanceConfig).not.toHaveBeenCalled()
       })
     })
 
@@ -1076,6 +1078,8 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         expect(saveButton).toBeDisabled()
+        fireEvent.click(saveButton)
+        expect(mockSetInstanceConfig).not.toHaveBeenCalled()
       })
     })
 
