@@ -5,6 +5,7 @@ import { EnumDeliveryStatus } from '../../shared-types'
 import type { DeliveryAdminDto } from '../../backend-admin-sdk'
 import { useGetDeliveriesQuery } from '../../api/deliveriesApi'
 import { useGetCouriersQuery } from '../../api/couriersApi'
+import { useGetPartnersQuery } from '../../api/partnersApi'
 
 // Mock DefaultLayout to avoid requiring full Redux store provider in list page tests
 jest.mock('../../components/layouts/DefaultLayout', () => ({
@@ -27,11 +28,16 @@ jest.mock('../../hooks/useAdminPageNavigator', () => ({
 }))
 
 // Mock Next.js router
+let mockRouter = {
+  pathname: '/deliveries',
+  query: {} as Record<string, string | undefined>,
+  isReady: true,
+  push: jest.fn(),
+  replace: jest.fn(),
+}
+
 jest.mock('next/router', () => ({
-  useRouter: () => ({
-    pathname: '/deliveries',
-    push: jest.fn(),
-  }),
+  useRouter: () => mockRouter,
 }))
 
 // Mock RTK Query deliveriesApi endpoints used by OrdersPage and AssignCourierCell
@@ -46,8 +52,14 @@ jest.mock('../../api/couriersApi', () => ({
   useGetAllCouriersQuery: jest.fn().mockReturnValue({ data: [], isLoading: false }),
 }))
 
+// Mock RTK Query partnersApi endpoint used for restaurant filter
+jest.mock('../../api/partnersApi', () => ({
+  useGetPartnersQuery: jest.fn(),
+}))
+
 const mockUseGetDeliveriesQuery = useGetDeliveriesQuery as jest.Mock
 const mockUseGetCouriersQuery = useGetCouriersQuery as jest.Mock
+const mockUseGetPartnersQuery = useGetPartnersQuery as jest.Mock
 
 describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
   const fixedNow = new Date('2026-10-26T12:00:00.000Z')
@@ -56,6 +68,21 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     jest.useFakeTimers()
     jest.setSystemTime(fixedNow)
     jest.clearAllMocks()
+
+    mockRouter = {
+      pathname: '/deliveries',
+      query: {},
+      isReady: true,
+      push: jest.fn(),
+      replace: jest.fn(),
+    }
+
+    mockUseGetPartnersQuery.mockReturnValue({
+      data: {
+        data: [{ id: 'p1', name: 'Souvlaki Bar' }],
+      },
+      isLoading: false,
+    })
 
     mockUseGetCouriersQuery.mockReturnValue({
       data: {
@@ -94,8 +121,9 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     // Old Offer column header is NOT present
     expect(screen.queryByRole('columnheader', { name: 'Offer' })).toBeNull()
 
-    // Obsolete status select and search input are removed (filtered nothing on backend)
-    expect(screen.queryByRole('combobox')).toBeNull()
+    // Obsolete status select is removed (replaced by Restaurant select)
+    expect(screen.queryByRole('combobox', { name: /status/i })).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'Restaurant' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/search/i)).toBeNull()
   })
 
@@ -667,6 +695,215 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
         }),
         expect.anything()
       )
+    })
+  })
+
+  describe('Restaurant filter and URL sync (spec 0017, AC-7, decision 28.6)', () => {
+    beforeEach(() => {
+      mockUseGetDeliveriesQuery.mockReturnValue({
+        data: {
+          data: [],
+          pagination: { totalItems: 25, page: 1, perPage: 10, totalPages: 3 },
+        },
+        isLoading: false,
+      })
+      mockUseGetPartnersQuery.mockReturnValue({
+        data: {
+          data: [
+            { id: 'p-zorba', name: 'Zorba Tavern' },
+            { id: 'p-alpha', name: 'Alpha Bistro' },
+            { id: 'p-noname', name: '' },
+          ],
+        },
+        isLoading: false,
+      })
+    })
+
+    it('populates Restaurant select with "All restaurants" first, then partners sorted by name (falling back to id)', () => {
+      render(<OrdersPage />)
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' }) as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+
+      const options = Array.from(select.querySelectorAll('option')).map((opt) => ({
+        value: opt.value,
+        text: opt.textContent,
+      }))
+
+      expect(options).toEqual([
+        { value: '', text: 'All restaurants' },
+        { value: 'p-alpha', text: 'Alpha Bistro' },
+        { value: 'p-noname', text: 'p-noname' },
+        { value: 'p-zorba', text: 'Zorba Tavern' },
+      ])
+    })
+
+    it('reads partnerId directly from router.query.partnerId without unfiltered query first', () => {
+      mockRouter.query = { partnerId: 'p-alpha' }
+
+      render(<OrdersPage />)
+
+      // Very first call must carry partnerId="p-alpha", never partnerId=undefined
+      expect(mockUseGetDeliveriesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          partnerId: 'p-alpha',
+          page: 1,
+        }),
+        expect.anything()
+      )
+
+      expect(mockUseGetDeliveriesQuery).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          partnerId: undefined,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('waits (skip: true) until router.isReady turns true', () => {
+      mockRouter.isReady = false
+      mockRouter.query = { partnerId: 'p-alpha' }
+
+      render(<OrdersPage />)
+
+      // Query called with skip: true while router is not ready
+      expect(mockUseGetDeliveriesQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          skip: true,
+        })
+      )
+    })
+
+    it('calls router.replace shallow with ?partnerId= when choosing a restaurant, keeping other query keys', () => {
+      mockRouter.query = { otherFilter: 'keep-this' }
+
+      render(<OrdersPage />)
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' })
+      fireEvent.change(select, { target: { value: 'p-alpha' } })
+
+      expect(mockRouter.replace).toHaveBeenCalledWith(
+        {
+          pathname: '/deliveries',
+          query: {
+            otherFilter: 'keep-this',
+            partnerId: 'p-alpha',
+          },
+        },
+        undefined,
+        { shallow: true }
+      )
+    })
+
+    it('removes partnerId from query when "All restaurants" is chosen', () => {
+      mockRouter.query = { partnerId: 'p-alpha', otherFilter: 'keep-this' }
+
+      render(<OrdersPage />)
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' })
+      fireEvent.change(select, { target: { value: '' } })
+
+      expect(mockRouter.replace).toHaveBeenCalledWith(
+        {
+          pathname: '/deliveries',
+          query: {
+            otherFilter: 'keep-this',
+          },
+        },
+        undefined,
+        { shallow: true }
+      )
+      // partnerId must be deleted from query
+      const calledQuery = mockRouter.replace.mock.calls[0][0].query
+      expect(calledQuery).not.toHaveProperty('partnerId')
+    })
+
+    it('resets pagination to page 1 when partnerId changes in URL', () => {
+      mockRouter.query = { partnerId: 'p-alpha' }
+      const { rerender } = render(<OrdersPage />)
+
+      // Move to page 2 via table pagination Next button
+      const nextBtn = screen.getByRole('button', { name: 'Go to next page' })
+      fireEvent.click(nextBtn)
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          partnerId: 'p-alpha',
+          page: 2,
+        }),
+        expect.anything()
+      )
+
+      // Change partnerId in router.query (simulating navigation, link click or shallow replace)
+      mockRouter.query = { partnerId: 'p-zorba' }
+      rerender(<OrdersPage />)
+
+      // Must reset to page 1 with new partnerId
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          partnerId: 'p-zorba',
+          page: 1,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('renders an unknown partnerId from the URL as an option in the select', () => {
+      mockRouter.query = { partnerId: 'p-unknown-id' }
+
+      render(<OrdersPage />)
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' }) as HTMLSelectElement
+      expect(select.value).toBe('p-unknown-id')
+
+      const unknownOption = select.querySelector('option[value="p-unknown-id"]')
+      expect(unknownOption).not.toBeNull()
+      expect(unknownOption?.textContent).toBe('p-unknown-id')
+    })
+
+    it('combines partnerId with state filter and search parameter in the list request', () => {
+      mockRouter.query = { partnerId: 'p-alpha' }
+
+      render(<OrdersPage />)
+
+      // Select Active filter
+      const activeButton = screen.getByRole('button', { name: 'Active' })
+      fireEvent.click(activeButton)
+
+      // Enter search text
+      const searchInput = screen.getByRole('searchbox', { name: 'Search deliveries' })
+      fireEvent.change(searchInput, { target: { value: 'Customer A' } })
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      expect(mockUseGetDeliveriesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          partnerId: 'p-alpha',
+          state: 'active',
+          search: 'Customer A',
+          page: 1,
+          perPage: 10,
+        }),
+        expect.anything()
+      )
+    })
+
+    it('handles getPartners query failure (e.g. 500) gracefully without crashing', () => {
+      mockUseGetPartnersQuery.mockReturnValue({
+        data: undefined,
+        isError: true,
+        error: { status: 500, message: 'Internal Server Error' },
+      })
+
+      expect(() => render(<OrdersPage />)).not.toThrow()
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' }) as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+      expect(select.querySelectorAll('option')).toHaveLength(1)
+      expect(select.querySelector('option')?.textContent).toBe('All restaurants')
     })
   })
 })

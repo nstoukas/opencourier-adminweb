@@ -378,4 +378,108 @@ describe('DeliveriesListFilters (row 96: filter and search controls)', () => {
     // Not called after unmount
     expect(onSearchChange).not.toHaveBeenCalled()
   })
+
+  describe('Restaurant select (spec 0017, AC-7)', () => {
+    const sampleRestaurants = [
+      { id: 'rest-1', name: 'Alpha Pizza' },
+      { id: 'rest-2', name: 'Beta Burger' },
+    ]
+
+    it('renders no restaurant select when onPartnerChange is not provided', () => {
+      render(
+        <DeliveriesListFilters
+          state="all"
+          onStateChange={jest.fn()}
+          onSearchChange={jest.fn()}
+        />
+      )
+
+      expect(screen.queryByRole('combobox', { name: 'Restaurant' })).toBeNull()
+    })
+
+    it('renders "All restaurants" as the first option, then each restaurant by name', () => {
+      render(
+        <DeliveriesListFilters
+          state="all"
+          onStateChange={jest.fn()}
+          onSearchChange={jest.fn()}
+          partnerId=""
+          restaurants={sampleRestaurants}
+          onPartnerChange={jest.fn()}
+        />
+      )
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' }) as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+
+      const options = select.querySelectorAll('option')
+      expect(options).toHaveLength(3)
+      expect(options[0]).toHaveTextContent('All restaurants')
+      expect(options[0]?.value).toBe('')
+      expect(options[1]).toHaveTextContent('Alpha Pizza')
+      expect(options[1]?.value).toBe('rest-1')
+      expect(options[2]).toHaveTextContent('Beta Burger')
+      expect(options[2]?.value).toBe('rest-2')
+    })
+
+    it('renders an extra option for partnerId from URL when not in restaurants list', () => {
+      render(
+        <DeliveriesListFilters
+          state="all"
+          onStateChange={jest.fn()}
+          onSearchChange={jest.fn()}
+          partnerId="unknown-deleted-partner-id"
+          restaurants={sampleRestaurants}
+          onPartnerChange={jest.fn()}
+        />
+      )
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' }) as HTMLSelectElement
+      expect(select.value).toBe('unknown-deleted-partner-id')
+
+      const unknownOption = select.querySelector('option[value="unknown-deleted-partner-id"]')
+      expect(unknownOption).not.toBeNull()
+      expect(unknownOption?.textContent).toBe('unknown-deleted-partner-id')
+    })
+
+    it('calls onPartnerChange with restaurant id when chosen', () => {
+      const onPartnerChange = jest.fn()
+      render(
+        <DeliveriesListFilters
+          state="all"
+          onStateChange={jest.fn()}
+          onSearchChange={jest.fn()}
+          partnerId=""
+          restaurants={sampleRestaurants}
+          onPartnerChange={onPartnerChange}
+        />
+      )
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' })
+      fireEvent.change(select, { target: { value: 'rest-2' } })
+
+      expect(onPartnerChange).toHaveBeenCalledTimes(1)
+      expect(onPartnerChange).toHaveBeenCalledWith('rest-2')
+    })
+
+    it('calls onPartnerChange with empty string when "All restaurants" is chosen', () => {
+      const onPartnerChange = jest.fn()
+      render(
+        <DeliveriesListFilters
+          state="all"
+          onStateChange={jest.fn()}
+          onSearchChange={jest.fn()}
+          partnerId="rest-1"
+          restaurants={sampleRestaurants}
+          onPartnerChange={onPartnerChange}
+        />
+      )
+
+      const select = screen.getByRole('combobox', { name: 'Restaurant' })
+      fireEvent.change(select, { target: { value: '' } })
+
+      expect(onPartnerChange).toHaveBeenCalledTimes(1)
+      expect(onPartnerChange).toHaveBeenCalledWith('')
+    })
+  })
 })

@@ -1144,12 +1144,13 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
     })
   })
 
-  describe('Saved customers retention setting (spec 0005, AC-7)', () => {
-    it('loads the stored value into the retention input', () => {
+  describe('Customer data settings: saved customer retention and restaurant order history (spec 0005, spec 0017, AC-1)', () => {
+    it('loads the stored values into the retention and history inputs', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
           ...baseMockConfigData,
           savedCustomerRetentionMonths: 12,
+          restaurantHistoryDays: 30,
         },
         isLoading: false,
       })
@@ -1159,15 +1160,38 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       const retentionInput = screen.getByLabelText(
         'Delete a saved customer after this many months unused'
       ) as HTMLInputElement
+      const historyInput = screen.getByLabelText(
+        'Restaurant order history (days)'
+      ) as HTMLInputElement
 
       expect(retentionInput.value).toBe('12')
+      expect(historyInput.value).toBe('30')
       expect(retentionInput).not.toBeDisabled()
+      expect(historyInput).not.toBeDisabled()
       expect(
-        screen.getByRole('button', { name: /save saved customer setting/i })
+        screen.getByRole('button', { name: /save customer data settings/i })
       ).not.toBeDisabled()
     })
 
-    it('the field and its save button are disabled until the settings load', () => {
+    it('loads empty string when restaurantHistoryDays is null or absent', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          savedCustomerRetentionMonths: 12,
+          restaurantHistoryDays: null,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const historyInput = screen.getByLabelText(
+        'Restaurant order history (days)'
+      ) as HTMLInputElement
+      expect(historyInput.value).toBe('')
+    })
+
+    it('the fields and their save button are disabled until the settings load', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -1178,18 +1202,24 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       const retentionInput = screen.getByLabelText(
         'Delete a saved customer after this many months unused'
       ) as HTMLInputElement
-      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+      const historyInput = screen.getByLabelText(
+        'Restaurant order history (days)'
+      ) as HTMLInputElement
+      const saveButton = screen.getByRole('button', { name: /save customer data settings/i })
 
       expect(retentionInput.value).toBe('')
+      expect(historyInput.value).toBe('')
       expect(retentionInput).toBeDisabled()
+      expect(historyInput).toBeDisabled()
       expect(saveButton).toBeDisabled()
     })
 
-    it('Save sends only { savedCustomerRetentionMonths } (an empty box as null)', async () => {
+    it('Save customer data settings sends both savedCustomerRetentionMonths and restaurantHistoryDays in one call (AC-1)', async () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
           ...baseMockConfigData,
           savedCustomerRetentionMonths: 12,
+          restaurantHistoryDays: 30,
         },
         isLoading: false,
       })
@@ -1202,46 +1232,54 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
       const retentionInput = screen.getByLabelText(
         'Delete a saved customer after this many months unused'
       )
-      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+      const historyInput = screen.getByLabelText(
+        'Restaurant order history (days)'
+      )
+      const saveButton = screen.getByRole('button', { name: /save customer data settings/i })
 
-      // 1. Changing to 24 sends exactly { savedCustomerRetentionMonths: 24 }
+      // 1. Changing values sends both in one call
       fireEvent.change(retentionInput, { target: { value: '24' } })
+      fireEvent.change(historyInput, { target: { value: '14' } })
       fireEvent.click(saveButton)
 
       await waitFor(() => {
         expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
         expect(mockSetInstanceConfig).toHaveBeenCalledWith({
           savedCustomerRetentionMonths: 24,
+          restaurantHistoryDays: 14,
         })
       })
 
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Success!',
-          description: expect.stringContaining('Saved customer retention saved'),
+          description: expect.stringContaining('Customer data settings saved'),
         })
       )
 
       mockSetInstanceConfig.mockClear()
       mockToast.mockClear()
 
-      // 2. An empty box sends exactly { savedCustomerRetentionMonths: null }
+      // 2. An empty box sends null for that key
       fireEvent.change(retentionInput, { target: { value: '' } })
+      fireEvent.change(historyInput, { target: { value: '' } })
       fireEvent.click(saveButton)
 
       await waitFor(() => {
         expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
         expect(mockSetInstanceConfig).toHaveBeenCalledWith({
           savedCustomerRetentionMonths: null,
+          restaurantHistoryDays: null,
         })
       })
     })
 
-    it('"Save All Changes" never sends savedCustomerRetentionMonths', async () => {
+    it('"Save All Changes" never sends savedCustomerRetentionMonths or restaurantHistoryDays', async () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
           ...baseMockConfigData,
           savedCustomerRetentionMonths: 12,
+          restaurantHistoryDays: 30,
         },
         isLoading: false,
       })
@@ -1258,6 +1296,7 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
         expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
         const payload = mockSetInstanceConfig.mock.calls[0][0]
         expect(payload).not.toHaveProperty('savedCustomerRetentionMonths')
+        expect(payload).not.toHaveProperty('restaurantHistoryDays')
       })
     })
 
@@ -1266,23 +1305,24 @@ describe('InstanceConfigurationPage zero-valid settings', () => {
         data: {
           ...baseMockConfigData,
           savedCustomerRetentionMonths: 12,
+          restaurantHistoryDays: 30,
         },
         isLoading: false,
       })
 
-      const backendErrorMessage = 'savedCustomerRetentionMonths must be 36 or less'
+      const backendErrorMessage = 'restaurantHistoryDays must be 365 or less'
       mockSetInstanceConfig.mockReturnValue({
         unwrap: () => Promise.reject({ message: backendErrorMessage }),
       })
 
       render(<InstanceConfigurationPage />)
 
-      const retentionInput = screen.getByLabelText(
-        'Delete a saved customer after this many months unused'
+      const historyInput = screen.getByLabelText(
+        'Restaurant order history (days)'
       )
-      fireEvent.change(retentionInput, { target: { value: '37' } })
+      fireEvent.change(historyInput, { target: { value: '366' } })
 
-      const saveButton = screen.getByRole('button', { name: /save saved customer setting/i })
+      const saveButton = screen.getByRole('button', { name: /save customer data settings/i })
       fireEvent.click(saveButton)
 
       await waitFor(() => {

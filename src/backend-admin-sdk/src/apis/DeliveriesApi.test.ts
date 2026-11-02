@@ -202,8 +202,50 @@ describe('DeliveriesApi.getDeliveries and getDeliveriesRaw (row 96: state filter
 
     expect(url.searchParams.has('state')).toBe(false)
     expect(url.searchParams.has('search')).toBe(false)
+    expect(url.searchParams.has('partnerId')).toBe(false)
     expect(url.searchParams.get('page')).toBe('2')
     expect(url.searchParams.get('perPage')).toBe('20')
+  })
+
+  it('puts partnerId in the query string when given (spec 0017, AC-7)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse({
+        data: [],
+        pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+      })
+    )
+
+    await api.getDeliveriesRaw({
+      partnerId: 'partner-uuid-123',
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl] = mockFetch.mock.calls[0]
+    const url = new URL(calledUrl)
+    expect(url.pathname).toBe('/api/admin/v1/deliveries')
+    expect(url.searchParams.get('partnerId')).toBe('partner-uuid-123')
+  })
+
+  it('combines partnerId with state and search query parameters (spec 0017, AC-7)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse({
+        data: [],
+        pagination: { totalItems: 0, page: 1, perPage: 10, totalPages: 0 },
+      })
+    )
+
+    await api.getDeliveriesRaw({
+      partnerId: 'partner-uuid-123',
+      state: 'dropped_off',
+      search: 'Papadopoulos',
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl] = mockFetch.mock.calls[0]
+    const url = new URL(calledUrl)
+    expect(url.searchParams.get('partnerId')).toBe('partner-uuid-123')
+    expect(url.searchParams.get('state')).toBe('dropped_off')
+    expect(url.searchParams.get('search')).toBe('Papadopoulos')
   })
 
   it('leaves query string empty when getDeliveries is called with no arguments', async () => {

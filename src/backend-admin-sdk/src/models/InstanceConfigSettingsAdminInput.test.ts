@@ -140,6 +140,38 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.savedCustomerRetentionMonths).toBe(24)
     })
 
+    it('preserves restaurantHistoryDays in ToJSON serialization (spec 0017, AC-1)', () => {
+      // Load-bearing test guard: without restaurantHistoryDays in ToJSON, the SDK silently drops
+      // it and the save reports success for a change never sent.
+      const input = {
+        restaurantHistoryDays: 30,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.restaurantHistoryDays).toBe(30)
+    })
+
+    it('round-trips restaurantHistoryDays through FromJSON and ToJSON (spec 0017, AC-1)', () => {
+      const originalJson = {
+        restaurantHistoryDays: 14,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.restaurantHistoryDays).toBe(14)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.restaurantHistoryDays).toBe(14)
+    })
+
+    it('handles undefined restaurantHistoryDays in FromJSON and ToJSON', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.restaurantHistoryDays).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.restaurantHistoryDays).toBeUndefined()
+    })
+
     it('preserves dispatchPhoneNumber in ToJSON serialization, including empty text (row 72)', () => {
       // Load-bearing test guard: without dispatchPhoneNumber in ToJSON, the SDK silently drops
       // it and the save reports success for a number never sent to the backend.
@@ -358,6 +390,35 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.savedCustomerRetentionMonths).toBe(12)
+    })
+
+    it('deserializes restaurantHistoryDays when present (spec 0017, AC-1)', () => {
+      const json = {
+        details: {},
+        restaurantHistoryDays: 30,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.restaurantHistoryDays).toBe(30)
+    })
+
+    it('deserializes restaurantHistoryDays as null when absent in backend response (spec 0017, AC-1)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.restaurantHistoryDays).toBeNull()
+    })
+
+    it('serializes DTO carrying restaurantHistoryDays back to JSON (spec 0017, AC-1)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        restaurantHistoryDays: 7,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.restaurantHistoryDays).toBe(7)
     })
 
     it('deserializes dispatchPhoneNumber when present (row 72)', () => {
