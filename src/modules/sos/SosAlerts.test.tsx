@@ -250,6 +250,59 @@ describe('SosAlerts component (spec 0022, AC-8)', () => {
     }
   })
 
+  it('a tick while an ACTIVE incident exists must NOT call playSosSound when alerts were never chosen, but does once chosen', () => {
+    jest.useFakeTimers()
+    try {
+      const store = createTestStore('valid-token')
+      mockUseGetCurrentSosQuery.mockReturnValue({
+        data: [activeIncident],
+        refetch: jest.fn(),
+      })
+
+      // Alerts were never chosen on this browser (localStorage has no 'sosAlertsEnabled')
+      mockSosAlertsChosen.mockReturnValue(false)
+
+      const { unmount } = render(
+        <Provider store={store}>
+          <SosAlerts />
+        </Provider>,
+      )
+
+      expect(mockPlaySosSound).not.toHaveBeenCalled()
+
+      // Advance 10 s to trigger the ticker callback
+      act(() => {
+        jest.advanceTimersByTime(10_000)
+      })
+
+      // Must NOT call playSosSound when alerts were never chosen
+      expect(mockPlaySosSound).not.toHaveBeenCalled()
+
+      unmount()
+
+      // Once alerts are chosen on this browser
+      mockSosAlertsChosen.mockReturnValue(true)
+
+      render(
+        <Provider store={store}>
+          <SosAlerts />
+        </Provider>,
+      )
+
+      // Clear the immediate sound call triggered on mount for active incidents
+      mockPlaySosSound.mockClear()
+
+      act(() => {
+        jest.advanceTimersByTime(10_000)
+      })
+
+      // Tick must call playSosSound when alerts are chosen
+      expect(mockPlaySosSound).toHaveBeenCalledTimes(1)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   it('shows "SOS alerts off" badge and "Enable SOS alerts" button until alerts chosen, sound unlocked, and notifications granted', () => {
     const store = createTestStore('valid-token')
     mockUseGetCurrentSosQuery.mockReturnValue({
@@ -302,6 +355,43 @@ describe('SosAlerts component (spec 0022, AC-8)', () => {
 
     mockSosAlertsChosen.mockReturnValue(true)
     mockSoundUnlocked.mockReturnValue(true)
+    mockNotificationsAllowed.mockReturnValue(true)
+
+    render(
+      <Provider store={store}>
+        <SosAlerts />
+      </Provider>,
+    )
+
+    expect(screen.queryByTestId('sos-alerts-off')).not.toBeInTheDocument()
+  })
+
+  it('with alerts chosen and sound unlocked but Notification.permission default or denied, "SOS alerts off" badge must still show', () => {
+    const store = createTestStore('valid-token')
+    mockUseGetCurrentSosQuery.mockReturnValue({
+      data: [],
+      refetch: jest.fn(),
+    })
+
+    // Alerts chosen and sound unlocked, but notification permission is 'default' or 'denied'
+    mockSosAlertsChosen.mockReturnValue(true)
+    mockSoundUnlocked.mockReturnValue(true)
+    mockNotificationsSupported.mockReturnValue(true)
+    mockNotificationsAllowed.mockReturnValue(false)
+
+    const { unmount } = render(
+      <Provider store={store}>
+        <SosAlerts />
+      </Provider>,
+    )
+
+    // With permission not granted, the badge must still show
+    expect(screen.getByTestId('sos-alerts-off')).toBeInTheDocument()
+    expect(screen.getByText('SOS alerts off')).toBeInTheDocument()
+
+    unmount()
+
+    // With permission 'granted' (notificationsAllowed true) alongside chosen and unlocked, badge must not show
     mockNotificationsAllowed.mockReturnValue(true)
 
     render(
