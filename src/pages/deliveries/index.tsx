@@ -6,14 +6,22 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useNow } from '@/hooks/useNow'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import { DispatchPanel } from '@/modules/dispatch-stop/DispatchPanel'
+import {
+  DeliveriesListFilters,
+  type DeliveryListState,
+} from '@/modules/deliveries/components/DeliveriesListFilters'
+import { deliveryOffer, isLookingForRider } from '@/modules/deliveries/utils/offer'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
-import { DeliveriesFilters, DeliveriesTableFilters } from '@/modules/deliveries/components/DeliveriesTableFilters'
-import { DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
+import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import { DeliveryAdminDto } from '../../backend-admin-sdk'
-import { formatDate } from '../../ui-shared-utils'
+import { formatMoney } from '@/utils/formatMoney'
+import { shortId } from '@/utils/shortId'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/router'
+import { useGetPartnersQuery } from '@/api/partnersApi'
 
 function CourierResolvedName({
   courierId,
@@ -34,11 +42,38 @@ const OFFER_REFRESH_MS = 30_000
 
 const OrdersPage: NextPage = () => {
   const { goToDeliveryDetails } = useAdminPageNavigator()
-  const [filters, setFilters] = useState<DeliveriesFilters>()
+  // Which deliveries to show and the search text, both sent to the backend (row 96).
+  const [listState, setListState] = useState<DeliveryListState>('all')
+  const [search, setSearch] = useState<string | undefined>(undefined)
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: DEFAULT_PAGE_SIZE,
   })
+  // One restaurant's whole history (spec 0017, AC-7), the only filter kept in the URL (?partnerId=), so a
+  // restaurant's page can link here. The list follows the URL (a link, Back, or the Deliveries link in the
+  // menu, which drops it); the select writes the URL without a reload. The list waits for the router to
+  // know the query, so a link never flashes the unfiltered list first.
+  // The URL is the one place the filter lives, so the list never asks without it first.
+  const router = useRouter()
+  const partnerId = typeof router.query.partnerId === 'string' ? router.query.partnerId : ''
+  // Another restaurant (from the select, a link or Back) starts again from the first page.
+  useEffect(() => {
+    setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+  }, [partnerId])
+  const changePartner = (next: string) => {
+    const query = { ...router.query }
+    if (next) query.partnerId = next
+    else delete query.partnerId
+    void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true })
+  }
+  const { data: partnersPayload } = useGetPartnersQuery({ page: 1, perPage: 500 })
+  const restaurants = useMemo(
+    () =>
+      (partnersPayload?.data ?? [])
+        .map((partner) => ({ id: partner.id, name: partner.name || partner.id }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [partnersPayload?.data],
+  )
 
   // The Offer column changes on its own (an offer expires, moves to the next rider, a rider
   // comes free), so the list asks the backend again every 30 s; `pollingInterval` is RTK
@@ -46,13 +81,14 @@ const OrdersPage: NextPage = () => {
   const pageVisible = usePageVisible()
   const getOrdersResponse = useGetDeliveriesQuery(
     {
-      state: filters?.state,
-      search: filters?.search,
+      state: listState,
+      search,
+      partnerId: partnerId || undefined,
       page: pagination.pageIndex + 1,
       perPage: pagination.pageSize,
     },
-    // 0 while the tab is in the background: RTK Query does not poll at 0.
-    { pollingInterval: pageVisible ? OFFER_REFRESH_MS : 0 },
+    // 0 while the tab is in the background: RTK Query does not poll at 0. `skip` until the URL is read.
+    { pollingInterval: pageVisible ? OFFER_REFRESH_MS : 0, skip: !router.isReady },
   )
   const now = useNow(OFFER_REFRESH_MS)
 
@@ -67,11 +103,24 @@ const OrdersPage: NextPage = () => {
     return map
   }, [couriersPayload?.data])
 
+  // The board's columns (spec 0011, AC-1).
   const columns: ColumnDef<DeliveryAdminDto>[] = useMemo(
     () => [
       {
-        accessorKey: 'id',
-        header: 'Delivery ID',
+        id: 'order',
+        header: 'Order',
+        cell: ({ row }) => {
+          const d = row.original
+          return (
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{d.orderReference || '—'}</span>
+              {/* The last characters of the id, enough to tell deliveries apart; the full id on hover. */}
+              <span className="font-mono text-xs text-muted-foreground" title={d.id}>
+                {shortId(d.id)}
+              </span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'status',
@@ -79,53 +128,60 @@ const OrdersPage: NextPage = () => {
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
-        // Spec 0002, AC-11: who holds the open offer and for how long, or how long nobody
-        // has been free. Empty for a delivery that is not looking for a rider.
-        id: 'offer',
-        header: 'Offer',
-        cell: ({ row }) => <OfferSummary delivery={row.original} now={now} />,
+        id: 'restaurant',
+        header: 'Restaurant',
+        cell: ({ row }) => <span className="text-sm">{row.original.pickupBusinessName || '—'}</span>,
       },
       {
-        id: 'courierId',
+        id: 'deliverTo',
+        header: 'Deliver to',
+        cell: ({ row }) => <span className="text-sm">{row.original.dropoffName || '—'}</span>,
+      },
+      {
+        // The rider who accepted; while the delivery is offered, who holds the offer and for how
+        // long (spec 0002, AC-11); a dash when neither.
+        id: 'courier',
         header: 'Courier',
         cell: ({ row }) => {
           const d = row.original
+          if (d.courierId) return <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
+          if (!isLookingForRider(d)) return <span className="text-muted-foreground">—</span>
+          // The offer's own words, or "Looking for a rider" before the first offer goes out.
+          return deliveryOffer(d) ? <OfferSummary delivery={d} now={now} /> : <span>Looking for a rider</span>
+        },
+      },
+      {
+        id: 'price',
+        header: 'Price',
+        cell: ({ row }) => (
+          <span className="text-sm tabular-nums">
+            {formatMoney(row.original.totalCost, row.original.currencyCode) ?? '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'action',
+        header: () => <span className="sr-only">Action</span>,
+        cell: ({ row }) => {
+          const d = row.original
           return (
-            <div
-              className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="min-w-0">
-                {/* Only the rider who accepted. While the delivery is looking for a rider, the
-                    Offer column already says who holds the offer, so this one shows a dash. */}
-                {d.courierId ? (
-                  <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
+            // The row itself opens the delivery; the buttons stop that click from also firing.
+            <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+              {/* "Assign courier" while the delivery waits for a rider; "Open" always, so the
+                  delivery can be opened from the keyboard too (the row click is mouse only). */}
+              <div className="flex items-center gap-2">
+                {isLookingForRider(d) ? <AssignCourierCell delivery={d} /> : null}
+                <Button type="button" variant="outline" size="sm" onClick={() => goToDeliveryDetails(d.id)}>
+                  Open
+                </Button>
               </div>
-              <AssignCourierCell delivery={d} />
             </div>
           )
         },
       },
-      // {
-      //   header: 'Customer',
-      //   accessorFn: ({ customer }) => (customer ? `${customer.firstName} ${customer.lastName}` : 'N/A'),
-      // },
-      // {
-      //   header: 'Customer Phone',
-      //   accessorFn: ({ customer }) => (customer && customer.cellPhone ? formatPhone(customer.cellPhone) : 'N/A'),
-      // },
-      {
-        header: 'Created At',
-        accessorFn: ({ createdAt }) => formatDate(createdAt),
-      },
-      // {
-      //   header: 'Subtotal',
-      //   accessorFn: ({ cost }) => (cost ? `$${formatPennies(cost.subtotalAmount)}` : 'N/A'),
-      // },
     ],
+    // goToDeliveryDetails is left out: the navigator builds a new one each render, which would
+    // rebuild every column for nothing; the one it closes over always works.
     [courierNameById, now],
   )
 
@@ -134,11 +190,23 @@ const OrdersPage: NextPage = () => {
       {/* "Deliveries", not "Orders": the co-op's word for the thing a courier moves. */}
       <PageHeader title="Deliveries" />
 
-      <DeliveriesTableFilters
-        onFiltersChange={(newFilters) => {
-          setFilters((prevFilters) => ({ ...prevFilters, ...newFilters }))
+      {/* Stop dispatch for heat or a storm, and see when it restarts (spec 0014). */}
+      <DispatchPanel />
+
+      <DeliveriesListFilters
+        state={listState}
+        onStateChange={(next) => {
+          setListState(next)
+          // A new filter starts again from the first page.
           setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
         }}
+        onSearchChange={(next) => {
+          setSearch(next)
+          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+        }}
+        partnerId={partnerId}
+        restaurants={restaurants}
+        onPartnerChange={changePartner}
       />
 
       <DataTable

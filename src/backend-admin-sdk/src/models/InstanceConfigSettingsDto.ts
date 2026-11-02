@@ -170,6 +170,33 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   savedCustomerRetentionMonths?: number | null;
+  /**
+   * How many days back a restaurant sees its ended orders (spec 0017). Hand edited (row 28).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  restaurantHistoryDays?: number | null;
+  /**
+   * Seconds after accepting in which a rider may hand an order back for free; 0 switches it off (spec 0020).
+   * Hand edited (row 71).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  handBackSeconds?: number | null;
+  /**
+   * The co-op's dispatch line riders call from the job screen; null when none is set.
+   * Hand edited (row 72).
+   * @type {string}
+   * @memberof InstanceConfigSettingsDto
+   */
+  dispatchPhoneNumber?: string | null;
+  /**
+   * Spec 0015: the payout policy (a key of reassignmentPayoutPolicies) that pays a rider whose job
+   * is cancelled after they accepted it; FULL_COMPENSATION when none is stored. Hand edited.
+   * @type {string}
+   * @memberof InstanceConfigSettingsDto
+   */
+  cancellationPayoutPolicy?: string | null;
 }
 
 /**
@@ -342,6 +369,18 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? null
       : json["savedCustomerRetentionMonths"],
+    restaurantHistoryDays: !exists(json, "restaurantHistoryDays")
+      ? null
+      : json["restaurantHistoryDays"],
+    handBackSeconds: !exists(json, "handBackSeconds")
+      ? null
+      : json["handBackSeconds"],
+    dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
+      ? null
+      : json["dispatchPhoneNumber"],
+    cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
+      ? null
+      : json["cancellationPayoutPolicy"],
   };
 }
 
@@ -381,5 +420,9 @@ export function InstanceConfigSettingsDtoToJSON(
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
+    restaurantHistoryDays: value.restaurantHistoryDays,
+    handBackSeconds: value.handBackSeconds,
+    dispatchPhoneNumber: value.dispatchPhoneNumber,
+    cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };
 }

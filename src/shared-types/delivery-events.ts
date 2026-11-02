@@ -16,7 +16,15 @@ export enum EnumDeliveryEventType {
   // them, so they are deliberately absent from STATE_MACHINE and the admin event menus.
   OFFERED = 'OFFERED',
   OFFER_EXPIRED = 'OFFER_EXPIRED',
-  NO_COURIER_AVAILABLE = 'NO_COURIER_AVAILABLE'
+  NO_COURIER_AVAILABLE = 'NO_COURIER_AVAILABLE',
+  // A cancelled job (spec 0015): the rider's pay and the food outcome. Platform records too, never
+  // in STATE_MACHINE or the admin menus.
+  COURIER_PAID_FOR_CANCELLATION = 'COURIER_PAID_FOR_CANCELLATION',
+  FOOD_RETURNED = 'FOOD_RETURNED',
+  FOOD_NOT_RETURNED = 'FOOD_NOT_RETURNED',
+  // A rider gave an order back inside the free window (spec 0020). The rider's own step, recorded
+  // by the backend: never in STATE_MACHINE or the admin menus. The timeline reads "Handed back".
+  HANDED_BACK = 'HANDED_BACK'
 }
 
 export enum EnumEventActor {

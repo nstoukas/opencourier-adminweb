@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { ArrowLeft, PencilSimple, Key } from '@phosphor-icons/react'
+import Link from 'next/link'
+import { ArrowLeft, PencilSimple, Key, ListBullets } from '@phosphor-icons/react'
 import { useGetPartnerQuery } from '@/api/partnersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { PageHeader } from '@/components/layouts/PageHeader'
@@ -43,6 +44,14 @@ const PartnerDetailsPage: NextPage = () => {
             action={
               partner ? (
                 <>
+                  {/* Its whole order history, on the deliveries list filtered to it (spec 0017, AC-7).
+                      `asChild` makes the Button style the link instead of drawing its own <button>. */}
+                  <Button variant="outline" asChild>
+                    <Link href={{ pathname: '/deliveries', query: { partnerId: partner.id } }}>
+                      <ListBullets className="mr-2 h-4 w-4" />
+                      See its orders
+                    </Link>
+                  </Button>
                   <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
                     <PencilSimple className="mr-2 h-4 w-4" />
                     Edit restaurant

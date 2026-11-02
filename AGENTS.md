@@ -34,7 +34,20 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   in `STATE_MACHINE`, so the admin trigger menu cannot send them.
 - The backend replaces the instance config's `details` object whole on save: always send the saved details with your change, as `savePayload` in `src/modules/instance-config/settingsDiff.ts` does (spec 0010).
 - The co-op settings page keeps the representative's edits as overrides laid over the saved settings; copying the fetched settings into the boxes on every fetch wipes pending changes (row 87 review). A new setting needs an entry in `SETTINGS` there and a bound control in `src/modules/instance-config/cards/`, or the coverage guard fails.
+- A delivery event's `occurredAt` (row 20) is when a step happened; `lateStepOf` in `src/utils/deliveryEventDisplay.ts` is the one rule for showing a step as late (over 60 s) and "Not applied" (also failed, with no `newStatus`). The legs of one order share an `orderReference`: show the short id beside it wherever a delivery is named.
 - The value 5 guard (`src/shared-types/regression.test.ts`) fails on any count or grouping of events
   or offers per courier anywhere in `src`.
+- A rider's progress is made in the courier app and invalidates nothing here: a page that shows it (deliveries
+  list, a delivery, a courier) polls every 30 s while `usePageVisible()` is true. A page read by an id from the URL
+  takes RTK Query's `currentData`, so going back between two ids never shows the previous record.
+- An RTK `queryFn` with no result (a 204) returns `{ data: null }`: `{ data: undefined }` makes RTK Query log an error
+  (`rotatePartnerPassword` and the saved customer delete still do, a follow up of spec 0013).
+- Times a co-op enters for the instance (dispatch stops, spec 0014) are Athens time: format with `Intl` and
+  `timeZone: 'Europe/Athens'` (`src/modules/dispatch-stop/dispatchStopDisplay.ts`), never the browser's zone. A dialog
+  whose title or focus target derives from its open state changes them during Radix's closing animation: keep open and
+  mode in separate state (JSDOM has no animation, so a test passes either way).
+- The deliveries list's `partnerId` (spec 0017) is the only list filter kept in the URL: read straight from
+  `router.query` (skip the request until `router.isReady`), written with a shallow `router.replace`, and a change goes back
+  to page 1. A link that sets it must not let the list fetch once without it.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

@@ -139,6 +139,158 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const serialized = InstanceConfigSettingsAdminInputToJSON(model)
       expect(serialized.savedCustomerRetentionMonths).toBe(24)
     })
+
+    it('preserves restaurantHistoryDays in ToJSON serialization (spec 0017, AC-1)', () => {
+      // Load-bearing test guard: without restaurantHistoryDays in ToJSON, the SDK silently drops
+      // it and the save reports success for a change never sent.
+      const input = {
+        restaurantHistoryDays: 30,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.restaurantHistoryDays).toBe(30)
+    })
+
+    it('round-trips restaurantHistoryDays through FromJSON and ToJSON (spec 0017, AC-1)', () => {
+      const originalJson = {
+        restaurantHistoryDays: 14,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.restaurantHistoryDays).toBe(14)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.restaurantHistoryDays).toBe(14)
+    })
+
+    it('handles undefined restaurantHistoryDays in FromJSON and ToJSON', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.restaurantHistoryDays).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.restaurantHistoryDays).toBeUndefined()
+    })
+
+    it('preserves handBackSeconds in ToJSON serialization, including 0 (spec 0020, AC-2)', () => {
+      // Load-bearing test guard: without handBackSeconds in ToJSON, the SDK silently drops
+      // it and the save reports success for a setting never sent to the backend.
+      const input = {
+        handBackSeconds: 60,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.handBackSeconds).toBe(60)
+
+      // 0 is the off switch and must be preserved (not dropped as falsy)
+      const inputZero = {
+        handBackSeconds: 0,
+      }
+
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.handBackSeconds).toBe(0)
+    })
+
+    it('round-trips handBackSeconds through FromJSON and ToJSON (spec 0020, AC-2)', () => {
+      const originalJson = {
+        handBackSeconds: 45,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.handBackSeconds).toBe(45)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.handBackSeconds).toBe(45)
+
+      const zeroModel = InstanceConfigSettingsAdminInputFromJSON({
+        handBackSeconds: 0,
+      })
+      expect(zeroModel.handBackSeconds).toBe(0)
+
+      const zeroSerialized = InstanceConfigSettingsAdminInputToJSON(zeroModel)
+      expect(zeroSerialized.handBackSeconds).toBe(0)
+    })
+
+    it('handles undefined handBackSeconds in FromJSON and ToJSON (spec 0020, AC-2)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.handBackSeconds).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.handBackSeconds).toBeUndefined()
+    })
+
+    it('preserves dispatchPhoneNumber in ToJSON serialization, including empty text (row 72)', () => {
+      // Load-bearing test guard: without dispatchPhoneNumber in ToJSON, the SDK silently drops
+      // it and the save reports success for a number never sent to the backend.
+      const input = {
+        dispatchPhoneNumber: '+30 24210 12345',
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.dispatchPhoneNumber).toBe('+30 24210 12345')
+
+      // Empty string must also be preserved so clearing the dispatch line sends ''
+      const inputEmpty = {
+        dispatchPhoneNumber: '',
+      }
+
+      const jsonEmpty = InstanceConfigSettingsAdminInputToJSON(inputEmpty)
+      expect(jsonEmpty).toBeDefined()
+      expect(jsonEmpty.dispatchPhoneNumber).toBe('')
+    })
+
+    it('round-trips dispatchPhoneNumber through FromJSON and ToJSON (row 72)', () => {
+      const originalJson = {
+        dispatchPhoneNumber: '+302421012345',
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.dispatchPhoneNumber).toBe('+302421012345')
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.dispatchPhoneNumber).toBe('+302421012345')
+
+      // Also round-trip empty string
+      const emptyModel = InstanceConfigSettingsAdminInputFromJSON({
+        dispatchPhoneNumber: '',
+      })
+      expect(emptyModel.dispatchPhoneNumber).toBe('')
+
+      const emptySerialized = InstanceConfigSettingsAdminInputToJSON(emptyModel)
+      expect(emptySerialized.dispatchPhoneNumber).toBe('')
+    })
+
+    it('preserves cancellationPayoutPolicy in ToJSON serialization (spec 0015, AC-4)', () => {
+      // Load-bearing test guard: without cancellationPayoutPolicy in ToJSON, the SDK silently drops
+      // it and the save reports success for a rule never sent to the backend.
+      const input = {
+        cancellationPayoutPolicy: 'FULL_COMPENSATION',
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
+
+      const inputHalf = {
+        cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      }
+      const jsonHalf = InstanceConfigSettingsAdminInputToJSON(inputHalf)
+      expect(jsonHalf.cancellationPayoutPolicy).toBe('HALF_COMPENSATION')
+    })
+
+    it('round-trips cancellationPayoutPolicy through FromJSON and ToJSON (spec 0015, AC-4)', () => {
+      const originalJson = {
+        cancellationPayoutPolicy: 'SEVENTY_PERCENT',
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.cancellationPayoutPolicy).toBe('SEVENTY_PERCENT')
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.cancellationPayoutPolicy).toBe('SEVENTY_PERCENT')
+    })
   })
 
   describe('InstanceConfigSettingsDto (response deserialization guard - AC-5)', () => {
@@ -287,6 +439,133 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.savedCustomerRetentionMonths).toBe(12)
     })
+
+    it('deserializes restaurantHistoryDays when present (spec 0017, AC-1)', () => {
+      const json = {
+        details: {},
+        restaurantHistoryDays: 30,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.restaurantHistoryDays).toBe(30)
+    })
+
+    it('deserializes restaurantHistoryDays as null when absent in backend response (spec 0017, AC-1)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.restaurantHistoryDays).toBeNull()
+    })
+
+    it('serializes DTO carrying restaurantHistoryDays back to JSON (spec 0017, AC-1)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        restaurantHistoryDays: 7,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.restaurantHistoryDays).toBe(7)
+    })
+
+    it('deserializes handBackSeconds when present, including 0 (spec 0020, AC-2)', () => {
+      const json = {
+        details: {},
+        handBackSeconds: 60,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.handBackSeconds).toBe(60)
+
+      const jsonZero = {
+        details: {},
+        handBackSeconds: 0,
+      }
+
+      const dtoZero = InstanceConfigSettingsDtoFromJSON(jsonZero)
+      expect(dtoZero.handBackSeconds).toBe(0)
+    })
+
+    it('deserializes handBackSeconds as null when absent in backend response (spec 0020, AC-2)', () => {
+      // Missing key means absent in backend, mapped to null so the page can distinguish from 0
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.handBackSeconds).toBeNull()
+    })
+
+    it('serializes DTO carrying handBackSeconds back to JSON (spec 0020, AC-2)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        handBackSeconds: 60,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.handBackSeconds).toBe(60)
+    })
+
+    it('deserializes dispatchPhoneNumber when present (row 72)', () => {
+      const json = {
+        details: {},
+        dispatchPhoneNumber: '+302421012345',
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.dispatchPhoneNumber).toBe('+302421012345')
+    })
+
+    it('deserializes dispatchPhoneNumber as null when absent in backend response (row 72)', () => {
+      // Absent key must read as null, so the page can show an empty input rather than undefined
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.dispatchPhoneNumber).toBeNull()
+    })
+
+    it('serializes DTO carrying dispatchPhoneNumber back to JSON (row 72)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        dispatchPhoneNumber: '+302421012345',
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.dispatchPhoneNumber).toBe('+302421012345')
+    })
+
+    it('deserializes cancellationPayoutPolicy when present (spec 0015, AC-4)', () => {
+      const json = {
+        details: {},
+        cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.cancellationPayoutPolicy).toBe('HALF_COMPENSATION')
+    })
+
+    it('deserializes cancellationPayoutPolicy as null when absent in backend response (spec 0015, AC-4)', () => {
+      // Missing key means "no row configured" / "older backend", mapped to null so fallback logic applies
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.cancellationPayoutPolicy).toBeNull()
+    })
+
+    it('serializes DTO carrying cancellationPayoutPolicy back to JSON (spec 0015, AC-4)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        cancellationPayoutPolicy: 'FULL_COMPENSATION',
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
+    })
   })
 
   describe('DeliveryAdminDto (price breakdown field serializer guard - AC-7)', () => {
@@ -429,6 +708,116 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.offeredAt).toBeNull()
       expect(json.offerExpiresAt).toBeNull()
       expect(json.waitingForCourierSince).toBeNull()
+    })
+
+    it('keeps cancellation fields and partnerCharge through FromJSON and ToJSON serialization (spec 0015, AC-13)', () => {
+      const jsonInput = {
+        id: 'del-cancelled-1',
+        status: 'CANCELED',
+        currencyCode: 'EUR',
+        orderTotalValue: 1000,
+        totalCost: 500,
+        fee: 30,
+        totalCompensation: 350,
+        pickupReadyAt: '2026-11-01T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-01T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-01T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-01T10:45:00.000Z',
+        createdAt: '2026-11-01T09:00:00.000Z',
+        updatedAt: '2026-11-01T09:00:00.000Z',
+        cancelledBy: 'RESTAURANT',
+        cancelledFromStatus: 'PICKED_UP',
+        cancelledAt: '2026-11-01T10:00:00.000Z',
+        foodOutcome: 'RETURNED',
+        foodOutcomeAt: '2026-11-01T10:15:00.000Z',
+        partnerCharge: {
+          amount: 500,
+          currencyCode: 'EUR',
+          createdAt: '2026-11-01T10:00:05.000Z',
+        },
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.cancelledBy).toBe('RESTAURANT')
+      expect(dto.cancelledFromStatus).toBe('PICKED_UP')
+      expect(dto.cancelledAt).toEqual(new Date('2026-11-01T10:00:00.000Z'))
+      expect(dto.foodOutcome).toBe('RETURNED')
+      expect(dto.foodOutcomeAt).toEqual(new Date('2026-11-01T10:15:00.000Z'))
+      expect(dto.partnerCharge).toEqual({
+        amount: 500,
+        currencyCode: 'EUR',
+        createdAt: '2026-11-01T10:00:05.000Z',
+      })
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.cancelledBy).toBe('RESTAURANT')
+      expect(serialized.cancelledFromStatus).toBe('PICKED_UP')
+      expect(serialized.cancelledAt).toBe('2026-11-01T10:00:00.000Z')
+      expect(serialized.foodOutcome).toBe('RETURNED')
+      expect(serialized.foodOutcomeAt).toBe('2026-11-01T10:15:00.000Z')
+      expect(serialized.partnerCharge).toEqual({
+        amount: 500,
+        currencyCode: 'EUR',
+        createdAt: '2026-11-01T10:00:05.000Z',
+      })
+    })
+
+    it('reads missing cancellation fields and partnerCharge as null (never undefined or invalid Date) (spec 0015, AC-13)', () => {
+      const jsonInput = {
+        id: 'del-active',
+        status: 'DISPATCHED',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-11-01T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-01T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-01T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-01T10:45:00.000Z',
+        createdAt: '2026-11-01T09:00:00.000Z',
+        updatedAt: '2026-11-01T09:00:00.000Z',
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.cancelledBy).toBeNull()
+      expect(dto.cancelledFromStatus).toBeNull()
+      expect(dto.cancelledAt).toBeNull()
+      expect(dto.foodOutcome).toBeNull()
+      expect(dto.foodOutcomeAt).toBeNull()
+      expect(dto.partnerCharge).toBeNull()
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.cancelledBy).toBeNull()
+      expect(serialized.cancelledFromStatus).toBeNull()
+      expect(serialized.cancelledAt).toBeNull()
+      expect(serialized.foodOutcome).toBeNull()
+      expect(serialized.foodOutcomeAt).toBeNull()
+      expect(serialized.partnerCharge).toBeNull()
+    })
+
+    it('tolerates undefined cancellation dates in DeliveryAdminDtoToJSON', () => {
+      const baseDto = DeliveryAdminDtoFromJSON({
+        id: 'del-cancellation-undef',
+        status: 'CANCELED',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-11-01T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-01T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-01T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-01T10:45:00.000Z',
+        createdAt: '2026-11-01T09:00:00.000Z',
+        updatedAt: '2026-11-01T09:00:00.000Z',
+      })
+
+      const dtoWithUndefinedDates = {
+        ...baseDto,
+        cancelledAt: undefined as any,
+        foodOutcomeAt: undefined as any,
+      }
+
+      expect(() => DeliveryAdminDtoToJSON(dtoWithUndefinedDates)).not.toThrow()
+      const json = DeliveryAdminDtoToJSON(dtoWithUndefinedDates)
+      expect(json.cancelledAt).toBeNull()
+      expect(json.foodOutcomeAt).toBeNull()
     })
   })
 

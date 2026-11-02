@@ -1,9 +1,9 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/admin-web-components'
-import { formatDate } from '@/ui-shared-utils'
+import { formatDate, formatDateAsHourAndMinute } from '@/ui-shared-utils'
 import { useGetDeliveryEventsQuery } from '@/api/deliveriesApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
-import { humanizeEventType, describeTransition } from '@/utils/deliveryEventDisplay'
+import { humanizeEventType, describeTransition, lateStepOf } from '@/utils/deliveryEventDisplay'
 import { EVENT_ACTOR_TO_HUMAN, EVENT_SOURCE_TO_HUMAN } from '@/shared-types'
 
 interface DeliveryEventTimelineProps {
@@ -39,7 +39,7 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
   return (
     <Card className="mt-4">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Delivery events</CardTitle>
+        <CardTitle className="text-lg">What happened</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {isLoading ? (
@@ -52,6 +52,14 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
           <div className="space-y-3">
             {events.map((event) => {
               const isFailed = event.transitionSuccessful === false
+              // A step a rider sent late from a dead spot (spec 0011, AC-4): shown at the time it
+              // happened, with when it arrived under it.
+              const late = lateStepOf(event)
+              const sameDay = late !== null && late.occurredAt.toDateString() === late.arrivedAt.toDateString()
+              // "Not applied" only for the backend's no transition path (decision 20.13), which is
+              // the one failed row stored without a new status; a late step that failed for another
+              // reason keeps "Did not take effect" and its message (row 88 review).
+              const notApplied = isFailed && late !== null && !event.newStatus
 
               return (
                 <div
@@ -66,12 +74,19 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{humanizeEventType(event.type)}</span>
-                      {isFailed && (
-                        <Badge variant="destructive">Did not take effect</Badge>
+                      {notApplied && (
+                        <Badge variant="destructive">Not applied: the delivery had already changed</Badge>
                       )}
+                      {isFailed && !notApplied && <Badge variant="destructive">Did not take effect</Badge>}
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(event.createdAt)}
+                    <span className="text-right text-xs text-muted-foreground">
+                      {formatDate(late ? late.occurredAt : event.createdAt)}
+                      {late && (
+                        <span data-testid="late-step" className="block text-warning-foreground">
+                          arrived {sameDay ? formatDateAsHourAndMinute(late.arrivedAt) : formatDate(late.arrivedAt)},{' '}
+                          {late.minutesLater} min later
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -118,7 +133,7 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
             load error would claim we retrieved something we did not. */}
         {!isLoading && !isError && !error && events && events.length > 0 ? (
           <div className="border-t pt-3 text-xs text-muted-foreground">
-            Recorded DeliveryEvents, oldest first. An event the state machine rejects outright is never written, so it cannot appear here.
+            Recorded DeliveryEvents, in the order the server received them. A step a rider sent late shows the time it happened, and when it arrived. An event the state machine rejects outright is not written, except a rider's late step, which is kept as not applied.
           </div>
         ) : null}
       </CardContent>

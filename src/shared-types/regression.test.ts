@@ -18,10 +18,11 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
     expect(allTransitions.includes('REASSIGNED')).toBe(false)
   })
 
-  it('ensures deliveriesApi exports useSubmitDeliveryEventMutation and useAssignDeliveryToCourierMutation alongside useReassignDeliveryMutation', () => {
+  it('ensures deliveriesApi exports useSubmitDeliveryEventMutation, useAssignDeliveryToCourierMutation, and useGetDeliveryIssuesQuery alongside useReassignDeliveryMutation', () => {
     expect(typeof deliveriesApiModule.useSubmitDeliveryEventMutation).toBe('function')
     expect(typeof deliveriesApiModule.useAssignDeliveryToCourierMutation).toBe('function')
     expect(typeof deliveriesApiModule.useReassignDeliveryMutation).toBe('function')
+    expect(typeof deliveriesApiModule.useGetDeliveryIssuesQuery).toBe('function')
   })
 
   describe('Offer expiry & Value 5 guards (spec 0002, AC-11, AC-12)', () => {
@@ -40,6 +41,36 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(allTransitions).not.toContain('OFFERED')
       expect(allTransitions).not.toContain('OFFER_EXPIRED')
       expect(allTransitions).not.toContain('NO_COURIER_AVAILABLE')
+    })
+
+    it('ensures EnumDeliveryEventType contains COURIER_PAID_FOR_CANCELLATION, FOOD_RETURNED, and FOOD_NOT_RETURNED (spec 0015)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('COURIER_PAID_FOR_CANCELLATION')
+      expect(eventTypes).toContain('FOOD_RETURNED')
+      expect(eventTypes).toContain('FOOD_NOT_RETURNED')
+    })
+
+    it('ensures STATE_MACHINE transition table does NOT contain COURIER_PAID_FOR_CANCELLATION, FOOD_RETURNED, or FOOD_NOT_RETURNED (decision 32.6)', () => {
+      // These are platform-only events recorded directly by the backend; keeping them out of STATE_MACHINE prevents admin event trigger menus from offering them
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('COURIER_PAID_FOR_CANCELLATION')
+      expect(allTransitions).not.toContain('FOOD_RETURNED')
+      expect(allTransitions).not.toContain('FOOD_NOT_RETURNED')
+    })
+
+    it('ensures EnumDeliveryEventType contains HANDED_BACK (spec 0020, AC-8)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('HANDED_BACK')
+    })
+
+    it('ensures STATE_MACHINE transition table does NOT contain HANDED_BACK (spec 0020, AC-8)', () => {
+      // A hand back is the rider's own step; keeping it out of STATE_MACHINE prevents admin event menus from offering it
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('HANDED_BACK')
     })
 
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {
@@ -95,6 +126,11 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
         // Grouping or counting of events or offers by courierId / courier (e.g. groupBy or reduce keyed by courierId)
         /(?:groupBy|reduce)\b[\s\S]{0,250}\b(?:courierId|courier)\b/i,
         /\b(?:courierId|courier)\b[\s\S]{0,250}\b(?:groupBy|reduce)\b/i,
+        // Value 5 / decision 66.11: No counting, scoring, or aggregation of rider issue reports per courier
+        /(?:courier|rider)Issue(s?)(Count|Total|Rate|Score)/i,
+        /(?:courier|rider)Report(s?)(Count|Total|Rate|Score)/i,
+        // Value 5 / spec 0020, AC-8: No counting, scoring, or aggregation of hand backs or automatic accepts per rider
+        /(?:handedBack|handBack|autoAccept)(s?)(Count|Total|Rate|Score)/i,
       ]
 
       for (const file of sourceFiles) {
@@ -103,6 +139,18 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
           expect(content).not.toMatch(pattern)
         }
       }
+    })
+
+    it('Value 5 guard: verifies DeliveryIssues renders no count of rider reports (decision 66.11)', () => {
+      // Contract (6): nothing shows a count of reports (e.g. no "Rider reports (2)" or similar)
+      const fs = require('fs')
+      const path = require('path')
+      const issuesComponentFile = path.resolve(
+        __dirname,
+        '../modules/deliveries/components/DeliveryIssues.tsx'
+      )
+      const content = fs.readFileSync(issuesComponentFile, 'utf-8')
+      expect(content).not.toMatch(/Rider reports\s*\(/i)
     })
   })
 })

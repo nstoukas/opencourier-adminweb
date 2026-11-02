@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, LocationsApi, PartnerApi, SavedCustomersApi } from "./apis";
+import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchStopApi, LocationsApi, PartnerApi, SavedCustomersApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -71,6 +71,11 @@ export class BackendAdminSdk {
 
   couriers(): CourierApi {
     return this.getOrCreateApi(CourierApi)
+  }
+
+  // Stopping dispatch for heat or a storm (spec 0014).
+  dispatchStops(): DispatchStopApi {
+    return this.getOrCreateApi(DispatchStopApi)
   }
 
   partners(): PartnerApi {

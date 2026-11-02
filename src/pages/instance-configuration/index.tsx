@@ -301,6 +301,7 @@ const InstanceConfigurationPage: NextPage = () => {
                   onSave={handleSavePayoutPolicies}
                 />
               }
+              payoutPolicies={data?.reassignmentPayoutPolicies}
             />
             <ServiceAreaCard
               map={

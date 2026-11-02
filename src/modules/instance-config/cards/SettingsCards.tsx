@@ -399,6 +399,17 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             description="Whole seconds, 10 to 300. A delivery nobody could take is offered again this often, and at once when a rider comes online or finishes. Applies whether Offer expiry is on or off."
             onChange={(value) => set('noCourierRetrySeconds', value)}
           />
+          {/* Spec 0020: the free hand back. It does not depend on Offer expiry, so only loading turns it off. */}
+          <NumberField
+            id="handBackSeconds"
+            label={labelOf('handBackSeconds')}
+            value={form.handBackSeconds}
+            min={0}
+            max={300}
+            disabled={!loaded}
+            description="Whole seconds, 0 to 300; 0 switches it off. Counted from the accept, and only before the rider reaches the restaurant. The order goes back to matching and nothing is paid or charged. A change applies to the next accept."
+            onChange={(value) => set('handBackSeconds', value)}
+          />
         </div>
       </FieldGroup>
     </SettingsSection>
@@ -406,11 +417,56 @@ export function OffersCard({ form, set, loaded }: CardProps) {
 }
 
 // `policyEditor` is today's dropped rider pay editor, with its own Save (spec 0010, AC-8).
-export function RiderPayCard({ form, set, options, loaded, policyEditor }: CardProps & { policyEditor: ReactNode }) {
+// `payoutPolicies` is that editor's saved menu ({ policy: percent }), which the cancelled job pay
+// chooses from (spec 0015), so the percentages the co-op sets stay in one place.
+export function RiderPayCard({
+  form,
+  set,
+  options,
+  loaded,
+  policyEditor,
+  payoutPolicies,
+}: CardProps & { policyEditor: ReactNode; payoutPolicies: Record<string, number> | undefined }) {
+  const menu = payoutPolicies ?? {}
+  const current = form.cancellationPayoutPolicy
   return (
     <SettingsSection id="rider-pay" title="Rider pay" description="What a rider earns beyond the quote.">
       <FieldGroup>
         {policyEditor}
+        <Field>
+          <FieldLabel htmlFor="cancellationPayoutPolicy">{labelOf('cancellationPayoutPolicy')}</FieldLabel>
+          <NativeSelect
+            id="cancellationPayoutPolicy"
+            className="max-w-sm"
+            value={form.cancellationPayoutPolicy}
+            disabled={!loaded}
+            onChange={(event) => set('cancellationPayoutPolicy', event.target.value)}
+          >
+            {current === '' && (
+              <option value="" disabled>
+                Not set
+              </option>
+            )}
+            {Object.entries(menu).map(([policy, percent]) => (
+              <option key={policy} value={policy}>
+                {policy} ({percent}%)
+              </option>
+            ))}
+            {/* The rule in force may have left the menu (riders are then paid in full, with a warning
+                in the log): show it as itself, so the box never shows one policy while holding
+                another (row 32 review). */}
+            {current !== '' && !Object.prototype.hasOwnProperty.call(menu, current) && (
+              <option value={current} disabled>
+                {current} (no longer on the menu)
+              </option>
+            )}
+          </NativeSelect>
+          <FieldDescription>
+            A rider whose job is cancelled after they accepted it (by the restaurant, the customer or the co-op) is
+            paid this share of the job&apos;s pay. Choose from the payout policies above; a policy added there can be
+            chosen here once it is saved.
+          </FieldDescription>
+        </Field>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <NumberField
             id="defaultCourierPayRate"
@@ -460,7 +516,7 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
   const urlError = (key: SettingKey, value: string) =>
     value && !isValidURL(sanitizeURL(value)) ? urlErrorText(labelOf(key)) : undefined
   return (
-    <SettingsSection id="instance" title="Instance" description="The co-op's name, links and data rules.">
+    <SettingsSection id="instance" title="Instance" description="The co-op's name, links, dispatch line and data rules.">
       <FieldGroup>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field>
@@ -545,6 +601,36 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
             description="How long a restaurant's saved customer nobody orders for is kept, then deleted. Customers are personal data the co-op keeps for restaurants. Whole months, 1 to 36."
             onChange={(value) => set('savedCustomerRetentionMonths', value)}
           />
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Spec 0017: how far back a restaurant sees its own orders on My Orders. */}
+          <NumberField
+            id="restaurantHistoryDays"
+            label={labelOf('restaurantHistoryDays')}
+            value={form.restaurantHistoryDays}
+            min={1}
+            max={365}
+            disabled={!loaded}
+            description="A restaurant sees its ended orders from this many days back, and every order still open. Admins always see every order. Whole days, 1 to 365."
+            onChange={(value) => set('restaurantHistoryDays', value)}
+          />
+          {/* Row 72: the number riders call in one tap from the job screen. */}
+          <Field>
+            <FieldLabel htmlFor="dispatchPhoneNumber">{labelOf('dispatchPhoneNumber')}</FieldLabel>
+            <Input
+              id="dispatchPhoneNumber"
+              type="tel"
+              autoComplete="off"
+              placeholder="+30 24210 12345"
+              value={form.dispatchPhoneNumber}
+              disabled={!loaded}
+              onChange={(event) => set('dispatchPhoneNumber', event.target.value)}
+            />
+            <FieldDescription>
+              Riders call it from the job screen. Digits, optionally starting with +; spaces and dashes are fine. Leave
+              it empty and riders see no Call dispatch button.
+            </FieldDescription>
+          </Field>
         </div>
       </FieldGroup>
     </SettingsSection>

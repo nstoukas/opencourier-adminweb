@@ -2,6 +2,7 @@ import {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
   DeliveryEventAdminDto,
+  DeliveryIssueAdminDto,
   DeliverySubmitEventAdminInputEventTypeEnum,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
@@ -59,11 +60,32 @@ export const deliveriesApi = baseApi.injectEndpoints({
       },
       providesTags: [Tags.deliveryEvents],
     }),
+    /** The riders' reports about a Delivery, oldest first (decision 66.11;
+     *  opencourier-backend GET /api/admin/v1/deliveries/:deliveryId/issues). */
+    getDeliveryIssues: build.query<DeliveryIssueAdminDto[], { deliveryId: string }>({
+      queryFn: async ({ deliveryId }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().getDeliveryIssues({ deliveryId })
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      providesTags: [Tags.deliveryIssues],
+    }),
     submitDeliveryEvent: build.mutation<
       DeliveryAdminDto,
-      { deliveryId: string; eventType: EnumDeliveryEventType; courierId?: string }
+      // cancelledBy only with CANCELED (spec 0015): who asked, which decides a restaurant charge.
+      {
+        deliveryId: string
+        eventType: EnumDeliveryEventType
+        courierId?: string
+        cancelledBy?: 'RESTAURANT' | 'CUSTOMER' | 'COOP'
+      }
     >({
-      queryFn: async ({ deliveryId, eventType, courierId }, api) => {
+      queryFn: async ({ deliveryId, eventType, courierId, cancelledBy }, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
           const sdk = prepareAdminSdk(accessToken || '')
@@ -77,6 +99,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
               // which come from STATE_MACHINE, and that table never lists those three.
               eventType: eventType as DeliverySubmitEventAdminInputEventTypeEnum,
               ...(courierId ? { courierId } : {}),
+              ...(cancelledBy ? { cancelledBy } : {}),
             },
           })
           return { data }
@@ -149,6 +172,7 @@ export const {
   useGetDeliveriesQuery,
   useGetDeliveryQuery,
   useGetDeliveryEventsQuery,
+  useGetDeliveryIssuesQuery,
   useSubmitDeliveryEventMutation,
   useAssignDeliveryToCourierMutation,
   useReassignDeliveryMutation,

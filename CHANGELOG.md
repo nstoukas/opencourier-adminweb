@@ -5,7 +5,7 @@ for a Greek workers' cooperative delivering by moped in Volos. It pairs with the
 fork of `opencourier-backend`, whose `CHANGELOG.md` documents the endpoints used here.
 
 Everything below sits on top of upstream `main` on the branch
-`fix/accepted-event-courier-id` (94 commits, 26 July to 26 October 2026). Each entry names
+`fix/accepted-event-courier-id` (139 commits, 26 July to 2 November 2026). Each entry names
 its commit, and the commit message has the full reasoning and verification notes.
 
 The test suite went from **no test runner** to **141 passing tests**, and lint went from
@@ -53,6 +53,55 @@ and lint at 0.
 ---
 
 ## Added
+
+On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
+(rider issue reports) to row 71. The GA rows (pay and matching) among them have the entries
+below; the others are recorded in the workspace's scope and walkthroughs. With them the suite is
+at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
+not in this merge.
+
+### The hand back window, and "Handed back" on the timeline (scope row 71, spec 0020): `902602e` to `0080c0e`
+Needs the backend's row 71.
+- **Instance configuration, Offers to riders**: "Seconds a rider can hand back an order for free"
+  (0 to 300; 0 switches it off), saved with the other offer settings. The backend owns the range
+  and its refusal shows in the toast. The hand edited SDK models carry `handBackSeconds` both
+  ways; without it in `ToJSON` a save would have dropped the value silently.
+- **The timeline names `HANDED_BACK`** as "Handed back". It is not in `STATE_MACHINE` or the admin
+  event menus: handing back is the rider's own step.
+- Fixed after review: the offer card's toast names the hand back, one wording for 0 (`b6cf56d`).
+- Tests by agy (`0080c0e`): 1022 pass; 6 checked by hand by putting their bug back.
+
+### Pay when a job is cancelled, in admin (scope row 32, spec 0015): `b06157e` to `d0d0d82`
+Needs the backend's row 32.
+- **"Pay when a job is cancelled"** on Instance configuration: the co-op's rule, from the payout
+  policy menu. A rule saved outside the menu shows as itself, not as the first option (`0dce54b`).
+- **A Cancellation card** on the delivery page: who cancelled, from which status, the rider's pay,
+  the restaurant's charge and the food outcome.
+- **A Cancel delivery dialog** that asks who asked (the restaurant, the customer or the co-op). It
+  replaces CANCELED in the generic status menu.
+- Tests by agy (`d0d0d82`): 975 pass; every put the bug back check repeated by hand.
+
+### The Dispatch panel: stop for heat and storms (scope row 29, spec 0014): `e668ef7` to `74afa45`
+Needs the backend's row 29.
+- **Above the deliveries list**: "Dispatch is on." or "Dispatch is stopped until 17:00 (Heat).",
+  the next scheduled stop with Cancel it, and Stop now (or Restart now), Schedule a stop and
+  History. It asks again every 30 seconds while the tab is visible.
+- **Stop now** first shows what it will touch ("This ends 1 open offer and sends 1 delivery not yet
+  picked up back to waiting"). Every time is typed and shown in Athens time.
+- **History** lists the last 50 stops: reason, window, who started it and how it ended.
+- Fixed after review: every scheduled stop can be cancelled, steady dialog focus (`02c1b17`).
+- Tests by agy (`8f77b2f`, `8042260`): 901 pass; every put the bug back check repeated by hand.
+
+### Add courier and Change password (scope row 16, spec 0013): `3a61471` to `63674f5`
+Needs the backend's row 16: the co-op now issues every rider's login.
+- **Add courier** on the couriers list: name, phone, email and a password typed twice, checked as
+  you type with the backend's rules. On success the dialog shows the login email and password once
+  ("Copy them now: the password cannot be shown again") and opens the rider. A refusal shows the
+  backend's sentence.
+- **Change password** on a rider's page says first what happens: the rider is signed out on their
+  phone and set Offline, and steps still waiting on that phone are sent only when they log in again.
+- The notice cannot be lost to a later error; refusals are clearer (`2b846ac`).
+- Tests by agy (`f3eda17`, `005df78`): 837 pass; every put the bug back check repeated by hand.
 
 ### A restaurant's saved customers and the retention setting (scope row 26): `f54d0fd` to `f32e467`
 Built on `feat/saved-customers` and fast forwarded on 26 October, together with the backend half

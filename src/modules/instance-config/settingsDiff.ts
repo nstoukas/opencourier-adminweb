@@ -35,7 +35,11 @@ export type SettingsForm = {
   offerExpiryEnabled: boolean | null
   offerExpirySeconds: string
   noCourierRetrySeconds: string
+  handBackSeconds: string
+  cancellationPayoutPolicy: string
   savedCustomerRetentionMonths: string
+  restaurantHistoryDays: string
+  dispatchPhoneNumber: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -50,6 +54,7 @@ type Kind =
   | 'cents' // whole cents, zero or more, checked here
   | 'number' // a number box; range rules stay with the backend
   | 'switch' // on or off
+  | 'phone' // a phone number, compared without the spaces, dashes, dots and brackets the backend removes
 
 export type SettingDefinition = { key: SettingKey; label: string; kind: Kind; details?: boolean }
 
@@ -71,6 +76,8 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'offerExpiryEnabled', label: 'Offer expiry', kind: 'switch' },
   { key: 'offerExpirySeconds', label: 'Seconds before an unanswered offer ends', kind: 'number' },
   { key: 'noCourierRetrySeconds', label: 'Seconds between retries when no rider is free', kind: 'number' },
+  { key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', kind: 'number' },
+  { key: 'cancellationPayoutPolicy', label: 'Pay when a job is cancelled', kind: 'select' },
   { key: 'defaultCourierPayRate', label: 'Default courier pay rate', kind: 'number' },
   { key: 'defaultMaxWorkingHours', label: 'Default max working hours', kind: 'number' },
   { key: 'courierCompensationCalculationType', label: 'Courier compensation calculation', kind: 'select' },
@@ -81,6 +88,8 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'imageUrl', label: 'Logo image URL', kind: 'url', details: true },
   { key: 'defaultDietaryRestrictions', label: 'Default dietary restrictions', kind: 'multi' },
   { key: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)', kind: 'number' },
+  { key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', kind: 'number' },
+  { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', kind: 'phone' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -129,6 +138,10 @@ function comparable(definition: SettingDefinition, value: unknown): string {
       return [...((value as string[] | undefined) ?? [])].sort().join(',')
     case 'switch':
       return value === null || value === undefined ? '' : String(value)
+    case 'phone':
+      // The backend stores the number with these removed (row 72), so "+30 24210 12345" typed
+      // and "+302421012345" saved are the same number and the edit leaves the bar after a save.
+      return String(value ?? '').replace(/[\s().-]/g, '')
     default:
       return String(value ?? '').trim()
   }
@@ -298,7 +311,13 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     offerExpiryEnabled: data.offerExpiryEnabled ?? null,
     offerExpirySeconds: text(data.offerExpirySeconds),
     noCourierRetrySeconds: text(data.noCourierRetrySeconds),
+    handBackSeconds: text(data.handBackSeconds),
+    // The backend answers the rule in force, FULL_COMPENSATION when none is stored (spec 0015).
+    // Before the settings load it is empty, like every other select.
+    cancellationPayoutPolicy: data.cancellationPayoutPolicy ?? '',
     savedCustomerRetentionMonths: text(data.savedCustomerRetentionMonths),
+    restaurantHistoryDays: text(data.restaurantHistoryDays),
+    dispatchPhoneNumber: data.dispatchPhoneNumber ?? '',
   }
 }
 
@@ -315,8 +334,25 @@ export function successMessage(changes: PendingChange[]): string {
   if (keys.has('offerExpiryEnabled') || keys.has('offerExpirySeconds') || keys.has('noCourierRetrySeconds')) {
     parts.push('Offer settings apply to the next offer; an offer already out keeps its deadline.')
   }
+  if (keys.has('handBackSeconds')) {
+    parts.push('The hand back applies to the next accept; a running hand back keeps its end.')
+  }
+  if (keys.has('cancellationPayoutPolicy')) {
+    parts.push('Cancelled job pay applies to cancellations from now on.')
+  }
   if (keys.has('savedCustomerRetentionMonths')) {
     parts.push('The daily job uses the retention from its next run.')
+  }
+  if (keys.has('restaurantHistoryDays')) {
+    parts.push('Restaurants see the new order history period at once.')
+  }
+  const dispatchPhone = changes.find((change) => change.key === 'dispatchPhoneNumber')
+  if (dispatchPhone) {
+    parts.push(
+      dispatchPhone.to === '(empty)'
+        ? 'Riders no longer see a Call dispatch button.'
+        : 'Riders see the Call dispatch button within ten minutes.',
+    )
   }
   return parts.join(' ')
 }

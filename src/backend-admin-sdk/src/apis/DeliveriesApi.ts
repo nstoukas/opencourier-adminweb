@@ -18,6 +18,7 @@ import type {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
   DeliveryEventAdminDto,
+  DeliveryIssueAdminDto,
   DeliveryReassignAdminInput,
   DeliverySubmitEventAdminInput,
   ForbiddenException,
@@ -30,6 +31,8 @@ import {
     DeliveryAdminPaginatedDtoToJSON,
     DeliveryEventAdminDtoFromJSON,
     DeliveryEventAdminDtoToJSON,
+    DeliveryIssueAdminDtoFromJSON,
+    DeliveryIssueAdminDtoToJSON,
     DeliveryReassignAdminInputFromJSON,
     DeliveryReassignAdminInputToJSON,
     DeliverySubmitEventAdminInputFromJSON,
@@ -44,6 +47,12 @@ export interface DeliveriesApiGetDeliveriesRequest {
     page?: number;
     perPage?: number;
     courierId?: string;
+    // Which deliveries (row 96): 'all', 'active', 'dropped_off' or 'canceled'.
+    state?: 'all' | 'active' | 'dropped_off' | 'canceled';
+    // Order reference, customer, restaurant, or the end of the id (row 96).
+    search?: string;
+    // One restaurant's whole history (spec 0017, AC-7). Hand edited (row 28).
+    partnerId?: string;
 }
 
 export interface DeliveriesApiGetDeliveryRequest {
@@ -51,6 +60,10 @@ export interface DeliveriesApiGetDeliveryRequest {
 }
 
 export interface DeliveriesApiGetDeliveryEventsRequest {
+    deliveryId: string;
+}
+
+export interface DeliveriesApiGetDeliveryIssuesRequest {
     deliveryId: string;
 }
 
@@ -85,6 +98,18 @@ export class DeliveriesApi extends runtime.BaseAPI {
 
         if (requestParameters.courierId !== undefined) {
             queryParameters['courierId'] = requestParameters.courierId;
+        }
+
+        if (requestParameters.state !== undefined) {
+            queryParameters['state'] = requestParameters.state;
+        }
+
+        if (requestParameters.search !== undefined) {
+            queryParameters['search'] = requestParameters.search;
+        }
+
+        if (requestParameters.partnerId !== undefined) {
+            queryParameters['partnerId'] = requestParameters.partnerId;
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -185,6 +210,41 @@ export class DeliveriesApi extends runtime.BaseAPI {
 
     async getDeliveryEvents(requestParameters: DeliveriesApiGetDeliveryEventsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<DeliveryEventAdminDto>> {
         const response = await this.getDeliveryEventsRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Get the riders' reports about a delivery, oldest first (decision 66.11). Hand written.
+     */
+    async getDeliveryIssuesRaw(requestParameters: DeliveriesApiGetDeliveryIssuesRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<DeliveryIssueAdminDto>>> {
+        if (requestParameters.deliveryId === null || requestParameters.deliveryId === undefined) {
+            throw new runtime.RequiredError('deliveryId','Required parameter requestParameters.deliveryId was null or undefined when calling getDeliveryIssues.');
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const response = await this.request({
+            path: `/api/admin/v1/deliveries/{deliveryId}/issues`.replace(`{${"deliveryId"}}`, encodeURIComponent(String(requestParameters.deliveryId))),
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(DeliveryIssueAdminDtoFromJSON));
+    }
+
+    async getDeliveryIssues(requestParameters: DeliveriesApiGetDeliveryIssuesRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<DeliveryIssueAdminDto>> {
+        const response = await this.getDeliveryIssuesRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
