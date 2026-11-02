@@ -44,5 +44,10 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   `timeZone: 'Europe/Athens'` (`src/modules/dispatch-stop/dispatchStopDisplay.ts`), never the browser's zone. A dialog
   whose title or focus target derives from its open state changes them during Radix's closing animation: keep open and
   mode in separate state (JSDOM has no animation, so a test passes either way).
+- The deliveries list's `partnerId` (spec 0017) is the only list filter kept in the URL: read straight from
+  `router.query` (skip the request until `router.isReady`), written with a shallow `router.replace`, and a change goes back
+  to page 1. A link that sets it must not let the list fetch once without it.
+- `restaurantHistoryDays` is saved by the Saved customers card's one Save beside the retention months (hand edited SDK
+  Dto and AdminInput). Row 87's redesigned settings page needs it when merged.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
