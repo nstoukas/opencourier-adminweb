@@ -183,6 +183,13 @@ export interface InstanceConfigSettingsAdminInput {
    */
   handBackSeconds?: number;
   /**
+   * Metres from a stop that the rider's app counts as arrived; 0 switches detection off, else 20 to
+   * 300 (spec 0021). Hand edited (row 19).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  arrivalRadiusMetres?: number;
+  /**
    * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
    * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
    * optional leading +. An empty text clears it. Hand edited (row 72).
@@ -400,6 +407,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     handBackSeconds: !exists(json, "handBackSeconds")
       ? undefined
       : json["handBackSeconds"],
+    arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
+      ? undefined
+      : json["arrivalRadiusMetres"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
@@ -451,6 +461,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     restaurantHistoryDays: value.restaurantHistoryDays,
     // Without this line a save would drop the hand back window before it left the browser.
     handBackSeconds: value.handBackSeconds,
+    arrivalRadiusMetres: value.arrivalRadiusMetres,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     // Without this line a save would drop the cancellation rule before it left the browser.

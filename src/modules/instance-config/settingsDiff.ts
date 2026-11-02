@@ -29,6 +29,7 @@ export type SettingsForm = {
   feePercentageAmount: string
   maxAssignmentDistance: string
   maxDriftDistance: string
+  arrivalRadiusMetres: string
   quoteExpirationMinutes: string
   defaultCourierPayRate: string
   defaultMaxWorkingHours: string
@@ -70,6 +71,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'courierMatcherType', label: 'Who gets the offer first', kind: 'select' },
   { key: 'maxAssignmentDistance', label: 'Furthest courier to offer', kind: 'number' },
   { key: 'maxDriftDistance', label: 'Max drift distance', kind: 'number' },
+  { key: 'arrivalRadiusMetres', label: 'Arrival radius (metres)', kind: 'number' },
   { key: 'quoteExpirationMinutes', label: 'Quote stays valid for', kind: 'number' },
   { key: 'geoCalculationType', label: 'Measure distance by', kind: 'select' },
   { key: 'deliveryDurationCalculationType', label: 'Delivery duration calculation', kind: 'select' },
@@ -308,6 +310,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     feePercentageAmount: text(data.feePercentageAmount),
     maxAssignmentDistance: text(data.maxAssignmentDistance),
     maxDriftDistance: text(data.maxDriftDistance),
+    arrivalRadiusMetres: text(data.arrivalRadiusMetres),
     quoteExpirationMinutes: text(data.quoteExpirationMinutes),
     defaultCourierPayRate: text(data.defaultCourierPayRate),
     defaultMaxWorkingHours: text(data.defaultMaxWorkingHours),
@@ -336,6 +339,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('offerExpiryEnabled') || keys.has('offerExpirySeconds') || keys.has('noCourierRetrySeconds')) {
     parts.push('Offer settings apply to the next offer; an offer already out keeps its deadline.')
+  }
+  if (keys.has('arrivalRadiusMetres')) {
+    parts.push("Riders' apps use the new arrival radius within ten minutes.")
   }
   if (keys.has('handBackSeconds')) {
     parts.push('The hand back applies to the next accept; a running hand back keeps its end.')

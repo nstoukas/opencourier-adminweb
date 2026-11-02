@@ -334,6 +334,18 @@ export function MatchingCard({ form, set, options, loaded }: CardProps) {
             description="How far the delivery's pickup may be from the quote's."
             onChange={(value) => set('maxDriftDistance', value)}
           />
+          {/* Spec 0021: the rider's app records an arrival within this distance of the restaurant or the
+              customer. It sets no pay itself, but waiting pay (row 23) will start from the arrival. */}
+          <NumberField
+            id="arrivalRadiusMetres"
+            label={labelOf('arrivalRadiusMetres')}
+            value={form.arrivalRadiusMetres}
+            min={0}
+            max={300}
+            disabled={!loaded}
+            description="The rider's app marks them arrived within this distance of the restaurant or the customer, and the timeline says it was detected. 0 switches detection off (riders tap I'm here or swipe); otherwise 20 to 300. GPS in town is often only good to 10 to 30 m, so below 30 it may rarely fire."
+            onChange={(value) => set('arrivalRadiusMetres', value)}
+          />
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <OptionSelect

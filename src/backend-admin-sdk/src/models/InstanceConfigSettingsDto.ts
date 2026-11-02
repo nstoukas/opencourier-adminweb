@@ -184,6 +184,13 @@ export interface InstanceConfigSettingsDto {
    */
   handBackSeconds?: number | null;
   /**
+   * Metres from the restaurant or the customer that the rider's app counts as arrived; 0 switches
+   * detection off (spec 0021). Hand edited (row 19).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  arrivalRadiusMetres?: number | null;
+  /**
    * The co-op's dispatch line riders call from the job screen; null when none is set.
    * Hand edited (row 72).
    * @type {string}
@@ -375,6 +382,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     handBackSeconds: !exists(json, "handBackSeconds")
       ? null
       : json["handBackSeconds"],
+    arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
+      ? null
+      : json["arrivalRadiusMetres"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
@@ -422,6 +432,7 @@ export function InstanceConfigSettingsDtoToJSON(
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     restaurantHistoryDays: value.restaurantHistoryDays,
     handBackSeconds: value.handBackSeconds,
+    arrivalRadiusMetres: value.arrivalRadiusMetres,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };
