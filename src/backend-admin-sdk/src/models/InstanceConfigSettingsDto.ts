@@ -177,7 +177,7 @@ export interface InstanceConfigSettingsDto {
    */
   restaurantHistoryDays?: number | null;
   /**
-   * Seconds after accepting in which a rider may hand an order back for free; 0 = off (spec 0020).
+   * Seconds after accepting in which a rider may hand an order back for free; 0 switches it off (spec 0020).
    * Hand edited (row 71).
    * @type {number}
    * @memberof InstanceConfigSettingsDto

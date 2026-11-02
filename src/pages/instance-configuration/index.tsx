@@ -657,7 +657,7 @@ const InstanceConfigurationPage: NextPage = () => {
       toast({
         title: "Success!",
         description:
-          "Offer settings saved. They apply to the next offer; an offer already out keeps its deadline.",
+          "Offer settings saved. They apply to the next offer or accept; an offer already out keeps its deadline, and a running hand back keeps its end.",
       });
     } catch (error: any) {
       toast({
