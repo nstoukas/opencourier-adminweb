@@ -138,6 +138,8 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(overviewLink).toHaveAttribute('href', '/')
       const deliveriesLink = screen.getByRole('link', { name: /Deliveries/i })
       expect(deliveriesLink).toHaveAttribute('href', '/deliveries')
+      const sosLink = screen.getByRole('link', { name: /SOS/i })
+      expect(sosLink).toHaveAttribute('href', '/sos')
 
       // Group 2: People
       expect(screen.getByText('People')).toBeInTheDocument()
@@ -246,6 +248,8 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(isActivePath('/partners', '/partners')).toBe(true)
       expect(isActivePath('/partners/p-1', '/partners')).toBe(true)
       expect(isActivePath('/couriers', '/couriers')).toBe(true)
+      expect(isActivePath('/sos', '/sos')).toBe(true)
+      expect(isActivePath('/sos/sos-123', '/sos')).toBe(true)
       // Handles trailing slashes cleanly
       expect(isActivePath('/deliveries/', '/deliveries')).toBe(true)
       expect(isActivePath('/deliveries', '/deliveries/')).toBe(true)

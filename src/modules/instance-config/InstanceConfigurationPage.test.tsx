@@ -849,6 +849,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       handBackSeconds: 60,
       cancellationPayoutPolicy: 'FULL_COMPENSATION',
       restaurantHistoryDays: 30,
+      sosLocationRetentionDays: 30,
       dispatchPhoneNumber: '+302421012345',
       reassignmentPayoutPolicies: {
         DEFAULT: 50,
@@ -1330,6 +1331,69 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         const saveBar = screen.getByTestId('save-bar')
         expect(within(saveBar).getByText('Arrival radius (metres)')).toBeInTheDocument()
         expect(within(saveBar).getByText(/15/)).toBeInTheDocument()
+      })
+    })
+
+    // Setting 6: sosLocationRetentionDays (Instance card, spec 0022, AC-11, row 73)
+    describe('sosLocationRetentionDays (Instance card, spec 0022, AC-11)', () => {
+      it('loads fetched sosLocationRetentionDays into its box and binds NumberField min 1 max 365', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('sosLocationRetentionDays') as HTMLInputElement
+        expect(input).toBeInTheDocument()
+        expect(input.value).toBe('30')
+        expect(input.getAttribute('min')).toBe('1')
+        expect(input.getAttribute('max')).toBe('365')
+      })
+
+      it('editing sosLocationRetentionDays shows in save bar and Save sends ONLY changed key with number and toast sentence', async () => {
+        mockSetInstanceConfig.mockReturnValue({
+          unwrap: () => Promise.resolve({}),
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('sosLocationRetentionDays') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '14' } })
+
+        const saveBar = screen.getByTestId('save-bar')
+        expect(within(saveBar).getByText('SOS location kept for (days)')).toBeInTheDocument()
+        expect(within(saveBar).getByText(/30/)).toBeInTheDocument()
+        expect(within(saveBar).getByText(/14/)).toBeInTheDocument()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        fireEvent.click(saveButton)
+
+        await waitFor(() => {
+          expect(mockSetInstanceConfig).toHaveBeenCalledTimes(1)
+          expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+            sosLocationRetentionDays: 14,
+          })
+          expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+              title: 'Saved',
+              description:
+                'Saved: SOS location kept for (days). The daily job deletes SOS positions under the new period from its next run.',
+            })
+          )
+        })
+      })
+
+      it('emptying sosLocationRetentionDays blocks Save and is never sent', () => {
+        render(<InstanceConfigurationPage />)
+
+        const input = document.getElementById('sosLocationRetentionDays') as HTMLInputElement
+        fireEvent.change(input, { target: { value: '' } })
+
+        expect(screen.getByTestId('save-bar')).toBeInTheDocument()
+        const blockers = document.getElementById('save-all-blockers')
+        expect(blockers?.textContent).toContain('SOS location kept for (days) is empty')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).toBeDisabled()
+        expect(saveButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+        fireEvent.click(saveButton)
+        expect(mockSetInstanceConfig).not.toHaveBeenCalled()
       })
     })
   })

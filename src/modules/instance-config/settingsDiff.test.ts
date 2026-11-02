@@ -7,6 +7,7 @@ import {
   pendingChanges,
   sameValue,
   savePayload,
+  SETTINGS,
   successMessage,
   urlErrorText,
   type SettingsForm,
@@ -63,6 +64,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     cancellationPayoutPolicy: 'FULL_COMPENSATION',
     savedCustomerRetentionMonths: '12',
     restaurantHistoryDays: '30',
+    sosLocationRetentionDays: '30',
     dispatchPhoneNumber: '+302421012345',
   }
 
@@ -251,6 +253,16 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(changes[0]?.to).toBe('7')
     })
 
+    it('detects changes to sosLocationRetentionDays (spec 0022, AC-11)', () => {
+      const edited: SettingsForm = { ...baseSavedForm, sosLocationRetentionDays: '15' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('sosLocationRetentionDays')
+      expect(changes[0]?.label).toBe('SOS location kept for (days)')
+      expect(changes[0]?.from).toBe('30')
+      expect(changes[0]?.to).toBe('15')
+    })
+
     it('detects changes to arrivalRadiusMetres including setting to 0 (spec 0021, AC-11)', () => {
       const editedTo80: SettingsForm = { ...baseSavedForm, arrivalRadiusMetres: '80' }
       const changes80 = pendingChanges(baseSavedForm, editedTo80)
@@ -328,6 +340,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         restaurantHistoryDays: '',
       }
       expect(blockers(historyChanges as any, historyEdited)).toContain('Restaurant order history (days) is empty')
+
+      const sosChanges = [{ key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', from: '30', to: '(empty)' }]
+      const sosEdited: SettingsForm = {
+        ...baseSavedForm,
+        sosLocationRetentionDays: '',
+      }
+      expect(blockers(sosChanges as any, sosEdited)).toContain('SOS location kept for (days) is empty')
 
       const handBackChanges = [{ key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '(empty)' }]
       const handBackEdited: SettingsForm = {
@@ -461,6 +480,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const changes = [
         { key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '45' },
         { key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', from: '30', to: '7' },
+        { key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', from: '30', to: '14' },
         { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '+302421012345', to: '+30 24210 99999' },
         { key: 'cancellationPayoutPolicy', label: 'Pay when a job is cancelled', from: 'FULL_COMPENSATION', to: 'HALF_COMPENSATION' },
       ]
@@ -468,6 +488,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         ...baseSavedForm,
         handBackSeconds: '45',
         restaurantHistoryDays: '7',
+        sosLocationRetentionDays: '14',
         dispatchPhoneNumber: '+30 24210 99999',
         cancellationPayoutPolicy: 'HALF_COMPENSATION',
       }
@@ -475,6 +496,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(payload).toEqual({
         handBackSeconds: 45,
         restaurantHistoryDays: 7,
+        sosLocationRetentionDays: 14,
         dispatchPhoneNumber: '+30 24210 99999',
         cancellationPayoutPolicy: 'HALF_COMPENSATION',
       })
@@ -585,6 +607,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       )
     })
 
+    it('appends sosLocationRetentionDays sentence when retention days is changed (spec 0022, AC-11)', () => {
+      const changes = [{ key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', from: '30', to: '14' }]
+      expect(successMessage(changes as any)).toBe(
+        'Saved: SOS location kept for (days). The daily job deletes SOS positions under the new period from its next run.'
+      )
+    })
+
     it('appends dispatchPhoneNumber sentence when set or cleared', () => {
       const setChanges = [{ key: 'dispatchPhoneNumber', label: 'Dispatch phone number', from: '', to: '+30 24210 12345' }]
       expect(successMessage(setChanges as any)).toBe(
@@ -615,6 +644,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         handBackSeconds: 60,
         cancellationPayoutPolicy: 'FULL_COMPENSATION',
         restaurantHistoryDays: 30,
+        sosLocationRetentionDays: 30,
         dispatchPhoneNumber: '+302421012345',
       })
       expect(form.quoteBaseFee).toBe('200')
@@ -625,6 +655,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(form.handBackSeconds).toBe('60')
       expect(form.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
       expect(form.restaurantHistoryDays).toBe('30')
+      expect(form.sosLocationRetentionDays).toBe('30')
       expect(form.dispatchPhoneNumber).toBe('+302421012345')
 
       const zeroForm = formFromSettings({ arrivalRadiusMetres: 0, handBackSeconds: 0 })
@@ -641,6 +672,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(EMPTY_FORM.handBackSeconds).toBe('')
       expect(EMPTY_FORM.cancellationPayoutPolicy).toBe('')
       expect(EMPTY_FORM.restaurantHistoryDays).toBe('')
+      expect(EMPTY_FORM.sosLocationRetentionDays).toBe('')
       expect(EMPTY_FORM.dispatchPhoneNumber).toBe('')
     })
   })
@@ -669,7 +701,17 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(labelOf('handBackSeconds')).toBe('Seconds a rider can hand back an order for free')
       expect(labelOf('cancellationPayoutPolicy')).toBe('Pay when a job is cancelled')
       expect(labelOf('restaurantHistoryDays')).toBe('Restaurant order history (days)')
+      expect(labelOf('sosLocationRetentionDays')).toBe('SOS location kept for (days)')
       expect(labelOf('dispatchPhoneNumber')).toBe('Dispatch phone number')
+    })
+  })
+
+  describe('SETTINGS definition (spec 0022, AC-11)', () => {
+    it('declares sosLocationRetentionDays with kind number', () => {
+      const setting = SETTINGS.find((s) => s.key === 'sosLocationRetentionDays')
+      expect(setting).toBeDefined()
+      expect(setting?.kind).toBe('number')
+      expect(setting?.label).toBe('SOS location kept for (days)')
     })
   })
 
@@ -706,6 +748,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(sameValue('handBackSeconds', '60', '45')).toBe(false)
       expect(sameValue('restaurantHistoryDays', '30', 30)).toBe(true)
       expect(sameValue('restaurantHistoryDays', '30', '7')).toBe(false)
+      expect(sameValue('sosLocationRetentionDays', '30', 30)).toBe(true)
+      expect(sameValue('sosLocationRetentionDays', '30', '14')).toBe(false)
       expect(sameValue('cancellationPayoutPolicy', 'FULL_COMPENSATION', 'FULL_COMPENSATION')).toBe(true)
       expect(sameValue('cancellationPayoutPolicy', 'FULL_COMPENSATION', 'HALF_COMPENSATION')).toBe(false)
     })

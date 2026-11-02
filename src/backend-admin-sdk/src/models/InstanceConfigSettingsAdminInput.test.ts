@@ -260,6 +260,38 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(zeroSerialized.arrivalRadiusMetres).toBe(0)
     })
 
+    it('preserves sosLocationRetentionDays in ToJSON serialization (spec 0022, AC-11)', () => {
+      // Load-bearing test guard: without sosLocationRetentionDays in ToJSON, the SDK silently drops
+      // it and the save reports success for a change never sent.
+      const input = {
+        sosLocationRetentionDays: 30,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.sosLocationRetentionDays).toBe(30)
+    })
+
+    it('round-trips sosLocationRetentionDays through FromJSON and ToJSON (spec 0022, AC-11)', () => {
+      const originalJson = {
+        sosLocationRetentionDays: 14,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.sosLocationRetentionDays).toBe(14)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.sosLocationRetentionDays).toBe(14)
+    })
+
+    it('handles undefined sosLocationRetentionDays in FromJSON and ToJSON (spec 0022, AC-11)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.sosLocationRetentionDays).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.sosLocationRetentionDays).toBeUndefined()
+    })
+
     it('handles undefined arrivalRadiusMetres in FromJSON and ToJSON (spec 0021, AC-11)', () => {
       const model = InstanceConfigSettingsAdminInputFromJSON({})
       expect(model.arrivalRadiusMetres).toBeUndefined()
@@ -591,6 +623,35 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.arrivalRadiusMetres).toBe(50)
+    })
+
+    it('deserializes sosLocationRetentionDays when present (spec 0022, AC-11)', () => {
+      const json = {
+        details: {},
+        sosLocationRetentionDays: 30,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.sosLocationRetentionDays).toBe(30)
+    })
+
+    it('deserializes sosLocationRetentionDays as null when absent in backend response (spec 0022, AC-11)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.sosLocationRetentionDays).toBeNull()
+    })
+
+    it('serializes DTO carrying sosLocationRetentionDays back to JSON (spec 0022, AC-11)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        sosLocationRetentionDays: 14,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.sosLocationRetentionDays).toBe(14)
     })
 
     it('deserializes dispatchPhoneNumber when present (row 72)', () => {
