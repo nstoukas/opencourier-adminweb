@@ -11,7 +11,8 @@ import {
   Spinner,
 } from '@/admin-web-components'
 import type { ShiftSlotAdminDto } from '@/backend-admin-sdk'
-import { useRemoveShiftSlotMutation } from '@/api/shiftSlotApi'
+import { isShiftSlotConflict, refreshShiftSlots, useRemoveShiftSlotMutation } from '@/api/shiftSlotApi'
+import { useAppDispatch } from '@/ui-shared-utils'
 import { backendMessage } from '@/modules/couriers/courierAccountRules'
 import { describeSlot } from './shiftSlotDisplay'
 
@@ -26,6 +27,7 @@ export function RemoveShiftSlotDialog({
   onCloseAutoFocus: (event: Event) => void
 }) {
   const [removeSlot, { isLoading }] = useRemoveShiftSlotMutation()
+  const dispatch = useAppDispatch()
   const [error, setError] = useState<string | null>(null)
 
   const confirm = async () => {
@@ -34,6 +36,7 @@ export function RemoveShiftSlotDialog({
       await removeSlot({ id: slot.id }).unwrap()
       onClose()
     } catch (err) {
+      if (isShiftSlotConflict(err)) dispatch(refreshShiftSlots())
       setError(backendMessage(err, 'The slot could not be removed. Try again in a moment.'))
     }
   }

@@ -450,7 +450,7 @@ export function ShiftsCard({ form, set, loaded }: CardProps) {
           </div>
           <FieldDescription>
             {form.shiftsEnabled === true
-              ? 'On. Riders will book the slots set on '
+              ? 'On. Riders will book these slots once shift booking is built. Edit them on '
               : 'Off. No shift rule applies to anyone. You can still prepare the slots on '}
             <Link href="/shift-slots" className="underline underline-offset-2">
               Shift slots

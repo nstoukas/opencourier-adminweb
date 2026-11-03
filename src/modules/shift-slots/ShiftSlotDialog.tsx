@@ -16,7 +16,8 @@ import {
   Spinner,
 } from '@/admin-web-components'
 import type { ShiftSlotAdminDto, ShiftSlotFieldsAdmin } from '@/backend-admin-sdk'
-import { useCreateShiftSlotMutation, useUpdateShiftSlotMutation } from '@/api/shiftSlotApi'
+import { isShiftSlotConflict, refreshShiftSlots, useCreateShiftSlotMutation, useUpdateShiftSlotMutation } from '@/api/shiftSlotApi'
+import { useAppDispatch } from '@/ui-shared-utils'
 import { backendMessage } from '@/modules/couriers/courierAccountRules'
 import { WEEKDAYS, clockToMinutes, minutesToClock } from './shiftSlotDisplay'
 
@@ -26,12 +27,15 @@ type Props = {
   // while the dialog animates closed (adminweb AGENTS.md).
   slot: ShiftSlotAdminDto | null
   onOpenChange: (open: boolean) => void
-  // Radix does not give focus back here: the page passes the button that opened the dialog.
+  // Radix does not give focus back here: the page passes the button that opened the dialog, and a
+  // fallback for when that button has left the page (an Edit that moved the slot to another day).
   returnFocusTo: React.RefObject<HTMLElement>
+  fallbackFocus?: React.RefObject<HTMLElement>
 }
 
 // Add a slot or edit one (spec 0026, AC-6): the day, the start and end on the 24 hour clock, the cap.
-export function ShiftSlotDialog({ open, slot, onOpenChange, returnFocusTo }: Props) {
+export function ShiftSlotDialog({ open, slot, onOpenChange, returnFocusTo, fallbackFocus }: Props) {
+  const dispatch = useAppDispatch()
   const [createSlot, { isLoading: creating }] = useCreateShiftSlotMutation()
   const [updateSlot, { isLoading: updating }] = useUpdateShiftSlotMutation()
   const [weekday, setWeekday] = useState('5')
@@ -68,6 +72,7 @@ export function ShiftSlotDialog({ open, slot, onOpenChange, returnFocusTo }: Pro
       else await createSlot(fields).unwrap()
       onOpenChange(false)
     } catch (err) {
+      if (isShiftSlotConflict(err)) dispatch(refreshShiftSlots())
       setError(backendMessage(err, 'The slot could not be saved. Try again in a moment.'))
     }
   }
@@ -77,9 +82,10 @@ export function ShiftSlotDialog({ open, slot, onOpenChange, returnFocusTo }: Pro
       <DialogContent
         className="sm:max-w-md"
         onCloseAutoFocus={(event) => {
-          if (returnFocusTo.current) {
+          const target = returnFocusTo.current?.isConnected ? returnFocusTo.current : fallbackFocus?.current
+          if (target) {
             event.preventDefault()
-            returnFocusTo.current.focus()
+            target.focus()
           }
         }}
       >

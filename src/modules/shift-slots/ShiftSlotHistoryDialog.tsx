@@ -42,6 +42,8 @@ export function ShiftSlotHistoryDialog({
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : isError ? (
           <p className="text-sm text-destructive">Could not load the history.</p>
+        ) : (data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No changes recorded.</p>
         ) : (
           <ol className="flex flex-col gap-3 text-sm">
             {(data ?? []).map((change) => (

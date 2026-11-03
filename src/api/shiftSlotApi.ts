@@ -73,6 +73,15 @@ export const shiftSlotApi = baseApi.injectEndpoints({
   }),
 })
 
+// After a 409 (another admin changed or removed the slot) nothing was saved, so RTK Query refreshes
+// nothing by itself: the dialogs call this to read the slots again (row 77 review).
+export const refreshShiftSlots = () => shiftSlotApi.util.invalidateTags([Tags.shiftSlots])
+
+// True for the backend's 409 "This slot just changed. Look again."
+export function isShiftSlotConflict(err: unknown): boolean {
+  return (err as { statusCode?: number } | undefined)?.statusCode === 409
+}
+
 export const {
   useGetShiftSlotsQuery,
   useGetShiftSlotChangesQuery,

@@ -29,10 +29,13 @@ export function ShiftSlotsPage() {
   const openerRef = useRef<HTMLElement | null>(null)
   const editorReturn = useRef<HTMLElement | null>(null)
 
+  // Back to the button that opened the dialog, or to Add slot when that button has left the page
+  // (after a Remove) (row 77 review).
   const returnFocus = (event: Event) => {
-    if (openerRef.current) {
+    const target = openerRef.current?.isConnected ? openerRef.current : addRef.current
+    if (target) {
       event.preventDefault()
-      openerRef.current.focus()
+      target.focus()
     }
   }
 
@@ -114,7 +117,7 @@ export function ShiftSlotsPage() {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  aria-label={`Edit ${day.label} ${minutesToClock(slot.startMinute)}`}
+                                  aria-label={`Edit ${day.label} ${minutesToClock(slot.startMinute)} to ${minutesToClock(slot.endMinute)}`}
                                   onClick={(event) => {
                                     editorReturn.current = event.currentTarget
                                     setEditing(slot)
@@ -128,7 +131,7 @@ export function ShiftSlotsPage() {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  aria-label={`Remove ${day.label} ${minutesToClock(slot.startMinute)}`}
+                                  aria-label={`Remove ${day.label} ${minutesToClock(slot.startMinute)} to ${minutesToClock(slot.endMinute)}`}
                                   onClick={(event) => {
                                     openerRef.current = event.currentTarget
                                     setSlotDialog({ kind: 'remove', slot })
@@ -142,7 +145,7 @@ export function ShiftSlotsPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              aria-label={`History of ${day.label} ${minutesToClock(slot.startMinute)}`}
+                              aria-label={`History of ${day.label} ${minutesToClock(slot.startMinute)} to ${minutesToClock(slot.endMinute)}`}
                               onClick={(event) => {
                                 openerRef.current = event.currentTarget
                                 setSlotDialog({ kind: 'history', slot })
@@ -167,6 +170,7 @@ export function ShiftSlotsPage() {
         slot={editing}
         onOpenChange={setEditorOpen}
         returnFocusTo={editorReturn as React.RefObject<HTMLElement>}
+        fallbackFocus={addRef}
       />
       {slotDialog?.kind === 'remove' ? (
         <RemoveShiftSlotDialog slot={slotDialog.slot} onClose={() => setSlotDialog(null)} onCloseAutoFocus={returnFocus} />
