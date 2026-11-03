@@ -1,8 +1,9 @@
 import { configureStore, type AnyAction } from '@reduxjs/toolkit'
-import { shiftSlotApi } from './shiftSlotApi'
+import { isShiftSlotConflict, refreshShiftSlots, shiftSlotApi } from './shiftSlotApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
 import { authSlice } from '@/modules/auth/slices/authSlice'
+import { ApiError } from '../backend-admin-sdk'
 import type { ShiftSlotAdminDto } from '../backend-admin-sdk'
 
 jest.mock('.', () => {
@@ -122,5 +123,34 @@ describe('shiftSlotApi (spec 0026)', () => {
     expect(sdk.update).toHaveBeenCalledWith('slot-9', { endMinute: 1400 })
     await store.dispatch(shiftSlotApi.endpoints.removeShiftSlot.initiate({ id: 'slot-9' }))
     expect(sdk.remove).toHaveBeenCalledWith('slot-9')
+  })
+
+  // Row 77 review: after a 409 nothing was saved, so nothing refreshes by itself; the dialogs dispatch this.
+  it('refreshShiftSlots() refetches the list and an open history', async () => {
+    const actions: AnyAction[] = []
+    const store = setupTestStore((action) => actions.push(action))
+    void store.dispatch(shiftSlotApi.endpoints.getShiftSlots.initiate({ includeRemoved: false }))
+    void store.dispatch(shiftSlotApi.endpoints.getShiftSlotChanges.initiate({ id: 'slot-1' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    actions.length = 0
+    sdk.list.mockClear()
+
+    store.dispatch(refreshShiftSlots())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const refetched = actions
+      .filter((a) => a.type === 'api/executeQuery/pending')
+      .map((a) => a.meta?.arg?.endpointName)
+    expect(refetched).toContain('getShiftSlots')
+    expect(refetched).toContain('getShiftSlotChanges')
+    expect(sdk.list).toHaveBeenCalledTimes(1)
+  })
+
+  it('isShiftSlotConflict is true only for statusCode 409', () => {
+    expect(isShiftSlotConflict({ statusCode: 409, message: 'This slot just changed. Look again.' })).toBe(true)
+    expect(isShiftSlotConflict(new ApiError('CONFLICT' as any, 'This slot just changed. Look again.', 409))).toBe(true)
+    for (const other of [{ statusCode: 400 }, { statusCode: 404 }, { statusCode: 500 }, { status: 409 }, {}, null, undefined, 'error']) {
+      expect(isShiftSlotConflict(other)).toBe(false)
+    }
   })
 })

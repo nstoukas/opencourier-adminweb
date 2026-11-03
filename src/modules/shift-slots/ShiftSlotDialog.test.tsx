@@ -1,5 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { makeStore } from '@/redux/store'
 import type { ShiftSlotAdminDto } from '@/backend-admin-sdk'
 import { ShiftSlotDialog } from './ShiftSlotDialog'
 
@@ -8,10 +10,28 @@ const mockUpdateSlot = jest.fn()
 const mockUseCreate = jest.fn()
 const mockUseUpdate = jest.fn()
 
-jest.mock('../../api/shiftSlotApi', () => ({
-  useCreateShiftSlotMutation: () => mockUseCreate(),
-  useUpdateShiftSlotMutation: () => mockUseUpdate(),
-}))
+jest.mock('../../api/shiftSlotApi', () => {
+  const actual = jest.requireActual('../../api/shiftSlotApi')
+  return {
+    // The real 409 test and refresh action, so a test sees exactly what the dialog dispatches.
+    isShiftSlotConflict: actual.isShiftSlotConflict,
+    refreshShiftSlots: actual.refreshShiftSlots,
+    useCreateShiftSlotMutation: () => mockUseCreate(),
+    useUpdateShiftSlotMutation: () => mockUseUpdate(),
+  }
+})
+
+// The dialog dispatches (a 409 reads the slots again), so it renders inside a real store.
+let store: ReturnType<typeof makeStore>
+let dispatchSpy: jest.SpyInstance
+function StoreWrapper({ children }: { children: React.ReactNode }) {
+  return <Provider store={store}>{children}</Provider>
+}
+const renderWithStore = (ui: React.ReactElement) => render(ui, { wrapper: StoreWrapper })
+const refreshDispatched = () =>
+  dispatchSpy.mock.calls.some(
+    ([action]) => action?.type === 'api/invalidateTags' && JSON.stringify(action.payload) === JSON.stringify(['ShiftSlots'])
+  )
 
 const START_SENTENCE = 'Type the start as HH:mm on the 24 hour clock, for example 19:00.'
 const END_SENTENCE = 'Type the end as HH:mm on the 24 hour clock, for example 23:00, or 24:00 for midnight.'
@@ -42,6 +62,8 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    store = makeStore()
+    dispatchSpy = jest.spyOn(store, 'dispatch')
     mockUseCreate.mockReturnValue([mockCreateSlot, { isLoading: false }])
     mockUseUpdate.mockReturnValue([mockUpdateSlot, { isLoading: false }])
     mockCreateSlot.mockReturnValue(resolved(fridaySlot))
@@ -49,9 +71,9 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
   })
 
   const renderAdd = () =>
-    render(<ShiftSlotDialog open slot={null} onOpenChange={onOpenChange} returnFocusTo={returnFocusTo} />)
+    renderWithStore(<ShiftSlotDialog open slot={null} onOpenChange={onOpenChange} returnFocusTo={returnFocusTo} />)
   const renderEdit = (slot: ShiftSlotAdminDto = fridaySlot) =>
-    render(<ShiftSlotDialog open slot={slot} onOpenChange={onOpenChange} returnFocusTo={returnFocusTo} />)
+    renderWithStore(<ShiftSlotDialog open slot={slot} onOpenChange={onOpenChange} returnFocusTo={returnFocusTo} />)
 
   describe('fields', () => {
     it('shows Day, Start, End and Rider cap in that order, each label bound to its box', () => {
@@ -226,6 +248,46 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 
+    it('on a 409 (another admin changed the slot) shows the sentence and reads the slots again', async () => {
+      mockUpdateSlot.mockReturnValue(rejected({ statusCode: 409, message: 'This slot just changed. Look again.' }))
+      renderEdit()
+      type('shift-slot-cap', '8')
+      fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('This slot just changed. Look again.')
+      expect(refreshDispatched()).toBe(true)
+      expect(onOpenChange).not.toHaveBeenCalled()
+    })
+
+    it('on a 409 from Add also reads the slots again', async () => {
+      mockCreateSlot.mockReturnValue(rejected({ statusCode: 409, message: 'This slot just changed. Look again.' }))
+      renderAdd()
+      type('shift-slot-start', '19:00')
+      type('shift-slot-end', '23:00')
+      type('shift-slot-cap', '6')
+      fireEvent.click(screen.getByRole('button', { name: 'Add slot' }))
+      await screen.findByRole('alert')
+      expect(refreshDispatched()).toBe(true)
+    })
+
+    it.each([400, 404, 500, undefined])('does not read the slots again for a non-409 error (status %p)', async (statusCode) => {
+      mockUpdateSlot.mockReturnValue(rejected({ statusCode, message: 'Something else went wrong.' }))
+      renderEdit()
+      type('shift-slot-cap', '8')
+      fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Something else went wrong.')
+      expect(refreshDispatched()).toBe(false)
+    })
+
+    it('does not read the slots again after a successful save (the mutation invalidates by itself)', async () => {
+      renderEdit()
+      type('shift-slot-cap', '8')
+      fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+      expect(refreshDispatched()).toBe(false)
+    })
+
     it('shows a validation list from the backend as one sentence', async () => {
       mockCreateSlot.mockReturnValue(rejected({ message: ['The rider cap must be a whole number from 1 to 50.'] }))
       renderAdd()
@@ -292,7 +354,7 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
           />
         )
       }
-      render(<Harness />)
+      renderWithStore(<Harness />)
       expect(screen.getByRole('heading', { name: 'Edit slot' })).toBeInTheDocument()
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -319,7 +381,7 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
           </div>
         )
       }
-      render(<Harness />)
+      renderWithStore(<Harness />)
       const opener = screen.getByRole('button', { name: 'Edit Friday 19:00', hidden: true })
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -327,6 +389,54 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).toBeNull()
         expect(document.activeElement).toBe(opener)
+      })
+    })
+
+    it('falls back to fallbackFocus when the opener has left the page (an Edit that moved the slot)', async () => {
+      function Harness() {
+        const [open, setOpen] = React.useState(true)
+        const [showOpener, setShowOpener] = React.useState(true)
+        const add = React.useRef<HTMLButtonElement>(null)
+        // As the page does: a plain ref set to the clicked button, which React does not clear when the
+        // button leaves the page, so it still points at the detached element.
+        const opener = React.useRef<HTMLElement | null>(null)
+        const captureOpener = React.useCallback((node: HTMLButtonElement | null) => {
+          if (node) opener.current = node
+        }, [])
+        return (
+          <div>
+            <button ref={add} type="button">
+              Add slot fallback
+            </button>
+            {showOpener ? (
+              <button ref={captureOpener} type="button">
+                Edit Friday 19:00 to 23:00
+              </button>
+            ) : null}
+            <ShiftSlotDialog
+              open={open}
+              slot={fridaySlot}
+              onOpenChange={(next) => {
+                // The saved slot moved day: its row, and the Edit that opened the dialog, leave the page.
+                setShowOpener(false)
+                setOpen(next)
+              }}
+              returnFocusTo={opener as React.RefObject<HTMLElement>}
+              fallbackFocus={add}
+            />
+          </div>
+        )
+      }
+      renderWithStore(<Harness />)
+      const add = screen.getByRole('button', { name: 'Add slot fallback', hidden: true })
+
+      const opener = screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00', hidden: true })
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(opener.isConnected).toBe(false)
+        expect(document.activeElement).toBe(add)
       })
     })
 
@@ -343,7 +453,7 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
           </div>
         )
       }
-      render(<Harness />)
+      renderWithStore(<Harness />)
       const opener = screen.getByRole('button', { name: 'Add slot opener', hidden: true })
       type('shift-slot-start', '19:00')
       type('shift-slot-end', '23:00')

@@ -1444,6 +1444,24 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect((document.getElementById('shiftDropNoticeHours') as HTMLInputElement).value).toBe('24')
     })
 
+    it('says plainly that riders book nothing until shift booking is built, when On', () => {
+      withShifts(true)
+      render(<InstanceConfigurationPage />)
+      const section = document.getElementById('shifts') as HTMLElement
+      expect(section).toHaveTextContent(
+        'On. Riders will book these slots once shift booking is built. Edit them on Shift slots.'
+      )
+      expect(section).not.toHaveTextContent('Riders will book the slots set on')
+    })
+
+    it('says Off changes nothing and slots can still be prepared, when Off', () => {
+      withShifts(false)
+      render(<InstanceConfigurationPage />)
+      expect(document.getElementById('shifts')).toHaveTextContent(
+        'Off. No shift rule applies to anyone. You can still prepare the slots on Shift slots.'
+      )
+    })
+
     it('switching Shifts on puts it on the bar and Save sends shiftsEnabled: true as a boolean, with the shifts sentence', async () => {
       withShifts(false)
       mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })

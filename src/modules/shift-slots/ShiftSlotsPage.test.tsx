@@ -1,5 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { makeStore } from '@/redux/store'
 import type { ShiftSlotAdminDto } from '@/backend-admin-sdk'
 import { ShiftSlotsPage } from './ShiftSlotsPage'
 
@@ -11,6 +13,8 @@ const mockRemoveSlot = jest.fn()
 const mockUseGetInstanceConfigQuery = jest.fn()
 
 jest.mock('../../api/shiftSlotApi', () => ({
+  isShiftSlotConflict: jest.requireActual('../../api/shiftSlotApi').isShiftSlotConflict,
+  refreshShiftSlots: jest.requireActual('../../api/shiftSlotApi').refreshShiftSlots,
   useGetShiftSlotsQuery: (arg: unknown) => mockUseGetShiftSlotsQuery(arg),
   useGetShiftSlotChangesQuery: (arg: unknown) => mockUseGetShiftSlotChangesQuery(arg),
   useCreateShiftSlotMutation: () => [mockCreateSlot, { isLoading: false }],
@@ -21,6 +25,13 @@ jest.mock('../../api/shiftSlotApi', () => ({
 jest.mock('../../api/configApi', () => ({
   useGetInstanceConfigQuery: (arg: unknown) => mockUseGetInstanceConfigQuery(arg),
 }))
+
+// The dialogs dispatch (a 409 reads the slots again), so the page renders inside a real store.
+let store: ReturnType<typeof makeStore>
+function StoreWrapper({ children }: { children: React.ReactNode }) {
+  return <Provider store={store}>{children}</Provider>
+}
+const renderPage = () => render(<ShiftSlotsPage />, { wrapper: StoreWrapper })
 
 const OFF_NOTICE = 'Shifts are off. Riders see none of this until you switch them on in Settings.'
 
@@ -54,6 +65,7 @@ function slotsResult(data: ShiftSlotAdminDto[] | undefined, extra: Record<string
 describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    store = makeStore()
     mockUseGetShiftSlotsQuery.mockImplementation(({ includeRemoved }: { includeRemoved: boolean }) =>
       slotsResult(includeRemoved ? [...currentSlots.slice(0, 1), removedSlot, ...currentSlots.slice(1)] : currentSlots)
     )
@@ -66,7 +78,7 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     dayCards().map((card) => within(card).getByText(/day$/).textContent)
 
   it('has one h1, "Shift slots", and an Add slot button', () => {
-    render(<ShiftSlotsPage />)
+    renderPage()
     const headings = screen.getAllByRole('heading', { level: 1 })
     expect(headings).toHaveLength(1)
     expect(headings[0]).toHaveTextContent('Shift slots')
@@ -75,7 +87,7 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
 
   describe('the list', () => {
     it('asks for the current slots only, by default', () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(mockUseGetShiftSlotsQuery).toHaveBeenCalledWith({ includeRemoved: false })
       expect(mockUseGetShiftSlotsQuery).not.toHaveBeenCalledWith({ includeRemoved: true })
     })
@@ -85,13 +97,13 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
       mockUseGetShiftSlotsQuery.mockReturnValue(
         slotsResult([3, 1, 0, 2].map((index) => currentSlots[index] as ShiftSlotAdminDto))
       )
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(dayTitles()).toEqual(['Monday', 'Friday', 'Sunday'])
       expect(screen.queryByText('Tuesday')).toBeNull()
     })
 
     it('shows each slot with its times on the 24 hour clock and its cap', () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       const [monday, friday, sunday] = dayCards() as [HTMLElement, HTMLElement, HTMLElement]
       const mondayRows = within(monday).getAllByRole('listitem')
       expect(mondayRows).toHaveLength(1)
@@ -105,30 +117,30 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
       expect(within(sunday).getAllByRole('listitem')[0]).toHaveTextContent('12:00 to 15:00 · 3 riders')
     })
 
-    it('gives each current slot Edit, Remove and History, named by day and start', () => {
-      render(<ShiftSlotsPage />)
-      expect(screen.getByRole('button', { name: 'Edit Friday 19:00' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Remove Friday 19:00' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'History of Friday 19:00' })).toBeInTheDocument()
+    it('gives each current slot Edit, Remove and History, named by day, start and end', () => {
+      renderPage()
+      expect(screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove Friday 19:00 to 23:00' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'History of Friday 19:00 to 23:00' })).toBeInTheDocument()
     })
 
     it('says so when there are no slots', () => {
       mockUseGetShiftSlotsQuery.mockReturnValue(slotsResult([]))
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.getByText('No shift slots yet.')).toBeInTheDocument()
       expect(screen.queryByRole('list')).toBeNull()
     })
 
     it('says it is loading', () => {
       mockUseGetShiftSlotsQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false })
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.getByText('Loading…')).toBeInTheDocument()
       expect(screen.queryByText('No shift slots yet.')).toBeNull()
     })
 
     it('says so in words when the slots cannot load, never "No shift slots yet."', () => {
       mockUseGetShiftSlotsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.getByText('Could not load the shift slots.')).toBeInTheDocument()
       expect(screen.queryByText('No shift slots yet.')).toBeNull()
     })
@@ -137,34 +149,34 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
   describe('the Shifts off notice', () => {
     it('shows on top when the config says Shifts are off, and the page still lets the admin prepare slots', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({ data: { shiftsEnabled: false } })
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.getByText(OFF_NOTICE)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Add slot' })).not.toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Edit Friday 19:00' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00' })).not.toBeDisabled()
     })
 
     it('treats a missing switch in a loaded config as off', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({ data: {} })
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.getByText(OFF_NOTICE)).toBeInTheDocument()
     })
 
     it('does not show when Shifts are on', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({ data: { shiftsEnabled: true } })
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.queryByText(OFF_NOTICE)).toBeNull()
     })
 
     it('does not show before the config has loaded', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({ data: undefined })
-      render(<ShiftSlotsPage />)
+      renderPage()
       expect(screen.queryByText(OFF_NOTICE)).toBeNull()
     })
   })
 
   describe('Show removed slots', () => {
     it('asks with includeRemoved: true once switched on, and back to false when off', () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       const toggle = screen.getByLabelText('Show removed slots')
       expect(toggle).toHaveAttribute('aria-checked', 'false')
 
@@ -177,7 +189,7 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     })
 
     it('shows a removed slot struck through and marked removed, with only History', () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       fireEvent.click(screen.getByLabelText('Show removed slots'))
 
       const tuesday = dayCards().find((card) => within(card).queryByText('Tuesday')) as HTMLElement
@@ -188,19 +200,19 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
 
       const buttons = within(row).getAllByRole('button')
       expect(buttons).toHaveLength(1)
-      expect(buttons[0]).toHaveAccessibleName('History of Tuesday 10:00')
+      expect(buttons[0]).toHaveAccessibleName('History of Tuesday 10:00 to 12:00')
       expect(within(row).queryByRole('button', { name: /^Edit/ })).toBeNull()
       expect(within(row).queryByRole('button', { name: /^Remove/ })).toBeNull()
 
       // Current slots keep their Edit and are not struck through.
-      const fridayRow = screen.getByRole('button', { name: 'Edit Friday 19:00' }).closest('li') as HTMLElement
+      const fridayRow = screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00' }).closest('li') as HTMLElement
       expect(fridayRow.querySelector('.line-through')).toBeNull()
     })
 
     it('a removed slot History opens its record', () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       fireEvent.click(screen.getByLabelText('Show removed slots'))
-      fireEvent.click(screen.getByRole('button', { name: 'History of Tuesday 10:00' }))
+      fireEvent.click(screen.getByRole('button', { name: 'History of Tuesday 10:00 to 12:00' }))
       expect(screen.getByRole('heading', { name: 'Slot history' })).toBeInTheDocument()
       expect(mockUseGetShiftSlotChangesQuery).toHaveBeenCalledWith({ id: 'tue-old' })
     })
@@ -208,7 +220,7 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
 
   describe('the dialogs', () => {
     it('Add slot opens the dialog in Add mode, empty', () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       fireEvent.click(screen.getByRole('button', { name: 'Add slot' }))
       const dialog = screen.getByRole('dialog')
       expect(within(dialog).getByRole('heading', { name: 'Add slot' })).toBeInTheDocument()
@@ -216,8 +228,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     })
 
     it('Edit opens the same dialog in Edit mode, filled with that slot', () => {
-      render(<ShiftSlotsPage />)
-      fireEvent.click(screen.getByRole('button', { name: 'Edit Friday 22:00' }))
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Edit Friday 22:00 to 24:00' }))
       const dialog = screen.getByRole('dialog')
       expect(within(dialog).getByRole('heading', { name: 'Edit slot' })).toBeInTheDocument()
       expect((within(dialog).getByLabelText('Day') as HTMLSelectElement).value).toBe('5')
@@ -227,8 +239,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     })
 
     it('Add after an Edit is back in Add mode and empty', async () => {
-      render(<ShiftSlotsPage />)
-      fireEvent.click(screen.getByRole('button', { name: 'Edit Friday 19:00' }))
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00' }))
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
@@ -239,8 +251,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
 
     it('Edit saves the update for that slot id', async () => {
       mockUpdateSlot.mockReturnValue({ unwrap: () => Promise.resolve({}) })
-      render(<ShiftSlotsPage />)
-      fireEvent.click(screen.getByRole('button', { name: 'Edit Monday 07:00' }))
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Edit Monday 07:00 to 11:00' }))
       fireEvent.change(document.getElementById('shift-slot-cap') as HTMLInputElement, { target: { value: '5' } })
       fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
       await waitFor(() =>
@@ -253,8 +265,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
 
     it('Remove asks first, for that slot', async () => {
       mockRemoveSlot.mockReturnValue({ unwrap: () => Promise.resolve({}) })
-      render(<ShiftSlotsPage />)
-      fireEvent.click(screen.getByRole('button', { name: 'Remove Sunday 12:00' }))
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Sunday 12:00 to 15:00' }))
       const ask = screen.getByRole('alertdialog')
       expect(ask).toHaveTextContent('Sunday 12:00 to 15:00, 3 riders')
       expect(mockRemoveSlot).not.toHaveBeenCalled()
@@ -264,8 +276,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     })
 
     it('History opens the record of that slot', () => {
-      render(<ShiftSlotsPage />)
-      fireEvent.click(screen.getByRole('button', { name: 'History of Friday 19:00' }))
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'History of Friday 19:00 to 23:00' }))
       expect(screen.getByRole('heading', { name: 'Slot history' })).toBeInTheDocument()
       expect(mockUseGetShiftSlotChangesQuery).toHaveBeenCalledWith({ id: 'fri-eve' })
     })
@@ -273,7 +285,7 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
 
   describe('focus returns to the button that opened a dialog', () => {
     it('to Add slot after the Add dialog closes', async () => {
-      render(<ShiftSlotsPage />)
+      renderPage()
       const add = screen.getByRole('button', { name: 'Add slot' })
       fireEvent.click(add)
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
@@ -284,8 +296,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     })
 
     it('to that row Edit after the Edit dialog closes', async () => {
-      render(<ShiftSlotsPage />)
-      const edit = screen.getByRole('button', { name: 'Edit Friday 22:00' })
+      renderPage()
+      const edit = screen.getByRole('button', { name: 'Edit Friday 22:00 to 24:00' })
       fireEvent.click(edit)
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
       await waitFor(() => {
@@ -295,14 +307,78 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     })
 
     it('to that row Remove after the Remove question closes', async () => {
-      render(<ShiftSlotsPage />)
-      const remove = screen.getByRole('button', { name: 'Remove Monday 07:00' })
+      renderPage()
+      const remove = screen.getByRole('button', { name: 'Remove Monday 07:00 to 11:00' })
       fireEvent.click(remove)
       fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }))
       await waitFor(() => {
         expect(screen.queryByRole('alertdialog')).toBeNull()
         expect(document.activeElement).toBe(remove)
       })
+    })
+  })
+
+  describe('focus falls back to Add slot when the opener has left the page', () => {
+    it('after a Remove (the row is gone from the list)', async () => {
+      mockRemoveSlot.mockImplementation(() => ({
+        unwrap: () => {
+          // The refetched list no longer has the removed slot.
+          mockUseGetShiftSlotsQuery.mockReturnValue(slotsResult(currentSlots.filter((s) => s.id !== 'sun-noon')))
+          return Promise.resolve({})
+        },
+      }))
+      renderPage()
+      const add = screen.getByRole('button', { name: 'Add slot' })
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Sunday 12:00 to 15:00' }))
+      fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Remove Sunday 12:00 to 15:00' })).toBeNull()
+        expect(document.activeElement).toBe(add)
+      })
+    })
+
+    it('after an Edit that moved the slot to another day (its Edit button is detached)', async () => {
+      mockUpdateSlot.mockImplementation(() => ({
+        unwrap: () => {
+          // Friday 19:00 moved to Saturday: a new row, and the old Edit button leaves the page.
+          mockUseGetShiftSlotsQuery.mockReturnValue(
+            slotsResult(currentSlots.map((s) => (s.id === 'fri-eve' ? { ...s, weekday: 6 } : s)))
+          )
+          return Promise.resolve({})
+        },
+      }))
+      renderPage()
+      const add = screen.getByRole('button', { name: 'Add slot' })
+      const oldEdit = screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00' })
+      fireEvent.click(oldEdit)
+      fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Day'), { target: { value: '6' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(oldEdit.isConnected).toBe(false)
+        expect(screen.getByRole('button', { name: 'Edit Saturday 19:00 to 23:00' })).toBeInTheDocument()
+        expect(document.activeElement).toBe(add)
+      })
+    })
+  })
+
+  describe('a 409 from a dialog on the page', () => {
+    it('reads the slots again (an invalidateTags for ShiftSlots), and the dialog stays with the sentence', async () => {
+      const dispatchSpy = jest.spyOn(store, 'dispatch')
+      mockRemoveSlot.mockReturnValue({
+        unwrap: () => Promise.reject({ statusCode: 409, message: 'This slot just changed. Look again.' }),
+      })
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Monday 07:00 to 11:00' }))
+      fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('This slot just changed. Look again.')
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'api/invalidateTags', payload: ['ShiftSlots'] })
+      )
     })
   })
 
@@ -329,8 +405,8 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     afterEach(() => computedStyleSpy.mockRestore())
 
     it('keeps the "Edit slot" title while it animates closed', () => {
-      render(<ShiftSlotsPage />)
-      fireEvent.click(screen.getByRole('button', { name: 'Edit Friday 19:00' }))
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Edit Friday 19:00 to 23:00' }))
       expect(screen.getByRole('heading', { name: 'Edit slot' })).toBeInTheDocument()
 
       animationName = 'exit'

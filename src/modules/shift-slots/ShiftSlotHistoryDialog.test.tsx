@@ -116,4 +116,26 @@ describe('ShiftSlotHistoryDialog (spec 0026, AC-3)', () => {
     renderIt()
     expect(screen.getByText('Could not load the history.')).toBeInTheDocument()
   })
+
+  it('says "No changes recorded." for an empty record, and lists nothing', () => {
+    mockUseChanges.mockReturnValue({ data: [], isLoading: false, isError: false })
+    renderIt()
+    expect(screen.getByText('No changes recorded.')).toBeInTheDocument()
+    expect(screen.queryByRole('list')).toBeNull()
+  })
+
+  it('does not say "No changes recorded." while loading, on an error, or with changes', () => {
+    mockUseChanges.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    const first = renderIt()
+    expect(screen.queryByText('No changes recorded.')).toBeNull()
+    first.unmount()
+
+    mockUseChanges.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    const second = renderIt()
+    expect(screen.queryByText('No changes recorded.')).toBeNull()
+    second.unmount()
+
+    renderIt()
+    expect(screen.queryByText('No changes recorded.')).toBeNull()
+  })
 })
