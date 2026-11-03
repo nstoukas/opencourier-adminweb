@@ -19,6 +19,8 @@ interface RotateCredentialsDialogProps {
   onOpenChange: (open: boolean) => void
   partnerId: string
   partnerName: string
+  // The button that opened the dialog: Radix does not give it focus back here, so we do.
+  returnFocusTo?: React.RefObject<HTMLElement>
 }
 
 // Modal dialog for rotating a restaurant's login password.
@@ -27,6 +29,7 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
   onOpenChange,
   partnerId,
   partnerName,
+  returnFocusTo,
 }) => {
   const { toast } = useToast()
   const [rotatePassword, { isLoading }] = useRotatePartnerPasswordMutation()
@@ -58,7 +61,15 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onCloseAutoFocus={(event) => {
+          if (returnFocusTo?.current) {
+            event.preventDefault()
+            returnFocusTo.current.focus()
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Set New Password for {partnerName}</DialogTitle>
           <DialogDescription>
@@ -106,7 +117,7 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
           </Button>
           <Button type="button" disabled={!isValid || isLoading} onClick={handleRotate}>
             {isLoading ? <Spinner className="mr-2" /> : null}
-            Rotate Password
+            Set New Password
           </Button>
         </DialogFooter>
       </DialogContent>

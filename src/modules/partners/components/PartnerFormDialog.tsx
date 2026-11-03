@@ -103,7 +103,8 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
     try {
       const saved = await createPartner(buildRes.value).unwrap()
       // No toast: the Restaurant Added panel is the confirmation (spec 0024, AC-8).
-      setCreated({ name: saved.name, email: buildRes.value.email, password: buildRes.value.password })
+      // The SDK's nullability is unreliable here, so the typed name stands in if the answer lacks one.
+      setCreated({ name: saved.name || buildRes.value.name, email: buildRes.value.email, password: buildRes.value.password })
     } catch (err: any) {
       toast({
         title: 'Failed to create restaurant',

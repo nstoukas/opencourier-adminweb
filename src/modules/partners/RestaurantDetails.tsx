@@ -50,8 +50,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
   const { goToPartners, goToDeliveryDetails } = useAdminPageNavigator()
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [rotateDialogOpen, setRotateDialogOpen] = useState(false)
-  // The Edit Details button, which gets focus back when its dialog closes.
+  // The Edit Details and Set New Password buttons, which get focus back when their dialog closes.
   const editButtonRef = useRef<HTMLButtonElement>(null)
+  const passwordButtonRef = useRef<HTMLButtonElement>(null)
 
   // 0 while the tab is in the background: RTK Query does not poll at 0.
   const pageVisible = usePageVisible()
@@ -70,8 +71,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
     { skip: !partner, pollingInterval },
   )
 
-  // The h1 is there in every state ("Restaurant" while loading or on an error).
-  if (partnerQuery.isLoading || (!partner && !partnerQuery.isError && partnerId)) {
+  // The h1 is there in every state ("Restaurant" while loading or on an error). No id yet means
+  // Next.js has not read the URL: still loading, not "not found" (row 91 review).
+  if (!partnerId || partnerQuery.isLoading || (!partner && !partnerQuery.isError)) {
     return (
       <>
         <PageHeader title="Restaurant" />
@@ -90,8 +92,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
 
   const pickup = partner.pickupAddress
   // The server's own count of the restaurant's deliveries that have not ended (AC-3).
-  const liveCount = liveQuery.data?.pagination?.totalItems
-  const recent = recentQuery.data?.data ?? []
+  // `currentData`, as for the restaurant: only this restaurant's answer, never the previous one's.
+  const liveCount = liveQuery.currentData?.pagination?.totalItems
+  const recent = recentQuery.currentData?.data ?? []
 
   return (
     <>
@@ -114,7 +117,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
                 See its orders
               </Link>
             </Button>
-            <Button type="button" variant="outline" onClick={() => setRotateDialogOpen(true)}>
+            <Button ref={passwordButtonRef} type="button" variant="outline" onClick={() => setRotateDialogOpen(true)}>
               <Key aria-hidden="true" className="mr-2 h-4 w-4" />
               Set New Password
             </Button>
@@ -221,6 +224,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         onOpenChange={setRotateDialogOpen}
         partnerId={partner.id}
         partnerName={partner.name}
+        returnFocusTo={passwordButtonRef}
       />
     </>
   )
