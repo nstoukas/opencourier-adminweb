@@ -10,6 +10,7 @@ import { openSheet, selectSheets } from '../../modules/shared/slices/sheetManage
 import { DefaultLayout } from './DefaultLayout'
 import { isActivePath } from './AdminSidebar'
 import { PageHeader } from './PageHeader'
+import { EAdminRoutes } from '../../hooks/useAdminPageNavigator'
 
 // Mutable pathname mock for next/navigation
 let currentPathname = '/'
@@ -152,6 +153,22 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(screen.getByText('Co-op')).toBeInTheDocument()
       const configLink = screen.getByRole('link', { name: /Settings/i })
       expect(configLink).toHaveAttribute('href', '/instance-configuration')
+    })
+
+    // Spec 0026 (row 77): the Co-op group gains "Shift slots" after Settings.
+    it('lists Settings then "Shift slots" (/shift-slots) in the Co-op group, and marks Shift slots active there', () => {
+      currentPathname = '/shift-slots'
+      renderLayout()
+
+      const coop = screen.getByRole('list', { name: 'Co-op' })
+      const links = within(coop).getAllByRole('link')
+      expect(links.map((link) => link.textContent?.trim())).toEqual(['Settings', 'Shift slots'])
+      expect(links[1]).toHaveAttribute('href', '/shift-slots')
+      expect(EAdminRoutes.SHIFT_SLOTS).toBe('/shift-slots')
+
+      expect(links[1]).toHaveAttribute('aria-current', 'page')
+      expect(links[0]).not.toHaveAttribute('aria-current')
+      expect(screen.getAllByRole('link', { name: /Shift slots/ })).toHaveLength(1)
     })
 
     it('marks current page with aria-current="page" and data-active="true"', () => {

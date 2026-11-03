@@ -66,6 +66,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     restaurantHistoryDays: '30',
     sosLocationRetentionDays: '30',
     dispatchPhoneNumber: '+302421012345',
+    shiftsEnabled: false,
+    shiftDropNoticeHours: '12',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {
@@ -779,6 +781,84 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const imgChange = [{ key: 'imageUrl', label: 'Logo image URL', from: '', to: 'bad-img' }]
       const imgEdited: SettingsForm = { ...baseSavedForm, imageUrl: 'bad-img' }
       expect(blockers(imgChange as any, imgEdited)).toContain('Logo image URL is not a valid URL')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Shifts (spec 0026, row 77, AC-5): the switch and the drop notice
+  // ---------------------------------------------------------------------------
+  describe('Shift settings (spec 0026, AC-5)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('SETTINGS has shiftsEnabled as a switch labelled "Shifts" and shiftDropNoticeHours as a number', () => {
+      const enabled = SETTINGS.find((s) => s.key === 'shiftsEnabled')
+      expect(enabled).toMatchObject({ kind: 'switch', label: 'Shifts' })
+      expect(enabled?.details).toBeFalsy()
+      const notice = SETTINGS.find((s) => s.key === 'shiftDropNoticeHours')
+      expect(notice).toMatchObject({ kind: 'number', label: 'Notice to drop a shift, in hours' })
+      expect(notice?.details).toBeFalsy()
+      expect(labelOf('shiftDropNoticeHours')).toBe('Notice to drop a shift, in hours')
+    })
+
+    it('formFromSettings keeps the switch as a boolean (false included) and the notice as text (0 included)', () => {
+      const on = formFromSettings({ shiftsEnabled: true, shiftDropNoticeHours: 12 })
+      expect(on.shiftsEnabled).toBe(true)
+      expect(on.shiftDropNoticeHours).toBe('12')
+
+      const off = formFromSettings({ shiftsEnabled: false, shiftDropNoticeHours: 0 })
+      expect(off.shiftsEnabled).toBe(false)
+      expect(off.shiftDropNoticeHours).toBe('0')
+    })
+
+    it('formFromSettings leaves the switch unknown (null) and the notice empty when missing, as EMPTY_FORM does', () => {
+      const form = formFromSettings({ shiftsEnabled: null })
+      expect(form.shiftsEnabled).toBeNull()
+      expect(form.shiftDropNoticeHours).toBe('')
+      expect(EMPTY_FORM.shiftsEnabled).toBeNull()
+      expect(EMPTY_FORM.shiftDropNoticeHours).toBe('')
+    })
+
+    it('pendingChanges shows the switch as Off → On and the notice 12 → 0', () => {
+      const changes = pendingChanges(baseSavedForm, { ...baseSavedForm, shiftsEnabled: true, shiftDropNoticeHours: '0' })
+      expect(changes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: 'shiftsEnabled', label: 'Shifts', from: 'Off', to: 'On' }),
+          expect.objectContaining({ key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', from: '12', to: '0' }),
+        ])
+      )
+      expect(changes).toHaveLength(2)
+    })
+
+    it('blocks Save when the changed notice box is emptied', () => {
+      const edited = { ...baseSavedForm, shiftDropNoticeHours: '' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(blockers(changes, edited).join(' ')).toContain('Notice to drop a shift, in hours')
+    })
+
+    it('savePayload sends shiftDropNoticeHours as a number (0 as 0) and shiftsEnabled as a boolean', () => {
+      const edited: SettingsForm = { ...baseSavedForm, shiftsEnabled: true, shiftDropNoticeHours: '24' }
+      const payload = savePayload(pendingChanges(baseSavedForm, edited), edited, savedDetails)
+      expect(payload).toEqual({ shiftsEnabled: true, shiftDropNoticeHours: 24 })
+      expect(typeof payload.shiftDropNoticeHours).toBe('number')
+      expect(typeof payload.shiftsEnabled).toBe('boolean')
+
+      const savedOn: SettingsForm = { ...baseSavedForm, shiftsEnabled: true }
+      const editedOff: SettingsForm = { ...savedOn, shiftsEnabled: false, shiftDropNoticeHours: '0' }
+      const payloadOff = savePayload(pendingChanges(savedOn, editedOff), editedOff, savedDetails)
+      expect(payloadOff).toEqual({ shiftsEnabled: false, shiftDropNoticeHours: 0 })
+      expect(payloadOff).not.toHaveProperty('details')
+    })
+
+    it('successMessage adds the shifts sentence for either setting, once', () => {
+      expect(successMessage([{ key: 'shiftsEnabled', label: 'Shifts', from: 'Off', to: 'On' }] as any)).toBe(
+        'Saved: Shifts. Riders see nothing of shifts until shift booking is built.'
+      )
+      expect(
+        successMessage([
+          { key: 'shiftsEnabled', label: 'Shifts', from: 'Off', to: 'On' },
+          { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', from: '12', to: '24' },
+        ] as any)
+      ).toBe('Saved: Shifts, Notice to drop a shift, in hours. Riders see nothing of shifts until shift booking is built.')
     })
   })
 })
