@@ -10,15 +10,18 @@ import type { PartnerAdminDto } from '@/backend-admin-sdk'
 import { formatPickupAddressForDisplay } from '@/utils/partnerPickupAddress'
 import { memberSince } from '@/utils/memberSince'
 import { PartnerFormDialog } from '@/modules/partners/components/PartnerFormDialog'
+import { RestaurantSearch } from '@/modules/partners/RestaurantSearch'
 import { Plus } from '@phosphor-icons/react'
 
-// The restaurants list (spec 0024, AC-1). Only what the backend sends today: no live or today
-// figures and no search yet (they need the backend first, row 106 and the deferred list).
+// The restaurants list (spec 0024, AC-1), with the board's search (row 106). Only what the backend
+// sends today: no live or today figures (they need the backend first, see the deferred list).
 const PartnersPage: NextPage = () => {
   const { goToPartnerDetails } = useAdminPageNavigator()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   // The Add Restaurant button, which gets focus back when the dialog closes.
   const addButtonRef = useRef<HTMLButtonElement>(null)
+  // The search text, sent to the backend (row 106).
+  const [search, setSearch] = useState<string | undefined>(undefined)
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -82,6 +85,7 @@ const PartnersPage: NextPage = () => {
   )
 
   const getPartnersResponse = useGetPartnersQuery({
+    search,
     page: pagination.pageIndex + 1,
     perPage: pagination.pageSize,
   })
@@ -96,6 +100,14 @@ const PartnersPage: NextPage = () => {
             Add Restaurant
           </Button>
         }
+      />
+
+      <RestaurantSearch
+        onSearchChange={(next) => {
+          setSearch(next)
+          // A new search starts again from the first page.
+          setPagination({ pageSize: DEFAULT_PAGE_SIZE, pageIndex: 0 })
+        }}
       />
 
       <div>
