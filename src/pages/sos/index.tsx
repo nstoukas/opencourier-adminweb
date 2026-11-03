@@ -113,7 +113,7 @@ const SosPage: NextPageWithLayout = () => {
         )}
         {current.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : current.isError && !current.data ? null : (current.data ?? []).length === 0 ? (
+        ) : current.isError && (current.data ?? []).length === 0 ? null : (current.data ?? []).length === 0 ? (
           <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
             No rider has an open SOS.
           </p>
