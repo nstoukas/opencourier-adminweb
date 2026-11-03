@@ -14,6 +14,8 @@ describe('PartnerSummaryCard component', () => {
     phoneNumber: null, // missing phone
     webhookUrl: null, // missing webhook
     logo: null,
+    // Spec 0023: every partner now carries a usual prep time.
+    usualPrepMinutes: 15,
     userId: 'user-123',
     pickupAddress: {
       id: 'loc-123',

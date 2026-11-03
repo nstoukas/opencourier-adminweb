@@ -55,6 +55,8 @@ const samplePartnerDto = {
   phoneNumber: '+302421012345',
   logo: 'https://example.com/logo.png',
   webhookUrl: 'https://example.com/webhook',
+  // Spec 0023: not the create default (15), so the edit box provably starts at the partner's value.
+  usualPrepMinutes: 25,
   userId: 'u1',
   email: 'nikou@volos.test',
   pickupAddress: {
@@ -126,6 +128,8 @@ describe('PartnerFormDialog component', () => {
         name: 'Souvlaki tou Nikou',
         email: 'nikou@volos.test',
         password: 'securepassword123',
+        // Spec 0023: the create form starts at 15 and sends it.
+        usualPrepMinutes: 15,
         pickupAddress: {
           street: 'Ermou',
           houseNumber: '120',
@@ -325,5 +329,82 @@ describe('PartnerFormDialog component', () => {
 
     expect(confirmSpy).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
+  })
+
+  // Spec 0023 (AC-9): "Usual prep time (minutes)" on create and edit.
+  describe('usual prep time', () => {
+    const PREP_SENTENCE = 'The usual prep time is a whole number of minutes from 0 to 90.'
+
+    const fillCreateRequired = () => {
+      fireEvent.change(screen.getByLabelText(/restaurant name/i), { target: { value: 'Nosh' } })
+      fireEvent.change(screen.getByLabelText(/login email/i), { target: { value: 'nosh@volos.test' } })
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'longenough' } })
+    }
+
+    const renderEdit = (partner: PartnerAdminDto = samplePartnerDto) =>
+      render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="update" partner={partner} />)
+
+    it('create shows the box starting at 15', () => {
+      render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
+      expect(screen.getByLabelText('Usual prep time (minutes)')).toHaveValue('15')
+    })
+
+    it('create sends a changed usual prep time as a number', async () => {
+      mockCreatePartnerMutation.mockReturnValue({ unwrap: () => Promise.resolve(samplePartnerDto) })
+      render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
+      fillCreateRequired()
+      fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value: '30' } })
+      fireEvent.click(screen.getByRole('button', { name: /create restaurant/i }))
+
+      await waitFor(() => expect(mockCreatePartnerMutation).toHaveBeenCalledTimes(1))
+      expect(mockCreatePartnerMutation.mock.calls[0][0].usualPrepMinutes).toBe(30)
+    })
+
+    it('create refuses 91 with the sentence and does not call the API', async () => {
+      render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
+      fillCreateRequired()
+      fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value: '91' } })
+      fireEvent.click(screen.getByRole('button', { name: /create restaurant/i }))
+
+      expect(await screen.findByText(`• ${PREP_SENTENCE}`)).toBeInTheDocument()
+      expect(mockCreatePartnerMutation).not.toHaveBeenCalled()
+    })
+
+    it("edit starts the box at the partner's value", () => {
+      renderEdit()
+      expect(screen.getByLabelText('Usual prep time (minutes)')).toHaveValue('25')
+    })
+
+    it('edit does not send usualPrepMinutes when it was not changed', async () => {
+      mockUpdatePartnerMutation.mockReturnValue({ unwrap: () => Promise.resolve(samplePartnerDto) })
+      renderEdit()
+      fireEvent.change(screen.getByLabelText(/restaurant name/i), { target: { value: 'Renamed' } })
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => expect(mockUpdatePartnerMutation).toHaveBeenCalledTimes(1))
+      expect(mockUpdatePartnerMutation).toHaveBeenCalledWith({ id: 'p1', data: { name: 'Renamed' } })
+    })
+
+    it('edit sends only the changed usual prep time, as a number', async () => {
+      mockUpdatePartnerMutation.mockReturnValue({ unwrap: () => Promise.resolve(samplePartnerDto) })
+      renderEdit()
+      fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value: '40' } })
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => expect(mockUpdatePartnerMutation).toHaveBeenCalledTimes(1))
+      expect(mockUpdatePartnerMutation).toHaveBeenCalledWith({ id: 'p1', data: { usualPrepMinutes: 40 } })
+    })
+
+    it.each(['', '91', '-1', '1.5', 'abc'])(
+      'edit refuses %j with the sentence and does not call the API',
+      async (value) => {
+        renderEdit()
+        fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value } })
+        fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(await screen.findByText(`• ${PREP_SENTENCE}`)).toBeInTheDocument()
+        expect(mockUpdatePartnerMutation).not.toHaveBeenCalled()
+      }
+    )
   })
 })
