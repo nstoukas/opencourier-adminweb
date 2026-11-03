@@ -60,6 +60,15 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### Floor and doorbell on the delivery page (scope row 99, from spec 0016): `3632841`, `f4a12b4`
+Built on the branch `feat/pin-corrections-shown` and merged on 3 November.
+- **Their own rows.** The delivery page's Drop off card shows Floor and Doorbell as fields (a dash when
+  empty); they used to be readable only inside the composed note. The hand edited SDK reads and writes
+  both, and a missing field reads as null.
+- **The pin correction has a name.** The event type copy learns `DROPOFF_POINT_CORRECTED`; the timeline
+  says "Dropoff point corrected". It is not a status change, so `STATE_MACHINE` does not list it.
+- 13 tests by a fresh Claude subagent while agy was out of quota (1245 pass); put back by hand. Reviewed by Fable.
+
 ### The hand back window, and "Handed back" on the timeline (scope row 71, spec 0020): `902602e` to `0080c0e`
 Needs the backend's row 71.
 - **Instance configuration, Offers to riders**: "Seconds a rider can hand back an order for free"
