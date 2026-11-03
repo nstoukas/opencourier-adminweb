@@ -60,6 +60,12 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### Search on the restaurants list (scope row 106): `48c5ef8`, `2d8fb8b`
+Built on the branch `feat/restaurant-list-search` and merged on 3 November, with the backend half.
+- A "Name, street or email" box. It ignores case and accents, sends 300 ms after the last key, and starts
+  again from page 1. The hand edited SDK sends `search`.
+- Tests by a fresh Claude subagent while agy was out of quota: 1319 pass; put back by hand. Reviewed by Fable.
+
 ### The restaurants list, a restaurant's page and Add a restaurant (scope row 91, spec 0024): `9973a57` to `eb60c94`
 Built on the branch `feat/restaurants-redesign` and merged on 3 November. No backend change.
 - **List.** Each restaurant shows its address under its name, or "No pickup address". The other columns are
