@@ -511,6 +511,19 @@ describe('PartnerFormDialog (spec 0024, AC-7 to AC-9)', () => {
       expect(screen.queryByLabelText('Password')).toBeNull()
     })
 
+    it('falls back to the typed name when the response has an empty name (row 91 review)', async () => {
+      render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
+
+      resolveCreateWith('')
+      fillAndSubmitCreate({ name: '  Typed Name  ' })
+
+      expect(await screen.findByRole('heading', { name: 'Restaurant Added' })).toBeInTheDocument()
+      // The name as sent (trimmed by partnerFormInput.ts).
+      expect(
+        screen.getByText('Typed Name can start sending deliveries. Give them these details. The password is shown only now.'),
+      ).toBeInTheDocument()
+    })
+
     it('Copy All writes "Email: <e>\\nPassword: <p>" to the clipboard, then says "Copied"', async () => {
       const writeText = jest.fn().mockResolvedValue(undefined)
       setClipboard({ writeText })

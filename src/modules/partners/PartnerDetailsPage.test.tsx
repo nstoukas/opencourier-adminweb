@@ -69,8 +69,22 @@ jest.mock('./components/PartnerFormDialog', () => ({
     open ? <div data-testid="mock-partner-form-dialog" data-mode={mode} /> : null,
 }))
 jest.mock('./components/RotateCredentialsDialog', () => ({
-  RotateCredentialsDialog: ({ open, partnerName }: { open: boolean; partnerName: string }) =>
-    open ? <div data-testid="mock-rotate-dialog" data-name={partnerName} /> : null,
+  RotateCredentialsDialog: ({
+    open,
+    partnerName,
+    returnFocusTo,
+  }: {
+    open: boolean
+    partnerName: string
+    returnFocusTo?: { current: HTMLElement | null }
+  }) =>
+    open ? (
+      <div
+        data-testid="mock-rotate-dialog"
+        data-name={partnerName}
+        data-return-focus-to={returnFocusTo?.current?.textContent ?? ''}
+      />
+    ) : null,
 }))
 
 const mockUseGetPartnerQuery = useGetPartnerQuery as jest.Mock
@@ -102,13 +116,15 @@ const basePartner = {
   updatedAt: new Date('2026-03-15T10:00:00Z'),
 } as unknown as PartnerAdminDto
 
-type QueryResult = { data?: any; isLoading: boolean; isError: boolean }
+// RTK Query's `data` keeps the last answer for ANY argument; `currentData` is the answer for these
+// arguments only. The page reads `currentData`, so the fixtures set it (and `data` only to show it is ignored).
+type QueryResult = { currentData?: any; data?: any; isLoading: boolean; isFetching?: boolean; isError: boolean }
 
 describe('Partner details page (spec 0017, AC-7: "See its orders" link)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockUsePageVisible.mockReturnValue(true)
-    mockUseGetDeliveriesQuery.mockReturnValue({ data: undefined, isLoading: false, isError: false })
+    mockUseGetDeliveriesQuery.mockReturnValue({ currentData: undefined, isLoading: false, isError: false })
     mockRouter = {
       pathname: '/partners/[partnerId]',
       query: { partnerId: 'partner-abc-123' },
@@ -195,11 +211,11 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       query: { partnerId: 'partner-abc-123' },
       push: jest.fn(),
     }
-    liveResult = { data: { data: [], pagination: { totalItems: 3 } }, isLoading: false, isError: false }
-    recentResult = { data: { data: [], pagination: { totalItems: 0 } }, isLoading: false, isError: false }
+    liveResult = { currentData: { data: [], pagination: { totalItems: 3 } }, isLoading: false, isError: false }
+    recentResult = { currentData: { data: [], pagination: { totalItems: 0 } }, isLoading: false, isError: false }
     // A skipped query answers nothing, as RTK Query does; otherwise the active one is told apart by its state.
     mockUseGetDeliveriesQuery.mockImplementation((args: any, options: any) => {
-      if (options?.skip) return { data: undefined, isLoading: false, isError: false }
+      if (options?.skip) return { currentData: undefined, isLoading: false, isError: false }
       return args?.state === 'active' ? liveResult : recentResult
     })
     givenPartner(basePartner)
@@ -236,6 +252,8 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Set New Password' }))
       expect(screen.getByTestId('mock-rotate-dialog')).toHaveAttribute('data-name', 'Souvlaki Bar')
+      // Focus goes back to the Set New Password button when the dialog closes.
+      expect(screen.getByTestId('mock-rotate-dialog')).toHaveAttribute('data-return-focus-to', 'Set New Password')
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit Details' }))
       expect(screen.getByTestId('mock-partner-form-dialog')).toHaveAttribute('data-mode', 'update')
@@ -260,13 +278,35 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       expect(screen.getByText('Restaurant not found or could not be loaded.')).toBeInTheDocument()
       expect(screen.queryByText('Live now')).toBeNull()
     })
+    it('with no partnerId yet (the router has not read the URL) shows "Loading…", never "not found" (row 91 review)', () => {
+      mockRouter = { pathname: '/partners/[partnerId]', query: {}, push: jest.fn() }
+      // The restaurant query is skipped, so it is neither loading nor in error.
+      givenPartner(undefined, { isLoading: false, isError: false })
+
+      render(<PartnerDetailsPage />)
+
+      expect(screen.getByRole('heading', { level: 1, name: 'Restaurant' })).toBeInTheDocument()
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
+      expect(screen.queryByText('Restaurant not found or could not be loaded.')).toBeNull()
+      expect(mockUseGetPartnerQuery).toHaveBeenCalledWith({ id: '' }, { skip: true })
+    })
+
+    it('with no partnerId, says "Loading…" even if the skipped query still reports an earlier error', () => {
+      mockRouter = { pathname: '/partners/[partnerId]', query: {}, push: jest.fn() }
+      givenPartner(undefined, { isLoading: false, isError: true })
+
+      render(<PartnerDetailsPage />)
+
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
+      expect(screen.queryByText('Restaurant not found or could not be loaded.')).toBeNull()
+    })
   })
 
   describe('AC-3: Live now', () => {
     it('shows the server count (pagination.totalItems) from the active query, never the length of its page', () => {
       // One row on the page (perPage 1) but 3 in total: the card must say 3.
       liveResult = {
-        data: { data: [delivery({ id: 'live-1' })], pagination: { totalItems: 3 } },
+        currentData: { data: [delivery({ id: 'live-1' })], pagination: { totalItems: 3 } },
         isLoading: false,
         isError: false,
       }
@@ -282,7 +322,7 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
     })
 
     it('shows 0 when the total is 0', () => {
-      liveResult = { data: { data: [], pagination: { totalItems: 0 } }, isLoading: false, isError: false }
+      liveResult = { currentData: { data: [], pagination: { totalItems: 0 } }, isLoading: false, isError: false }
 
       render(<PartnerDetailsPage />)
 
@@ -290,14 +330,30 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
     })
 
     it('shows "—" while loading and "Could not load" on an error', () => {
-      liveResult = { data: undefined, isLoading: true, isError: false }
+      liveResult = { currentData: undefined, isLoading: true, isError: false }
       const { unmount } = render(<PartnerDetailsPage />)
       expect(screen.getByTestId('live-now-count')).toHaveTextContent(/^—$/)
       unmount()
 
-      liveResult = { data: undefined, isLoading: false, isError: true }
+      liveResult = { currentData: undefined, isLoading: false, isError: true }
       render(<PartnerDetailsPage />)
       expect(screen.getByTestId('live-now-count')).toHaveTextContent('Could not load')
+    })
+
+    it('ignores `data` from another restaurant: with no currentData it shows "—", not the old count (row 91 review)', () => {
+      // What RTK Query gives while a new id is fetched: the previous answer in `data`, nothing in `currentData`.
+      liveResult = {
+        data: { data: [delivery({ id: 'old-live' })], pagination: { totalItems: 7 } },
+        currentData: undefined,
+        isLoading: false,
+        isFetching: true,
+        isError: false,
+      }
+
+      render(<PartnerDetailsPage />)
+
+      expect(screen.getByTestId('live-now-count')).toHaveTextContent(/^—$/)
+      expect(screen.queryByText('7')).toBeNull()
     })
 
     it('has no link of its own', () => {
@@ -426,7 +482,7 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
         dropoffName: '',
         createdAt: new Date('2026-10-30T09:15:00.000Z'),
       })
-      recentResult = { data: { data: [withRef, noCustomer] }, isLoading: false, isError: false }
+      recentResult = { currentData: { data: [withRef, noCustomer] }, isLoading: false, isError: false }
 
       render(<PartnerDetailsPage />)
 
@@ -453,6 +509,38 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       expect(mockGoToDeliveryDetails).toHaveBeenCalledWith('del-recent-123456')
     })
 
+    it('ignores `data` from another restaurant: with no currentData its rows are not shown (row 91 review)', () => {
+      recentResult = {
+        data: { data: [delivery({ id: 'del-oldrest-999999', orderReference: 'OLD-1', dropoffName: 'Previous Customer' })] },
+        currentData: undefined,
+        isLoading: false,
+        isFetching: true,
+        isError: false,
+      }
+
+      render(<PartnerDetailsPage />)
+
+      expect(screen.queryByRole('link', { name: /OLD-1/ })).toBeNull()
+      expect(screen.queryByText('Previous Customer')).toBeNull()
+      const card = screen.getByText('Recent deliveries').closest('.min-w-0') as HTMLElement
+      expect(within(card).queryAllByRole('listitem')).toHaveLength(0)
+    })
+
+    it('shows "Loading…", not the old rows, on a first load that still has `data` from another restaurant', () => {
+      recentResult = {
+        data: { data: [delivery({ id: 'del-oldrest-999999', orderReference: 'OLD-1' })] },
+        currentData: undefined,
+        isLoading: true,
+        isError: false,
+      }
+
+      render(<PartnerDetailsPage />)
+
+      const card = screen.getByText('Recent deliveries').closest('.min-w-0') as HTMLElement
+      expect(within(card).getByText('Loading…')).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /OLD-1/ })).toBeNull()
+    })
+
     it('says "No deliveries yet" when there are none', () => {
       render(<PartnerDetailsPage />)
 
@@ -460,13 +548,13 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
     })
 
     it('says "Loading…" while loading and "Could not load deliveries." on an error', () => {
-      recentResult = { data: undefined, isLoading: true, isError: false }
+      recentResult = { currentData: undefined, isLoading: true, isError: false }
       const { unmount } = render(<PartnerDetailsPage />)
       const card = screen.getByText('Recent deliveries').closest('.min-w-0') as HTMLElement
       expect(within(card).getByText('Loading…')).toBeInTheDocument()
       unmount()
 
-      recentResult = { data: undefined, isLoading: false, isError: true }
+      recentResult = { currentData: undefined, isLoading: false, isError: true }
       render(<PartnerDetailsPage />)
       expect(screen.getByText('Could not load deliveries.')).toBeInTheDocument()
       expect(screen.queryByText('No deliveries yet')).toBeNull()

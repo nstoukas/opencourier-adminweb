@@ -29,7 +29,7 @@ describe('RotateCredentialsDialog component', () => {
       />
     )
 
-    const submitBtn = screen.getByRole('button', { name: /rotate password/i })
+    const submitBtn = screen.getByRole('button', { name: /^set new password$/i })
     expect(submitBtn).toBeDisabled()
 
     const newPwInput = screen.getByLabelText('New password')
@@ -74,7 +74,7 @@ describe('RotateCredentialsDialog component', () => {
       target: { value: 'newpassword123' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /rotate password/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^set new password$/i }))
 
     await waitFor(() => {
       expect(mockRotatePasswordMutation).toHaveBeenCalledTimes(1)
@@ -97,5 +97,50 @@ describe('RotateCredentialsDialog component', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Set New Password for Souvlaki tou Nikou' })).toBeInTheDocument()
+  })
+
+  it('names its submit button "Set New Password", like its title (row 91 review)', () => {
+    render(
+      <RotateCredentialsDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        partnerId="p1"
+        partnerName="Souvlaki tou Nikou"
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Set New Password' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /rotate password/i })).toBeNull()
+  })
+
+  it('gives focus back to the returnFocusTo button after it closes (row 91 review)', async () => {
+    function Harness() {
+      const [open, setOpen] = React.useState(true)
+      const buttonRef = React.useRef<HTMLButtonElement>(null)
+      return (
+        <div>
+          <button ref={buttonRef} type="button">
+            Open password dialog
+          </button>
+          <RotateCredentialsDialog
+            open={open}
+            onOpenChange={setOpen}
+            partnerId="p1"
+            partnerName="Souvlaki tou Nikou"
+            returnFocusTo={buttonRef}
+          />
+        </div>
+      )
+    }
+
+    render(<Harness />)
+    const openButton = screen.getByRole('button', { name: 'Open password dialog', hidden: true })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(document.activeElement).toBe(openButton)
+    })
   })
 })
