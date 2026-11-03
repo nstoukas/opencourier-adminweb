@@ -1,103 +1,18 @@
-import React, { useState } from 'react'
+import React from 'react'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import Link from 'next/link'
-import { ArrowLeft, PencilSimple, Key, ListBullets } from '@phosphor-icons/react'
-import { useGetPartnerQuery } from '@/api/partnersApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
-import { PageHeader } from '@/components/layouts/PageHeader'
-import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
-import { Button, Spinner } from '@/admin-web-components'
-import { PartnerSummaryCard } from '@/modules/partners/components/PartnerSummaryCard'
-import { PartnerFormDialog } from '@/modules/partners/components/PartnerFormDialog'
-import { RotateCredentialsDialog } from '@/modules/partners/components/RotateCredentialsDialog'
-import { PartnerCustomersCard } from '@/modules/partners/components/PartnerCustomersCard'
+import { RestaurantDetails } from '@/modules/partners/RestaurantDetails'
 
-// Detail page for inspecting and managing a single restaurant (Partner).
+// A restaurant's page (spec 0024). The route keeps its old name, /partners/[partnerId].
 const PartnerDetailsPage: NextPage = () => {
   const router = useRouter()
+  // Empty on the first render, before Next.js has read the id from the URL.
   const partnerId = typeof router.query.partnerId === 'string' ? router.query.partnerId : ''
-  const { goToPartners } = useAdminPageNavigator()
-
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [rotateDialogOpen, setRotateDialogOpen] = useState(false)
-
-  const { data: partner, isLoading, isError } = useGetPartnerQuery({ id: partnerId }, { skip: !partnerId })
 
   return (
     <DefaultLayout>
-      <div className="space-y-6">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="pl-0 text-muted-foreground hover:text-foreground mb-2"
-            onClick={() => goToPartners()}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Restaurants
-          </Button>
-
-          {/* The h1 is there in every state: "Restaurant" while loading or on an error. */}
-          <PageHeader
-            title={partner?.name || 'Restaurant'}
-            action={
-              partner ? (
-                <>
-                  {/* Its whole order history, on the deliveries list filtered to it (spec 0017, AC-7).
-                      `asChild` makes the Button style the link instead of drawing its own <button>. */}
-                  <Button variant="outline" asChild>
-                    <Link href={{ pathname: '/deliveries', query: { partnerId: partner.id } }}>
-                      <ListBullets className="mr-2 h-4 w-4" />
-                      See its orders
-                    </Link>
-                  </Button>
-                  <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
-                    <PencilSimple className="mr-2 h-4 w-4" />
-                    Edit restaurant
-                  </Button>
-                  <Button variant="outline" onClick={() => setRotateDialogOpen(true)}>
-                    <Key className="mr-2 h-4 w-4" />
-                    Set new password
-                  </Button>
-                </>
-              ) : undefined
-            }
-          />
-
-          {isLoading ? (
-            <div className="flex items-center space-x-2 py-8">
-              <Spinner className="h-5 w-5" />
-              <span>Loading restaurant details...</span>
-            </div>
-          ) : isError || !partner ? (
-            <div className="bg-destructive/15 text-destructive p-4 rounded-md">
-              Restaurant not found or error loading data.
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <PartnerSummaryCard partner={partner} />
-              {/* key: another restaurant's page starts the card afresh (Next keeps it mounted otherwise),
-                  so a search typed for one restaurant never carries over to the next. */}
-              <PartnerCustomersCard key={partner.id} partnerId={partner.id} restaurantName={partner.name} />
-
-              <PartnerFormDialog
-                open={editDialogOpen}
-                onOpenChange={setEditDialogOpen}
-                mode="update"
-                partner={partner}
-              />
-
-              <RotateCredentialsDialog
-                open={rotateDialogOpen}
-                onOpenChange={setRotateDialogOpen}
-                partnerId={partner.id}
-                partnerName={partner.name}
-              />
-            </div>
-          )}
-        </div>
-      </div>
+      <RestaurantDetails partnerId={partnerId} />
     </DefaultLayout>
   )
 }

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import { CheckCircle, Copy } from '@phosphor-icons/react'
 import {
+  Alert,
+  AlertDescription,
   Button,
+  DetailList,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -29,20 +33,36 @@ interface PartnerFormDialogProps {
   onOpenChange: (open: boolean) => void
   mode: 'create' | 'update'
   partner?: PartnerAdminDto
+  // The button that opened the dialog: Radix does not give it focus back here, so we do.
+  returnFocusTo?: React.RefObject<HTMLElement>
 }
 
-// Modal dialog for creating or updating a restaurant (Partner) profile and pickup address.
+// What the Restaurant Added panel shows (spec 0024, AC-8): the name from the server's answer and
+// the email and password the admin just typed. Held only in this dialog's state.
+interface CreatedRestaurant {
+  name: string
+  email: string
+  password: string
+}
+
+// Whether Copy All worked: "Copied" until the dialog closes, or a line saying to select the text.
+type CopyState = 'idle' | 'copied' | 'failed'
+
+// The restaurant dialogs (spec 0024): Add a Restaurant, then Restaurant Added; and Edit Details.
+// The requests they send are the same as before the redesign (AC-7, AC-9).
 export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
   open,
   onOpenChange,
   mode,
   partner,
+  returnFocusTo,
 }) => {
   const { toast } = useToast()
   const [createPartner, { isLoading: isCreating }] = useCreatePartnerMutation()
   const [updatePartner, { isLoading: isUpdating }] = useUpdatePartnerMutation()
   const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [createdPasswordNotice, setCreatedPasswordNotice] = useState<string | null>(null)
+  const [created, setCreated] = useState<CreatedRestaurant | null>(null)
+  const [copyState, setCopyState] = useState<CopyState>('idle')
 
   const createForm = usePartnerCreateForm()
   const updateForm = usePartnerUpdateForm()
@@ -52,7 +72,8 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
   useEffect(() => {
     if (open) {
       setValidationErrors([])
-      setCreatedPasswordNotice(null)
+      setCreated(null)
+      setCopyState('idle')
       if (mode === 'update' && partner) {
         updateForm.reset({
           // Partner.name is a required column in Prisma, so unlike the three fields below
@@ -71,7 +92,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
 
   const handleCreateSubmit = async (values: PartnerCreateFormValues) => {
     setValidationErrors([])
-    setCreatedPasswordNotice(null)
+    setCreated(null)
 
     const buildRes = buildPartnerCreateInput(values)
     if (!buildRes.ok) {
@@ -80,9 +101,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
     }
 
     try {
-      await createPartner(buildRes.value).unwrap()
-      toast({ title: 'Restaurant created successfully' })
-      setCreatedPasswordNotice(`Password set for ${buildRes.value.email}: "${buildRes.value.password}". Copy it now — it cannot be shown again.`)
+      const saved = await createPartner(buildRes.value).unwrap()
+      // No toast: the Restaurant Added panel is the confirmation (spec 0024, AC-8).
+      setCreated({ name: saved.name, email: buildRes.value.email, password: buildRes.value.password })
     } catch (err: any) {
       toast({
         title: 'Failed to create restaurant',
@@ -94,7 +115,6 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
 
   const handleUpdateSubmit = async (values: PartnerUpdateFormValues) => {
     setValidationErrors([])
-    setCreatedPasswordNotice(null)
 
     if (!partner?.id) return
 
@@ -128,16 +148,54 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
     }
   }
 
+  // Copy All: both lines at once, so nothing gets mistyped. The clipboard can be missing (plain
+  // http away from localhost) or refuse; then the values stay on screen to select by hand.
+  const copyAll = async () => {
+    if (!created) return
+    try {
+      // The DOM types say the clipboard always exists, but browsers leave it out on insecure pages:
+      // then this line throws a TypeError, which the catch below turns into the "select" line.
+      await navigator.clipboard.writeText(`Email: ${created.email}\nPassword: ${created.password}`)
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+  }
+
+  // The title and description stay the same while the dialog animates closed, because `created`
+  // is only cleared after the close (onCloseAutoFocus) or on the next open (adminweb AGENTS.md).
+  const title = created ? 'Restaurant Added' : mode === 'create' ? 'Add a Restaurant' : 'Edit Details'
+  const description = created
+    ? 'Give these details to the restaurant.'
+    : mode === 'create'
+      ? 'Issue a restaurant login and set its pickup location.'
+      : `Update details for ${partner?.name || 'this restaurant'}.`
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="sm:max-w-xl max-h-[90vh] overflow-y-auto"
+        // The Restaurant Added panel is the only time the password is shown, so only Done closes
+        // it: Escape and a click outside do nothing there (spec 0024, AC-8).
+        onEscapeKeyDown={(event) => {
+          if (created) event.preventDefault()
+        }}
+        onPointerDownOutside={(event) => {
+          if (created) event.preventDefault()
+        }}
+        onCloseAutoFocus={(event) => {
+          // Forget the password once the dialog has closed, and give focus back to its button.
+          setCreated(null)
+          setCopyState('idle')
+          if (returnFocusTo?.current) {
+            event.preventDefault()
+            returnFocusTo.current.focus()
+          }
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>{mode === 'create' ? 'Add New Restaurant' : 'Edit Restaurant'}</DialogTitle>
-          <DialogDescription>
-            {mode === 'create'
-              ? 'Issue a restaurant login and set its initial pickup location.'
-              : `Update details for ${partner?.name || 'this restaurant'}.`}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         {validationErrors.length > 0 ? (
@@ -148,21 +206,31 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
           </div>
         ) : null}
 
-        {createdPasswordNotice ? (
+        {created ? (
           <div className="space-y-4">
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-3 rounded-md text-sm">
-              <p className="font-semibold">Credentials Created</p>
-              <p>{createdPasswordNotice}</p>
-            </div>
+            <Alert variant="success">
+              <CheckCircle aria-hidden="true" className="h-4 w-4" />
+              <AlertDescription>
+                {created.name} can start sending deliveries. Give them these details. The password is shown only now.
+              </AlertDescription>
+            </Alert>
+            <DetailList
+              items={[
+                { label: 'Email', value: created.email, mono: true },
+                { label: 'Password', value: created.password, mono: true },
+              ]}
+            />
+            {copyState === 'failed' ? (
+              <p className="text-sm text-destructive" role="status">
+                Could not copy. Select the text instead.
+              </p>
+            ) : null}
             <DialogFooter>
-              <Button
-                type="button"
-                onClick={() => {
-                  setCreatedPasswordNotice(null)
-                  onOpenChange(false)
-                  createForm.reset()
-                }}
-              >
+              <Button type="button" variant="outline" onClick={copyAll}>
+                <Copy aria-hidden="true" className="mr-2 h-4 w-4" />
+                {copyState === 'copied' ? 'Copied' : 'Copy All'}
+              </Button>
+              <Button type="button" onClick={() => onOpenChange(false)}>
                 Done
               </Button>
             </DialogFooter>
@@ -189,7 +257,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone number</FormLabel>
+                    <FormLabel>Phone couriers call</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. +30 24210 12345" {...field} />
                     </FormControl>
@@ -198,12 +266,14 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 )}
               />
 
+              <PickupAddressFields form={createForm} />
+
               <FormField
                 control={createForm.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Login email</FormLabel>
+                    <FormLabel>Sign-in email</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="e.g. nikou@volos.test" {...field} />
                     </FormControl>
@@ -226,15 +296,13 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 )}
               />
 
-              <PickupAddressFields form={createForm} />
-
               <DialogFooter className="pt-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? <Spinner className="mr-2" /> : null}
-                  Create Restaurant
+                  Add Restaurant
                 </Button>
               </DialogFooter>
             </form>
@@ -261,7 +329,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone number</FormLabel>
+                    <FormLabel>Phone couriers call</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. +30 24210 12345" {...field} value={field.value ?? ''} />
                     </FormControl>

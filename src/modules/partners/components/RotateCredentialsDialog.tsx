@@ -60,7 +60,7 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rotate Password for {partnerName}</DialogTitle>
+          <DialogTitle>Set New Password for {partnerName}</DialogTitle>
           <DialogDescription>
             Sets a new password for this restaurant's login. The current password stops working immediately. It cannot be read back — note it down before you close this.
           </DialogDescription>

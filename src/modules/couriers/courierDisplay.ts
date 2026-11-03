@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import type { CourierAdminDto } from '@/backend-admin-sdk'
 
 // How a rider takes offers, in words (spec 0012). NONE reads "Not set". A setting added on the
@@ -15,10 +14,9 @@ export function deliverySettingLabel(value: CourierAdminDto['deliverySetting']):
   return label ?? value
 }
 
-// "March 2026": when the rider joined, in the browser's time zone. A join date, not a tenure score.
-export function memberSince(createdAt: Date): string {
-  return dayjs(createdAt).format('MMMM YYYY')
-}
+// "March 2026": moved to src/utils so the restaurants pages share it (spec 0024); kept here too,
+// so the couriers pages and their tests read it where they always did.
+export { memberSince } from '@/utils/memberSince'
 
 // The rider's full name, or "Courier" when both parts are empty.
 export function courierName(courier: Pick<CourierAdminDto, 'firstName' | 'lastName'>): string {

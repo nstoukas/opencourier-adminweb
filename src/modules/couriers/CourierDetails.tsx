@@ -5,11 +5,10 @@ import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { formatMoney } from '@/utils/formatMoney'
-import { shortId } from '@/utils/shortId'
 import { formatDate } from '@/ui-shared-utils'
 import { Key, PhoneCall } from '@phosphor-icons/react'
 import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle, DetailList, StatusBadge } from '@/admin-web-components'
-import type { DeliveryAdminDto } from '@/backend-admin-sdk'
+import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
 import { courierName, deliverySettingLabel, memberSince } from './courierDisplay'
 import { RotateCourierPasswordDialog } from './RotateCourierPasswordDialog'
 
@@ -19,50 +18,6 @@ const DELIVERIES_PER_CARD = 10
 // A rider's progress is made in the courier app and reaches this page only if the page asks
 // again, so it asks every 30 s, as the deliveries list and a delivery's page do (row 89 review).
 const REFRESH_MS = 30_000
-
-// One delivery in a card: its reference and short id, restaurant → customer, status, and
-// whatever the card adds on the right (the rider's pay in Recent deliveries). Links to it.
-function DeliveryRow({
-  delivery,
-  onOpen,
-  extra,
-}: {
-  delivery: DeliveryAdminDto
-  onOpen: (id: string) => void
-  extra?: React.ReactNode
-}) {
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-b-0">
-      <div className="min-w-0">
-        <a
-          href={`/deliveries/${delivery.id}`}
-          onClick={(event) => {
-            // A ctrl, cmd, shift or middle click opens a new tab as the browser normally does.
-            if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
-              event.preventDefault()
-              onOpen(delivery.id)
-            }
-          }}
-          className="text-sm font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {delivery.orderReference ? `${delivery.orderReference} · ` : ''}
-          <span className="font-mono">{shortId(delivery.id)}</span>
-        </a>
-        <p className="text-xs text-muted-foreground">
-          {delivery.pickupBusinessName || '—'} → {delivery.dropoffName || '—'}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        {extra}
-        {/* A minimum width, so the date and pay line up for the usual labels, and a long one
-            ("Courier at Dropoff") widens the slot instead of covering the pay. */}
-        <span className="flex min-w-28 justify-end">
-          <StatusBadge status={delivery.status} />
-        </span>
-      </div>
-    </li>
-  )
-}
 
 // A rider's page (spec 0012): who they are, what they carry now, their recent deliveries.
 // Nothing here rates, counts or watches a rider (value 5): no acceptance rate, no online time,
