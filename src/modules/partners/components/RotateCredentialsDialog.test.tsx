@@ -85,4 +85,17 @@ describe('RotateCredentialsDialog component', () => {
       expect(onOpenChangeMock).toHaveBeenCalledWith(false)
     })
   })
+
+  it('is titled "Set New Password for <name>" (spec 0024, AC-2)', () => {
+    render(
+      <RotateCredentialsDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        partnerId="p1"
+        partnerName="Souvlaki tou Nikou"
+      />
+    )
+
+    expect(screen.getByRole('heading', { name: 'Set New Password for Souvlaki tou Nikou' })).toBeInTheDocument()
+  })
 })
