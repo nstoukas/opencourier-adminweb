@@ -60,6 +60,25 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### The restaurants list, a restaurant's page and Add a restaurant (scope row 91, spec 0024): `9973a57` to `eb60c94`
+Built on the branch `feat/restaurants-redesign` and merged on 3 November. No backend change.
+- **List.** Each restaurant shows its address under its name, or "No pickup address". The other columns are
+  phone, sign in email, member since and an Open button. Search waits for the backend (row 106).
+- **A restaurant's page.** It has:
+  - a breadcrumb and "Member since";
+  - Live now: the server's count of deliveries that have not ended;
+  - a read only pickup pin map with the contact details and the webhook;
+  - the 10 newest deliveries;
+  - the saved customers card.
+
+  It shows no money figure per restaurant, because the delivery fee is the customer's.
+- **Add a Restaurant.** It sends the same request as before. The new Restaurant Added panel shows the email and
+  password once, with Copy All. Escape and outside clicks can't close it by accident, and the password is
+  forgotten once the dialog closes. Edit Details and Set New Password give focus back to their buttons.
+- `DeliveryRow` and `memberSince` are shared with the courier page; `PartnerSummaryCard` is removed.
+- Tests by a fresh Claude subagent while agy was out of quota: 1300 pass; put back by hand. Reviewed by Fable
+  (approve with nits; fixes in `5b45a7b`). Verified live: add, edit, new password, both pages at three widths.
+
 ### Floor and doorbell on the delivery page (scope row 99, from spec 0016): `3632841`, `f4a12b4`
 Built on the branch `feat/pin-corrections-shown` and merged on 3 November.
 - **Their own rows.** The delivery page's Drop off card shows Floor and Doorbell as fields (a dash when
