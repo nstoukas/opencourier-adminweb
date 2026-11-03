@@ -25,6 +25,7 @@ import {
   GEO_CALCULATION_TYPE_TO_HUMAN,
   QUOTE_CALCULATION_TYPE_TO_HUMAN,
 } from '@/shared-types'
+import Link from 'next/link'
 import { describeBaseFee } from '@/utils/baseFee'
 import { describeOfferExpiry } from '@/utils/offerExpiry'
 import { describeQuoteRate, parseQuoteRateInput } from '@/utils/quoteRate'
@@ -67,6 +68,7 @@ export const SECTIONS = [
   { id: 'matching', title: 'Matching' },
   { id: 'offers', title: 'Offers' },
   { id: 'rider-pay', title: 'Rider pay' },
+  { id: 'shifts', title: 'Shifts' },
   { id: 'service-area', title: 'Service area' },
   { id: 'instance', title: 'Instance' },
   { id: 'public-pages', title: 'Public pages' },
@@ -421,6 +423,51 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             disabled={!loaded}
             description="Whole seconds, 0 to 300; 0 switches it off. Counted from the accept, and only before the rider reaches the restaurant. The order goes back to matching and nothing is paid or charged. A change applies to the next accept."
             onChange={(value) => set('handBackSeconds', value)}
+          />
+        </div>
+      </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Shifts (spec 0026, row 77): the co-op switch and the drop notice. The slots themselves are edited on
+// the Shift slots page. Nothing reaches riders until shift booking (row 78) is built.
+export function ShiftsCard({ form, set, loaded }: CardProps) {
+  const notLoaded = form.shiftsEnabled === null
+  return (
+    <SettingsSection id="shifts" title="Shifts" description="Whether the co-op runs shifts riders book.">
+      <FieldGroup>
+        <Field>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="shiftsEnabled"
+              checked={form.shiftsEnabled === true}
+              disabled={!loaded || notLoaded}
+              onCheckedChange={(checked: boolean) => set('shiftsEnabled', checked)}
+            />
+            <FieldLabel htmlFor="shiftsEnabled">Shifts</FieldLabel>
+            {notLoaded && <span className="text-sm text-muted-foreground">Not loaded yet</span>}
+          </div>
+          <FieldDescription>
+            {form.shiftsEnabled === true
+              ? 'On. Riders will book the slots set on '
+              : 'Off. No shift rule applies to anyone. You can still prepare the slots on '}
+            <Link href="/shift-slots" className="underline underline-offset-2">
+              Shift slots
+            </Link>
+            .
+          </FieldDescription>
+        </Field>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <NumberField
+            id="shiftDropNoticeHours"
+            label={labelOf('shiftDropNoticeHours')}
+            value={form.shiftDropNoticeHours}
+            min={0}
+            max={168}
+            disabled={!loaded}
+            description="Whole hours, 0 to 168. A rider can drop a booked shift up to this long before it starts; 0 means up to the start."
+            onChange={(value) => set('shiftDropNoticeHours', value)}
           />
         </div>
       </FieldGroup>

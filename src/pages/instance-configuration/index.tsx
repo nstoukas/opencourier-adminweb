@@ -23,6 +23,7 @@ import {
   PricingCard,
   PublicPagesCard,
   RiderPayCard,
+  ShiftsCard,
   SECTIONS,
   ServiceAreaCard,
   PUBLIC_PAGES,
@@ -303,6 +304,7 @@ const InstanceConfigurationPage: NextPage = () => {
               }
               payoutPolicies={data?.reassignmentPayoutPolicies}
             />
+            <ShiftsCard {...cardProps} />
             <ServiceAreaCard
               map={
                 <AdminMap
