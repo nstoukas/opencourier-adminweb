@@ -61,7 +61,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
           phoneNumber: partner.phoneNumber ?? '',
           logo: partner.logo ?? '',
           webhookUrl: partner.webhookUrl ?? '',
-          usualPrepMinutes: String(partner.usualPrepMinutes ?? 15),
+          usualPrepMinutes: String(partner.usualPrepMinutes),
           pickupAddress: mapLocationToPickupFormValues(partner.pickupAddress),
         })
       } else {
