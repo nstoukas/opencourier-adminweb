@@ -50,4 +50,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   `router.query` (skip the request until `router.isReady`), written with a shallow `router.replace`, and a change goes back
   to page 1. A link that sets it must not let the list fetch once without it.
 
+- `SosAlerts` (in `DefaultLayout`, spec 0022) polls `admin/v1/sos?status=current` every 10 s from a Web Worker tick, so a
+  hidden tab still alerts. A poll's `isError` must be said in words (RTK Query keeps the last good `data`), and `/sos` never
+  shows "No rider has an open SOS." while unreachable. Notifications are asked inside the click, before any await (Safari).
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

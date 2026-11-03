@@ -83,6 +83,22 @@ Needs the backend's row 71.
 - Tests by agy: 1082 pass at the merge; put back by hand each round. Reviewed by Fable twice
   (the page, then the port).
 
+### SOS alerts and the SOS pages (scope row 73, spec 0022): `f511201` to `04a0be3`
+Needs the backend's row 73.
+- **On every page**: a red banner per open SOS within 10 s (also in a background tab, from a small
+  Web Worker tick), a repeating alarm while one is active and one browser notification per new SOS,
+  once "Enable SOS alerts" was clicked on that browser. When the server cannot be reached, a line
+  says "No contact with the server since HH:MM. SOS alerts may be late.", so a blind page never
+  looks like a quiet one.
+- **`/sos`**: open incidents on top, closed ones below, paged; no count per rider anywhere.
+  **`/sos/[id]`**: the trail on a map (fitted once, then followed only when the rider leaves the
+  view), or the date the positions were deleted, and Close with an outcome chosen by the admin (it
+  starts from the rider's own end when there is one) and an optional note.
+- **Co-op settings, Instance**: "SOS location kept for (days)", 1 to 365.
+- Tests by agy (`99373ed`, `d56d30d`) and, while agy was out of quota, by a fresh Claude subagent
+  (`04a0be3`), which found one more bug (`69ba351`): 1232 pass; put back by hand each round.
+  Reviewed by Fable (changes requested, fixed in `ca89b46`). Verified in headless Chrome.
+
 ### The arrival radius (scope row 19, spec 0021): `b28273b` to `d245fd2`
 Needs the backend's row 19.
 - **Co-op settings, Matching**: "Arrival radius (metres)", saved through the save bar. 0 switches
