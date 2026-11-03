@@ -57,6 +57,12 @@ export interface PartnerAdminDto {
      */
     webhookUrl: string | null;
     /**
+     * Spec 0023: whole minutes this restaurant usually takes to prepare an order (hand edited).
+     * @type {number}
+     * @memberof PartnerAdminDto
+     */
+    usualPrepMinutes: number;
+    /**
      * 
      * @type {string}
      * @memberof PartnerAdminDto
@@ -115,6 +121,7 @@ export function PartnerAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: boo
         'phoneNumber': !exists(json, 'phoneNumber') ? null : json['phoneNumber'],
         'logo': !exists(json, 'logo') ? null : json['logo'],
         'webhookUrl': !exists(json, 'webhookUrl') ? null : json['webhookUrl'],
+        'usualPrepMinutes': !exists(json, 'usualPrepMinutes') ? 15 : json['usualPrepMinutes'],
         'userId': !exists(json, 'userId') ? null : json['userId'],
         'email': !exists(json, 'email') ? null : json['email'],
         'pickupAddress': !exists(json, 'pickupAddress') || json['pickupAddress'] === null ? null : LocationAdminDtoFromJSON(json['pickupAddress']),
@@ -136,6 +143,7 @@ export function PartnerAdminDtoToJSON(value?: PartnerAdminDto | null): any {
         'phoneNumber': value.phoneNumber,
         'logo': value.logo,
         'webhookUrl': value.webhookUrl,
+        'usualPrepMinutes': value.usualPrepMinutes,
         'userId': value.userId,
         'email': value.email,
         'pickupAddress': LocationAdminDtoToJSON(value.pickupAddress),

@@ -20,6 +20,8 @@ export type PickupAddressFormValues = {
 export type PartnerCreateFormValues = {
   name: string
   phoneNumber?: string
+  // Spec 0023: the usual prep time as typed (whole minutes, 0 to 90).
+  usualPrepMinutes?: string
   email: string
   password: string
   pickupAddress?: PickupAddressFormValues
@@ -30,12 +32,24 @@ export type PartnerUpdateFormValues = {
   phoneNumber?: string | null
   logo?: string | null
   webhookUrl?: string | null
+  usualPrepMinutes?: string
   pickupAddress?: PickupAddressFormValues
 }
 
 export type BuildResult<T> = { ok: true; value: T } | { ok: false; errors: string[] }
 
 const VALID_COUNTRY_CODES: string[] = Object.values(EnumCountryCodeAdmin)
+
+// Spec 0023 (AC-9): the usual prep time a representative may set, and the backend's own sentence.
+export const USUAL_PREP_MINUTES_SENTENCE = 'The usual prep time is a whole number of minutes from 0 to 90.'
+
+// The usual prep time as typed, as a number, or null when it is not a whole number from 0 to 90.
+export function parseUsualPrepMinutes(text: string): number | null {
+  const trimmed = text.trim()
+  if (!/^\d+$/.test(trimmed)) return null
+  const minutes = Number(trimmed)
+  return minutes >= 0 && minutes <= 90 ? minutes : null
+}
 
 // Validates and transforms pickup address form fields into a backend-ready PickupAddressAdminInput object.
 export function buildPickupAddressInput(
@@ -157,6 +171,14 @@ export function buildPartnerCreateInput(v: PartnerCreateFormValues): BuildResult
     }
   }
 
+  // Left empty, the backend's default (15) applies.
+  let usualPrepMinutes: number | undefined
+  if (v.usualPrepMinutes !== undefined && v.usualPrepMinutes.trim() !== '') {
+    const parsed = parseUsualPrepMinutes(v.usualPrepMinutes)
+    if (parsed === null) errors.push(USUAL_PREP_MINUTES_SENTENCE)
+    else usualPrepMinutes = parsed
+  }
+
   if (errors.length > 0) {
     return { ok: false, errors }
   }
@@ -169,6 +191,7 @@ export function buildPartnerCreateInput(v: PartnerCreateFormValues): BuildResult
       password,
       phoneNumber: v.phoneNumber?.trim() || undefined,
       pickupAddress,
+      ...(usualPrepMinutes !== undefined && { usualPrepMinutes }),
     },
   }
 }
@@ -197,6 +220,13 @@ export function buildPartnerUpdateInput(v: PartnerUpdateFormValues): BuildResult
 
   if (v.webhookUrl !== undefined) {
     result.webhookUrl = v.webhookUrl === null || !v.webhookUrl.trim() ? null : v.webhookUrl.trim()
+  }
+
+  // Spec 0023 (AC-9): an emptied box is refused, never saved as 0.
+  if (v.usualPrepMinutes !== undefined) {
+    const parsed = parseUsualPrepMinutes(v.usualPrepMinutes)
+    if (parsed === null) errors.push(USUAL_PREP_MINUTES_SENTENCE)
+    else result.usualPrepMinutes = parsed
   }
 
   if (v.pickupAddress !== undefined) {

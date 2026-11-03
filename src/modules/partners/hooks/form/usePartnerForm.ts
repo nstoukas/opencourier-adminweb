@@ -17,6 +17,7 @@ const addressSchema = z.object({
 const createSchema = z.object({
   name: z.string().min(1, { message: 'Name is required' }),
   phoneNumber: z.string().optional().default(''),
+  usualPrepMinutes: z.string().optional().default('15'),
   email: z.string().min(1, { message: 'Email is required' }),
   password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
   pickupAddress: addressSchema,
@@ -27,6 +28,7 @@ const updateSchema = z.object({
   phoneNumber: z.string().optional().default(''),
   logo: z.string().optional().default(''),
   webhookUrl: z.string().optional().default(''),
+  usualPrepMinutes: z.string().optional().default(''),
   pickupAddress: addressSchema,
 })
 
@@ -49,6 +51,8 @@ export const usePartnerCreateForm = () => {
     defaultValues: {
       name: '',
       phoneNumber: '',
+      // Spec 0023: a new restaurant starts at 15 minutes, the backend's default.
+      usualPrepMinutes: '15',
       email: '',
       password: '',
       pickupAddress: defaultPickupAddressValues,
@@ -66,6 +70,7 @@ export const usePartnerUpdateForm = (defaultValues?: Partial<PartnerUpdateFormVa
       phoneNumber: defaultValues?.phoneNumber ?? '',
       logo: defaultValues?.logo ?? '',
       webhookUrl: defaultValues?.webhookUrl ?? '',
+      usualPrepMinutes: defaultValues?.usualPrepMinutes ?? '',
       pickupAddress: defaultValues?.pickupAddress ?? defaultPickupAddressValues,
     },
   })

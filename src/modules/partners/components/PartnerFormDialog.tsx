@@ -61,6 +61,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
           phoneNumber: partner.phoneNumber ?? '',
           logo: partner.logo ?? '',
           webhookUrl: partner.webhookUrl ?? '',
+          usualPrepMinutes: String(partner.usualPrepMinutes ?? 15),
           pickupAddress: mapLocationToPickupFormValues(partner.pickupAddress),
         })
       } else {
@@ -105,6 +106,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
     if (dirty.phoneNumber) payload.phoneNumber = values.phoneNumber
     if (dirty.logo) payload.logo = values.logo
     if (dirty.webhookUrl) payload.webhookUrl = values.webhookUrl
+    if (dirty.usualPrepMinutes) payload.usualPrepMinutes = values.usualPrepMinutes
     if (dirty.pickupAddress && Object.keys(dirty.pickupAddress).length > 0) {
       payload.pickupAddress = values.pickupAddress
     }
@@ -198,6 +200,25 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 )}
               />
 
+              {/* Spec 0023 (AC-9): the order form starts its "Ready in" from this. */}
+              <FormField
+                control={createForm.control}
+                name="usualPrepMinutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Usual prep time (minutes)</FormLabel>
+                    <FormControl>
+                      <Input inputMode="numeric" placeholder="15" {...field} />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Whole minutes from 0 to 90. New orders are ready this long after they are placed, unless the
+                      restaurant picks another time.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={createForm.control}
                 name="email"
@@ -265,6 +286,25 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                     <FormControl>
                       <Input placeholder="e.g. +30 24210 12345" {...field} value={field.value ?? ''} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Spec 0023 (AC-9): the order form starts its "Ready in" from this. */}
+              <FormField
+                control={updateForm.control}
+                name="usualPrepMinutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Usual prep time (minutes)</FormLabel>
+                    <FormControl>
+                      <Input inputMode="numeric" placeholder="15" {...field} />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Whole minutes from 0 to 90. New orders are ready this long after they are placed, unless the
+                      restaurant picks another time.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

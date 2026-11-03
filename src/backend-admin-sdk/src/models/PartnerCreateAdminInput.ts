@@ -39,6 +39,11 @@ export interface PartnerCreateAdminInput {
      */
     phoneNumber?: string;
     /**
+     * Spec 0023: whole minutes, 0 to 90 (hand edited).
+     * @type {number}
+     */
+    usualPrepMinutes?: number;
+    /**
      * 
      * @type {string}
      * @memberof PartnerCreateAdminInput
@@ -81,6 +86,7 @@ export function PartnerCreateAdminInputFromJSONTyped(json: any, ignoreDiscrimina
     return {
         'name': json['name'],
         'phoneNumber': !exists(json, 'phoneNumber') ? undefined : json['phoneNumber'],
+        'usualPrepMinutes': !exists(json, 'usualPrepMinutes') ? undefined : json['usualPrepMinutes'],
         'email': json['email'],
         'password': json['password'],
         'pickupAddress': !exists(json, 'pickupAddress') ? undefined : PickupAddressAdminInputFromJSON(json['pickupAddress']),
@@ -97,6 +103,7 @@ export function PartnerCreateAdminInputToJSON(value?: PartnerCreateAdminInput | 
     return {
         'name': value.name,
         'phoneNumber': value.phoneNumber,
+        'usualPrepMinutes': value.usualPrepMinutes,
         'email': value.email,
         'password': value.password,
         'pickupAddress': PickupAddressAdminInputToJSON(value.pickupAddress),

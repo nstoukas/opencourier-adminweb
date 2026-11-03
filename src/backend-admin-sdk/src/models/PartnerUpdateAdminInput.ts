@@ -51,6 +51,11 @@ export interface PartnerUpdateAdminInput {
      */
     webhookUrl?: string | null;
     /**
+     * Spec 0023: whole minutes, 0 to 90 (hand edited).
+     * @type {number}
+     */
+    usualPrepMinutes?: number;
+    /**
      * 
      * @type {PickupAddressAdminInput}
      * @memberof PartnerUpdateAdminInput
@@ -78,6 +83,7 @@ export function PartnerUpdateAdminInputFromJSONTyped(json: any, ignoreDiscrimina
         'phoneNumber': !exists(json, 'phoneNumber') ? undefined : json['phoneNumber'],
         'logo': !exists(json, 'logo') ? undefined : json['logo'],
         'webhookUrl': !exists(json, 'webhookUrl') ? undefined : json['webhookUrl'],
+        'usualPrepMinutes': !exists(json, 'usualPrepMinutes') ? undefined : json['usualPrepMinutes'],
         'pickupAddress': !exists(json, 'pickupAddress') ? undefined : PickupAddressAdminInputFromJSON(json['pickupAddress']),
     };
 }
@@ -94,6 +100,7 @@ export function PartnerUpdateAdminInputToJSON(value?: PartnerUpdateAdminInput | 
         'phoneNumber': value.phoneNumber,
         'logo': value.logo,
         'webhookUrl': value.webhookUrl,
+        'usualPrepMinutes': value.usualPrepMinutes,
         'pickupAddress': PickupAddressAdminInputToJSON(value.pickupAddress),
     };
 }
