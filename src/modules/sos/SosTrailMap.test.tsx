@@ -5,6 +5,16 @@ import type { SosPointAdminDto } from '@/backend-admin-sdk'
 
 const mockSetView = jest.fn()
 const mockFitBounds = jest.fn()
+const mockPanTo = jest.fn()
+// Whether a point lies inside what the map shows now; each test decides.
+const mockContains = jest.fn()
+// One map for the whole render, as react-leaflet's useMap gives.
+const mockMap = {
+  setView: (...args: unknown[]) => mockSetView(...args),
+  fitBounds: (...args: unknown[]) => mockFitBounds(...args),
+  panTo: (...args: unknown[]) => mockPanTo(...args),
+  getBounds: () => ({ contains: (...args: unknown[]) => mockContains(...args) }),
+}
 
 jest.mock('react-leaflet', () => ({
   MapContainer: ({ children, center }: any) => (
@@ -26,10 +36,7 @@ jest.mock('react-leaflet', () => ({
     </div>
   ),
   Tooltip: ({ children }: any) => <div data-testid="tooltip">{children}</div>,
-  useMap: () => ({
-    setView: mockSetView,
-    fitBounds: mockFitBounds,
-  }),
+  useMap: () => mockMap,
 }))
 
 describe('SosTrailMap (spec 0022, AC-9, AC-13)', () => {
@@ -81,5 +88,65 @@ describe('SosTrailMap (spec 0022, AC-9, AC-13)', () => {
     expect(screen.queryByTestId('polyline')).not.toBeInTheDocument()
     expect(screen.getByTestId('circle-marker')).toBeInTheDocument()
     expect(mockSetView).toHaveBeenCalledWith([39.365, 22.945], 17)
+  })
+
+  // Row 73 review: the map fits to the trail once. A 10 s poll must not undo a zoom or pan the admin
+  // made; it only moves the map when the rider has left what is on screen.
+  describe('after the first fit', () => {
+    const first: SosPointAdminDto[] = [
+      { latitude: 39.36, longitude: 22.94, accuracyMetres: 5, recordedAt: '2026-11-03T10:00:00Z' },
+      { latitude: 39.37, longitude: 22.95, accuracyMetres: 4, recordedAt: '2026-11-03T10:01:00Z' },
+    ]
+    const nearby: SosPointAdminDto = {
+      latitude: 39.371,
+      longitude: 22.951,
+      accuracyMetres: 4,
+      recordedAt: '2026-11-03T10:02:00Z',
+    }
+    const faraway: SosPointAdminDto = {
+      latitude: 39.5,
+      longitude: 23.1,
+      accuracyMetres: 4,
+      recordedAt: '2026-11-03T10:03:00Z',
+    }
+
+    it('fits once; a new point inside the view does not fit or set the view again', () => {
+      const { rerender } = render(<SosTrailMap points={first} />)
+      expect(mockFitBounds).toHaveBeenCalledTimes(1)
+
+      mockContains.mockReturnValue(true)
+      // A poll answers: a new array (as RTK Query gives) with a point inside the view.
+      rerender(<SosTrailMap points={[...first, nearby]} />)
+      rerender(<SosTrailMap points={[...first, nearby, { ...nearby, recordedAt: '2026-11-03T10:02:10Z' }]} />)
+
+      expect(mockFitBounds).toHaveBeenCalledTimes(1)
+      expect(mockSetView).not.toHaveBeenCalled()
+      expect(mockPanTo).not.toHaveBeenCalled()
+    })
+
+    it('a newest point outside the view pans to it, without re-fitting', () => {
+      const { rerender } = render(<SosTrailMap points={first} />)
+      expect(mockFitBounds).toHaveBeenCalledTimes(1)
+
+      mockContains.mockReturnValue(false)
+      rerender(<SosTrailMap points={[...first, faraway]} />)
+
+      expect(mockContains).toHaveBeenCalledWith([39.5, 23.1])
+      expect(mockPanTo).toHaveBeenCalledTimes(1)
+      expect(mockPanTo).toHaveBeenCalledWith([39.5, 23.1])
+      expect(mockFitBounds).toHaveBeenCalledTimes(1)
+      expect(mockSetView).not.toHaveBeenCalled()
+    })
+
+    it('a trail that started with one point (setView) is not re-fitted when it grows', () => {
+      const { rerender } = render(<SosTrailMap points={first.slice(0, 1)} />)
+      expect(mockSetView).toHaveBeenCalledTimes(1)
+
+      mockContains.mockReturnValue(true)
+      rerender(<SosTrailMap points={first} />)
+
+      expect(mockSetView).toHaveBeenCalledTimes(1)
+      expect(mockFitBounds).not.toHaveBeenCalled()
+    })
   })
 })

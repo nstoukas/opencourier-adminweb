@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { SosIncidentDetails } from './SosIncidentDetails'
 import { useGetSosIncidentQuery } from '../../api/sosApi'
 import type { SosIncidentDetailAdminDto } from '@/backend-admin-sdk'
@@ -178,5 +178,86 @@ describe('SosIncidentDetails (spec 0022, AC-9, AC-10)', () => {
     // Should render loading spinner rather than stale previous incident
     expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(screen.queryByText('Nikos Kazantzakis')).not.toBeInTheDocument()
+  })
+
+  // Row 73 review: the close dialog starts from how the rider ended it, never from an outcome nobody chose.
+  describe('the close dialog starts from the rider\'s own end', () => {
+    const openDialogFor = (incident: SosIncidentDetailAdminDto) => {
+      mockUseGetSosIncidentQuery.mockReturnValue({
+        data: incident,
+        currentData: incident,
+        isLoading: false,
+        isError: false,
+      })
+      render(<SosIncidentDetails incidentId={incident.id} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Close SOS' }))
+      return screen.getByLabelText('What happened') as HTMLSelectElement
+    }
+
+    it('rider pressed "False alarm" (falseAlarmAt set): starts on False alarm', () => {
+      const select = openDialogFor({
+        ...activeIncident,
+        state: 'AWAITING_CLOSE',
+        falseAlarmAt: '2026-11-03T10:05:00.000Z',
+      })
+      expect(select.value).toBe('FALSE_ALARM')
+    })
+
+    it('rider pressed "I\'m safe" (safeAt set): starts on Rider safe', () => {
+      const select = openDialogFor({
+        ...activeIncident,
+        state: 'AWAITING_CLOSE',
+        safeAt: '2026-11-03T10:05:00.000Z',
+      })
+      expect(select.value).toBe('RIDER_SAFE')
+    })
+
+    it('still active, the rider ended nothing: starts on "Choose…"', () => {
+      const select = openDialogFor(activeIncident)
+      expect(select.value).toBe('')
+    })
+  })
+
+  // Row 73 review nit taken: the page keeps asking every 10 s until the SOS is closed.
+  describe('polling', () => {
+    const POLL_MS = 10_000
+
+    // Whether any call of the hook during the render subscribed with a 10 s poll.
+    const polled = () =>
+      mockUseGetSosIncidentQuery.mock.calls.some(
+        ([, options]) => options?.skip !== true && options?.pollingInterval === POLL_MS,
+      )
+
+    const renderIn = (state: SosIncidentDetailAdminDto['state']) => {
+      const incident = { ...activeIncident, state }
+      mockUseGetSosIncidentQuery.mockReturnValue({
+        data: incident,
+        currentData: incident,
+        isLoading: false,
+        isError: false,
+      })
+      render(<SosIncidentDetails incidentId="sos-detail-1" />)
+    }
+
+    it('polls every 10 s while ACTIVE', () => {
+      renderIn('ACTIVE')
+      expect(polled()).toBe(true)
+    })
+
+    it('polls every 10 s while AWAITING_CLOSE (another admin or tab may close it)', () => {
+      renderIn('AWAITING_CLOSE')
+      expect(polled()).toBe(true)
+    })
+
+    it('stops polling once CLOSED', () => {
+      renderIn('CLOSED')
+      expect(polled()).toBe(false)
+      // No subscription asks again on a timer.
+      expect(
+        mockUseGetSosIncidentQuery.mock.calls.some(
+          ([, options]) => options?.skip !== true && (options?.pollingInterval ?? 0) > 0,
+        ),
+      ).toBe(false)
+    })
   })
 })

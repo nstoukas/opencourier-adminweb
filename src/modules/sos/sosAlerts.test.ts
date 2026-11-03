@@ -1,5 +1,6 @@
 import {
   enableSosAlerts,
+  notificationsBlocked,
   notifyNewSos,
   riderName,
   sosAlertsChosen,
@@ -338,6 +339,87 @@ describe('sosAlerts (spec 0022, AC-8)', () => {
         'Kostas Papadopoulos',
       )
       expect(riderName({ courier: { id: 'c-2', firstName: ' Anna', lastName: 'V ' } })).toBe('Anna V')
+    })
+  })
+
+  // Row 73 review: Safari shows the notification question only when it is asked straight from the
+  // click, so it must be asked before anything is awaited (here, before the sound unlock finishes).
+  describe('enableSosAlerts asks for notifications inside the click', () => {
+    const originalNotification = window.Notification
+    let finishResume: () => void
+    let mockResume: jest.Mock
+    let mockRequestPermission: jest.Mock
+    // A fresh copy of the module each test, so its one AudioContext is this test's.
+    let fresh: typeof import('./sosAlerts')
+
+    beforeEach(() => {
+      mockResume = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishResume = resolve
+          }),
+      )
+      ;(window as any).AudioContext = jest.fn().mockImplementation(() => ({ state: 'running', resume: mockResume }))
+      mockRequestPermission = jest.fn().mockResolvedValue('granted')
+      ;(window as any).Notification = { permission: 'default', requestPermission: mockRequestPermission }
+      jest.isolateModules(() => {
+        fresh = jest.requireActual('./sosAlerts')
+      })
+    })
+
+    afterEach(() => {
+      (window as any).Notification = originalNotification
+    })
+
+    it('calls Notification.requestPermission synchronously, before the sound unlock resolves', async () => {
+      const done = fresh.enableSosAlerts()
+
+      // Nothing awaited yet: the click's own call stack has just returned.
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1)
+      expect(mockResume).toHaveBeenCalledTimes(1)
+
+      finishResume()
+      await done
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not ask when permission is already granted or denied', async () => {
+      for (const permission of ['granted', 'denied']) {
+        (window as any).Notification.permission = permission
+        const done = fresh.enableSosAlerts()
+        finishResume()
+        await done
+      }
+      expect(mockRequestPermission).not.toHaveBeenCalled()
+    })
+
+    it('a refused or failing question still lets the sound unlock finish', async () => {
+      mockRequestPermission.mockRejectedValue(new Error('refused'))
+      const done = fresh.enableSosAlerts()
+      finishResume()
+      await expect(done).resolves.toBeUndefined()
+    })
+  })
+
+  describe('notificationsBlocked', () => {
+    const originalNotification = window.Notification
+
+    afterEach(() => {
+      (window as any).Notification = originalNotification
+    })
+
+    it("is true only when Notification.permission is 'denied'", () => {
+      (window as any).Notification = { permission: 'denied', requestPermission: jest.fn() }
+      expect(notificationsBlocked()).toBe(true)
+      ;(window as any).Notification.permission = 'default'
+      expect(notificationsBlocked()).toBe(false)
+      ;(window as any).Notification.permission = 'granted'
+      expect(notificationsBlocked()).toBe(false)
+    })
+
+    it('is false in a browser without notifications', () => {
+      delete (window as any).Notification
+      expect(notificationsBlocked()).toBe(false)
     })
   })
 })

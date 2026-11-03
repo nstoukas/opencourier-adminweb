@@ -205,4 +205,49 @@ describe('SosPage (/sos page) (spec 0022, AC-9, decision 73.7)', () => {
     expect(text).not.toMatch(/rider\s*incident/i)
     expect(text).not.toMatch(/\(\d+\s*incidents?\)/i)
   })
+
+  // Row 73 review (Major): a failed ask is said in words, and a blind list never reads as a quiet one.
+  describe('when the current SOS query fails', () => {
+    const unreachable = /Cannot reach the server, so this list may be out of date/
+
+    it('with nothing loaded yet: says the server cannot be reached, never "No rider has an open SOS."', () => {
+      mockUseGetCurrentSosQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+
+      render(<SosPage />)
+
+      expect(screen.getByText(unreachable)).toBeInTheDocument()
+      expect(screen.queryByText('No rider has an open SOS.')).not.toBeInTheDocument()
+    })
+
+    it('after an earlier answer of no open SOS: still never "No rider has an open SOS."', () => {
+      // RTK Query keeps the last good data after a failed refetch.
+      mockUseGetCurrentSosQuery.mockReturnValue({ data: [], isLoading: false, isError: true })
+
+      render(<SosPage />)
+
+      expect(screen.getByText(unreachable)).toBeInTheDocument()
+      expect(screen.queryByText('No rider has an open SOS.')).not.toBeInTheDocument()
+    })
+
+    it('after an earlier answer with open SOS: says so, and still lists what it last knew', () => {
+      mockUseGetCurrentSosQuery.mockReturnValue({ data: [currentIncident], isLoading: false, isError: true })
+
+      render(<SosPage />)
+
+      expect(screen.getByText(unreachable)).toBeInTheDocument()
+      expect(screen.getByText('Andreas Papandreou')).toBeInTheDocument()
+    })
+
+    it('the message is gone once the query succeeds', () => {
+      mockUseGetCurrentSosQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+      const { rerender } = render(<SosPage />)
+      expect(screen.getByText(unreachable)).toBeInTheDocument()
+
+      mockUseGetCurrentSosQuery.mockReturnValue({ data: [], isLoading: false, isError: false })
+      rerender(<SosPage />)
+
+      expect(screen.queryByText(unreachable)).not.toBeInTheDocument()
+      expect(screen.getByText('No rider has an open SOS.')).toBeInTheDocument()
+    })
+  })
 })
