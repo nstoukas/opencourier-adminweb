@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import PartnersPage from '@/pages/partners'
 import type { PartnerAdminDto, PartnerPaginatedAdminDto } from '../../backend-admin-sdk'
 import { useGetPartnersQuery } from '../../api/partnersApi'
@@ -140,8 +140,9 @@ describe('PartnersPage index component', () => {
       const headers = screen.getAllByRole('columnheader').map((th) => th.textContent)
       expect(headers).toEqual(['Restaurant', 'Phone', 'Sign-in email', 'Member since', 'Action'])
       expect(screen.getByText('Action')).toHaveClass('sr-only')
-      // No search box and none of the board's figures without data.
-      expect(screen.queryByRole('searchbox')).toBeNull()
+      // One search box since row 106 (spec 0024's AC-1 had none before it), and none of the
+      // board's figures without data.
+      expect(screen.getAllByRole('searchbox')).toHaveLength(1)
       expect(screen.queryByRole('textbox')).toBeNull()
       expect(screen.queryByText(/live now/i)).toBeNull()
       expect(screen.queryByText(/today/i)).toBeNull()
@@ -193,6 +194,93 @@ describe('PartnersPage index component', () => {
       render(<PartnersPage />)
 
       expect(mockUseGetPartnersQuery).toHaveBeenCalledWith({ page: 1, perPage: expect.any(Number) })
+    })
+  })
+  // Row 106: the search box sends its text to the backend through useGetPartnersQuery.
+  describe('row 106 search', () => {
+    // Enough restaurants for three pages, so "Go to next page" can be pressed.
+    const threePages = {
+      ...paginatedResponse,
+      pagination: { ...paginatedResponse.pagination, totalItems: 25, totalPages: 3 },
+    } as unknown as PartnerPaginatedAdminDto
+
+    beforeEach(() => {
+      jest.useFakeTimers()
+      mockUseGetPartnersQuery.mockReturnValue({ data: threePages, isLoading: false })
+    })
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers()
+      jest.useRealTimers()
+    })
+
+    const searchBox = () => screen.getByRole('searchbox', { name: 'Search restaurants' })
+    const typeAndSettle = (value: string) => {
+      fireEvent.change(searchBox(), { target: { value } })
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+    }
+    const lastQueryArgs = () => mockUseGetPartnersQuery.mock.calls[mockUseGetPartnersQuery.mock.calls.length - 1][0]
+
+    it('asks with no search at first', () => {
+      render(<PartnersPage />)
+
+      expect(lastQueryArgs().search).toBeUndefined()
+      expect(lastQueryArgs().page).toBe(1)
+    })
+
+    it('hands the trimmed search to useGetPartnersQuery 300 ms after typing', () => {
+      render(<PartnersPage />)
+
+      fireEvent.change(searchBox(), { target: { value: ' Νόσης Ιάσονος ' } })
+      expect(lastQueryArgs().search).toBeUndefined()
+
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      expect(mockUseGetPartnersQuery).toHaveBeenLastCalledWith({
+        search: 'Νόσης Ιάσονος',
+        page: 1,
+        perPage: expect.any(Number),
+      })
+    })
+
+    it('goes back to page 1 when a new search is typed on page 2', () => {
+      render(<PartnersPage />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next page' }))
+      expect(lastQueryArgs().page).toBe(2)
+
+      typeAndSettle('nosh')
+
+      expect(lastQueryArgs()).toEqual(expect.objectContaining({ search: 'nosh', page: 1 }))
+    })
+
+    it('keeps the page when the search did not change (trailing space)', () => {
+      render(<PartnersPage />)
+
+      typeAndSettle('nosh')
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next page' }))
+      expect(lastQueryArgs()).toEqual(expect.objectContaining({ search: 'nosh', page: 2 }))
+
+      typeAndSettle('nosh ')
+
+      expect(lastQueryArgs()).toEqual(expect.objectContaining({ search: 'nosh', page: 2 }))
+    })
+
+    it('drops the search, back on page 1, when the box is cleared', () => {
+      render(<PartnersPage />)
+
+      typeAndSettle('nosh')
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next page' }))
+      expect(lastQueryArgs()).toEqual(expect.objectContaining({ search: 'nosh', page: 2 }))
+
+      typeAndSettle('')
+
+      expect(lastQueryArgs().search).toBeUndefined()
+      expect(lastQueryArgs().page).toBe(1)
     })
   })
 })
