@@ -96,18 +96,27 @@ export function notificationsAllowed(): boolean {
   return notificationsSupported() && Notification.permission === 'granted'
 }
 
-// The "Enable SOS alerts" click: unlocks the sound, asks for notifications, and remembers the
-// choice on this browser. Must be called from the click itself.
+// True when the admin (or the browser's site settings) refused notifications for this site. Only
+// the browser's own settings can undo that; clicking "Enable SOS alerts" again cannot.
+export function notificationsBlocked(): boolean {
+  return notificationsSupported() && Notification.permission === 'denied'
+}
+
+// The "Enable SOS alerts" click: asks for notifications, unlocks the sound, and remembers the
+// choice on this browser. Must be called from the click itself. The notification question is asked
+// first, before anything is awaited: Safari only shows it when it is reached straight from the
+// click (row 73 review). Both then finish together.
 export async function enableSosAlerts(): Promise<void> {
   rememberChoice()
-  await unlockSound()
+  let asking: Promise<unknown> = Promise.resolve()
   if (notificationsSupported() && Notification.permission === 'default') {
     try {
-      await Notification.requestPermission()
+      asking = Notification.requestPermission().catch(() => undefined)
     } catch {
-      // An old browser with the callback form only, or a refusal: the banner and sound still work.
+      // An old browser with the callback form only: the banner and sound still work.
     }
   }
+  await Promise.all([unlockSound(), asking])
 }
 
 // The ids this browser already notified, kept so a reload or another tab does not notify again.

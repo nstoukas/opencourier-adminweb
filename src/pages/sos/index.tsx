@@ -102,9 +102,18 @@ const SosPage: NextPageWithLayout = () => {
         <h2 id="sos-current" className="text-lg font-semibold">
           Open now
         </h2>
+        {/* A failed ask is said in words, never shown as "No rider has an open SOS." (row 73 review). */}
+        {current.isError && (
+          <p
+            role="status"
+            className="rounded-md border border-destructive bg-destructive/10 p-4 text-sm font-semibold text-destructive"
+          >
+            Cannot reach the server, so this list may be out of date. It is asked again every 10 s.
+          </p>
+        )}
         {current.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (current.data ?? []).length === 0 ? (
+        ) : current.isError && !current.data ? null : (current.data ?? []).length === 0 ? (
           <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
             No rider has an open SOS.
           </p>

@@ -24,6 +24,9 @@ type Props = {
   riderName: string
   // Still active: closing it also stops the rider's phone sharing its position.
   active: boolean
+  // How the rider ended it, if they did ("I'm safe" or "False alarm"): the outcome starts there.
+  // Otherwise the admin must choose one (row 73 review: no outcome is recorded that nobody chose).
+  riderOutcome: SosOutcome | null
   // The button that opened the dialog; focus goes back to it on close (adminweb AGENTS.md).
   returnFocusTo: React.RefObject<HTMLElement>
 }
@@ -34,26 +37,35 @@ const SELECT_CLASS =
 // Spec 0022 (AC-10): an admin closes an SOS with what happened and an optional note. The close
 // records who and when; if the SOS was still active, the rider's phone stops sharing and the rider
 // can be offered work again.
-export function CloseSosDialog({ open, onOpenChange, incidentId, riderName, active, returnFocusTo }: Props) {
+export function CloseSosDialog({
+  open,
+  onOpenChange,
+  incidentId,
+  riderName,
+  active,
+  riderOutcome,
+  returnFocusTo,
+}: Props) {
   const { toast } = useToast()
   const [closeSos, { isLoading }] = useCloseSosMutation()
-  const [outcome, setOutcome] = useState<SosOutcome>('RIDER_SAFE')
+  // '' while nothing is chosen yet: Close SOS stays disabled until it is.
+  const [outcome, setOutcome] = useState<SosOutcome | ''>(riderOutcome ?? '')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-      setOutcome('RIDER_SAFE')
+      setOutcome(riderOutcome ?? '')
       setNote('')
       setError(null)
     }
-  }, [open])
+  }, [open, riderOutcome])
 
   const tooLong = note.length > SOS_NOTE_MAX
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (isLoading || tooLong) return
+    if (isLoading || tooLong || outcome === '') return
     setError(null)
     try {
       await closeSos({ id: incidentId, outcome, note: note.trim() === '' ? null : note.trim() }).unwrap()
@@ -103,8 +115,11 @@ export function CloseSosDialog({ open, onOpenChange, incidentId, riderName, acti
                 id="sos-outcome"
                 className={SELECT_CLASS}
                 value={outcome}
-                onChange={(e) => setOutcome(e.target.value as SosOutcome)}
+                onChange={(e) => setOutcome(e.target.value as SosOutcome | '')}
               >
+                <option value="" disabled>
+                  Choose…
+                </option>
                 {SOS_OUTCOMES.map((value) => (
                   <option key={value} value={value}>
                     {SOS_OUTCOME_LABELS[value]}
@@ -132,7 +147,7 @@ export function CloseSosDialog({ open, onOpenChange, incidentId, riderName, acti
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || tooLong}>
+            <Button type="submit" disabled={isLoading || tooLong || outcome === ''}>
               {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
               Close SOS
             </Button>

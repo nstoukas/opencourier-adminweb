@@ -29,9 +29,14 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
   // `currentData`: never the previous incident's while the next one loads (adminweb AGENTS.md).
   const incident = query.currentData
   const active = incident?.state === 'ACTIVE'
+  // Asked again every 10 s until it is closed: the trail grows while it is active, and an awaiting
+  // close one may be closed by another admin or tab (row 73 review). A second subscription to the
+  // same incident, because the interval depends on the first one's answer; RTK Query polls at the
+  // shortest interval among subscribers, and stops when this one is skipped.
+  const polling = !!incident && incident.state !== 'CLOSED'
   useGetSosIncidentQuery(
     { id: incidentId },
-    { skip: incidentId === '' || !active, pollingInterval: active ? ACTIVE_POLL_MS : 0 },
+    { skip: incidentId === '' || !polling, pollingInterval: polling ? ACTIVE_POLL_MS : 0 },
   )
 
   if (query.isError) {
@@ -80,6 +85,7 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
         incidentId={incident.id}
         riderName={name}
         active={active}
+        riderOutcome={incident.falseAlarmAt ? 'FALSE_ALARM' : incident.safeAt ? 'RIDER_SAFE' : null}
         returnFocusTo={closeButtonRef}
       />
 

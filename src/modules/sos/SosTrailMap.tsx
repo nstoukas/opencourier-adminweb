@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { SosPointAdminDto } from '@/backend-admin-sdk'
@@ -9,14 +9,25 @@ type Props = {
   points: SosPointAdminDto[]
 }
 
-// Fits the map to the trail whenever it gains a point.
+// Fits the map to the trail once, when it first has points. After that a new point only moves the
+// map if the rider has left what is on screen, so a zoom or pan the admin made to read a street
+// name is not undone by every 10 s poll (row 73 review).
 function FitToTrail({ points }: Props) {
   const map = useMap()
+  // `useRef` keeps whether the first fit happened across redraws, without causing one.
+  const fitted = useRef(false)
   useEffect(() => {
-    const only = points.length === 1 ? points[0] : undefined
-    if (points.length === 0) return
-    if (only) {
-      map.setView([only.latitude, only.longitude], 17)
+    const newest = points[points.length - 1]
+    if (!newest) return
+    if (fitted.current) {
+      if (!map.getBounds().contains([newest.latitude, newest.longitude])) {
+        map.panTo([newest.latitude, newest.longitude])
+      }
+      return
+    }
+    fitted.current = true
+    if (points.length === 1) {
+      map.setView([newest.latitude, newest.longitude], 17)
       return
     }
     map.fitBounds(

@@ -14,6 +14,7 @@ import { bannerText } from './sosDisplay'
 import {
   enableSosAlerts,
   notificationsAllowed,
+  notificationsBlocked,
   notificationsSupported,
   notifyNewSos,
   playSosSound,
@@ -33,8 +34,11 @@ const incidentPath = (id: string) => `/sos/${encodeURIComponent(id)}`
 export function SosAlerts() {
   // Only while signed in: after Sign Out nothing asks the backend again.
   const signedIn = !!useSelector(selectAccessToken)
-  const { data, refetch } = useGetCurrentSosQuery(undefined, { skip: !signedIn })
+  const { data, refetch, isError, fulfilledTimeStamp } = useGetCurrentSosQuery(undefined, { skip: !signedIn })
   const incidents = data ?? []
+  // The last ask failed (backend down, network gone): the list above may be old, and a new SOS
+  // would not show. Said in words, so a blind page never looks like a quiet one (row 73 review).
+  const unreachable = signedIn && isError
   const now = useNow(10_000)
 
   // Whether the admin turned alerts on here, and whether the browser lets this page play sound
@@ -92,10 +96,37 @@ export function SosAlerts() {
     setAudible(soundUnlocked())
   }
 
-  const alertsOff = !chosen || !audible || (notificationsSupported() && !notificationsAllowed())
+  // Notifications refused in this browser: the button cannot help, so say where to turn them on.
+  // The banner and the sound still work, so the badge is a warning, not "off".
+  const blocked = chosen && audible && notificationsBlocked()
+  const alertsOff = !blocked && (!chosen || !audible || (notificationsSupported() && !notificationsAllowed()))
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-4 sm:px-6 empty:hidden">
+      {unreachable && (
+        <div
+          role="status"
+          className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive"
+          data-testid="sos-unreachable"
+        >
+          {fulfilledTimeStamp
+            ? `No contact with the server since ${new Date(fulfilledTimeStamp).toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                // The co-op's time, never the browser's zone (adminweb AGENTS.md).
+                timeZone: 'Europe/Athens',
+              })}. SOS alerts may be late.`
+            : 'Cannot reach the server. SOS alerts may be late.'}
+        </div>
+      )}
+      {blocked && (
+        <div className="flex flex-wrap items-center justify-end gap-2" data-testid="sos-notifications-blocked">
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning-foreground/20 bg-warning-soft px-2.5 py-0.5 text-xs font-semibold text-foreground">
+            <BellSlash size={14} aria-hidden="true" weight="bold" />
+            Notifications blocked in this browser: allow them in the site settings. Banner and sound are on.
+          </span>
+        </div>
+      )}
       {alertsOff && (
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="sos-alerts-off">
           <span className="inline-flex items-center gap-1 rounded-full bg-destructive px-2.5 py-0.5 text-xs font-semibold text-destructive-foreground">
@@ -108,14 +139,21 @@ export function SosAlerts() {
         </div>
       )}
       {incidents.length > 0 && (
-        <ul className="flex flex-col gap-2" aria-label="Riders' SOS" data-testid="sos-banners">
+        // A live region that announces a new banner only, not each minute's "4 min ago" change, and
+        // leaves each banner a plain link for screen readers.
+        <ul
+          className="flex flex-col gap-2"
+          aria-label="Riders' SOS"
+          aria-live="assertive"
+          aria-relevant="additions"
+          data-testid="sos-banners"
+        >
           {incidents.map((incident) => {
             const active = incident.state === 'ACTIVE'
             return (
               <li key={incident.id}>
                 <Link
                   href={incidentPath(incident.id)}
-                  role="alert"
                   className={cn(
                     'flex items-center gap-3 rounded-md px-4 py-3 text-sm font-semibold shadow-sm',
                     active
