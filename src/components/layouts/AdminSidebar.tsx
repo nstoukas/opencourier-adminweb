@@ -18,7 +18,7 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { GearSix, Moped, Package, SignOut, Siren, SquaresFour, Storefront } from '@phosphor-icons/react'
+import { CalendarBlank, GearSix, Moped, Package, SignOut, Siren, SquaresFour, Storefront } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -54,7 +54,11 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Co-op',
-    items: [{ title: 'Settings', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION }],
+    items: [
+      { title: 'Settings', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION },
+      // The co-op's weekly shift slots (spec 0026).
+      { title: 'Shift slots', icon: CalendarBlank, href: EAdminRoutes.SHIFT_SLOTS },
+    ],
   },
 ]
 

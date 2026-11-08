@@ -582,6 +582,37 @@ describe('DeliveryEventTimeline component', () => {
       expect(screen.getByText('Nikos Kazantzakis')).toBeInTheDocument()
     })
 
+    it('names a DROPOFF_POINT_CORRECTED event "Dropoff point corrected" in the timeline (row 99, spec 0016)', () => {
+      const correctedEvent: DeliveryEventAdminDto = {
+        id: 'e-dpc',
+        type: 'DROPOFF_POINT_CORRECTED',
+        actor: 'COURIER',
+        eventSource: 'COURIER_APP',
+        oldStatus: 'COURIER_ARRIVED_AT_DROPOFF_LOCATION',
+        newStatus: 'COURIER_ARRIVED_AT_DROPOFF_LOCATION',
+        transitionSuccessful: true,
+        message: 'Drop off point moved 35 m by the rider',
+        createdAt: new Date('2026-11-03T12:32:00Z'),
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [correctedEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      const row = screen.getByTestId('delivery-event-row')
+      expect(row).toHaveTextContent('Dropoff point corrected')
+      expect(screen.getByText('Dropoff point corrected')).toBeInTheDocument()
+      expect(screen.queryByText('DROPOFF_POINT_CORRECTED')).toBeNull()
+      expect(screen.getByText('Drop off point moved 35 m by the rider')).toBeInTheDocument()
+      // Not a status change, so no "Did not take effect" badge either.
+      expect(screen.queryByText('Did not take effect')).toBeNull()
+    })
+
     it('polls for delivery events every 30 seconds via pollingInterval (spec 0002, AC-11)', () => {
       mockUseGetDeliveryEventsQuery.mockReturnValue({
         data: [],

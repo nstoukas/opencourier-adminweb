@@ -197,6 +197,14 @@ export interface InstanceConfigSettingsDto {
    */
   arrivalRadiusMetres?: number | null;
   /**
+   * Shifts on or off (spec 0026). Hand edited (row 77).
+   */
+  shiftsEnabled?: boolean | null;
+  /**
+   * Hours before a booked shift's start it may still be dropped, 0 to 168 (spec 0026). Hand edited (row 77).
+   */
+  shiftDropNoticeHours?: number | null;
+  /**
    * The co-op's dispatch line riders call from the job screen; null when none is set.
    * Hand edited (row 72).
    * @type {string}
@@ -394,6 +402,8 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? null
       : json["arrivalRadiusMetres"],
+    shiftsEnabled: !exists(json, "shiftsEnabled") ? null : json["shiftsEnabled"],
+    shiftDropNoticeHours: !exists(json, "shiftDropNoticeHours") ? null : json["shiftDropNoticeHours"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
@@ -443,6 +453,9 @@ export function InstanceConfigSettingsDtoToJSON(
     sosLocationRetentionDays: value.sosLocationRetentionDays,
     handBackSeconds: value.handBackSeconds,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
+    // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
+    shiftsEnabled: value.shiftsEnabled,
+    shiftDropNoticeHours: value.shiftDropNoticeHours,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };

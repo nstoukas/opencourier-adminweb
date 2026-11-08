@@ -197,6 +197,14 @@ export interface InstanceConfigSettingsAdminInput {
    */
   arrivalRadiusMetres?: number;
   /**
+   * Shifts on or off (spec 0026). Hand edited (row 77).
+   */
+  shiftsEnabled?: boolean;
+  /**
+   * Hours before a booked shift's start it may still be dropped, 0 to 168 (spec 0026). Hand edited (row 77).
+   */
+  shiftDropNoticeHours?: number;
+  /**
    * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
    * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
    * optional leading +. An empty text clears it. Hand edited (row 72).
@@ -420,6 +428,8 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? undefined
       : json["arrivalRadiusMetres"],
+    shiftsEnabled: !exists(json, "shiftsEnabled") ? undefined : json["shiftsEnabled"],
+    shiftDropNoticeHours: !exists(json, "shiftDropNoticeHours") ? undefined : json["shiftDropNoticeHours"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
@@ -474,6 +484,9 @@ export function InstanceConfigSettingsAdminInputToJSON(
     // Without this line a save would drop the hand back window before it left the browser.
     handBackSeconds: value.handBackSeconds,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
+    // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
+    shiftsEnabled: value.shiftsEnabled,
+    shiftDropNoticeHours: value.shiftDropNoticeHours,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     // Without this line a save would drop the cancellation rule before it left the browser.

@@ -1010,4 +1010,47 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.courierId).toBeNull()
     })
   })
+
+  // Spec 0026 (row 77, AC-5): both shift settings, both ways. Without the ToJSON lines a save would drop
+  // them before they left the browser.
+  describe('Shift settings (spec 0026, AC-5)', () => {
+    it('InstanceConfigSettingsAdminInputToJSON keeps shiftsEnabled (false included) and shiftDropNoticeHours (0 included)', () => {
+      expect(InstanceConfigSettingsAdminInputToJSON({ shiftsEnabled: true, shiftDropNoticeHours: 24 })).toMatchObject({
+        shiftsEnabled: true,
+        shiftDropNoticeHours: 24,
+      })
+      const off = InstanceConfigSettingsAdminInputToJSON({ shiftsEnabled: false, shiftDropNoticeHours: 0 })
+      expect(off.shiftsEnabled).toBe(false)
+      expect(off.shiftDropNoticeHours).toBe(0)
+    })
+
+    it('InstanceConfigSettingsAdminInput round-trips both through FromJSON and ToJSON, and leaves them undefined when absent', () => {
+      const parsed = InstanceConfigSettingsAdminInputFromJSON({ shiftsEnabled: true, shiftDropNoticeHours: 168 })
+      expect(parsed.shiftsEnabled).toBe(true)
+      expect(parsed.shiftDropNoticeHours).toBe(168)
+      expect(InstanceConfigSettingsAdminInputToJSON(parsed)).toMatchObject({ shiftsEnabled: true, shiftDropNoticeHours: 168 })
+
+      const empty = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(empty.shiftsEnabled).toBeUndefined()
+      expect(empty.shiftDropNoticeHours).toBeUndefined()
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON reads both (false and 0 kept) and null when absent', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({ shiftsEnabled: false, shiftDropNoticeHours: 0 })
+      expect(dto.shiftsEnabled).toBe(false)
+      expect(dto.shiftDropNoticeHours).toBe(0)
+
+      const missing = InstanceConfigSettingsDtoFromJSON({})
+      expect(missing.shiftsEnabled).toBeNull()
+      expect(missing.shiftDropNoticeHours).toBeNull()
+    })
+
+    it('InstanceConfigSettingsDtoToJSON writes both back', () => {
+      const json = InstanceConfigSettingsDtoToJSON(
+        InstanceConfigSettingsDtoFromJSON({ shiftsEnabled: true, shiftDropNoticeHours: 12 })
+      )
+      expect(json.shiftsEnabled).toBe(true)
+      expect(json.shiftDropNoticeHours).toBe(12)
+    })
+  })
 })

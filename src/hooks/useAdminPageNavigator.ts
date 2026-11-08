@@ -12,6 +12,8 @@ export enum EAdminRoutes {
   COURIER_DETAILS = '/couriers/[courierId]',
   // Riders' SOS incidents (spec 0022).
   SOS = '/sos',
+  // The co-op's weekly shift slots (spec 0026).
+  SHIFT_SLOTS = '/shift-slots',
   SOS_DETAILS = '/sos/[sosId]',
 }
 

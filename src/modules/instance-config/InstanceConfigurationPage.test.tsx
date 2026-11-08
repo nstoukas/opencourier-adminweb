@@ -179,7 +179,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(h1).toHaveTextContent('Co-op settings')
     })
 
-    it('renders seven pills in exact order linking to the seven card anchors (AC-1)', () => {
+    it('renders eight pills in exact order linking to the eight card anchors (AC-1; Shifts added by spec 0026)', () => {
       render(<InstanceConfigurationPage />)
       const nav = screen.getByRole('navigation', { name: /Settings sections/i })
       const links = nav.querySelectorAll('a')
@@ -189,6 +189,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         { title: 'Matching', href: '#matching' },
         { title: 'Offers', href: '#offers' },
         { title: 'Rider pay', href: '#rider-pay' },
+        { title: 'Shifts', href: '#shifts' },
         { title: 'Service area', href: '#service-area' },
         { title: 'Instance', href: '#instance' },
         { title: 'Public pages', href: '#public-pages' },
@@ -463,7 +464,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
   // Loading state before settings arrive (AC-13)
   // ---------------------------------------------------------------------------
   describe('Before settings load (AC-13)', () => {
-    it('controls are disabled, switch shows "Not loaded yet", and no changes are counted', () => {
+    it('controls are disabled, both switches show "Not loaded yet", and no changes are counted', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -474,7 +475,10 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       // Offer switch & inputs disabled
       const offerSwitch = document.getElementById('offerExpiryEnabled')
       expect(offerSwitch).toBeDisabled()
-      expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
+      // Two switches now: Offer expiry and Shifts (spec 0026), each unknown until loaded.
+      expect(screen.getAllByText('Not loaded yet')).toHaveLength(2)
+      expect(document.getElementById('shiftsEnabled')).toBeDisabled()
+      expect(document.getElementById('shiftDropNoticeHours')).toBeDisabled()
 
       const baseFeeInput = document.getElementById('quoteBaseFee')
       expect(baseFeeInput).toBeDisabled()
@@ -1395,6 +1399,132 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         fireEvent.click(saveButton)
         expect(mockSetInstanceConfig).not.toHaveBeenCalled()
       })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Shifts card (spec 0026, row 77, AC-5)
+  // ---------------------------------------------------------------------------
+  describe('Shifts card (spec 0026, AC-5)', () => {
+    const withShifts = (shiftsEnabled: boolean, shiftDropNoticeHours = 12) => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: { ...baseMockConfigData, shiftsEnabled, shiftDropNoticeHours },
+        isLoading: false,
+      })
+    }
+
+    it('renders a "Shifts" section with the switch bound to shiftsEnabled and the notice box', () => {
+      withShifts(false, 12)
+      render(<InstanceConfigurationPage />)
+
+      const section = document.getElementById('shifts') as HTMLElement
+      expect(section).toBeInTheDocument()
+      expect(within(section).getByRole('heading', { name: 'Shifts' })).toBeInTheDocument()
+
+      const toggle = document.getElementById('shiftsEnabled') as HTMLElement
+      expect(section).toContainElement(toggle)
+      expect(toggle).toHaveAttribute('role', 'switch')
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+      expect(toggle).not.toBeDisabled()
+      expect(within(section).getByLabelText('Shifts')).toBe(toggle)
+
+      const notice = document.getElementById('shiftDropNoticeHours') as HTMLInputElement
+      expect(section).toContainElement(notice)
+      expect(notice.value).toBe('12')
+      expect(notice).not.toBeDisabled()
+      expect(screen.getByLabelText('Notice to drop a shift, in hours')).toBe(notice)
+
+      expect(within(section).getByRole('link', { name: 'Shift slots' })).toHaveAttribute('href', '/shift-slots')
+    })
+
+    it('shows the switch on when the saved setting is true', () => {
+      withShifts(true, 24)
+      render(<InstanceConfigurationPage />)
+      expect(document.getElementById('shiftsEnabled')).toHaveAttribute('aria-checked', 'true')
+      expect((document.getElementById('shiftDropNoticeHours') as HTMLInputElement).value).toBe('24')
+    })
+
+    it('says plainly that riders book nothing until shift booking is built, when On', () => {
+      withShifts(true)
+      render(<InstanceConfigurationPage />)
+      const section = document.getElementById('shifts') as HTMLElement
+      expect(section).toHaveTextContent(
+        'On. Riders will book these slots once shift booking is built. Edit them on Shift slots.'
+      )
+      expect(section).not.toHaveTextContent('Riders will book the slots set on')
+    })
+
+    it('says Off changes nothing and slots can still be prepared, when Off', () => {
+      withShifts(false)
+      render(<InstanceConfigurationPage />)
+      expect(document.getElementById('shifts')).toHaveTextContent(
+        'Off. No shift rule applies to anyone. You can still prepare the slots on Shift slots.'
+      )
+    })
+
+    it('switching Shifts on puts it on the bar and Save sends shiftsEnabled: true as a boolean, with the shifts sentence', async () => {
+      withShifts(false)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('shiftsEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^Shifts Off →\s*(?:changes to )?On$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ shiftsEnabled: true })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Saved',
+            description: 'Saved: Shifts. Riders see nothing of shifts until shift booking is built.',
+          })
+        )
+      })
+    })
+
+    it('switching Shifts off sends shiftsEnabled: false (not dropped)', async () => {
+      withShifts(true)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('shiftsEnabled') as HTMLElement)
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ shiftsEnabled: false })
+      })
+    })
+
+    it('editing the notice sends shiftDropNoticeHours as a number, 0 included', async () => {
+      withShifts(false, 12)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('shiftDropNoticeHours') as HTMLInputElement, { target: { value: '0' } })
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Notice to drop a shift, in hours')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ shiftDropNoticeHours: 0 })
+      })
+    })
+
+    it('emptying the notice blocks Save and is never sent', () => {
+      withShifts(false, 12)
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('shiftDropNoticeHours') as HTMLInputElement, { target: { value: '' } })
+
+      expect(document.getElementById('save-all-blockers')?.textContent).toContain('Notice to drop a shift, in hours is empty')
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).toBeDisabled()
+      fireEvent.click(saveButton)
+      expect(mockSetInstanceConfig).not.toHaveBeenCalled()
     })
   })
 })

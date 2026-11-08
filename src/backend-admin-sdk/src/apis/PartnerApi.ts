@@ -32,6 +32,8 @@ import {
 export interface PartnerApiGetPartnersRequest {
     page?: number;
     perPage?: number;
+    // Hand edited (row 106): name, pickup address or sign in email; every word must match.
+    search?: string;
 }
 
 export interface PartnerApiGetPartnerRequest {
@@ -69,6 +71,10 @@ export class PartnerApi extends runtime.BaseAPI {
 
         if (requestParameters.perPage !== undefined) {
             queryParameters['perPage'] = requestParameters.perPage;
+        }
+
+        if (requestParameters.search !== undefined) {
+            queryParameters['search'] = requestParameters.search;
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

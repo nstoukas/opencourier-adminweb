@@ -73,6 +73,21 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(allTransitions).not.toContain('HANDED_BACK')
     })
 
+    it('ensures EnumDeliveryEventType contains DROPOFF_POINT_CORRECTED (row 99, spec 0016)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('DROPOFF_POINT_CORRECTED')
+      expect(EnumDeliveryEventType.DROPOFF_POINT_CORRECTED).toBe('DROPOFF_POINT_CORRECTED')
+    })
+
+    it('ensures STATE_MACHINE does NOT contain DROPOFF_POINT_CORRECTED (row 99, spec 0016)', () => {
+      // A pin correction is the rider's own step, recorded by the backend outside the state machine;
+      // keeping it out of STATE_MACHINE keeps it out of the admin Change status menu.
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('DROPOFF_POINT_CORRECTED')
+    })
+
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {
       // Value 5 / AC-12 rule: An expired offer is never held against a rider.
       // No rating, streak, acceptance rate, or missed offer count may exist per rider.

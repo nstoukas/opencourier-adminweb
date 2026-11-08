@@ -24,7 +24,10 @@ export enum EnumDeliveryEventType {
   FOOD_NOT_RETURNED = 'FOOD_NOT_RETURNED',
   // A rider gave an order back inside the free window (spec 0020). The rider's own step, recorded
   // by the backend: never in STATE_MACHINE or the admin menus. The timeline reads "Handed back".
-  HANDED_BACK = 'HANDED_BACK'
+  HANDED_BACK = 'HANDED_BACK',
+  // A rider moved the drop off pin to where they stood (spec 0016, row 99). The rider's own step,
+  // recorded by the backend: never in STATE_MACHINE or the admin menus.
+  DROPOFF_POINT_CORRECTED = 'DROPOFF_POINT_CORRECTED'
 }
 
 export enum EnumEventActor {

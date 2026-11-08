@@ -1014,6 +1014,76 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(scope.getByText('Undeliverable reason').nextElementSibling?.textContent).toBe('CUSTOMER_UNAVAILABLE')
     })
 
+    // Row 99 (spec 0016): floor and doorbell are their own rows, not only inside the composed note.
+    describe('Floor and Doorbell rows in the Drop off card (row 99)', () => {
+      function dropoffScope() {
+        const dropoffCard = screen.getByText('Drop off', { selector: 'h3' }).closest('.rounded-lg')
+        expect(dropoffCard).not.toBeNull()
+        return within(dropoffCard as HTMLElement)
+      }
+
+      it("shows the delivery's floor and doorbell as their own rows", () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, dropoffFloor: '3rd', dropoffDoorbell: 'Dimas' },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const scope = dropoffScope()
+        expect(scope.getByText('Floor').tagName).toBe('DT')
+        expect(scope.getByText('Floor').nextElementSibling?.textContent).toBe('3rd')
+        expect(scope.getByText('Doorbell').tagName).toBe('DT')
+        expect(scope.getByText('Doorbell').nextElementSibling?.textContent).toBe('Dimas')
+      })
+
+      it('shows "—" for floor and doorbell when they are null', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, dropoffFloor: null, dropoffDoorbell: null },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const scope = dropoffScope()
+        expect(scope.getByText('Floor').nextElementSibling?.textContent).toBe('—')
+        expect(scope.getByText('Doorbell').nextElementSibling?.textContent).toBe('—')
+      })
+
+      it('shows "—" for floor and doorbell when they are empty text', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, dropoffFloor: '', dropoffDoorbell: '' },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const scope = dropoffScope()
+        expect(scope.getByText('Floor').nextElementSibling?.textContent).toBe('—')
+        expect(scope.getByText('Doorbell').nextElementSibling?.textContent).toBe('—')
+      })
+
+      it('shows "—" for floor and doorbell when the delivery lacks them (an older backend)', () => {
+        // sampleEurDelivery has neither field.
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const scope = dropoffScope()
+        expect(scope.getByText('Floor').nextElementSibling?.textContent).toBe('—')
+        expect(scope.getByText('Doorbell').nextElementSibling?.textContent).toBe('—')
+      })
+
+      it('keeps the composed note as it was beside the new rows', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, dropoffFloor: '3rd', dropoffDoorbell: 'Dimas' },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        expect(dropoffScope().getByText('Notes').nextElementSibling?.textContent).toBe('Ring bell #4')
+      })
+    })
+
     it('renders every field in Order facts card and order items list', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 

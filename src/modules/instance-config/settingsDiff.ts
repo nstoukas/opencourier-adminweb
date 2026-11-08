@@ -42,6 +42,9 @@ export type SettingsForm = {
   restaurantHistoryDays: string
   sosLocationRetentionDays: string
   dispatchPhoneNumber: string
+  // Shifts (spec 0026): the co-op switch, unknown until loaded, and the drop notice in hours.
+  shiftsEnabled: boolean | null
+  shiftDropNoticeHours: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -84,6 +87,8 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'defaultCourierPayRate', label: 'Default courier pay rate', kind: 'number' },
   { key: 'defaultMaxWorkingHours', label: 'Default max working hours', kind: 'number' },
   { key: 'courierCompensationCalculationType', label: 'Courier compensation calculation', kind: 'select' },
+  { key: 'shiftsEnabled', label: 'Shifts', kind: 'switch' },
+  { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', kind: 'number' },
   { key: 'region', label: 'Service area', kind: 'region', details: true },
   { key: 'name', label: 'Name', kind: 'text', details: true },
   { key: 'link', label: 'URL', kind: 'url', details: true },
@@ -327,6 +332,8 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     restaurantHistoryDays: text(data.restaurantHistoryDays),
     sosLocationRetentionDays: text(data.sosLocationRetentionDays),
     dispatchPhoneNumber: data.dispatchPhoneNumber ?? '',
+    shiftsEnabled: data.shiftsEnabled ?? null,
+    shiftDropNoticeHours: text(data.shiftDropNoticeHours),
   }
 }
 
@@ -345,6 +352,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('arrivalRadiusMetres')) {
     parts.push("Riders' apps use the new arrival radius within ten minutes.")
+  }
+  if (keys.has('shiftsEnabled') || keys.has('shiftDropNoticeHours')) {
+    parts.push('Riders see nothing of shifts until shift booking is built.')
   }
   if (keys.has('handBackSeconds')) {
     parts.push('The hand back applies to the next accept; a running hand back keeps its end.')

@@ -60,6 +60,55 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### Shift slots, and the Shifts settings (scope row 77, spec 0026): `00a171f` to `e356229`
+Built on the branch `feat/shift-slots` and merged on 3 November, with the backend half.
+- **A Shift slots page** (Co-op group in the sidebar):
+  - slots by weekday;
+  - Add slot and Edit in one dialog (HH:mm, 24:00 for a midnight end);
+  - Remove after a confirm;
+  - each slot's History;
+  - Show removed slots;
+  - a notice while Shifts are off.
+
+  A 409 reads the slots again, and focus returns to the opener, or to Add slot when the opener is gone.
+- **A Shifts card** on the settings page: the switch and the notice to drop a shift, in hours.
+- Tests by a fresh Claude subagent while agy was out of quota: 1479 pass; put back by hand. Reviewed by Fable
+  (approve with nits; fixed in `2d8509b`).
+
+### Search on the restaurants list (scope row 106): `48c5ef8`, `2d8fb8b`
+Built on the branch `feat/restaurant-list-search` and merged on 3 November, with the backend half.
+- A "Name, street or email" box. It ignores case and accents, sends 300 ms after the last key, and starts
+  again from page 1. The hand edited SDK sends `search`.
+- Tests by a fresh Claude subagent while agy was out of quota: 1319 pass; put back by hand. Reviewed by Fable.
+
+### The restaurants list, a restaurant's page and Add a restaurant (scope row 91, spec 0024): `9973a57` to `eb60c94`
+Built on the branch `feat/restaurants-redesign` and merged on 3 November. No backend change.
+- **List.** Each restaurant shows its address under its name, or "No pickup address". The other columns are
+  phone, sign in email, member since and an Open button. Search waits for the backend (row 106).
+- **A restaurant's page.** It has:
+  - a breadcrumb and "Member since";
+  - Live now: the server's count of deliveries that have not ended;
+  - a read only pickup pin map with the contact details and the webhook;
+  - the 10 newest deliveries;
+  - the saved customers card.
+
+  It shows no money figure per restaurant, because the delivery fee is the customer's.
+- **Add a Restaurant.** It sends the same request as before. The new Restaurant Added panel shows the email and
+  password once, with Copy All. Escape and outside clicks can't close it by accident, and the password is
+  forgotten once the dialog closes. Edit Details and Set New Password give focus back to their buttons.
+- `DeliveryRow` and `memberSince` are shared with the courier page; `PartnerSummaryCard` is removed.
+- Tests by a fresh Claude subagent while agy was out of quota: 1300 pass; put back by hand. Reviewed by Fable
+  (approve with nits; fixes in `5b45a7b`). Verified live: add, edit, new password, both pages at three widths.
+
+### Floor and doorbell on the delivery page (scope row 99, from spec 0016): `3632841`, `f4a12b4`
+Built on the branch `feat/pin-corrections-shown` and merged on 3 November.
+- **Their own rows.** The delivery page's Drop off card shows Floor and Doorbell as fields (a dash when
+  empty); they used to be readable only inside the composed note. The hand edited SDK reads and writes
+  both, and a missing field reads as null.
+- **The pin correction has a name.** The event type copy learns `DROPOFF_POINT_CORRECTED`; the timeline
+  says "Dropoff point corrected". It is not a status change, so `STATE_MACHINE` does not list it.
+- 13 tests by a fresh Claude subagent while agy was out of quota (1245 pass); put back by hand. Reviewed by Fable.
+
 ### The hand back window, and "Handed back" on the timeline (scope row 71, spec 0020): `902602e` to `0080c0e`
 Needs the backend's row 71.
 - **Instance configuration, Offers to riders**: "Seconds a rider can hand back an order for free"

@@ -315,6 +315,9 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               { label: 'Name', value: delivery.dropoffName },
               { label: 'Business', value: displayText(delivery.dropoffBusinessName) },
               { label: 'Phone', value: delivery.dropoffPhoneNumber },
+              // Row 99: their own fields, not only inside the composed note.
+              { label: 'Floor', value: displayText(delivery.dropoffFloor) },
+              { label: 'Doorbell', value: displayText(delivery.dropoffDoorbell) },
               { label: 'ETA', value: formatOptionalDate(delivery.dropoffEta) },
               { label: 'Ready', value: formatOptionalDate(delivery.dropoffReadyAt) },
               { label: 'Deadline', value: formatOptionalDate(delivery.dropoffDeadlineAt) },

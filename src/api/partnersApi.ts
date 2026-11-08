@@ -12,7 +12,7 @@ import { handleBackendError } from './utils/api'
 export const partnersApi = baseApi.injectEndpoints({
   overrideExisting: true,
   endpoints: (build) => ({
-    getPartners: build.query<PartnerPaginatedAdminDto, { page?: number; perPage?: number }>({
+    getPartners: build.query<PartnerPaginatedAdminDto, { page?: number; perPage?: number; search?: string }>({
       queryFn: async (params, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
@@ -20,6 +20,8 @@ export const partnersApi = baseApi.injectEndpoints({
           const data = await sdk.partners().getPartners({
             page: params.page ?? 1,
             perPage: params.perPage ?? 10,
+            // Row 106: only sent when there is one, so the list without a search asks as before.
+            ...(params.search ? { search: params.search } : {}),
           })
           return { data }
         } catch (error) {

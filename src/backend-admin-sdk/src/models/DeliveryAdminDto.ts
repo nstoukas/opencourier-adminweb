@@ -104,6 +104,17 @@ export interface DeliveryAdminDto {
      */
     dropoffSellerNotes: string | null;
     /**
+     * Row 99 (spec 0016): the floor and doorbell as their own fields (hand edited).
+     * @type {string}
+     * @memberof DeliveryAdminDto
+     */
+    dropoffFloor?: string | null;
+    /**
+     * @type {string}
+     * @memberof DeliveryAdminDto
+     */
+    dropoffDoorbell?: string | null;
+    /**
      * 
      * @type {object}
      * @memberof DeliveryAdminDto
@@ -518,6 +529,8 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'dropoffBusinessName': json['dropoffBusinessName'],
         'dropoffNotes': json['dropoffNotes'],
         'dropoffSellerNotes': json['dropoffSellerNotes'],
+        'dropoffFloor': !exists(json, 'dropoffFloor') ? null : json['dropoffFloor'],
+        'dropoffDoorbell': !exists(json, 'dropoffDoorbell') ? null : json['dropoffDoorbell'],
         'dropoffVerification': json['dropoffVerification'],
         'dropoffReadyAt': (new Date(json['dropoffReadyAt'])),
         'dropoffEta': (json['dropoffEta'] === null ? null : new Date(json['dropoffEta'])),
@@ -597,6 +610,8 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'dropoffBusinessName': value.dropoffBusinessName,
         'dropoffNotes': value.dropoffNotes,
         'dropoffSellerNotes': value.dropoffSellerNotes,
+        'dropoffFloor': value.dropoffFloor,
+        'dropoffDoorbell': value.dropoffDoorbell,
         'dropoffVerification': value.dropoffVerification,
         'dropoffReadyAt': (value.dropoffReadyAt.toISOString()),
         'dropoffEta': (value.dropoffEta === null ? null : value.dropoffEta.toISOString()),
