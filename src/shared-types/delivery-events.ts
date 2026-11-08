@@ -27,7 +27,11 @@ export enum EnumDeliveryEventType {
   HANDED_BACK = 'HANDED_BACK',
   // A rider moved the drop off pin to where they stood (spec 0016, row 99). The rider's own step,
   // recorded by the backend: never in STATE_MACHINE or the admin menus.
-  DROPOFF_POINT_CORRECTED = 'DROPOFF_POINT_CORRECTED'
+  DROPOFF_POINT_CORRECTED = 'DROPOFF_POINT_CORRECTED',
+  // The restaurant moved its ready time, or marked the food ready (spec 0023). Its own step,
+  // recorded by the backend: never in STATE_MACHINE or the admin menus.
+  READY_DELAYED = 'READY_DELAYED',
+  FOOD_READY = 'FOOD_READY'
 }
 
 export enum EnumEventActor {

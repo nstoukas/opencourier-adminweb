@@ -171,9 +171,9 @@ export function buildPartnerCreateInput(v: PartnerCreateFormValues): BuildResult
     }
   }
 
-  // Left empty, the backend's default (15) applies.
+  // Not sent at all, the backend's default (15) applies. A box the admin emptied is refused, as on edit.
   let usualPrepMinutes: number | undefined
-  if (v.usualPrepMinutes !== undefined && v.usualPrepMinutes.trim() !== '') {
+  if (v.usualPrepMinutes !== undefined) {
     const parsed = parseUsualPrepMinutes(v.usualPrepMinutes)
     if (parsed === null) errors.push(USUAL_PREP_MINUTES_SENTENCE)
     else usualPrepMinutes = parsed
