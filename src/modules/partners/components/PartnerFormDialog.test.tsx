@@ -366,7 +366,7 @@ describe('PartnerFormDialog component', () => {
       render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
       fillCreateRequired()
       fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value: '30' } })
-      fireEvent.click(screen.getByRole('button', { name: /create restaurant/i }))
+      fireEvent.click(screen.getByRole('button', { name: /add restaurant/i }))
 
       await waitFor(() => expect(mockCreatePartnerMutation).toHaveBeenCalledTimes(1))
       expect(mockCreatePartnerMutation.mock.calls[0][0].usualPrepMinutes).toBe(30)
@@ -376,7 +376,7 @@ describe('PartnerFormDialog component', () => {
       render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
       fillCreateRequired()
       fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value: '91' } })
-      fireEvent.click(screen.getByRole('button', { name: /create restaurant/i }))
+      fireEvent.click(screen.getByRole('button', { name: /add restaurant/i }))
 
       expect(await screen.findByText(`• ${PREP_SENTENCE}`)).toBeInTheDocument()
       expect(mockCreatePartnerMutation).not.toHaveBeenCalled()
