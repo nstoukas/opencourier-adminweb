@@ -349,7 +349,7 @@ describe('PartnerFormDialog component', () => {
 
     const fillCreateRequired = () => {
       fireEvent.change(screen.getByLabelText(/restaurant name/i), { target: { value: 'Nosh' } })
-      fireEvent.change(screen.getByLabelText(/login email/i), { target: { value: 'nosh@volos.test' } })
+      fireEvent.change(screen.getByLabelText(/sign-in email/i), { target: { value: 'nosh@volos.test' } })
       fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'longenough' } })
     }
 
