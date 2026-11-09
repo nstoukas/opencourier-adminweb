@@ -51,6 +51,8 @@ request-web halves. With it the suite is at **583 passing tests**, typecheck sta
 and lint at 0.
 
 ---
+Scope row 23 (restaurant delay pay and leaving a late order, spec 0033) was built on the branch `feat/wait-pay` and merged in on 9 November, behind `waitPayEnabled`, off by default. A "Restaurant delays" section on the Co-op settings page holds the Delay pay switch, the free minutes, the pay per minute and the minutes before a rider can leave. The delivery page lists what the restaurant was charged for waits ("Restaurant delay charges"), the issue list has "Marked ready but not ready", and the private event type copy gains `WAIT_UNDISPATCHED` and `COURIER_PAID_FOR_WAIT`.
+
 
 ## Added
 
