@@ -17,6 +17,8 @@ describe('deliveryEventDisplay utils', () => {
     expect(humanizeEventType('FOOD_NOT_RETURNED')).toBe('Food not returned')
     expect(humanizeEventType('HANDED_BACK')).toBe('Handed back')
     expect(humanizeEventType('DROPOFF_POINT_CORRECTED')).toBe('Dropoff point corrected')
+    expect(humanizeEventType('READY_DELAYED')).toBe('Ready delayed')
+    expect(humanizeEventType('FOOD_READY')).toBe('Food ready')
     expect(humanizeEventType('')).toBe('—')
   })
 

@@ -382,6 +382,16 @@ describe('PartnerFormDialog component', () => {
       expect(mockCreatePartnerMutation).not.toHaveBeenCalled()
     })
 
+    it('create refuses an emptied box with the sentence and does not call the API', async () => {
+      render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
+      fillCreateRequired()
+      fireEvent.change(screen.getByLabelText('Usual prep time (minutes)'), { target: { value: '' } })
+      fireEvent.click(screen.getByRole('button', { name: /add restaurant/i }))
+
+      expect(await screen.findByText(`• ${PREP_SENTENCE}`)).toBeInTheDocument()
+      expect(mockCreatePartnerMutation).not.toHaveBeenCalled()
+    })
+
     it("edit starts the box at the partner's value", () => {
       renderEdit()
       expect(screen.getByLabelText('Usual prep time (minutes)')).toHaveValue('25')

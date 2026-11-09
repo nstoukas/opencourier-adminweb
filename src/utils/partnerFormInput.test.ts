@@ -231,11 +231,18 @@ describe('partnerFormInput utilities', () => {
   })
 
   describe('buildPartnerCreateInput usualPrepMinutes', () => {
-    it('leaves usualPrepMinutes out when the box is empty, so the backend default applies', () => {
-      for (const usualPrepMinutes of [undefined, '', '   ']) {
-        const res = buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })
-        expect(res.ok).toBe(true)
-        if (res.ok) expect('usualPrepMinutes' in res.value).toBe(false)
+    it('leaves usualPrepMinutes out when the field is not sent at all, so the backend default applies', () => {
+      const res = buildPartnerCreateInput({ ...validCreate, usualPrepMinutes: undefined })
+      expect(res.ok).toBe(true)
+      if (res.ok) expect('usualPrepMinutes' in res.value).toBe(false)
+    })
+
+    it('refuses an emptied usual prep time with the sentence, the same as on edit', () => {
+      for (const usualPrepMinutes of ['', '   ']) {
+        expect(buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })).toEqual({
+          ok: false,
+          errors: [PREP_SENTENCE],
+        })
       }
     })
 
@@ -250,7 +257,7 @@ describe('partnerFormInput utilities', () => {
       expect(ninety.ok && ninety.value.usualPrepMinutes).toBe(90)
     })
 
-    it.each(['91', '-1', '1.5', '15 min', 'abc'])('refuses %j with the sentence', (usualPrepMinutes) => {
+    it.each(['', '   ', '91', '-1', '1.5', '15 min', 'abc'])('refuses %j with the sentence', (usualPrepMinutes) => {
       expect(buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })).toEqual({
         ok: false,
         errors: [PREP_SENTENCE],

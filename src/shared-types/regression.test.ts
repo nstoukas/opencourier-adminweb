@@ -88,6 +88,24 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(allTransitions).not.toContain('DROPOFF_POINT_CORRECTED')
     })
 
+    it('ensures EnumDeliveryEventType contains READY_DELAYED and FOOD_READY (spec 0023, AC-9)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('READY_DELAYED')
+      expect(eventTypes).toContain('FOOD_READY')
+      expect(EnumDeliveryEventType.READY_DELAYED).toBe('READY_DELAYED')
+      expect(EnumDeliveryEventType.FOOD_READY).toBe('FOOD_READY')
+    })
+
+    it('ensures STATE_MACHINE does NOT contain READY_DELAYED or FOOD_READY (spec 0023, AC-9)', () => {
+      // Ready delayed and food ready are the restaurant's own steps, recorded by the backend outside the state machine;
+      // keeping them out of STATE_MACHINE keeps them out of the admin Change status menu.
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('READY_DELAYED')
+      expect(allTransitions).not.toContain('FOOD_READY')
+    })
+
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {
       // Value 5 / AC-12 rule: An expired offer is never held against a rider.
       // No rating, streak, acceptance rate, or missed offer count may exist per rider.
