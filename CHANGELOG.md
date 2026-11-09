@@ -60,6 +60,12 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### Timed offers settings (scope row 22, spec 0031) and the Wait record card (scope row 25, spec 0030)
+Built on `feat/offer-timing` and `feat/wait-record`, merged on 9 November with their backend halves.
+- **Timed offers.** A switch (off by default), the lead minutes and how many riders are compared, in the Offers card.
+- **Wait record.** On a restaurant's page: its average rider wait past ready time, late share and real prep time over 7, 30 or 90 days, and a button to adopt the real prep time as the usual one.
+- 1651 tests pass; put backs by hand. Reviewed by Fable; Timed offers also by agy.
+
 ### A restaurant's availability (scope row 34, spec 0029): `65d20ec` to `cdc80e1`
 Built on the branch `feat/busy-pause` and merged on 9 November, with the backend and request-web halves.
 - An Availability card on the restaurant's page: its state, Disable with a reason, Enable, and the last 50 changes with who made them.
