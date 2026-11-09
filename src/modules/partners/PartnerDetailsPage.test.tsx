@@ -291,7 +291,18 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       expect(screen.getByRole('heading', { level: 1, name: 'Restaurant' })).toBeInTheDocument()
       expect(screen.getByText('Loading…')).toBeInTheDocument()
       expect(screen.queryByText('Restaurant not found or could not be loaded.')).toBeNull()
-      expect(mockUseGetPartnerQuery).toHaveBeenCalledWith({ id: '' }, { skip: true })
+      expect(mockUseGetPartnerQuery).toHaveBeenCalledWith({ id: '' }, { skip: true, pollingInterval: 30000 })
+    })
+
+    it('polls the restaurant query every 30 s while the page is visible', () => {
+      mockUsePageVisible.mockReturnValue(true)
+
+      render(<PartnerDetailsPage />)
+
+      expect(mockUseGetPartnerQuery).toHaveBeenCalledWith(
+        { id: 'partner-abc-123' },
+        { skip: false, pollingInterval: 30000 },
+      )
     })
 
     it('with no partnerId, says "Loading…" even if the skipped query still reports an earlier error', () => {
@@ -371,6 +382,11 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
 
       render(<PartnerDetailsPage />)
 
+      // The restaurant query itself stops polling when page is hidden
+      expect(mockUseGetPartnerQuery).toHaveBeenCalledWith(
+        { id: 'partner-abc-123' },
+        { skip: false, pollingInterval: 0 },
+      )
       expect(mockUseGetDeliveriesQuery).toHaveBeenCalledWith(
         { partnerId: 'partner-abc-123', state: 'active', page: 1, perPage: 1 },
         { skip: false, pollingInterval: 0 },

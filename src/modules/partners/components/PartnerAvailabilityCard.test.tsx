@@ -8,6 +8,7 @@ import {
 } from '../../../api/partnersApi'
 import type { PartnerAdminDto, PartnerAvailabilityChangeAdminDto } from '../../../backend-admin-sdk'
 import { formatDate } from '../../../ui-shared-utils'
+import { usePageVisible } from '../../../hooks/usePageVisible'
 
 const mockToast = jest.fn()
 jest.mock('../../../admin-web-components', () => {
@@ -18,6 +19,10 @@ jest.mock('../../../admin-web-components', () => {
   }
 })
 
+jest.mock('../../../hooks/usePageVisible', () => ({
+  usePageVisible: jest.fn(),
+}))
+
 jest.mock('../../../api/partnersApi', () => ({
   useDisablePartnerMutation: jest.fn(),
   useEnablePartnerMutation: jest.fn(),
@@ -27,6 +32,7 @@ jest.mock('../../../api/partnersApi', () => ({
 const mockUseDisablePartnerMutation = useDisablePartnerMutation as jest.Mock
 const mockUseEnablePartnerMutation = useEnablePartnerMutation as jest.Mock
 const mockUseGetPartnerAvailabilityChangesQuery = useGetPartnerAvailabilityChangesQuery as jest.Mock
+const mockUsePageVisible = usePageVisible as jest.Mock
 
 describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
   let mockDisableTrigger: jest.Mock
@@ -56,6 +62,7 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUsePageVisible.mockReturnValue(true)
     mockDisableTrigger = jest.fn().mockReturnValue({ unwrap: jest.fn().mockResolvedValue({}) })
     mockEnableTrigger = jest.fn().mockReturnValue({ unwrap: jest.fn().mockResolvedValue({}) })
 
@@ -500,17 +507,82 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
       const expectedPauseDate = formatDate(pauseEnd)
 
       // BUSY_ON
-      expect(items[0]).toHaveTextContent(`${expectedDate} Busy mode on, +20 min (chef@souvlaki.gr)`)
+      expect(items[0]).toHaveTextContent(`${expectedDate} Busy mode on, +20 min (PARTNER · chef@souvlaki.gr)`)
       // BUSY_OFF
-      expect(items[1]).toHaveTextContent(`${expectedDate} Busy mode off (chef@souvlaki.gr)`)
+      expect(items[1]).toHaveTextContent(`${expectedDate} Busy mode off (PARTNER · chef@souvlaki.gr)`)
       // PAUSED
-      expect(items[2]).toHaveTextContent(`${expectedDate} Paused until ${expectedPauseDate} (cashier@souvlaki.gr)`)
+      expect(items[2]).toHaveTextContent(`${expectedDate} Paused until ${expectedPauseDate} (PARTNER · cashier@souvlaki.gr)`)
       // RESUMED
-      expect(items[3]).toHaveTextContent(`${expectedDate} Resumed (cashier@souvlaki.gr)`)
+      expect(items[3]).toHaveTextContent(`${expectedDate} Resumed (PARTNER · cashier@souvlaki.gr)`)
       // DISABLED
-      expect(items[4]).toHaveTextContent(`${expectedDate} Disabled: Non-payment of dues (admin@opencourier.org)`)
-      // ENABLED (with actorRole fallback when actorEmail is null)
+      expect(items[4]).toHaveTextContent(`${expectedDate} Disabled: Non-payment of dues (ADMIN · admin@opencourier.org)`)
+      // ENABLED (with actorRole alone when actorEmail is null)
       expect(items[5]).toHaveTextContent(`${expectedDate} Enabled (ADMIN)`)
+    })
+
+    it('shows role and email when email is present, and role alone when email is null or undefined (AC-9)', () => {
+      const now = new Date('2026-11-09T12:00:00.000Z')
+      const changes: PartnerAvailabilityChangeAdminDto[] = [
+        {
+          id: 'ch-with-email',
+          action: 'BUSY_ON',
+          actorRole: 'ADMIN',
+          actorEmail: 'admin@opencourier.org',
+          extraMinutes: 10,
+          pausedUntil: null,
+          reason: null,
+          createdAt: now,
+        },
+        {
+          id: 'ch-without-email',
+          action: 'BUSY_OFF',
+          actorRole: 'PARTNER',
+          actorEmail: null,
+          extraMinutes: null,
+          pausedUntil: null,
+          reason: null,
+          createdAt: now,
+        },
+      ]
+
+      mockUseGetPartnerAvailabilityChangesQuery.mockReturnValue({
+        data: changes,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<PartnerAvailabilityCard partner={samplePartner} />)
+
+      const items = screen.getAllByRole('listitem')
+      expect(items).toHaveLength(2)
+      // Both role and email
+      expect(items[0]).toHaveTextContent('(ADMIN · admin@opencourier.org)')
+      // Role alone when email is null
+      expect(items[1]).toHaveTextContent('(PARTNER)')
+      expect(items[1]).not.toHaveTextContent('·')
+    })
+  })
+
+  describe('Polling for availability changes (spec 0029, AC-9, review holding)', () => {
+    it('polls the history every 30 s while the page is visible, and not at all while it is hidden', () => {
+      mockUsePageVisible.mockReturnValue(true)
+
+      const { rerender } = render(<PartnerAvailabilityCard partner={samplePartner} />)
+
+      // When tab is visible: polls every 30 s (30,000 ms)
+      expect(mockUseGetPartnerAvailabilityChangesQuery).toHaveBeenCalledWith(
+        { id: samplePartner.id },
+        { pollingInterval: 30_000 },
+      )
+
+      // When tab is hidden in background: polling interval drops to 0 (no polling)
+      mockUsePageVisible.mockReturnValue(false)
+      rerender(<PartnerAvailabilityCard partner={samplePartner} />)
+
+      expect(mockUseGetPartnerAvailabilityChangesQuery).toHaveBeenCalledWith(
+        { id: samplePartner.id },
+        { pollingInterval: 0 },
+      )
     })
   })
 })
