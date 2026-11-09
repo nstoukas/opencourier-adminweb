@@ -482,5 +482,46 @@ describe('deliveriesApi endpoints', () => {
       expect(mockMarkDeliveryIssueHandled).toHaveBeenCalledWith(payload)
       expect('data' in result ? result.data : undefined).toEqual(mockHandledIssue)
     })
+
+    it('invalidates Tags.deliveryIssues on success so subscribed queries refetch', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockIssues: DeliveryIssueAdminDto[] = [
+        {
+          id: 'issue-55',
+          courierId: 'c-1',
+          courierName: 'Courier One',
+          reason: 'WRONG_ADDRESS',
+          note: null,
+          createdAt: new Date('2026-11-09T10:00:00Z'),
+          handledAt: null,
+          handledBy: null,
+        },
+      ]
+      mockGetDeliveryIssues.mockResolvedValue(mockIssues)
+      mockMarkDeliveryIssueHandled.mockResolvedValueOnce({
+        ...mockIssues[0],
+        handledAt: new Date('2026-11-09T10:15:00Z'),
+      })
+
+      // Query providing Tags.deliveryIssues is subscribed
+      const sub = store.dispatch(
+        deliveriesApi.endpoints.getDeliveryIssues.initiate({ deliveryId: 'del-55' }, { subscribe: true })
+      )
+      await sub
+      expect(mockGetDeliveryIssues).toHaveBeenCalledTimes(1)
+
+      // Mutation that invalidates Tags.deliveryIssues is dispatched
+      await store.dispatch(
+        deliveriesApi.endpoints.markDeliveryIssueHandled.initiate({
+          deliveryId: 'del-55',
+          issueId: 'issue-55',
+        })
+      )
+
+      // Invalidation triggers automatic refetch of the subscribed query
+      expect(mockGetDeliveryIssues).toHaveBeenCalledTimes(2)
+
+      sub.unsubscribe()
+    })
   })
 })

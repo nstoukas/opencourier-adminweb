@@ -177,11 +177,11 @@ describe('DispatchMap (spec 0034, AC-11, AC-13, AC-18)', () => {
       { padding: [16, 16] }
     )
 
-    // Re-render with updated couriers
+    // Re-render with updated couriers and the same region
     rerender(
       <DispatchMap
-        map={{ ...sampleMapData, couriers: [sampleMapData.couriers[0]] }}
-        region={sampleRegion}
+        map={{ ...sampleMapData, couriers: sampleMapData.couriers.slice(0, 1) }}
+        region={{ ...sampleRegion }}
       />
     )
 

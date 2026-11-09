@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { AttentionList } from './AttentionList'
 import type { DispatchAttentionRowDto } from '@/backend-admin-sdk'
 import { DeliveryAdminDtoStatusEnum } from '@/backend-admin-sdk'
@@ -158,19 +158,19 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
     expect(renderedRows).toHaveLength(4)
 
     // SOS has red dot: bg-destructive
-    const sosDot = renderedRows[0].querySelector('span[aria-hidden="true"]')
+    const sosDot = renderedRows[0]?.querySelector('span[aria-hidden="true"]')
     expect(sosDot).toHaveClass('bg-destructive')
 
     // WAITING_FOR_RIDER has red dot: bg-destructive
-    const waitingDot = renderedRows[1].querySelector('span[aria-hidden="true"]')
+    const waitingDot = renderedRows[1]?.querySelector('span[aria-hidden="true"]')
     expect(waitingDot).toHaveClass('bg-destructive')
 
     // RESTAURANT_LATE has yellow dot: bg-warning
-    const lateDot = renderedRows[2].querySelector('span[aria-hidden="true"]')
+    const lateDot = renderedRows[2]?.querySelector('span[aria-hidden="true"]')
     expect(lateDot).toHaveClass('bg-warning')
 
     // RIDER_REPORT has yellow dot: bg-warning
-    const reportDot = renderedRows[3].querySelector('span[aria-hidden="true"]')
+    const reportDot = renderedRows[3]?.querySelector('span[aria-hidden="true"]')
     expect(reportDot).toHaveClass('bg-warning')
   })
 
@@ -350,7 +350,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
       expect(screen.getByRole('button', { name: 'Mark Handled' })).toBeInTheDocument()
     })
 
-    it('clicking Mark Handled sends deliveryId and issueId once', async () => {
+    it('clicking Mark Handled sends deliveryId and issueId once', () => {
       render(<AttentionList rows={[reportRow]} more={0} nowMs={nowMs} />)
 
       const markHandledBtn = screen.getByRole('button', { name: 'Mark Handled' })

@@ -95,4 +95,68 @@ describe('dispatchBoardApi (spec 0034, AC-1, AC-15)', () => {
     expect(result.data).toBeUndefined()
     expect(result.error).toBeDefined()
   })
+
+  it('refreshes the board at once when a handled report invalidates Tags.deliveryIssues (AC-7)', async () => {
+    const store = setupTestStore('sample-admin-bearer-token')
+    const mockBoardData: DispatchBoardDto = {
+      generatedAt: '2026-11-09T14:30:00.000Z',
+      cards: {
+        active: { total: 1, toPickup: 1, toDropoff: 0 },
+        waiting: { total: 0, oldestWaitingMinutes: null },
+        couriers: { total: 1, busy: 1, free: 0, lastCall: 0 },
+        deliveredToday: { total: 0, medianMinutes: null },
+      },
+      attention: [],
+      attentionMore: 0,
+      map: { couriers: [], waitingDeliveries: [] },
+      dispatchStop: { active: false, until: null },
+    }
+    mockGetBoard.mockResolvedValue(mockBoardData)
+
+    const sub = store.dispatch(
+      dispatchBoardApi.endpoints.getDispatchBoard.initiate(undefined, { subscribe: true })
+    )
+    await sub
+    expect(mockGetBoard).toHaveBeenCalledTimes(1)
+
+    // A handled report invalidates Tags.deliveryIssues
+    store.dispatch(dispatchBoardApi.util.invalidateTags([Tags.deliveryIssues]))
+
+    // Must refresh the board at once
+    expect(mockGetBoard).toHaveBeenCalledTimes(2)
+
+    sub.unsubscribe()
+  })
+
+  it('refreshes the board at once when an assignment invalidates Tags.deliveries (AC-4)', async () => {
+    const store = setupTestStore('sample-admin-bearer-token')
+    const mockBoardData: DispatchBoardDto = {
+      generatedAt: '2026-11-09T14:30:00.000Z',
+      cards: {
+        active: { total: 1, toPickup: 1, toDropoff: 0 },
+        waiting: { total: 0, oldestWaitingMinutes: null },
+        couriers: { total: 1, busy: 1, free: 0, lastCall: 0 },
+        deliveredToday: { total: 0, medianMinutes: null },
+      },
+      attention: [],
+      attentionMore: 0,
+      map: { couriers: [], waitingDeliveries: [] },
+      dispatchStop: { active: false, until: null },
+    }
+    mockGetBoard.mockResolvedValue(mockBoardData)
+
+    const sub = store.dispatch(
+      dispatchBoardApi.endpoints.getDispatchBoard.initiate(undefined, { subscribe: true })
+    )
+    await sub
+    expect(mockGetBoard).toHaveBeenCalledTimes(1)
+
+    // An assignment invalidates Tags.deliveries
+    store.dispatch(dispatchBoardApi.util.invalidateTags([Tags.deliveries]))
+
+    // Must refresh the board at once
+    expect(mockGetBoard).toHaveBeenCalledTimes(2)
+
+    sub.unsubscribe()
+  })
 })
