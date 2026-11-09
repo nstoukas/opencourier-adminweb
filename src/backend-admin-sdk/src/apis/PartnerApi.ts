@@ -13,6 +13,8 @@
  */
 
 import * as runtime from '../runtime';
+import type { PartnerAvailabilityChangeAdminDto } from '../models/PartnerAvailabilityAdminDto';
+import { PartnerAvailabilityChangeAdminDtoFromJSON } from '../models/PartnerAvailabilityAdminDto';
 import type {
     PartnerAdminDto,
     PartnerCreateAdminInput,
@@ -262,5 +264,34 @@ export class PartnerApi extends runtime.BaseAPI {
      */
     async rotatePartnerPassword(requestParameters: PartnerApiRotatePartnerPasswordRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.rotatePartnerPasswordRaw(requestParameters, initOverrides);
+    }
+
+    // Spec 0029 (hand edited). The three share this request: the admin token, a path, an optional body.
+    private async availabilityRequest(path: string, method: 'GET' | 'POST', body: object | undefined, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Response> {
+        const headerParameters: runtime.HTTPHeaders = {};
+        if (body !== undefined) headerParameters['Content-Type'] = 'application/json';
+        if (this.configuration && this.configuration.accessToken) {
+            const tokenString = await this.configuration.accessToken("bearer", []);
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        return this.request({ path, method, headers: headerParameters, query: {}, body }, initOverrides);
+    }
+
+    async disablePartner(requestParameters: { id: string; reason: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerAdminDto> {
+        const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/disable`, 'POST', { reason: requestParameters.reason }, initOverrides);
+        return PartnerAdminDtoFromJSON(await response.json());
+    }
+
+    async enablePartner(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerAdminDto> {
+        const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/enable`, 'POST', undefined, initOverrides);
+        return PartnerAdminDtoFromJSON(await response.json());
+    }
+
+    async getPartnerAvailabilityChanges(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<PartnerAvailabilityChangeAdminDto>> {
+        const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/availability-changes`, 'GET', undefined, initOverrides);
+        const json = await response.json();
+        return (json as any[]).map(PartnerAvailabilityChangeAdminDtoFromJSON);
     }
 }

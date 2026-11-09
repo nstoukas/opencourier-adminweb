@@ -25,6 +25,7 @@ import type { DeliveryListState } from '@/modules/deliveries/components/Deliveri
 import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
 import { PartnerFormDialog } from './components/PartnerFormDialog'
 import { RotateCredentialsDialog } from './components/RotateCredentialsDialog'
+import { PartnerAvailabilityCard } from './components/PartnerAvailabilityCard'
 import { PartnerCustomersCard } from './components/PartnerCustomersCard'
 
 // Leaflet needs `window`, so the map loads only in the browser.
@@ -144,6 +145,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
             </p>
           </CardContent>
         </Card>
+
+        {/* Busy mode, pause, disable, and who changed them (spec 0029). */}
+        {partner ? <PartnerAvailabilityCard partner={partner} /> : null}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="min-w-0">

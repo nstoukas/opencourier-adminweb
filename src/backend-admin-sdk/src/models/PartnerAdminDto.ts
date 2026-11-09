@@ -19,6 +19,8 @@ import {
     LocationAdminDtoFromJSONTyped,
     LocationAdminDtoToJSON,
 } from './LocationAdminDto';
+import type { PartnerAvailabilityAdminDto } from './PartnerAvailabilityAdminDto';
+import { PartnerAvailabilityAdminDtoFromJSON } from './PartnerAvailabilityAdminDto';
 
 /**
  * 
@@ -62,6 +64,12 @@ export interface PartnerAdminDto {
      * @memberof PartnerAdminDto
      */
     usualPrepMinutes: number;
+    /**
+     * Spec 0029: busy mode, a pause and an admin's disable (hand edited).
+     * @type {PartnerAvailabilityAdminDto}
+     * @memberof PartnerAdminDto
+     */
+    availability?: PartnerAvailabilityAdminDto;
     /**
      * 
      * @type {string}
@@ -122,6 +130,7 @@ export function PartnerAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: boo
         'logo': !exists(json, 'logo') ? null : json['logo'],
         'webhookUrl': !exists(json, 'webhookUrl') ? null : json['webhookUrl'],
         'usualPrepMinutes': !exists(json, 'usualPrepMinutes') ? 15 : json['usualPrepMinutes'],
+        'availability': !exists(json, 'availability') ? undefined : PartnerAvailabilityAdminDtoFromJSON(json['availability']),
         'userId': !exists(json, 'userId') ? null : json['userId'],
         'email': !exists(json, 'email') ? null : json['email'],
         'pickupAddress': !exists(json, 'pickupAddress') || json['pickupAddress'] === null ? null : LocationAdminDtoFromJSON(json['pickupAddress']),

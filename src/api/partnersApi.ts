@@ -1,5 +1,6 @@
 import type {
   PartnerAdminDto,
+  PartnerAvailabilityChangeAdminDto,
   PartnerCreateAdminInput,
   PartnerPaginatedAdminDto,
   PartnerUpdateAdminInput,
@@ -96,6 +97,52 @@ export const partnersApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [],
     }),
+    // Spec 0029: disable or enable a restaurant, and its availability history.
+    disablePartner: build.mutation<PartnerAdminDto, { id: string; reason: string }>({
+      queryFn: async ({ id, reason }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.partners().disablePartner({ id, reason })
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      invalidatesTags: [Tags.partners],
+    }),
+    enablePartner: build.mutation<PartnerAdminDto, { id: string }>({
+      queryFn: async ({ id }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.partners().enablePartner({ id })
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      invalidatesTags: [Tags.partners],
+    }),
+    getPartnerAvailabilityChanges: build.query<PartnerAvailabilityChangeAdminDto[], { id: string }>({
+      queryFn: async ({ id }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.partners().getPartnerAvailabilityChanges({ id })
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      providesTags: [Tags.partners],
+    }),
   }),
 })
 
@@ -105,4 +152,7 @@ export const {
   useCreatePartnerMutation,
   useUpdatePartnerMutation,
   useRotatePartnerPasswordMutation,
+  useDisablePartnerMutation,
+  useEnablePartnerMutation,
+  useGetPartnerAvailabilityChangesQuery,
 } = partnersApi
