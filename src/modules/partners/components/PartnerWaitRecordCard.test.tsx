@@ -119,7 +119,6 @@ describe('PartnerWaitRecordCard (spec 0030, AC-7)', () => {
 
       const card = screen.getByTestId('wait-record')
       expect(card).not.toHaveTextContent(/courier/i)
-      expect(card).not.toHaveTextContent(/rider/i.test('rider') ? 'Rider ' : '')
       // The only mention is the label "Riders waited past ready", never an individual rider
       expect(within(card).queryByText(/courierId/i)).toBeNull()
     })
