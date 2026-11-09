@@ -63,6 +63,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     offerTimingEnabled: false,
     offerLeadMinutes: '3',
     offerTimingCandidates: '5',
+    waitPayEnabled: false,
+    waitPayFreeMinutes: '5',
+    waitPayCentsPerMinute: '10',
+    waitLimitMinutes: '10',
     handBackSeconds: '60',
     cancellationPayoutPolicy: 'FULL_COMPENSATION',
     savedCustomerRetentionMonths: '12',
@@ -743,6 +747,32 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         label: 'Riders compared by road time',
       })
     })
+
+    it('declares restaurant delay settings (spec 0033, AC-1)', () => {
+      const waitPayEnabled = SETTINGS.find((s) => s.key === 'waitPayEnabled')
+      expect(waitPayEnabled).toMatchObject({ key: 'waitPayEnabled', kind: 'switch', label: 'Delay pay' })
+
+      const freeMinutes = SETTINGS.find((s) => s.key === 'waitPayFreeMinutes')
+      expect(freeMinutes).toMatchObject({
+        key: 'waitPayFreeMinutes',
+        kind: 'number',
+        label: 'Free minutes after the promised time',
+      })
+
+      const centsPerMinute = SETTINGS.find((s) => s.key === 'waitPayCentsPerMinute')
+      expect(centsPerMinute).toMatchObject({
+        key: 'waitPayCentsPerMinute',
+        kind: 'number',
+        label: 'Delay pay per minute (cents)',
+      })
+
+      const waitLimit = SETTINGS.find((s) => s.key === 'waitLimitMinutes')
+      expect(waitLimit).toMatchObject({
+        key: 'waitLimitMinutes',
+        kind: 'number',
+        label: 'Minutes before a rider can leave',
+      })
+    })
   })
 
   describe('sameValue (row 87 review, fix 5)', () => {
@@ -1050,6 +1080,201 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         ] as any)
       ).toBe(
         'Saved: Timed offers, Lead time before an offer (minutes), Riders compared by road time. Timed offers apply to the next offer; an offer already out is not moved.'
+      )
+    })
+  })
+
+  describe('Restaurant delays settings (spec 0033, AC-1)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('formFromSettings preserves boolean switch (false included) and numbers as strings (0 included)', () => {
+      const form = formFromSettings({
+        waitPayEnabled: false,
+        waitPayFreeMinutes: 0,
+        waitPayCentsPerMinute: 0,
+        waitLimitMinutes: 1,
+      })
+      expect(form.waitPayEnabled).toBe(false)
+      expect(form.waitPayFreeMinutes).toBe('0')
+      expect(form.waitPayCentsPerMinute).toBe('0')
+      expect(form.waitLimitMinutes).toBe('1')
+
+      const enabledForm = formFromSettings({
+        waitPayEnabled: true,
+        waitPayFreeMinutes: 5,
+        waitPayCentsPerMinute: 10,
+        waitLimitMinutes: 15,
+      })
+      expect(enabledForm.waitPayEnabled).toBe(true)
+      expect(enabledForm.waitPayFreeMinutes).toBe('5')
+      expect(enabledForm.waitPayCentsPerMinute).toBe('10')
+      expect(enabledForm.waitLimitMinutes).toBe('15')
+    })
+
+    it('formFromSettings handles missing and null values as null/empty string', () => {
+      const formMissing = formFromSettings({})
+      expect(formMissing.waitPayEnabled).toBeNull()
+      expect(formMissing.waitPayFreeMinutes).toBe('')
+      expect(formMissing.waitPayCentsPerMinute).toBe('')
+      expect(formMissing.waitLimitMinutes).toBe('')
+
+      const formNull = formFromSettings({
+        waitPayEnabled: null,
+        waitPayFreeMinutes: null,
+        waitPayCentsPerMinute: null,
+        waitLimitMinutes: null,
+      })
+      expect(formNull.waitPayEnabled).toBeNull()
+      expect(formNull.waitPayFreeMinutes).toBe('')
+      expect(formNull.waitPayCentsPerMinute).toBe('')
+      expect(formNull.waitLimitMinutes).toBe('')
+    })
+
+    it('pendingChanges detects toggling switch from Off to On and from On to Off', () => {
+      const savedOff: SettingsForm = { ...baseSavedForm, waitPayEnabled: false }
+      const editedOn: SettingsForm = { ...savedOff, waitPayEnabled: true }
+      const changesOn = pendingChanges(savedOff, editedOn)
+      expect(changesOn).toHaveLength(1)
+      expect(changesOn[0]).toMatchObject({
+        key: 'waitPayEnabled',
+        label: 'Delay pay',
+        from: 'Off',
+        to: 'On',
+      })
+
+      const savedOn: SettingsForm = { ...baseSavedForm, waitPayEnabled: true }
+      const editedOff: SettingsForm = { ...savedOn, waitPayEnabled: false }
+      const changesOff = pendingChanges(savedOn, editedOff)
+      expect(changesOff).toHaveLength(1)
+      expect(changesOff[0]).toMatchObject({
+        key: 'waitPayEnabled',
+        label: 'Delay pay',
+        from: 'On',
+        to: 'Off',
+      })
+    })
+
+    it('pendingChanges detects edits to waitPayFreeMinutes, waitPayCentsPerMinute, and waitLimitMinutes', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        waitPayFreeMinutes: '0',
+        waitPayCentsPerMinute: '20',
+        waitLimitMinutes: '15',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: 'waitPayFreeMinutes',
+            label: 'Free minutes after the promised time',
+            from: '5',
+            to: '0',
+          }),
+          expect.objectContaining({
+            key: 'waitPayCentsPerMinute',
+            label: 'Delay pay per minute (cents)',
+            from: '10',
+            to: '20',
+          }),
+          expect.objectContaining({
+            key: 'waitLimitMinutes',
+            label: 'Minutes before a rider can leave',
+            from: '10',
+            to: '15',
+          }),
+        ])
+      )
+    })
+
+    it('blockers blocks save when waitPayFreeMinutes, waitPayCentsPerMinute, or waitLimitMinutes is emptied', () => {
+      const editedEmptyFree: SettingsForm = { ...baseSavedForm, waitPayFreeMinutes: '' }
+      const changesFree = pendingChanges(baseSavedForm, editedEmptyFree)
+      expect(blockers(changesFree, editedEmptyFree)).toContain('Free minutes after the promised time is empty')
+
+      const editedEmptyCents: SettingsForm = { ...baseSavedForm, waitPayCentsPerMinute: '' }
+      const changesCents = pendingChanges(baseSavedForm, editedEmptyCents)
+      expect(blockers(changesCents, editedEmptyCents)).toContain('Delay pay per minute (cents) is empty')
+
+      const editedEmptyLimit: SettingsForm = { ...baseSavedForm, waitLimitMinutes: '' }
+      const changesLimit = pendingChanges(baseSavedForm, editedEmptyLimit)
+      expect(blockers(changesLimit, editedEmptyLimit)).toContain('Minutes before a rider can leave is empty')
+    })
+
+    it('savePayload sends waitPayEnabled as boolean (false sent as false) and numbers as numbers', () => {
+      // Saving switch ON
+      const editedOn: SettingsForm = {
+        ...baseSavedForm,
+        waitPayEnabled: true,
+        waitPayFreeMinutes: '10',
+        waitPayCentsPerMinute: '15',
+        waitLimitMinutes: '20',
+      }
+      const payloadOn = savePayload(pendingChanges(baseSavedForm, editedOn), editedOn, savedDetails)
+      expect(payloadOn).toEqual({
+        waitPayEnabled: true,
+        waitPayFreeMinutes: 10,
+        waitPayCentsPerMinute: 15,
+        waitLimitMinutes: 20,
+      })
+      expect(typeof payloadOn.waitPayEnabled).toBe('boolean')
+      expect(typeof payloadOn.waitPayFreeMinutes).toBe('number')
+      expect(typeof payloadOn.waitPayCentsPerMinute).toBe('number')
+      expect(typeof payloadOn.waitLimitMinutes).toBe('number')
+      expect(payloadOn).not.toHaveProperty('details')
+
+      // Saving switch OFF: crucial invariant - false must be sent as false, not omitted or dropped!
+      const savedOn: SettingsForm = { ...baseSavedForm, waitPayEnabled: true }
+      const editedOff: SettingsForm = {
+        ...savedOn,
+        waitPayEnabled: false,
+        waitPayFreeMinutes: '0',
+      }
+      const payloadOff = savePayload(pendingChanges(savedOn, editedOff), editedOff, savedDetails)
+      expect(payloadOff).toEqual({
+        waitPayEnabled: false,
+        waitPayFreeMinutes: 0,
+      })
+      expect(payloadOff.waitPayEnabled).toBe(false)
+      expect(payloadOff.waitPayFreeMinutes).toBe(0)
+      expect(payloadOff).not.toHaveProperty('details')
+    })
+
+    it('successMessage appends restaurant delay sentence when any restaurant delay setting changes', () => {
+      const sentence =
+        'Restaurant delay settings apply to waits that end from now on; a wait already paid keeps its amount.'
+
+      expect(
+        successMessage([{ key: 'waitPayEnabled', label: 'Delay pay', from: 'Off', to: 'On' }] as any)
+      ).toBe(`Saved: Delay pay. ${sentence}`)
+
+      expect(
+        successMessage([
+          { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', from: '5', to: '10' },
+        ] as any)
+      ).toBe(`Saved: Free minutes after the promised time. ${sentence}`)
+
+      expect(
+        successMessage([
+          { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', from: '10', to: '15' },
+        ] as any)
+      ).toBe(`Saved: Delay pay per minute (cents). ${sentence}`)
+
+      expect(
+        successMessage([
+          { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', from: '10', to: '15' },
+        ] as any)
+      ).toBe(`Saved: Minutes before a rider can leave. ${sentence}`)
+
+      // When multiple restaurant delay settings change, the sentence is appended only once
+      expect(
+        successMessage([
+          { key: 'waitPayEnabled', label: 'Delay pay', from: 'Off', to: 'On' },
+          { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', from: '5', to: '10' },
+          { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', from: '10', to: '15' },
+          { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', from: '10', to: '15' },
+        ] as any)
+      ).toBe(
+        `Saved: Delay pay, Free minutes after the promised time, Delay pay per minute (cents), Minutes before a rider can leave. ${sentence}`
       )
     })
   })

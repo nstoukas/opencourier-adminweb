@@ -4,10 +4,12 @@ import {
   PricingCard,
   MatchingCard,
   OffersCard,
+  RestaurantDelaysCard,
   RiderPayCard,
   InstanceCard,
   PublicPagesCard,
   PUBLIC_PAGES,
+  SECTIONS,
 } from './SettingsCards'
 import { EMPTY_FORM, type SettingsForm } from '../settingsDiff'
 
@@ -426,6 +428,294 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       )
 
       expect(screen.getByLabelText('Riders compared by road time')).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // RestaurantDelaysCard: Restaurant delays settings (spec 0033, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('RestaurantDelaysCard (spec 0033, AC-1)', () => {
+    it('SECTIONS includes restaurant-delays with title "Restaurant delays"', () => {
+      const section = SECTIONS.find((s) => s.id === 'restaurant-delays')
+      expect(section).toBeDefined()
+      expect(section?.title).toBe('Restaurant delays')
+    })
+
+    it('renders the Restaurant delays card title and description', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByText('Restaurant delays')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'What a rider is paid when a restaurant keeps them past its promised time, and when they can leave.'
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('renders Delay pay switch with loaded boolean and toggles via set', () => {
+      const mockSet = jest.fn()
+      const { rerender } = render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const toggle = screen.getByRole('switch', { name: 'Delay pay' })
+      expect(toggle).toBeInTheDocument()
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+      expect(toggle).not.toBeDisabled()
+
+      expect(
+        screen.getByText(
+          /Pays a rider for every minute they wait after the free minutes below, and charges the restaurant all of it/i
+        )
+      ).toBeInTheDocument()
+
+      fireEvent.click(toggle)
+      expect(mockSet).toHaveBeenCalledWith('waitPayEnabled', true)
+
+      rerender(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: true }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      fireEvent.click(toggle)
+      expect(mockSet).toHaveBeenCalledWith('waitPayEnabled', false)
+    })
+
+    it('Delay pay switch is disabled before settings load or when value is null', () => {
+      const { rerender } = render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: null }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(screen.getByRole('switch', { name: 'Delay pay' })).toBeDisabled()
+
+      rerender(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+      expect(screen.getByRole('switch', { name: 'Delay pay' })).toBeDisabled()
+    })
+
+    it('shows "Not loaded yet" next to Delay pay switch when waitPayEnabled is null, and hides it when loaded', () => {
+      const { rerender } = render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: null }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const toggle = screen.getByRole('switch', { name: 'Delay pay' })
+      const switchContainer = toggle.parentElement as HTMLElement
+      expect(within(switchContainer).getByText('Not loaded yet')).toBeInTheDocument()
+
+      rerender(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(within(switchContainer).queryByText('Not loaded yet')).toBeNull()
+    })
+
+    it('renders waitPayFreeMinutes with range limits 0 to 60, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false, waitPayFreeMinutes: '5' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Free minutes after the promised time') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('waitPayFreeMinutes')
+      expect(input.value).toBe('5')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '60')
+      expect(input).not.toBeDisabled()
+
+      expect(
+        screen.getByText('Whole minutes, 0 to 60. Used only while Delay pay is on.')
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '0' } })
+      expect(mockSet).toHaveBeenCalledWith('waitPayFreeMinutes', '0')
+
+      fireEvent.change(input, { target: { value: '60' } })
+      expect(mockSet).toHaveBeenCalledWith('waitPayFreeMinutes', '60')
+    })
+
+    it('disables waitPayFreeMinutes input when waitPayEnabled is null even when loaded is true', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: null, waitPayFreeMinutes: '5' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByLabelText('Free minutes after the promised time')).toBeDisabled()
+    })
+
+    it('disables waitPayFreeMinutes input before settings load', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayFreeMinutes: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Free minutes after the promised time')).toBeDisabled()
+    })
+
+    it('renders waitPayCentsPerMinute with range limits 0 to 200, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false, waitPayCentsPerMinute: '10' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Delay pay per minute (cents)') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('waitPayCentsPerMinute')
+      expect(input.value).toBe('10')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '200')
+      expect(input).not.toBeDisabled()
+
+      expect(
+        screen.getByText(
+          'Whole cents, 0 to 200. The restaurant is charged the same. Used only while Delay pay is on.'
+        )
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '0' } })
+      expect(mockSet).toHaveBeenCalledWith('waitPayCentsPerMinute', '0')
+
+      fireEvent.change(input, { target: { value: '200' } })
+      expect(mockSet).toHaveBeenCalledWith('waitPayCentsPerMinute', '200')
+    })
+
+    it('disables waitPayCentsPerMinute input when waitPayEnabled is null even when loaded is true', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: null, waitPayCentsPerMinute: '10' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByLabelText('Delay pay per minute (cents)')).toBeDisabled()
+    })
+
+    it('disables waitPayCentsPerMinute input before settings load', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayCentsPerMinute: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Delay pay per minute (cents)')).toBeDisabled()
+    })
+
+    it('renders waitLimitMinutes with range limits 1 to 60, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: false, waitLimitMinutes: '10' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Minutes before a rider can leave') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('waitLimitMinutes')
+      expect(input.value).toBe('10')
+      expect(input).toHaveAttribute('min', '1')
+      expect(input).toHaveAttribute('max', '60')
+      expect(input).not.toBeDisabled()
+
+      expect(
+        screen.getByText(
+          "Whole minutes, 1 to 60, from the rider's arrival. Applies whether Delay pay is on or off."
+        )
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '1' } })
+      expect(mockSet).toHaveBeenCalledWith('waitLimitMinutes', '1')
+
+      fireEvent.change(input, { target: { value: '60' } })
+      expect(mockSet).toHaveBeenCalledWith('waitLimitMinutes', '60')
+    })
+
+    it('disables waitLimitMinutes input when waitPayEnabled is null even when loaded is true', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitPayEnabled: null, waitLimitMinutes: '10' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByLabelText('Minutes before a rider can leave')).toBeDisabled()
+    })
+
+    it('disables waitLimitMinutes input before settings load', () => {
+      render(
+        <RestaurantDelaysCard
+          form={{ ...dummyForm, waitLimitMinutes: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Minutes before a rider can leave')).toBeDisabled()
     })
   })
 

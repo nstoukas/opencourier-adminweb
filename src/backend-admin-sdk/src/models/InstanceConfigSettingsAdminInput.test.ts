@@ -200,6 +200,104 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.offerTimingCandidates).toBeUndefined()
     })
 
+    it('preserves waitPayEnabled, waitPayFreeMinutes, waitPayCentsPerMinute, and waitLimitMinutes in ToJSON (spec 0033, AC-1)', () => {
+      // Load-bearing test guard: without these fields in ToJSON, the SDK silently drops them
+      // and the save reports success for a change never sent.
+      const input = {
+        waitPayEnabled: true,
+        waitPayFreeMinutes: 5,
+        waitPayCentsPerMinute: 10,
+        waitLimitMinutes: 10,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.waitPayEnabled).toBe(true)
+      expect(json.waitPayFreeMinutes).toBe(5)
+      expect(json.waitPayCentsPerMinute).toBe(10)
+      expect(json.waitLimitMinutes).toBe(10)
+
+      // Ensure false and 0 (valid min for free minutes and cents per minute) are preserved and not dropped as falsy
+      const inputDisabled = {
+        waitPayEnabled: false,
+        waitPayFreeMinutes: 0,
+        waitPayCentsPerMinute: 0,
+        waitLimitMinutes: 1,
+      }
+      const jsonDisabled = InstanceConfigSettingsAdminInputToJSON(inputDisabled)
+      expect(jsonDisabled.waitPayEnabled).toBe(false)
+      expect(jsonDisabled.waitPayFreeMinutes).toBe(0)
+      expect(jsonDisabled.waitPayCentsPerMinute).toBe(0)
+      expect(jsonDisabled.waitLimitMinutes).toBe(1)
+
+      // Also verify upper range limits: 60 free minutes, 200 cents per minute, 60 wait limit minutes
+      const inputUpper = {
+        waitPayEnabled: true,
+        waitPayFreeMinutes: 60,
+        waitPayCentsPerMinute: 200,
+        waitLimitMinutes: 60,
+      }
+      const jsonUpper = InstanceConfigSettingsAdminInputToJSON(inputUpper)
+      expect(jsonUpper.waitPayEnabled).toBe(true)
+      expect(jsonUpper.waitPayFreeMinutes).toBe(60)
+      expect(jsonUpper.waitPayCentsPerMinute).toBe(200)
+      expect(jsonUpper.waitLimitMinutes).toBe(60)
+    })
+
+    it('round-trips restaurant delay settings through FromJSON and ToJSON (spec 0033, AC-1)', () => {
+      const originalJson = {
+        waitPayEnabled: true,
+        waitPayFreeMinutes: 5,
+        waitPayCentsPerMinute: 15,
+        waitLimitMinutes: 12,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.waitPayEnabled).toBe(true)
+      expect(model.waitPayFreeMinutes).toBe(5)
+      expect(model.waitPayCentsPerMinute).toBe(15)
+      expect(model.waitLimitMinutes).toBe(12)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.waitPayEnabled).toBe(true)
+      expect(serialized.waitPayFreeMinutes).toBe(5)
+      expect(serialized.waitPayCentsPerMinute).toBe(15)
+      expect(serialized.waitLimitMinutes).toBe(12)
+
+      // Round-trip with false and 0
+      const zeroJson = {
+        waitPayEnabled: false,
+        waitPayFreeMinutes: 0,
+        waitPayCentsPerMinute: 0,
+        waitLimitMinutes: 1,
+      }
+      const zeroModel = InstanceConfigSettingsAdminInputFromJSON(zeroJson)
+      expect(zeroModel.waitPayEnabled).toBe(false)
+      expect(zeroModel.waitPayFreeMinutes).toBe(0)
+      expect(zeroModel.waitPayCentsPerMinute).toBe(0)
+      expect(zeroModel.waitLimitMinutes).toBe(1)
+
+      const zeroSerialized = InstanceConfigSettingsAdminInputToJSON(zeroModel)
+      expect(zeroSerialized.waitPayEnabled).toBe(false)
+      expect(zeroSerialized.waitPayFreeMinutes).toBe(0)
+      expect(zeroSerialized.waitPayCentsPerMinute).toBe(0)
+      expect(zeroSerialized.waitLimitMinutes).toBe(1)
+    })
+
+    it('handles undefined restaurant delay settings in FromJSON and ToJSON (spec 0033, AC-1)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.waitPayEnabled).toBeUndefined()
+      expect(model.waitPayFreeMinutes).toBeUndefined()
+      expect(model.waitPayCentsPerMinute).toBeUndefined()
+      expect(model.waitLimitMinutes).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.waitPayEnabled).toBeUndefined()
+      expect(serialized.waitPayFreeMinutes).toBeUndefined()
+      expect(serialized.waitPayCentsPerMinute).toBeUndefined()
+      expect(serialized.waitLimitMinutes).toBeUndefined()
+    })
+
     it('preserves savedCustomerRetentionMonths in ToJSON serialization (spec 0005, AC-7)', () => {
       // Load-bearing test guard: without savedCustomerRetentionMonths in ToJSON, the SDK silently drops
       // it and the save reports success for a change never sent.
@@ -625,6 +723,64 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.offerTimingEnabled).toBe(false)
       expect(json.offerLeadMinutes).toBe(0)
       expect(json.offerTimingCandidates).toBe(5)
+    })
+
+    it('deserializes waitPayEnabled, waitPayFreeMinutes, waitPayCentsPerMinute, and waitLimitMinutes when present (spec 0033, AC-1)', () => {
+      const json = {
+        details: {},
+        waitPayEnabled: true,
+        waitPayFreeMinutes: 5,
+        waitPayCentsPerMinute: 10,
+        waitLimitMinutes: 10,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.waitPayEnabled).toBe(true)
+      expect(dto.waitPayFreeMinutes).toBe(5)
+      expect(dto.waitPayCentsPerMinute).toBe(10)
+      expect(dto.waitLimitMinutes).toBe(10)
+
+      const jsonDisabled = {
+        details: {},
+        waitPayEnabled: false,
+        waitPayFreeMinutes: 0,
+        waitPayCentsPerMinute: 0,
+        waitLimitMinutes: 1,
+      }
+
+      const dtoDisabled = InstanceConfigSettingsDtoFromJSON(jsonDisabled)
+      expect(dtoDisabled.waitPayEnabled).toBe(false)
+      expect(dtoDisabled.waitPayFreeMinutes).toBe(0)
+      expect(dtoDisabled.waitPayCentsPerMinute).toBe(0)
+      expect(dtoDisabled.waitLimitMinutes).toBe(1)
+    })
+
+    it('deserializes restaurant delay fields as null when keys are absent in backend response (spec 0033, AC-1)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.waitPayEnabled).toBeNull()
+      expect(dto.waitPayFreeMinutes).toBeNull()
+      expect(dto.waitPayCentsPerMinute).toBeNull()
+      expect(dto.waitLimitMinutes).toBeNull()
+    })
+
+    it('serializes DTO carrying restaurant delay fields back to JSON (spec 0033, AC-1)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        waitPayEnabled: false,
+        waitPayFreeMinutes: 0,
+        waitPayCentsPerMinute: 0,
+        waitLimitMinutes: 1,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.waitPayEnabled).toBe(false)
+      expect(json.waitPayFreeMinutes).toBe(0)
+      expect(json.waitPayCentsPerMinute).toBe(0)
+      expect(json.waitLimitMinutes).toBe(1)
     })
 
     it('deserializes savedCustomerRetentionMonths when present (spec 0005, AC-7)', () => {

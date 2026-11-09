@@ -103,6 +103,10 @@ const baseMockConfigData = {
   offerTimingEnabled: false,
   offerLeadMinutes: 3,
   offerTimingCandidates: 5,
+  waitPayEnabled: false,
+  waitPayFreeMinutes: 5,
+  waitPayCentsPerMinute: 10,
+  waitLimitMinutes: 10,
   savedCustomerRetentionMonths: 12,
   reassignmentPayoutPolicies: { DEFAULT: 50 },
   reassignmentPayoutDefaultPolicy: 'DEFAULT',
@@ -184,7 +188,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(h1).toHaveTextContent('Co-op settings')
     })
 
-    it('renders eight pills in exact order linking to the eight card anchors (AC-1; Shifts added by spec 0026)', () => {
+    it('renders nine pills in exact order linking to the nine card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033)', () => {
       render(<InstanceConfigurationPage />)
       const nav = screen.getByRole('navigation', { name: /Settings sections/i })
       const links = nav.querySelectorAll('a')
@@ -194,6 +198,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         { title: 'Matching', href: '#matching' },
         { title: 'Offers', href: '#offers' },
         { title: 'Rider pay', href: '#rider-pay' },
+        { title: 'Restaurant delays', href: '#restaurant-delays' },
         { title: 'Shifts', href: '#shifts' },
         { title: 'Service area', href: '#service-area' },
         { title: 'Instance', href: '#instance' },
@@ -486,13 +491,17 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       // Offer switch & inputs disabled
       const offerSwitch = document.getElementById('offerExpiryEnabled')
       expect(offerSwitch).toBeDisabled()
-      // Three switches now: Offer expiry, Timed offers (spec 0031) and Shifts (spec 0026), each unknown until loaded.
-      expect(screen.getAllByText('Not loaded yet')).toHaveLength(3)
+      // Four switches now: Offer expiry, Timed offers (spec 0031), Shifts (spec 0026) and Delay pay (spec 0033), each unknown until loaded.
+      expect(screen.getAllByText('Not loaded yet')).toHaveLength(4)
       expect(document.getElementById('shiftsEnabled')).toBeDisabled()
       expect(document.getElementById('shiftDropNoticeHours')).toBeDisabled()
       expect(document.getElementById('offerTimingEnabled')).toBeDisabled()
       expect(document.getElementById('offerLeadMinutes')).toBeDisabled()
       expect(document.getElementById('offerTimingCandidates')).toBeDisabled()
+      expect(document.getElementById('waitPayEnabled')).toBeDisabled()
+      expect(document.getElementById('waitPayFreeMinutes')).toBeDisabled()
+      expect(document.getElementById('waitPayCentsPerMinute')).toBeDisabled()
+      expect(document.getElementById('waitLimitMinutes')).toBeDisabled()
 
       const baseFeeInput = document.getElementById('quoteBaseFee')
       expect(baseFeeInput).toBeDisabled()
@@ -1822,6 +1831,255 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
 
       const candidatesInput = document.getElementById('offerTimingCandidates') as HTMLInputElement
       expect(candidatesInput).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Restaurant delays card (spec 0033, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('Restaurant delays settings (spec 0033, AC-1)', () => {
+    const withRestaurantDelays = (
+      waitPayEnabled: boolean,
+      waitPayFreeMinutes = 5,
+      waitPayCentsPerMinute = 10,
+      waitLimitMinutes = 10
+    ) => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          waitPayEnabled,
+          waitPayFreeMinutes,
+          waitPayCentsPerMinute,
+          waitLimitMinutes,
+        },
+        isLoading: false,
+      })
+    }
+
+    it('renders Restaurant delays section with the switch bound to waitPayEnabled and the three number fields with range limits', () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      render(<InstanceConfigurationPage />)
+
+      const section = document.getElementById('restaurant-delays') as HTMLElement
+      expect(section).toBeInTheDocument()
+      expect(within(section).getByRole('heading', { name: 'Restaurant delays' })).toBeInTheDocument()
+
+      // Switch
+      const toggle = document.getElementById('waitPayEnabled') as HTMLElement
+      expect(section).toContainElement(toggle)
+      expect(toggle).toHaveAttribute('role', 'switch')
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+      expect(toggle).not.toBeDisabled()
+      expect(within(section).getByLabelText('Delay pay')).toBe(toggle)
+
+      // Three number boxes
+      const freeMinutes = document.getElementById('waitPayFreeMinutes') as HTMLInputElement
+      expect(section).toContainElement(freeMinutes)
+      expect(freeMinutes.value).toBe('5')
+      expect(freeMinutes).toHaveAttribute('min', '0')
+      expect(freeMinutes).toHaveAttribute('max', '60')
+      expect(freeMinutes).not.toBeDisabled()
+
+      const centsPerMinute = document.getElementById('waitPayCentsPerMinute') as HTMLInputElement
+      expect(section).toContainElement(centsPerMinute)
+      expect(centsPerMinute.value).toBe('10')
+      expect(centsPerMinute).toHaveAttribute('min', '0')
+      expect(centsPerMinute).toHaveAttribute('max', '200')
+      expect(centsPerMinute).not.toBeDisabled()
+
+      const waitLimit = document.getElementById('waitLimitMinutes') as HTMLInputElement
+      expect(section).toContainElement(waitLimit)
+      expect(waitLimit.value).toBe('10')
+      expect(waitLimit).toHaveAttribute('min', '1')
+      expect(waitLimit).toHaveAttribute('max', '60')
+      expect(waitLimit).not.toBeDisabled()
+    })
+
+    it('shows the switch on when the saved setting is true', () => {
+      withRestaurantDelays(true, 10, 20, 15)
+      render(<InstanceConfigurationPage />)
+
+      const toggle = document.getElementById('waitPayEnabled') as HTMLElement
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      const freeMinutes = document.getElementById('waitPayFreeMinutes') as HTMLInputElement
+      expect(freeMinutes.value).toBe('10')
+
+      const centsPerMinute = document.getElementById('waitPayCentsPerMinute') as HTMLInputElement
+      expect(centsPerMinute.value).toBe('20')
+
+      const waitLimit = document.getElementById('waitLimitMinutes') as HTMLInputElement
+      expect(waitLimit.value).toBe('15')
+    })
+
+    it('switching Delay pay on puts it on the bar and Save sends waitPayEnabled: true with the restaurant delays toast sentence', async () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('waitPayEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^Delay pay Off →\s*(?:changes to )?On$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ waitPayEnabled: true })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Saved',
+            description:
+              'Saved: Delay pay. Restaurant delay settings apply to waits that end from now on; a wait already paid keeps its amount.',
+          })
+        )
+      })
+    })
+
+    it('switching Delay pay off sends waitPayEnabled: false (false switch is sent as false)', async () => {
+      withRestaurantDelays(true, 5, 10, 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('waitPayEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^Delay pay On →\s*(?:changes to )?Off$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ waitPayEnabled: false })
+      })
+    })
+
+    it('editing waitPayFreeMinutes to 0 sends number 0 (min valid limit)', async () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('waitPayFreeMinutes') as HTMLInputElement, {
+        target: { value: '0' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ waitPayFreeMinutes: 0 })
+      })
+    })
+
+    it('editing waitPayCentsPerMinute to 0 sends number 0 (min valid limit)', async () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('waitPayCentsPerMinute') as HTMLInputElement, {
+        target: { value: '0' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ waitPayCentsPerMinute: 0 })
+      })
+    })
+
+    it('editing waitLimitMinutes to 1 sends number 1 (min valid limit)', async () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('waitLimitMinutes') as HTMLInputElement, {
+        target: { value: '1' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ waitLimitMinutes: 1 })
+      })
+    })
+
+    it('editing all three delay boxes together sends all three in one save', async () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('waitPayFreeMinutes') as HTMLInputElement, {
+        target: { value: '10' },
+      })
+      fireEvent.change(document.getElementById('waitPayCentsPerMinute') as HTMLInputElement, {
+        target: { value: '25' },
+      })
+      fireEvent.change(document.getElementById('waitLimitMinutes') as HTMLInputElement, {
+        target: { value: '15' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({
+          waitPayFreeMinutes: 10,
+          waitPayCentsPerMinute: 25,
+          waitLimitMinutes: 15,
+        })
+      })
+    })
+
+    it('empty delay fields are flagged as blockers and disable Save', () => {
+      withRestaurantDelays(false, 5, 10, 10)
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.change(document.getElementById('waitPayFreeMinutes') as HTMLInputElement, {
+        target: { value: '' },
+      })
+
+      const blockersContainer = document.getElementById('save-all-blockers')
+      expect(blockersContainer?.textContent).toContain('Free minutes after the promised time is empty')
+      expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled()
+    })
+
+    it('restaurant delays fields are disabled before settings load', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      })
+      render(<InstanceConfigurationPage />)
+
+      expect(document.getElementById('waitPayEnabled')).toBeDisabled()
+      expect(document.getElementById('waitPayFreeMinutes')).toBeDisabled()
+      expect(document.getElementById('waitPayCentsPerMinute')).toBeDisabled()
+      expect(document.getElementById('waitLimitMinutes')).toBeDisabled()
+    })
+
+    it('disables the three number boxes and shows "Not loaded yet" next to Delay pay switch when waitPayEnabled is null on loaded page', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          waitPayEnabled: null,
+          waitPayFreeMinutes: 5,
+          waitPayCentsPerMinute: 10,
+          waitLimitMinutes: 10,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const toggle = document.getElementById('waitPayEnabled') as HTMLElement
+      expect(toggle).toBeDisabled()
+      const switchContainer = toggle.parentElement as HTMLElement
+      expect(within(switchContainer).getByText('Not loaded yet')).toBeInTheDocument()
+
+      const freeMinutes = document.getElementById('waitPayFreeMinutes') as HTMLInputElement
+      expect(freeMinutes).toBeDisabled()
+
+      const centsPerMinute = document.getElementById('waitPayCentsPerMinute') as HTMLInputElement
+      expect(centsPerMinute).toBeDisabled()
+
+      const waitLimit = document.getElementById('waitLimitMinutes') as HTMLInputElement
+      expect(waitLimit).toBeDisabled()
     })
   })
 })
