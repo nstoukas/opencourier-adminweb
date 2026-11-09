@@ -54,4 +54,6 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   hidden tab still alerts. A poll's `isError` must be said in words (RTK Query keeps the last good `data`), and `/sos` never
   shows "No rider has an open SOS." while unreachable. Notifications are asked inside the click, before any await (Safari).
 
+- The Dispatch board (`src/modules/dispatch/`, spec 0034) draws row kinds in one `switch` in `AttentionList`, and a kind it does not know gets a plain Open, so a new backend kind never breaks an older tab. Its "updated N s ago" reads RTK Query's `fulfilledTimeStamp`, because a new `data` object can be the cache returning.
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
