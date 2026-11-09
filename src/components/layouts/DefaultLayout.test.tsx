@@ -135,8 +135,9 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
 
       // Group 1: Run the day
       expect(screen.getByText('Run the day')).toBeInTheDocument()
-      const overviewLink = screen.getByRole('link', { name: /Overview/i })
-      expect(overviewLink).toHaveAttribute('href', '/')
+      const dispatchLink = screen.getByRole('link', { name: /Dispatch/i })
+      expect(dispatchLink).toHaveAttribute('href', '/')
+      expect(screen.queryByRole('link', { name: /Overview/i })).toBeNull()
       const deliveriesLink = screen.getByRole('link', { name: /Deliveries/i })
       expect(deliveriesLink).toHaveAttribute('href', '/deliveries')
       const sosLink = screen.getByRole('link', { name: /SOS/i })
@@ -174,27 +175,27 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     })
 
     it('marks current page with aria-current="page" and data-active="true"', () => {
-      // 1. At root ("/"): Overview is active
+      // 1. At root ("/"): Dispatch is active
       currentPathname = '/'
       const { unmount } = renderLayout()
 
-      const overviewLink = screen.getByRole('link', { name: /Overview/i })
-      expect(overviewLink).toHaveAttribute('aria-current', 'page')
-      expect(overviewLink.closest('[data-active]')).toHaveAttribute('data-active', 'true')
+      const dispatchLink = screen.getByRole('link', { name: /Dispatch/i })
+      expect(dispatchLink).toHaveAttribute('aria-current', 'page')
+      expect(dispatchLink.closest('[data-active]')).toHaveAttribute('data-active', 'true')
 
       const deliveriesLink = screen.getByRole('link', { name: /Deliveries/i })
       expect(deliveriesLink).not.toHaveAttribute('aria-current')
       unmount()
 
-      // 2. At "/deliveries": Deliveries is active, Overview is not
+      // 2. At "/deliveries": Deliveries is active, Dispatch is not
       currentPathname = '/deliveries'
       renderLayout()
 
       const newDeliveriesLink = screen.getByRole('link', { name: /Deliveries/i })
       expect(newDeliveriesLink).toHaveAttribute('aria-current', 'page')
 
-      const newOverviewLink = screen.getByRole('link', { name: /Overview/i })
-      expect(newOverviewLink).not.toHaveAttribute('aria-current')
+      const newDispatchLink = screen.getByRole('link', { name: /Dispatch/i })
+      expect(newDispatchLink).not.toHaveAttribute('aria-current')
     })
 
     it('marks parent item active when visiting subpaths (e.g. /deliveries/cmvol123)', () => {
@@ -204,8 +205,8 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       const deliveriesLink = screen.getByRole('link', { name: /Deliveries/i })
       expect(deliveriesLink).toHaveAttribute('aria-current', 'page')
 
-      const overviewLink = screen.getByRole('link', { name: /Overview/i })
-      expect(overviewLink).not.toHaveAttribute('aria-current')
+      const dispatchLink = screen.getByRole('link', { name: /Dispatch/i })
+      expect(dispatchLink).not.toHaveAttribute('aria-current')
     })
 
     it('Sign Out button in footer resets token, clears API cache, and closes all sheets', async () => {

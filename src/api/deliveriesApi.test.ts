@@ -8,6 +8,7 @@ import {
   useGetProductReportsQuery,
   useCreateDeliveryProductReportMutation,
   useResolveProductReportMutation,
+  useMarkDeliveryIssueHandledMutation,
 } from './deliveriesApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
@@ -58,6 +59,7 @@ describe('deliveriesApi endpoints', () => {
   let mockGetProductReports: jest.Mock
   let mockCreateDeliveryProductReport: jest.Mock
   let mockResolveProductReport: jest.Mock
+  let mockMarkDeliveryIssueHandled: jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -69,6 +71,7 @@ describe('deliveriesApi endpoints', () => {
     mockGetProductReports = jest.fn()
     mockCreateDeliveryProductReport = jest.fn()
     mockResolveProductReport = jest.fn()
+    mockMarkDeliveryIssueHandled = jest.fn()
     mockPrepareAdminSdk.mockReturnValue({
       deliveries: () => ({
         getDeliveryIssues: mockGetDeliveryIssues,
@@ -79,6 +82,7 @@ describe('deliveriesApi endpoints', () => {
         getProductReports: mockGetProductReports,
         createDeliveryProductReport: mockCreateDeliveryProductReport,
         resolveProductReport: mockResolveProductReport,
+        markDeliveryIssueHandled: mockMarkDeliveryIssueHandled,
       }),
     })
   })
@@ -107,6 +111,8 @@ describe('deliveriesApi endpoints', () => {
         reason: 'WRONG_ADDRESS',
         note: 'Apartment 4B',
         createdAt: new Date('2026-10-27T10:00:00Z'),
+        handledAt: null,
+        handledBy: null,
       },
     ]
 
@@ -439,6 +445,42 @@ describe('deliveriesApi endpoints', () => {
       expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
       expect(mockResolveProductReport).toHaveBeenCalledWith(payload)
       expect('data' in result ? result.data : undefined).toEqual(mockResolvedReport)
+    })
+  })
+
+  describe('markDeliveryIssueHandled endpoint (spec 0034, AC-7)', () => {
+    it('exports useMarkDeliveryIssueHandledMutation hook function', () => {
+      expect(typeof useMarkDeliveryIssueHandledMutation).toBe('function')
+    })
+
+    it('defines markDeliveryIssueHandled endpoint on deliveriesApi', () => {
+      expect(deliveriesApi.endpoints.markDeliveryIssueHandled).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.markDeliveryIssueHandled.initiate).toBe('function')
+    })
+
+    it('calls sdk.deliveries().markDeliveryIssueHandled with deliveryId and issueId, returning handled report', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockHandledIssue: DeliveryIssueAdminDto = {
+        id: 'issue-55',
+        courierId: 'c-1',
+        courierName: 'Courier One',
+        reason: 'WRONG_ADDRESS',
+        note: null,
+        createdAt: new Date('2026-11-09T10:00:00Z'),
+        handledAt: new Date('2026-11-09T10:15:00Z'),
+        handledBy: { id: 'user-99', username: 'alex', email: 'alex@example.com' },
+      }
+
+      mockMarkDeliveryIssueHandled.mockResolvedValueOnce(mockHandledIssue)
+
+      const payload = { deliveryId: 'del-55', issueId: 'issue-55' }
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.markDeliveryIssueHandled.initiate(payload)
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockMarkDeliveryIssueHandled).toHaveBeenCalledWith(payload)
+      expect('data' in result ? result.data : undefined).toEqual(mockHandledIssue)
     })
   })
 })

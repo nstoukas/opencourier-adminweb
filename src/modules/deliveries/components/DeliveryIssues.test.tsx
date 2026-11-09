@@ -106,6 +106,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
         createdAt: new Date('2026-10-27T10:14:00.000Z'),
         courierId: 'courier-1',
         courierName: 'Testing Courier',
+        handledAt: null,
+        handledBy: null,
       },
       {
         id: 'issue-2',
@@ -114,6 +116,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
         createdAt: new Date('2026-10-27T10:18:00.000Z'),
         courierId: 'courier-2',
         courierName: 'Second Courier',
+        handledAt: null,
+        handledBy: null,
       },
       {
         id: 'issue-3',
@@ -122,6 +126,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
         createdAt: new Date('2026-10-27T10:22:00.000Z'),
         courierId: 'courier-3',
         courierName: '', // Empty name triggers courierId fallback
+        handledAt: null,
+        handledBy: null,
       },
     ]
 
@@ -223,6 +229,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
           createdAt: new Date('2026-10-27T10:25:00.000Z'),
           courierId: 'courier-4',
           courierName: 'Courier Four',
+          handledAt: null,
+          handledBy: null,
         },
         {
           id: 'issue-5',
@@ -231,6 +239,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
           createdAt: new Date('2026-10-27T10:26:00.000Z'),
           courierId: 'courier-5',
           courierName: 'Courier Five',
+          handledAt: null,
+          handledBy: null,
         },
       ]
 
@@ -284,6 +294,62 @@ describe('DeliveryIssues component (decision 66.11)', () => {
     })
   })
 
+  describe('Handled report display (spec 0034, AC-7)', () => {
+    it('reads "Handled by <username, else email> at HH:mm" in Athens time', () => {
+      // 10:15 UTC is 12:15 in Athens (UTC+2)
+      const handledIssues: DeliveryIssueAdminDto[] = [
+        {
+          id: 'h-1',
+          reason: 'WRONG_ADDRESS',
+          note: 'Fixed address',
+          createdAt: new Date('2026-11-09T10:00:00Z'),
+          courierId: 'c1',
+          courierName: 'Rider 1',
+          handledAt: new Date('2026-11-09T10:15:00Z'),
+          handledBy: { id: 'u1', username: 'kostas', email: 'kostas@coop.gr' },
+        },
+        {
+          id: 'h-2',
+          reason: 'NO_SIGNAL',
+          note: null,
+          createdAt: new Date('2026-11-09T10:05:00Z'),
+          courierId: 'c2',
+          courierName: 'Rider 2',
+          handledAt: new Date('2026-11-09T10:20:00Z'),
+          handledBy: { id: 'u2', username: null, email: 'elena@coop.gr' },
+        },
+        {
+          id: 'h-3',
+          reason: 'OTHER',
+          note: null,
+          createdAt: new Date('2026-11-09T10:05:00Z'),
+          courierId: 'c3',
+          courierName: 'Rider 3',
+          handledAt: new Date('2026-11-09T10:30:00Z'),
+          handledBy: null,
+        },
+      ]
+
+      mockUseGetDeliveryIssuesQuery.mockReturnValue({
+        data: handledIssues,
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryIssues deliveryId="del-handled" />)
+
+      // First report: username priority
+      expect(screen.getByText(/Handled by kostas at 12:15/)).toBeInTheDocument()
+
+      // Second report: fallback to email when username is null
+      expect(screen.getByText(/Handled by elena@coop.gr at 12:20/)).toBeInTheDocument()
+
+      // Third report: fallback to 'an admin' when handledBy is null
+      expect(screen.getByText(/Handled by an admin at 12:30/)).toBeInTheDocument()
+    })
+  })
+
   describe('Value 5 / anti-gamification rule (Contract 6)', () => {
     it('does not render a count of reports in the title or anywhere in the card', () => {
       // Value 5: Never display a report count like "Rider reports (2)" or a count badge.
@@ -295,6 +361,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
           createdAt: new Date('2026-10-27T10:00:00Z'),
           courierId: 'c1',
           courierName: 'Rider 1',
+          handledAt: null,
+          handledBy: null,
         },
         {
           id: 'i-2',
@@ -303,6 +371,8 @@ describe('DeliveryIssues component (decision 66.11)', () => {
           createdAt: new Date('2026-10-27T10:05:00Z'),
           courierId: 'c2',
           courierName: 'Rider 2',
+          handledAt: null,
+          handledBy: null,
         },
       ]
 

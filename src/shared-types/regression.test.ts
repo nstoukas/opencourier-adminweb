@@ -178,6 +178,7 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       // Scan SDK models, frontend modules, pages, components, utils, and API endpoints
       const scanDirs = [
         path.resolve(__dirname, '../backend-admin-sdk/src/models'),
+        path.resolve(__dirname, '../backend-admin-sdk/src/apis'),
         path.resolve(__dirname, '../modules'),
         path.resolve(__dirname, '../pages'),
         path.resolve(__dirname, '../components'),
@@ -224,6 +225,24 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       )
       const content = fs.readFileSync(issuesComponentFile, 'utf-8')
       expect(content).not.toMatch(/Rider reports\s*\(/i)
+    })
+
+    it('Value 5 guard: ensures DispatchBoardDto contains no per-rider timing, position age, score, or count fields (spec 0034, AC-10, AC-13)', () => {
+      const fs = require('fs')
+      const path = require('path')
+      const boardApiFile = path.resolve(
+        __dirname,
+        '../backend-admin-sdk/src/apis/DispatchBoardApi.ts'
+      )
+      const content = fs.readFileSync(boardApiFile, 'utf-8')
+      const bannedPerRiderPatterns = [
+        /(?:rider|courier).*(?:duration|timing|minutes|seconds|speed|delay|score|rank|rating|history|trail)/i,
+        /currentLocationAt/i,
+        /positionAge/i,
+      ]
+      for (const pattern of bannedPerRiderPatterns) {
+        expect(content).not.toMatch(pattern)
+      }
     })
   })
 })

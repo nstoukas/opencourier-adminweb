@@ -26,6 +26,8 @@ describe('DeliveryIssueAdminDto (decision 66.11)', () => {
     expect(dto.createdAt.toISOString()).toBe('2026-10-27T10:14:00.000Z')
     expect(dto.courierId).toBe('courier-1')
     expect(dto.courierName).toBe('Testing Courier')
+    expect(dto.handledAt).toBeNull()
+    expect(dto.handledBy).toBeNull()
   })
 
   it('DeliveryIssueAdminDtoFromJSON maps undefined (missing) note to null', () => {
@@ -72,6 +74,8 @@ describe('DeliveryIssueAdminDto (decision 66.11)', () => {
       createdAt: new Date('2026-10-27T10:20:00.000Z'),
       courierId: 'courier-4',
       courierName: 'Fourth Courier',
+      handledAt: null,
+      handledBy: null,
     }
 
     const json = DeliveryIssueAdminDtoToJSON(dto)
@@ -83,10 +87,33 @@ describe('DeliveryIssueAdminDto (decision 66.11)', () => {
       createdAt: '2026-10-27T10:20:00.000Z',
       courierId: 'courier-4',
       courierName: 'Fourth Courier',
+      handledAt: null,
+      handledBy: null,
     })
 
     expect(DeliveryIssueAdminDtoToJSON(null)).toBeNull()
     expect(DeliveryIssueAdminDtoToJSON(undefined)).toBeUndefined()
+  })
+
+  it('DeliveryIssueAdminDto handles handledAt and handledBy when populated (spec 0034, AC-7)', () => {
+    const json = {
+      id: 'issue-105',
+      reason: 'WRONG_ADDRESS',
+      note: 'Wrong floor',
+      createdAt: '2026-10-27T10:20:00.000Z',
+      courierId: 'courier-5',
+      courierName: 'Fifth Courier',
+      handledAt: '2026-10-27T10:25:00.000Z',
+      handledBy: { id: 'user-1', email: 'admin@coop.gr', username: 'kostas' },
+    }
+
+    const dto = DeliveryIssueAdminDtoFromJSON(json)
+    expect(dto.handledAt).toBeInstanceOf(Date)
+    expect(dto.handledAt?.toISOString()).toBe('2026-10-27T10:25:00.000Z')
+    expect(dto.handledBy).toEqual({ id: 'user-1', email: 'admin@coop.gr', username: 'kostas' })
+
+    const serialized = DeliveryIssueAdminDtoToJSON(dto)
+    expect(serialized).toEqual(json)
   })
 
   it('instanceOfDeliveryIssueAdminDto verifies presence of id and reason', () => {
