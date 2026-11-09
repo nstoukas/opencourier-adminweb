@@ -275,11 +275,52 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(screen.getByRole('switch', { name: 'Timed offers' })).toBeDisabled()
     })
 
+    it('shows "Not loaded yet" next to Timed offers switch when offerTimingEnabled is null, and hides it when loaded', () => {
+      const { rerender } = render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: null }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const toggle = screen.getByRole('switch', { name: 'Timed offers' })
+      const switchContainer = toggle.parentElement as HTMLElement
+      expect(within(switchContainer).getByText('Not loaded yet')).toBeInTheDocument()
+
+      rerender(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(within(switchContainer).queryByText('Not loaded yet')).toBeNull()
+    })
+
+    it('renders the Offers card title and updated description mentioning when offers go out', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(
+        screen.getByText('How long an offer to a rider lasts, and when it goes out.')
+      ).toBeInTheDocument()
+    })
+
     it('renders offerLeadMinutes with range limits 0 to 30, loaded value, and calls set on change', () => {
       const mockSet = jest.fn()
       render(
         <OffersCard
-          form={{ ...dummyForm, offerLeadMinutes: '3' }}
+          form={{ ...dummyForm, offerTimingEnabled: false, offerLeadMinutes: '3' }}
           set={mockSet}
           options={dummyOptions}
           loaded={true}
@@ -305,6 +346,19 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(mockSet).toHaveBeenCalledWith('offerLeadMinutes', '30')
     })
 
+    it('disables offerLeadMinutes input when offerTimingEnabled is null even when loaded is true', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: null, offerLeadMinutes: '3' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByLabelText('Lead time before an offer (minutes)')).toBeDisabled()
+    })
+
     it('disables offerLeadMinutes input before settings load', () => {
       render(
         <OffersCard
@@ -322,7 +376,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       const mockSet = jest.fn()
       render(
         <OffersCard
-          form={{ ...dummyForm, offerTimingCandidates: '5' }}
+          form={{ ...dummyForm, offerTimingEnabled: false, offerTimingCandidates: '5' }}
           set={mockSet}
           options={dummyOptions}
           loaded={true}
@@ -346,6 +400,19 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       fireEvent.change(input, { target: { value: '20' } })
       expect(mockSet).toHaveBeenCalledWith('offerTimingCandidates', '20')
+    })
+
+    it('disables offerTimingCandidates input when offerTimingEnabled is null even when loaded is true', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: null, offerTimingCandidates: '5' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByLabelText('Riders compared by road time')).toBeDisabled()
     })
 
     it('disables offerTimingCandidates input before settings load', () => {

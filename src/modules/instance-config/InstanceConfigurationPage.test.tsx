@@ -100,6 +100,9 @@ const baseMockConfigData = {
   offerExpiryEnabled: true,
   offerExpirySeconds: 60,
   noCourierRetrySeconds: 30,
+  offerTimingEnabled: false,
+  offerLeadMinutes: 3,
+  offerTimingCandidates: 5,
   savedCustomerRetentionMonths: 12,
   reassignmentPayoutPolicies: { DEFAULT: 50 },
   reassignmentPayoutDefaultPolicy: 'DEFAULT',
@@ -147,6 +150,8 @@ const NUMERIC_SETTINGS = [
   { key: 'defaultMaxWorkingHours', id: 'defaultMaxWorkingHours', label: 'Default max working hours' },
   { key: 'offerExpirySeconds', id: 'offerExpirySeconds', label: 'Seconds before an unanswered offer ends' },
   { key: 'noCourierRetrySeconds', id: 'noCourierRetrySeconds', label: 'Seconds between retries when no rider is free' },
+  { key: 'offerLeadMinutes', id: 'offerLeadMinutes', label: 'Lead time before an offer (minutes)' },
+  { key: 'offerTimingCandidates', id: 'offerTimingCandidates', label: 'Riders compared by road time' },
   { key: 'savedCustomerRetentionMonths', id: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)' },
 ] as const
 
@@ -228,6 +233,12 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
   // Zero-valid settings & cleared boxes (row 49 & row 56, AC-4)
   // ---------------------------------------------------------------------------
   describe('Zero-valid settings & cleared boxes (row 49, row 56, AC-4)', () => {
+    it('NUMERIC_SETTINGS includes offerLeadMinutes and offerTimingCandidates (Fable L2)', () => {
+      const keys = NUMERIC_SETTINGS.map((s) => s.key)
+      expect(keys).toContain('offerLeadMinutes')
+      expect(keys).toContain('offerTimingCandidates')
+    })
+
     describe.each(NUMERIC_SETTINGS)('numeric setting: $key ($label)', ({ key, id, label }) => {
       it(`renders "0" when API returns ${key} as 0`, () => {
         mockUseGetInstanceConfigQuery.mockReturnValue({
@@ -464,7 +475,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
   // Loading state before settings arrive (AC-13)
   // ---------------------------------------------------------------------------
   describe('Before settings load (AC-13)', () => {
-    it('controls are disabled, both switches show "Not loaded yet", and no changes are counted', () => {
+    it('controls are disabled, switches show "Not loaded yet", and no changes are counted', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -475,10 +486,13 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       // Offer switch & inputs disabled
       const offerSwitch = document.getElementById('offerExpiryEnabled')
       expect(offerSwitch).toBeDisabled()
-      // Two switches now: Offer expiry and Shifts (spec 0026), each unknown until loaded.
-      expect(screen.getAllByText('Not loaded yet')).toHaveLength(2)
+      // Three switches now: Offer expiry, Timed offers (spec 0031) and Shifts (spec 0026), each unknown until loaded.
+      expect(screen.getAllByText('Not loaded yet')).toHaveLength(3)
       expect(document.getElementById('shiftsEnabled')).toBeDisabled()
       expect(document.getElementById('shiftDropNoticeHours')).toBeDisabled()
+      expect(document.getElementById('offerTimingEnabled')).toBeDisabled()
+      expect(document.getElementById('offerLeadMinutes')).toBeDisabled()
+      expect(document.getElementById('offerTimingCandidates')).toBeDisabled()
 
       const baseFeeInput = document.getElementById('quoteBaseFee')
       expect(baseFeeInput).toBeDisabled()
@@ -1783,6 +1797,31 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(document.getElementById('offerTimingEnabled')).toBeDisabled()
       expect(document.getElementById('offerLeadMinutes')).toBeDisabled()
       expect(document.getElementById('offerTimingCandidates')).toBeDisabled()
+    })
+
+    it('disables the two number boxes and shows "Not loaded yet" next to Timed offers switch when offerTimingEnabled is null on loaded page', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerTimingEnabled: null,
+          offerLeadMinutes: 3,
+          offerTimingCandidates: 5,
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const toggle = document.getElementById('offerTimingEnabled') as HTMLElement
+      expect(toggle).toBeDisabled()
+      const switchContainer = toggle.parentElement as HTMLElement
+      expect(within(switchContainer).getByText('Not loaded yet')).toBeInTheDocument()
+
+      const leadInput = document.getElementById('offerLeadMinutes') as HTMLInputElement
+      expect(leadInput).toBeDisabled()
+
+      const candidatesInput = document.getElementById('offerTimingCandidates') as HTMLInputElement
+      expect(candidatesInput).toBeDisabled()
     })
   })
 })
