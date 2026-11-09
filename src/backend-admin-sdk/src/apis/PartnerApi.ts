@@ -15,6 +15,8 @@
 import * as runtime from '../runtime';
 import type { PartnerAvailabilityChangeAdminDto } from '../models/PartnerAvailabilityAdminDto';
 import { PartnerAvailabilityChangeAdminDtoFromJSON } from '../models/PartnerAvailabilityAdminDto';
+import type { PartnerWaitRecordAdminDto } from '../models/PartnerWaitRecordAdminDto';
+import { PartnerWaitRecordAdminDtoFromJSON } from '../models/PartnerWaitRecordAdminDto';
 import type {
     PartnerAdminDto,
     PartnerCreateAdminInput,
@@ -287,6 +289,11 @@ export class PartnerApi extends runtime.BaseAPI {
     async enablePartner(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerAdminDto> {
         const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/enable`, 'POST', undefined, initOverrides);
         return PartnerAdminDtoFromJSON(await response.json());
+    }
+
+    async getPartnerWaitRecord(requestParameters: { id: string; days: number }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerWaitRecordAdminDto> {
+        const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/wait-record?days=${requestParameters.days}`, 'GET', undefined, initOverrides);
+        return PartnerWaitRecordAdminDtoFromJSON(await response.json());
     }
 
     async getPartnerAvailabilityChanges(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<PartnerAvailabilityChangeAdminDto>> {

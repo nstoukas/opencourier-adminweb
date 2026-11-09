@@ -3,6 +3,7 @@ import type {
   PartnerAvailabilityChangeAdminDto,
   PartnerCreateAdminInput,
   PartnerPaginatedAdminDto,
+  PartnerWaitRecordAdminDto,
   PartnerUpdateAdminInput,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
@@ -128,6 +129,22 @@ export const partnersApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [Tags.partners],
     }),
+    // Spec 0030: one restaurant's wait record over a period.
+    getPartnerWaitRecord: build.query<PartnerWaitRecordAdminDto, { id: string; days: number }>({
+      queryFn: async ({ id, days }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.partners().getPartnerWaitRecord({ id, days })
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      providesTags: [Tags.partners],
+    }),
     getPartnerAvailabilityChanges: build.query<PartnerAvailabilityChangeAdminDto[], { id: string }>({
       queryFn: async ({ id }, api) => {
         try {
@@ -155,4 +172,5 @@ export const {
   useDisablePartnerMutation,
   useEnablePartnerMutation,
   useGetPartnerAvailabilityChangesQuery,
+  useGetPartnerWaitRecordQuery,
 } = partnersApi

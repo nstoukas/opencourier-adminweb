@@ -26,6 +26,7 @@ import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
 import { PartnerFormDialog } from './components/PartnerFormDialog'
 import { RotateCredentialsDialog } from './components/RotateCredentialsDialog'
 import { PartnerAvailabilityCard } from './components/PartnerAvailabilityCard'
+import { PartnerWaitRecordCard } from './components/PartnerWaitRecordCard'
 import { PartnerCustomersCard } from './components/PartnerCustomersCard'
 
 // Leaflet needs `window`, so the map loads only in the browser.
@@ -148,6 +149,8 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
 
         {/* Busy mode, pause, disable, and who changed them (spec 0029). */}
         <PartnerAvailabilityCard partner={partner} />
+        {/* How long riders wait, how often it runs late, and the real prep time (spec 0030). */}
+        <PartnerWaitRecordCard partnerId={partner.id} partnerName={partner.name} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="min-w-0">

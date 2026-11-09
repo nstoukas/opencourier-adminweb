@@ -27,6 +27,7 @@ export * from './PartnerCreateAdminInput';
 export * from './PartnerPaginatedAdminDto';
 export * from './PartnerRotatePasswordAdminInput';
 export * from './PartnerAvailabilityAdminDto';
+export * from './PartnerWaitRecordAdminDto';
 export * from './PartnerUpdateAdminInput';
 export * from './PickupAddressAdminInput';
 export * from './UserAdminDto';
