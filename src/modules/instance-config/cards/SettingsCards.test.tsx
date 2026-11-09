@@ -423,6 +423,116 @@ describe('SettingsCards components (row 87 review fixes)', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // MatchingCard: maxDriftDistance (scope row 107)
+  // ---------------------------------------------------------------------------
+  describe('MatchingCard maxDriftDistance (scope row 107)', () => {
+    it("with distance unit KILOMETERS the field's label contains km and not metres", () => {
+      // Setup: dummy form with distanceUnit set to KILOMETERS
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, distanceUnit: 'KILOMETERS' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText(/max drift distance \(km\)/i) as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('maxDriftDistance')
+
+      // Field label must contain km and not say metres
+      const label = document.querySelector('label[for="maxDriftDistance"]')
+      expect(label).not.toBeNull()
+      expect(label?.textContent).toContain('km')
+      expect(label?.textContent?.toLowerCase()).not.toContain('metres')
+      expect(label?.textContent?.toLowerCase()).not.toContain('meters')
+
+      // Querying specifically for metres on maxDriftDistance must return null
+      expect(screen.queryByLabelText(/max drift distance.*metres/i)).toBeNull()
+    })
+
+    it('with MILES it contains mile', () => {
+      // Setup: dummy form with distanceUnit set to MILES
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, distanceUnit: 'MILES' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText(/max drift distance \(mile\)/i) as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('maxDriftDistance')
+
+      // Field label must contain mile and not metres or km
+      const label = document.querySelector('label[for="maxDriftDistance"]')
+      expect(label).not.toBeNull()
+      expect(label?.textContent).toContain('mile')
+      expect(label?.textContent?.toLowerCase()).not.toContain('metres')
+      expect(label?.textContent?.toLowerCase()).not.toContain('meters')
+      expect(label?.textContent).not.toContain('km')
+    })
+
+    it('the help text mentions where the delivery was quoted', () => {
+      // Setup: MatchingCard loaded with maxDriftDistance configured
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, maxDriftDistance: '5' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      // The description must name where the delivery was quoted and what limit is measured against
+      const description = screen.getByText(/where (?:it|the delivery) was quoted/i)
+      expect(description).toBeInTheDocument()
+      expect(description.textContent).toMatch(/delivery/i)
+      expect(description.textContent).toMatch(/pickup or drop off/i)
+      expect(description.textContent).toBe(
+        "How far a delivery's pickup or drop off may be from where it was quoted."
+      )
+    })
+
+    it('renders maxDriftDistance with loaded value, min 0, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, maxDriftDistance: '5' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText(/max drift distance/i) as HTMLInputElement
+      expect(input.value).toBe('5')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).not.toBeDisabled()
+
+      fireEvent.change(input, { target: { value: '10' } })
+      expect(mockSet).toHaveBeenCalledWith('maxDriftDistance', '10')
+    })
+
+    it('disables maxDriftDistance input before settings load', () => {
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, maxDriftDistance: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = screen.getByLabelText(/max drift distance/i) as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // Fix 9: PublicPagesCard
   // ---------------------------------------------------------------------------
   describe('PublicPagesCard (fix 9)', () => {

@@ -735,6 +735,74 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(screen.getByText('Rate per mile')).toBeInTheDocument()
     })
 
+    // Scope row 107: maxDriftDistance label follows distanceUnit and help text explains limit
+    describe('maxDriftDistance label and help text (scope row 107)', () => {
+      it("with distance unit KILOMETERS the field's label contains km and not metres", () => {
+        // Setup: instance config with distanceUnit set to KILOMETERS
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            distanceUnit: 'KILOMETERS',
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const kmInput = screen.getByLabelText(/Max drift distance \(km\)/i)
+        expect(kmInput).toBeInTheDocument()
+        expect(screen.queryByLabelText(/Max drift distance.*metres/i)).toBeNull()
+
+        const label = document.querySelector('label[for="maxDriftDistance"]')
+        expect(label?.textContent).toContain('km')
+        expect(label?.textContent?.toLowerCase()).not.toContain('metres')
+        expect(label?.textContent?.toLowerCase()).not.toContain('meters')
+      })
+
+      it('with MILES it contains mile', () => {
+        // Setup: instance config with distanceUnit set to MILES
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            distanceUnit: 'MILES',
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const mileInput = screen.getByLabelText(/Max drift distance \(mile\)/i)
+        expect(mileInput).toBeInTheDocument()
+
+        const label = document.querySelector('label[for="maxDriftDistance"]')
+        expect(label?.textContent).toContain('mile')
+        expect(label?.textContent?.toLowerCase()).not.toContain('metres')
+        expect(label?.textContent?.toLowerCase()).not.toContain('meters')
+        expect(label?.textContent).not.toContain('km')
+      })
+
+      it('the help text mentions where the delivery was quoted', () => {
+        // Setup: instance config loaded
+        mockUseGetInstanceConfigQuery.mockReturnValue({
+          data: {
+            ...baseMockConfigData,
+            distanceUnit: 'KILOMETERS',
+          },
+          isLoading: false,
+        })
+
+        render(<InstanceConfigurationPage />)
+
+        const description = screen.getByText(/where (?:it|the delivery) was quoted/i)
+        expect(description).toBeInTheDocument()
+        expect(description.textContent).toMatch(/delivery/i)
+        expect(description.textContent).toMatch(/pickup or drop off/i)
+        expect(description.textContent).toBe(
+          "How far a delivery's pickup or drop off may be from where it was quoted."
+        )
+      })
+    })
+
     // Fix 6: Select whose value is '' shows "Not set" option and nothing else selected
     it('a select whose value is "" shows a "Not set" option and nothing else selected (fix 6)', () => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
