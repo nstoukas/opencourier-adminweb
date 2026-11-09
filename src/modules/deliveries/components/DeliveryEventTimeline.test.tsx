@@ -613,6 +613,36 @@ describe('DeliveryEventTimeline component', () => {
       expect(screen.queryByText('Did not take effect')).toBeNull()
     })
 
+    it('renders removal request event in words through humanizeEventType (spec 0035, AC-21)', () => {
+      const removalEvent: DeliveryEventAdminDto = {
+        id: 'rev-1',
+        type: 'REMOVAL_REQUESTED',
+        actor: 'COURIER',
+        eventSource: 'OPENCOURIER',
+        oldStatus: 'DISPATCHED',
+        newStatus: 'DISPATCHED',
+        transitionSuccessful: true,
+        message: 'Moped breakdown or accident',
+        createdAt: new Date('2026-11-09T15:00:00Z'),
+      }
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: [removalEvent],
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      const row = screen.getByTestId('delivery-event-row')
+      expect(row).toHaveTextContent('Removal requested')
+      expect(screen.getByText('Removal requested')).toBeInTheDocument()
+      expect(screen.queryByText('REMOVAL_REQUESTED')).toBeNull()
+      expect(screen.getByText('Moped breakdown or accident')).toBeInTheDocument()
+      expect(screen.queryByText('Did not take effect')).toBeNull()
+    })
+
     it('polls for delivery events every 30 seconds via pollingInterval (spec 0002, AC-11)', () => {
       mockUseGetDeliveryEventsQuery.mockReturnValue({
         data: [],

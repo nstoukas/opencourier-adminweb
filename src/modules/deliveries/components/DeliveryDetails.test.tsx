@@ -17,6 +17,7 @@ import {
 } from '../../../api/deliveriesApi'
 import { useGetAllCouriersQuery } from '../../../api/couriersApi'
 import { useGetInstanceConfigQuery } from '../../../api/configApi'
+import { useGetDeliveryRemovalRequestsQuery } from '../../../api/removalRequestApi'
 
 // Mock Radix DropdownMenu primitive so dropdown menu content renders cleanly in JSDOM environment
 jest.mock('@radix-ui/react-dropdown-menu', () => {
@@ -110,6 +111,15 @@ jest.mock('../../../api/configApi', () => ({
   useGetInstanceConfigQuery: jest.fn(),
 }))
 
+jest.mock('../../../api/removalRequestApi', () => ({
+  useGetDeliveryRemovalRequestsQuery: jest.fn().mockReturnValue({
+    data: [],
+    currentData: [],
+    isLoading: false,
+    isError: false,
+  }),
+}))
+
 const mockGoToDeliveries = jest.fn()
 jest.mock('../../../hooks/useAdminPageNavigator', () => {
   const actual = jest.requireActual('../../../hooks/useAdminPageNavigator')
@@ -140,6 +150,7 @@ const mockUseCreateDeliveryProductReportMutation = useCreateDeliveryProductRepor
 const mockUseResolveProductReportMutation = useResolveProductReportMutation as jest.Mock
 const mockUseGetAllCouriersQuery = useGetAllCouriersQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
+const mockUseGetDeliveryRemovalRequestsQuery = useGetDeliveryRemovalRequestsQuery as jest.Mock
 
 const mockSubmitDeliveryEvent = jest.fn()
 
@@ -361,6 +372,23 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
     // Product reports must appear above What happened timeline
     const pos2 = productReportsTitle.compareDocumentPosition(whatHappenedTitle)
     expect(pos2 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders Removal requests card passing its delivery id (spec 0035, AC-24)', () => {
+    render(<DeliveryDetails deliveryId="d100" />)
+
+    const removalRequestsTitle = screen.getByRole('heading', { level: 3, name: 'Removal requests' })
+    const whatHappenedTitle = screen.getByText('What happened')
+
+    expect(removalRequestsTitle).toBeInTheDocument()
+    expect(mockUseGetDeliveryRemovalRequestsQuery).toHaveBeenCalledWith(
+      { deliveryId: 'd100' },
+      expect.anything()
+    )
+
+    // Removal requests appears above What happened timeline
+    const pos = removalRequestsTitle.compareDocumentPosition(whatHappenedTitle)
+    expect(pos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   describe('Money formatting per Delivery currencyCode (Test Plan B & AC-3)', () => {

@@ -64,6 +64,17 @@ jest.mock('../../api/configApi', () => ({
   useSetInstanceConfigMutation: jest.fn(),
 }))
 
+jest.mock('../../api/removalRequestApi', () => ({
+  useGetRemovalReasonsQuery: jest.fn().mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+  }),
+  useCreateRemovalReasonMutation: jest.fn().mockReturnValue([jest.fn(), { isLoading: false }]),
+  useUpdateRemovalReasonMutation: jest.fn().mockReturnValue([jest.fn(), { isLoading: false }]),
+  useRemoveRemovalReasonMutation: jest.fn().mockReturnValue([jest.fn(), { isLoading: false }]),
+}))
+
 const mockUseGetInstanceConfigOptionsQuery = useGetInstanceConfigOptionsQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 const mockUseSetInstanceConfigMutation = useSetInstanceConfigMutation as jest.Mock
@@ -107,6 +118,7 @@ const baseMockConfigData = {
   waitPayFreeMinutes: 5,
   waitPayCentsPerMinute: 10,
   waitLimitMinutes: 10,
+  returnTripPayPercent: 100,
   savedCustomerRetentionMonths: 12,
   reassignmentPayoutPolicies: { DEFAULT: 50 },
   reassignmentPayoutDefaultPolicy: 'DEFAULT',
@@ -191,7 +203,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(h1).toHaveTextContent('Co-op settings')
     })
 
-    it('renders nine pills in exact order linking to the nine card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033)', () => {
+    it('renders ten pills in exact order linking to the ten card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035)', () => {
       render(<InstanceConfigurationPage />)
       const nav = screen.getByRole('navigation', { name: /Settings sections/i })
       const links = nav.querySelectorAll('a')
@@ -201,6 +213,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         { title: 'Matching', href: '#matching' },
         { title: 'Offers', href: '#offers' },
         { title: 'Rider pay', href: '#rider-pay' },
+        { title: 'Removal reasons', href: '#removal-reasons' },
         { title: 'Restaurant delays', href: '#restaurant-delays' },
         { title: 'Shifts', href: '#shifts' },
         { title: 'Service area', href: '#service-area' },

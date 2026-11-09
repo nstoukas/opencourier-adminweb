@@ -19,6 +19,11 @@ jest.mock('../../api/couriersApi', () => ({
   useGetAllCouriersQuery: jest.fn(() => ({ data: [], isLoading: false })),
 }))
 
+jest.mock('../../api/removalRequestApi', () => ({
+  useApproveRemovalRequestMutation: jest.fn(() => [jest.fn(), { isLoading: false }]),
+  useDeclineRemovalRequestMutation: jest.fn(() => [jest.fn(), { isLoading: false }]),
+}))
+
 jest.mock('../../admin-web-components', () => {
   const actual = jest.requireActual('../../admin-web-components')
   return {
@@ -596,6 +601,125 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
       expect(screen.getByText(/#CHAT1 · Petros sent: Running 5 min late/)).toBeInTheDocument()
       const openBtn = screen.getByRole('link', { name: 'Open' })
       expect(openBtn).toHaveAttribute('href', '/deliveries/del-chat-1')
+    })
+  })
+
+  describe('Removal request row (spec 0035, AC-6)', () => {
+    const removalRow: DispatchAttentionRowDto = {
+      id: 'r-removal-1',
+      kind: 'REMOVAL_REQUEST',
+      since: '2026-11-09T14:25:00.000Z',
+      deliveryId: 'del-rem-1',
+      sosId: null,
+      issueId: null,
+      threadId: null,
+      status: DeliveryAdminDtoStatusEnum.Dispatched,
+      courierId: 'courier-42',
+      orderReference: 'REM42',
+      restaurantName: 'Souvlaki Bar',
+      riderName: 'Giorgos K.',
+      customerLabel: 'Eleni P.',
+      detail: 'Food already picked up: approving cancels the order\nMoped broke down, cannot finish the delivery',
+      held: false,
+      removalRequestId: 'rem-req-1',
+      pickedUp: true,
+    }
+
+    it('draws row dot as yellow (bg-warning, words "Running.", never red bg-destructive)', () => {
+      render(<AttentionList rows={[removalRow]} more={0} nowMs={nowMs} />)
+
+      const rowElement = screen.getByTestId('attention-row')
+      const dot = rowElement.querySelector('span[aria-hidden="true"]')
+      expect(dot?.className).toContain('bg-warning')
+      expect(dot?.className).not.toContain('bg-destructive')
+
+      expect(rowElement).toHaveTextContent('Running.')
+      expect(rowElement).not.toHaveTextContent('Nobody has taken this.')
+    })
+
+    it('draws detail whole: first line as headline, rider note as second line, including approving cancels order wording', () => {
+      render(<AttentionList rows={[removalRow]} more={0} nowMs={nowMs} />)
+
+      // First line / headline inside link
+      expect(
+        screen.getByRole('link', {
+          name: /#REM42 · Food already picked up: approving cancels the order/,
+        })
+      ).toBeInTheDocument()
+
+      // Second line with rider's note
+      expect(
+        screen.getByText('Moped broke down, cannot finish the delivery')
+      ).toBeInTheDocument()
+    })
+
+    it('offers Open, Decline and Approve buttons on REMOVAL_REQUEST', () => {
+      render(<AttentionList rows={[removalRow]} more={0} nowMs={nowMs} />)
+
+      expect(screen.getByRole('link', { name: 'Open' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
+    })
+
+    it('no other kind offers Approve or Decline buttons', () => {
+      const otherRows: DispatchAttentionRowDto[] = [
+        {
+          id: 'r-waiting',
+          kind: 'WAITING_FOR_RIDER',
+          since: '2026-11-09T14:20:00.000Z',
+          deliveryId: 'del-1',
+          sosId: null,
+          issueId: null,
+          threadId: null,
+          status: DeliveryAdminDtoStatusEnum.AssigningCourier,
+          courierId: null,
+          orderReference: 'W1',
+          restaurantName: 'Grill',
+          riderName: null,
+          customerLabel: 'Cust',
+          detail: 'No courier',
+          held: false,
+        },
+        {
+          id: 'r-report',
+          kind: 'RIDER_REPORT',
+          since: '2026-11-09T14:22:00.000Z',
+          deliveryId: 'del-2',
+          sosId: null,
+          issueId: 'iss-1',
+          threadId: null,
+          status: DeliveryAdminDtoStatusEnum.Dispatched,
+          courierId: 'c1',
+          orderReference: 'REP1',
+          restaurantName: 'Pizza',
+          riderName: 'Rider',
+          customerLabel: 'Cust2',
+          detail: 'Wrong item reported',
+          held: false,
+        },
+        {
+          id: 'r-sos',
+          kind: 'SOS',
+          since: '2026-11-09T14:24:00.000Z',
+          deliveryId: null,
+          sosId: 'sos-1',
+          issueId: null,
+          threadId: null,
+          status: null,
+          courierId: 'c2',
+          orderReference: null,
+          restaurantName: null,
+          riderName: 'Rider2',
+          customerLabel: null,
+          detail: 'SOS alert',
+          held: false,
+        },
+      ]
+
+      render(<AttentionList rows={otherRows} more={0} nowMs={nowMs} />)
+
+      expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull()
     })
   })
 })

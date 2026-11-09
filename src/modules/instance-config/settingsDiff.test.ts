@@ -12,6 +12,8 @@ import {
   urlErrorText,
   type SettingsForm,
 } from './settingsDiff'
+import { InstanceConfigSettingsAdminInputToJSON } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsAdminInput'
+import { InstanceConfigSettingsDtoFromJSON } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsDto'
 
 describe('settingsDiff unit tests (spec 0010)', () => {
   const baseSavedForm: SettingsForm = {
@@ -69,6 +71,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     waitLimitMinutes: '10',
     handBackSeconds: '60',
     cancellationPayoutPolicy: 'FULL_COMPENSATION',
+    returnTripPayPercent: '100',
     savedCustomerRetentionMonths: '12',
     restaurantHistoryDays: '30',
     sosLocationRetentionDays: '30',
@@ -1276,6 +1279,68 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       ).toBe(
         `Saved: Delay pay, Free minutes after the promised time, Delay pay per minute (cents), Minutes before a rider can leave. ${sentence}`
       )
+    })
+  })
+
+  describe('returnTripPayPercent setting (spec 0035, AC-2)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('declares returnTripPayPercent in SETTINGS with kind number and correct label', () => {
+      const setting = SETTINGS.find((s) => s.key === 'returnTripPayPercent')
+      expect(setting).toBeDefined()
+      expect(setting?.kind).toBe('number')
+      expect(setting?.label).toBe('Return trip pay (%)')
+    })
+
+    it('formFromSettings preserves returnTripPayPercent as string and handles 0, null, missing', () => {
+      expect(formFromSettings({ returnTripPayPercent: 100 }).returnTripPayPercent).toBe('100')
+      expect(formFromSettings({ returnTripPayPercent: 0 }).returnTripPayPercent).toBe('0')
+      expect(formFromSettings({ returnTripPayPercent: null }).returnTripPayPercent).toBe('')
+      expect(formFromSettings({}).returnTripPayPercent).toBe('')
+      expect(EMPTY_FORM.returnTripPayPercent).toBe('')
+    })
+
+    it('pendingChanges detects edits to returnTripPayPercent', () => {
+      const edited: SettingsForm = { ...baseSavedForm, returnTripPayPercent: '50' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('returnTripPayPercent')
+      expect(changes[0]?.from).toBe('100')
+      expect(changes[0]?.to).toBe('50')
+      expect(changes[0]?.label).toBe('Return trip pay (%)')
+    })
+
+    it('blockers blocks save when returnTripPayPercent is emptied', () => {
+      const editedEmpty: SettingsForm = { ...baseSavedForm, returnTripPayPercent: '' }
+      const changes = pendingChanges(baseSavedForm, editedEmpty)
+      expect(blockers(changes, editedEmpty)).toContain('Return trip pay (%) is empty')
+    })
+
+    it('savePayload sends returnTripPayPercent as a number and 0 as number 0', () => {
+      const edited: SettingsForm = { ...baseSavedForm, returnTripPayPercent: '75' }
+      const payload = savePayload(pendingChanges(baseSavedForm, edited), edited, savedDetails)
+      expect(payload).toEqual({ returnTripPayPercent: 75 })
+      expect(typeof payload.returnTripPayPercent).toBe('number')
+      expect(payload).not.toHaveProperty('details')
+
+      const editedZero: SettingsForm = { ...baseSavedForm, returnTripPayPercent: '0' }
+      const payloadZero = savePayload(pendingChanges(baseSavedForm, editedZero), editedZero, savedDetails)
+      expect(payloadZero).toEqual({ returnTripPayPercent: 0 })
+      expect(payloadZero.returnTripPayPercent).toBe(0)
+    })
+
+    it('successMessage appends return trip pay sentence when returnTripPayPercent changed', () => {
+      const sentence = 'Return trip pay applies to food recorded as returned from now on.'
+      const changes = [{ key: 'returnTripPayPercent', label: 'Return trip pay (%)', from: '100', to: '75' }]
+      expect(successMessage(changes as any)).toBe(`Saved: Return trip pay (%). ${sentence}`)
+    })
+
+    it('hand edited SDK serializer carries returnTripPayPercent to JSON and Dto reads it', () => {
+      const serialized = InstanceConfigSettingsAdminInputToJSON({ returnTripPayPercent: 85 } as any)
+      expect(serialized.returnTripPayPercent).toBe(85)
+
+      const deserialized = InstanceConfigSettingsDtoFromJSON({ returnTripPayPercent: 65 })
+      expect(deserialized.returnTripPayPercent).toBe(65)
     })
   })
 })
