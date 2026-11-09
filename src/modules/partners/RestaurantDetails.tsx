@@ -58,7 +58,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
   // 0 while the tab is in the background: RTK Query does not poll at 0.
   const pageVisible = usePageVisible()
   const pollingInterval = pageVisible ? REFRESH_MS : 0
-  const partnerQuery = useGetPartnerQuery({ id: partnerId }, { skip: !partnerId })
+  const partnerQuery = useGetPartnerQuery({ id: partnerId }, { skip: !partnerId, pollingInterval })
   // `currentData` is the answer for THIS id only, so going back between two restaurants never
   // shows the previous one's name while the next loads.
   const partner = partnerQuery.currentData
@@ -147,7 +147,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         </Card>
 
         {/* Busy mode, pause, disable, and who changed them (spec 0029). */}
-        {partner ? <PartnerAvailabilityCard partner={partner} /> : null}
+        <PartnerAvailabilityCard partner={partner} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="min-w-0">

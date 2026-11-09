@@ -161,7 +161,7 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
       expect(textarea).toHaveAttribute('maxLength', '200')
     })
 
-    it('refuses empty or whitespace-only reason with an error message and does not call the mutation', async () => {
+    it('refuses empty or whitespace-only reason with an error message and does not call the mutation', () => {
       render(<PartnerAvailabilityCard partner={samplePartner} />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Disable' }))
@@ -181,7 +181,7 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
       expect(mockDisableTrigger).not.toHaveBeenCalled()
     })
 
-    it('refuses reason longer than 200 characters with an error message and does not call the mutation', async () => {
+    it('refuses reason longer than 200 characters with an error message and does not call the mutation', () => {
       render(<PartnerAvailabilityCard partner={samplePartner} />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Disable' }))

@@ -22,8 +22,11 @@ import {
 } from '@/api/partnersApi'
 import type { PartnerAdminDto, PartnerAvailabilityChangeAdminDto } from '@/backend-admin-sdk'
 import { formatDate } from '@/ui-shared-utils'
+import { usePageVisible } from '@/hooks/usePageVisible'
 
 const REASON_MAX = 200
+// The history is read again as the card's own state is, while the tab is visible.
+const REFRESH_MS = 30_000
 
 function changeWords(change: PartnerAvailabilityChangeAdminDto): string {
   switch (change.action) {
@@ -52,7 +55,12 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
   const disableButtonRef = useRef<HTMLButtonElement>(null)
   const [disablePartner, disableState] = useDisablePartnerMutation()
   const [enablePartner, enableState] = useEnablePartnerMutation()
-  const changesQuery = useGetPartnerAvailabilityChangesQuery({ id: partner.id })
+  // 0 while the tab is in the background: RTK Query does not poll at 0.
+  const pageVisible = usePageVisible()
+  const changesQuery = useGetPartnerAvailabilityChangesQuery(
+    { id: partner.id },
+    { pollingInterval: pageVisible ? REFRESH_MS : 0 },
+  )
 
   const availability = partner.availability
   const disabled = !!availability?.disabledAt
@@ -123,7 +131,11 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
                 <li key={change.id}>
                   <span className="text-muted-foreground">{formatDate(change.createdAt)}</span>{' '}
                   {changeWords(change)}
-                  <span className="text-muted-foreground"> ({change.actorEmail ?? change.actorRole})</span>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    ({change.actorRole}
+                    {change.actorEmail ? ` · ${change.actorEmail}` : ''})
+                  </span>
                 </li>
               ))}
             </ul>
