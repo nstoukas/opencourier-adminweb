@@ -377,7 +377,7 @@ export function MatchingCard({ form, set, options, loaded }: CardProps) {
 export function OffersCard({ form, set, loaded }: CardProps) {
   const notLoaded = form.offerExpiryEnabled === null
   return (
-    <SettingsSection id="offers" title="Offers" description="How long an offer to a rider lasts.">
+    <SettingsSection id="offers" title="Offers" description="How long an offer to a rider lasts, and when it goes out.">
       <FieldGroup>
         <Field>
           <div className="flex items-center gap-3">
@@ -436,6 +436,7 @@ export function OffersCard({ form, set, loaded }: CardProps) {
               onCheckedChange={(checked: boolean) => set('offerTimingEnabled', checked)}
             />
             <FieldLabel htmlFor="offerTimingEnabled">Timed offers</FieldLabel>
+            {form.offerTimingEnabled === null && <span className="text-sm text-muted-foreground">Not loaded yet</span>}
           </div>
           <FieldDescription>
             Hold an offer until the rider needs to leave, so they arrive about when the food is ready, and pick the
@@ -449,7 +450,7 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             value={form.offerLeadMinutes}
             min={0}
             max={30}
-            disabled={!loaded}
+            disabled={!loaded || form.offerTimingEnabled === null}
             description="Whole minutes, 0 to 30, added before the rider's road time. Used only while Timed offers is on."
             onChange={(value) => set('offerLeadMinutes', value)}
           />
@@ -459,7 +460,7 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             value={form.offerTimingCandidates}
             min={1}
             max={20}
-            disabled={!loaded}
+            disabled={!loaded || form.offerTimingEnabled === null}
             description="How many of the nearest riders are compared, 1 to 20. Used only while Timed offers is on."
             onChange={(value) => set('offerTimingCandidates', value)}
           />
