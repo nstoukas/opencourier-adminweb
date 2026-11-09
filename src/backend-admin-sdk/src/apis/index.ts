@@ -11,3 +11,4 @@ export * from './LocationsApi';
 export * from './PartnerApi';
 export * from './SavedCustomersApi';
 export * from './SosApi';
+export * from './DispatchBoardApi';

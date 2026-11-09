@@ -1,12 +1,10 @@
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
-import { PageHeader } from '@/components/layouts/PageHeader'
+import { DispatchPage } from '@/modules/dispatch/DispatchPage'
 import { ReactElement } from 'react'
 import { NextPageWithLayout } from './_app'
 
-const HomePage: NextPageWithLayout = () => {
-  // Row 90 turns this page into the redesign's Dispatch board.
-  return <PageHeader title="Overview" description="Welcome back. What would you like to do today?" />
-}
+// The admin's home page is the Dispatch board (spec 0034).
+const HomePage: NextPageWithLayout = () => <DispatchPage />
 
 HomePage.getLayout = (page: ReactElement) => <DefaultLayout>{page}</DefaultLayout>
 

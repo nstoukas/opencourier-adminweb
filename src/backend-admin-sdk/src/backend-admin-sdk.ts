@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchStopApi, LocationsApi, PartnerApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
+import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -86,6 +86,10 @@ export class BackendAdminSdk {
   // Riders' SOS incidents (spec 0022).
   sos(): SosApi {
     return this.getOrCreateApi(SosApi)
+  }
+
+  dispatchBoard(): DispatchBoardApi {
+    return this.getOrCreateApi(DispatchBoardApi)
   }
 
   partners(): PartnerApi {

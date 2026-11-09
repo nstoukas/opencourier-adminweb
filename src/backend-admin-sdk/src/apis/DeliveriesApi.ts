@@ -251,6 +251,28 @@ export class DeliveriesApi extends runtime.BaseAPI {
     }
 
     /**
+     * Mark a rider's report handled (spec 0034, AC-7). Hand written.
+     */
+    async markDeliveryIssueHandled(requestParameters: { deliveryId: string; issueId: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<DeliveryIssueAdminDto> {
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const tokenString = await this.configuration.accessToken("bearer", []);
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const response = await this.request({
+            path: `/api/admin/v1/deliveries/${encodeURIComponent(requestParameters.deliveryId)}/issues/${encodeURIComponent(requestParameters.issueId)}/handled`,
+            method: 'POST',
+            headers: headerParameters,
+            query: {},
+        }, initOverrides);
+
+        return await new runtime.JSONApiResponse(response, (jsonValue) => DeliveryIssueAdminDtoFromJSON(jsonValue)).value();
+    }
+
+    /**
      */
     async submitOrderEventRaw(requestParameters: DeliveriesApiSubmitOrderEventRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<DeliveryAdminDto>> {
         if (requestParameters.id === null || requestParameters.id === undefined) {

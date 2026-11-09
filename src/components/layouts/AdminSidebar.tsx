@@ -18,7 +18,7 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { CalendarBlank, GearSix, Moped, Package, SignOut, Siren, SquaresFour, Storefront, WarningCircle } from '@phosphor-icons/react'
+import { CalendarBlank, GearSix, MapPin, Moped, Package, SignOut, Siren, Storefront, WarningCircle } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -39,7 +39,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Run the day',
     items: [
-      { title: 'Overview', icon: SquaresFour, href: EAdminRoutes.HOME },
+      // The live board (spec 0034).
+      { title: 'Dispatch', icon: MapPin, href: EAdminRoutes.HOME },
       { title: 'Deliveries', icon: Package, href: EAdminRoutes.DELIVERIES },
       // Riders' SOS incidents (spec 0022).
       { title: 'SOS', icon: Siren, href: EAdminRoutes.SOS },
@@ -65,7 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
 ]
 
 // True when `pathname` is the link's page or a page under it ("/deliveries/abc" is under
-// Deliveries). Overview ("/") only matches itself, or every page would light it up.
+// Deliveries). Dispatch ("/") only matches itself, or every page would light it up.
 export function isActivePath(pathname: string, href: string): boolean {
   const path = pathname.replace(/\/$/, '')
   const target = href.replace(/\/$/, '')

@@ -22,13 +22,17 @@ import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { DeliveryAdminDtoStatusEnum } from '../../../backend-admin-sdk'
 import { useState } from 'react'
 
-export function isDeliveryAwaitingCourierAssignment(delivery: DeliveryAdminDto): boolean {
+// Only the fields these read, so the Dispatch board can pass its row without fetching the delivery
+// (spec 0034, AC-4). `Pick` makes a type from a few fields of another type.
+type AssignableDelivery = Pick<DeliveryAdminDto, 'id' | 'status' | 'courierId'>
+
+export function isDeliveryAwaitingCourierAssignment(delivery: AssignableDelivery): boolean {
   return (
     delivery.status === DeliveryAdminDtoStatusEnum.AssigningCourier && !delivery.courierId
   )
 }
 
-export function AssignCourierCell({ delivery }: { delivery: DeliveryAdminDto }) {
+export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }) {
   const [open, setOpen] = useState(false)
   const [courierId, setCourierId] = useState<string>()
   const { toast } = useToast()

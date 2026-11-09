@@ -4,6 +4,7 @@ import { formatDate } from '@/ui-shared-utils'
 import { useGetDeliveryIssuesQuery } from '@/api/deliveriesApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { DELIVERY_ISSUE_REASON_TO_HUMAN } from '@/shared-types'
+import { athensTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
 
 interface DeliveryIssuesProps {
   deliveryId: string
@@ -58,6 +59,12 @@ export function DeliveryIssues({ deliveryId }: DeliveryIssuesProps) {
               </div>
               {issue.note ? (
                 <p className="text-xs whitespace-pre-wrap break-words">{issue.note}</p>
+              ) : null}
+              {issue.handledAt ? (
+                <p className="text-xs text-muted-foreground">
+                  Handled by {issue.handledBy?.username || issue.handledBy?.email || 'an admin'} at{' '}
+                  {athensTime(issue.handledAt.toISOString())}
+                </p>
               ) : null}
             </div>
           ))

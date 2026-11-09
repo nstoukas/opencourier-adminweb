@@ -77,6 +77,19 @@ export const deliveriesApi = baseApi.injectEndpoints({
       },
       providesTags: [Tags.deliveryIssues],
     }),
+    // Spec 0034, AC-7. The board's list and the delivery page both read this tag, so the row leaves.
+    markDeliveryIssueHandled: build.mutation<DeliveryIssueAdminDto, { deliveryId: string; issueId: string }>({
+      queryFn: async (args, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const data = await prepareAdminSdk(accessToken || '').deliveries().markDeliveryIssueHandled(args)
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      invalidatesTags: [Tags.deliveryIssues],
+    }),
     // Spec 0032: product reports, one delivery's and the co-op's open list.
     getDeliveryProductReports: build.query<ProductReportAdminDto[], { deliveryId: string }>({
       queryFn: async ({ deliveryId }, api) => {
@@ -237,5 +250,6 @@ export const {
   useResolveProductReportMutation,
   useSubmitDeliveryEventMutation,
   useAssignDeliveryToCourierMutation,
+  useMarkDeliveryIssueHandledMutation,
   useReassignDeliveryMutation,
 } = deliveriesApi

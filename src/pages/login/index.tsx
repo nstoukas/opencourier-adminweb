@@ -19,7 +19,7 @@ function LoginPage() {
     // The empty list makes this run once, on arrival; signedInOnArrival never changes after that.
   }, [])
 
-  // Already signed in: draw nothing for the moment before Overview loads, never the sign in card.
+  // Already signed in: draw nothing for the moment before Dispatch loads, never the sign in card.
   if (signedInOnArrival) return null
   return <SignInScreen />
 }

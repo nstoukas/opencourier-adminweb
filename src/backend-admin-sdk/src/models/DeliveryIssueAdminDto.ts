@@ -29,6 +29,9 @@ export interface DeliveryIssueAdminDto {
     createdAt: Date;
     courierId: string;
     courierName: string;
+    // Spec 0034, AC-7: null while the report is open.
+    handledAt: Date | null;
+    handledBy: { id: string; email: string | null; username: string | null } | null;
 }
 
 /**
@@ -57,6 +60,8 @@ export function DeliveryIssueAdminDtoFromJSONTyped(json: any, ignoreDiscriminato
         'createdAt': (new Date(json['createdAt'])),
         'courierId': json['courierId'],
         'courierName': json['courierName'],
+        'handledAt': json['handledAt'] == null ? null : new Date(json['handledAt']),
+        'handledBy': json['handledBy'] == null ? null : json['handledBy'],
     };
 }
 
@@ -74,5 +79,7 @@ export function DeliveryIssueAdminDtoToJSON(value?: DeliveryIssueAdminDto | null
         'createdAt': (value.createdAt.toISOString()),
         'courierId': value.courierId,
         'courierName': value.courierName,
+        'handledAt': value.handledAt == null ? null : value.handledAt.toISOString(),
+        'handledBy': value.handledBy,
     };
 }
