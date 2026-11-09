@@ -51,6 +51,9 @@ jest.mock('next/dynamic', () => () => {
 // Mock RTK Query partnersApi
 jest.mock('../../api/partnersApi', () => ({
   useGetPartnerQuery: jest.fn(),
+  useDisablePartnerMutation: () => [jest.fn(), { isLoading: false }],
+  useEnablePartnerMutation: () => [jest.fn(), { isLoading: false }],
+  useGetPartnerAvailabilityChangesQuery: () => ({ data: [], isLoading: false, isError: false }),
 }))
 
 const mockUseGetDeliveriesQuery = jest.fn()
@@ -568,6 +571,16 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       const card = screen.getByTestId('mock-customers-card')
       expect(card).toHaveAttribute('data-partner-id', 'partner-abc-123')
       expect(card).toHaveAttribute('data-name', 'Souvlaki Bar')
+    })
+  })
+
+  describe('spec 0029, AC-9: availability card', () => {
+    it('shows the availability card with current state and action on the restaurant page', () => {
+      render(<PartnerDetailsPage />)
+
+      expect(screen.getByRole('heading', { level: 3, name: 'Availability' })).toBeInTheDocument()
+      expect(screen.getByTestId('availability-state')).toHaveTextContent('Accepting orders.')
+      expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument()
     })
   })
 })

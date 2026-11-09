@@ -70,3 +70,118 @@ describe('PartnerApi.getPartners search query parameter (row 106)', () => {
     expect(url.searchParams.get('page')).toBe('1')
   })
 })
+
+// Spec 0029 (AC-5, AC-9): admin SDK routes for disabling, enabling and reading availability history.
+describe('PartnerApi availability routes (spec 0029, AC-5 and AC-9)', () => {
+  const mockFetch = jest.fn()
+  let api: PartnerApi
+
+  const samplePartnerResponse = {
+    id: 'p-1',
+    name: 'Souvlaki Bar',
+    phoneNumber: '+302421012345',
+    createdAt: '2026-11-01T10:00:00.000Z',
+    updatedAt: '2026-11-01T10:00:00.000Z',
+    availability: {
+      busyExtraMinutes: null,
+      pausedUntil: null,
+      disabledAt: '2026-11-09T12:00:00.000Z',
+      disabledReason: 'Co-op decision',
+      acceptingOrders: false,
+      notAcceptingReason: 'The co-op has disabled this restaurant: Co-op decision',
+    },
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    api = new PartnerApi(
+      new Configuration({
+        fetchApi: mockFetch,
+        basePath: 'http://localhost:3000',
+        accessToken: () => Promise.resolve('test-admin-token'),
+      })
+    )
+  })
+
+  it('disablePartner calls POST /api/admin/v1/partner/:id/disable with JSON body and admin bearer token', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse(samplePartnerResponse))
+
+    const result = await api.disablePartner({ id: 'partner/123 special', reason: 'Health violation' })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/partner%2F123%20special/disable')
+    expect(calledInit.method).toBe('POST')
+    expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+    expect(calledInit.headers['Content-Type']).toBe('application/json')
+    expect(JSON.parse(calledInit.body)).toEqual({ reason: 'Health violation' })
+    expect(result.id).toBe('p-1')
+    expect(result.availability?.disabledReason).toBe('Co-op decision')
+    expect(result.availability?.disabledAt).toEqual(new Date('2026-11-09T12:00:00.000Z'))
+  })
+
+  it('enablePartner calls POST /api/admin/v1/partner/:id/enable with no body', async () => {
+    const enabledResponse = {
+      ...samplePartnerResponse,
+      availability: {
+        ...samplePartnerResponse.availability,
+        disabledAt: null,
+        disabledReason: null,
+        acceptingOrders: true,
+        notAcceptingReason: null,
+      },
+    }
+    mockFetch.mockResolvedValueOnce(createMockResponse(enabledResponse))
+
+    const result = await api.enablePartner({ id: 'partner-99' })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/partner-99/enable')
+    expect(calledInit.method).toBe('POST')
+    expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+    expect(calledInit.headers['Content-Type']).toBeUndefined()
+    expect(result.availability?.acceptingOrders).toBe(true)
+    expect(result.availability?.disabledAt).toBeNull()
+  })
+
+  it('getPartnerAvailabilityChanges calls GET /api/admin/v1/partner/:id/availability-changes and parses change list', async () => {
+    const changesResponse = [
+      {
+        id: 'c-1',
+        action: 'BUSY_ON',
+        actorRole: 'PARTNER',
+        actorEmail: 'kitchen@souvlaki.gr',
+        extraMinutes: 15,
+        pausedUntil: null,
+        reason: null,
+        createdAt: '2026-11-09T11:00:00.000Z',
+      },
+      {
+        id: 'c-2',
+        action: 'DISABLED',
+        actorRole: 'ADMIN',
+        actorEmail: 'admin@opencourier.org',
+        extraMinutes: null,
+        pausedUntil: null,
+        reason: 'Staff shortage',
+        createdAt: '2026-11-09T12:00:00.000Z',
+      },
+    ]
+    mockFetch.mockResolvedValueOnce(createMockResponse(changesResponse))
+
+    const changes = await api.getPartnerAvailabilityChanges({ id: 'p-42' })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/p-42/availability-changes')
+    expect(calledInit.method).toBe('GET')
+    expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+    expect(changes).toHaveLength(2)
+    expect(changes[0].action).toBe('BUSY_ON')
+    expect(changes[0].extraMinutes).toBe(15)
+    expect(changes[0].createdAt).toEqual(new Date('2026-11-09T11:00:00.000Z'))
+    expect(changes[1].action).toBe('DISABLED')
+    expect(changes[1].reason).toBe('Staff shortage')
+  })
+})

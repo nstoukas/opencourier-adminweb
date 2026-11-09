@@ -1,8 +1,17 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { partnersApi } from './partnersApi'
+import {
+  partnersApi,
+  useDisablePartnerMutation,
+  useEnablePartnerMutation,
+  useGetPartnerAvailabilityChangesQuery,
+} from './partnersApi'
 import { prepareAdminSdk } from '.'
 import { authSlice } from '@/modules/auth/slices/authSlice'
-import type { PartnerPaginatedAdminDto } from '../backend-admin-sdk'
+import type {
+  PartnerAdminDto,
+  PartnerAvailabilityChangeAdminDto,
+  PartnerPaginatedAdminDto,
+} from '../backend-admin-sdk'
 
 jest.mock('.', () => {
   const actual = jest.requireActual('.')
@@ -75,5 +84,151 @@ describe('partnersApi getPartners search (row 106)', () => {
     const sent = mockGetPartners.mock.calls[0][0]
     expect(sent).toEqual({ page: 1, perPage: 10 })
     expect(Object.keys(sent)).not.toContain('search')
+  })
+})
+
+// Spec 0029 (AC-5, AC-9): partnersApi RTK endpoints for availability.
+describe('partnersApi availability endpoints (spec 0029, AC-5 and AC-9)', () => {
+  let mockDisablePartner: jest.Mock
+  let mockEnablePartner: jest.Mock
+  let mockGetPartnerAvailabilityChanges: jest.Mock
+
+  const samplePartner: PartnerAdminDto = {
+    id: 'partner-1',
+    name: 'Souvlaki Bar',
+    phoneNumber: '+302421012345',
+    logo: null,
+    webhookUrl: null,
+    usualPrepMinutes: 15,
+    userId: 'u1',
+    email: 'souvlaki@bar.gr',
+    pickupAddress: null,
+    createdAt: new Date('2026-11-01T10:00:00.000Z'),
+    updatedAt: new Date('2026-11-01T10:00:00.000Z'),
+    availability: {
+      busyExtraMinutes: null,
+      pausedUntil: null,
+      disabledAt: new Date('2026-11-09T10:00:00.000Z'),
+      disabledReason: 'Co-op suspension',
+      acceptingOrders: false,
+      notAcceptingReason: 'The co-op has disabled this restaurant: Co-op suspension',
+    },
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockDisablePartner = jest.fn().mockResolvedValue(samplePartner)
+    mockEnablePartner = jest.fn().mockResolvedValue({
+      ...samplePartner,
+      availability: {
+        ...samplePartner.availability,
+        disabledAt: null,
+        disabledReason: null,
+        acceptingOrders: true,
+        notAcceptingReason: null,
+      },
+    })
+    mockGetPartnerAvailabilityChanges = jest.fn().mockResolvedValue([
+      {
+        id: 'ch-1',
+        action: 'DISABLED',
+        actorRole: 'ADMIN',
+        actorEmail: 'admin@opencourier.org',
+        extraMinutes: null,
+        pausedUntil: null,
+        reason: 'Co-op suspension',
+        createdAt: new Date('2026-11-09T10:00:00.000Z'),
+      } as PartnerAvailabilityChangeAdminDto,
+    ])
+
+    mockPrepareAdminSdk.mockReturnValue({
+      partners: () => ({
+        disablePartner: mockDisablePartner,
+        enablePartner: mockEnablePartner,
+        getPartnerAvailabilityChanges: mockGetPartnerAvailabilityChanges,
+      }),
+    })
+  })
+
+  it('exports availability hook functions', () => {
+    expect(typeof useDisablePartnerMutation).toBe('function')
+    expect(typeof useEnablePartnerMutation).toBe('function')
+    expect(typeof useGetPartnerAvailabilityChangesQuery).toBe('function')
+  })
+
+  it('disablePartner endpoint calls SDK with id and reason, returns updated partner', async () => {
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.disablePartner.initiate({ id: 'partner-1', reason: 'Co-op suspension' })
+    )
+
+    expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+    expect(mockDisablePartner).toHaveBeenCalledTimes(1)
+    expect(mockDisablePartner).toHaveBeenCalledWith({ id: 'partner-1', reason: 'Co-op suspension' })
+    expect(result.data).toEqual(samplePartner)
+  })
+
+  it('disablePartner endpoint catches error and returns formatted error object', async () => {
+    mockDisablePartner.mockRejectedValue(new Error('Network error'))
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.disablePartner.initiate({ id: 'partner-1', reason: 'Co-op suspension' })
+    )
+
+    expect(result.error).toBeDefined()
+    expect(result.data).toBeUndefined()
+  })
+
+  it('enablePartner endpoint calls SDK with id, returns updated partner', async () => {
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.enablePartner.initiate({ id: 'partner-1' })
+    )
+
+    expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+    expect(mockEnablePartner).toHaveBeenCalledTimes(1)
+    expect(mockEnablePartner).toHaveBeenCalledWith({ id: 'partner-1' })
+    expect(result.data.availability?.acceptingOrders).toBe(true)
+  })
+
+  it('enablePartner endpoint catches error and returns formatted error object', async () => {
+    mockEnablePartner.mockRejectedValue(new Error('Not found'))
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.enablePartner.initiate({ id: 'partner-missing' })
+    )
+
+    expect(result.error).toBeDefined()
+    expect(result.data).toBeUndefined()
+  })
+
+  it('getPartnerAvailabilityChanges endpoint calls SDK with id, returns change list', async () => {
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.getPartnerAvailabilityChanges.initiate({ id: 'partner-1' })
+    )
+
+    expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+    expect(mockGetPartnerAvailabilityChanges).toHaveBeenCalledTimes(1)
+    expect(mockGetPartnerAvailabilityChanges).toHaveBeenCalledWith({ id: 'partner-1' })
+    expect(result.data).toHaveLength(1)
+    expect(result.data[0].action).toBe('DISABLED')
+  })
+
+  it('getPartnerAvailabilityChanges endpoint catches error and returns formatted error object', async () => {
+    mockGetPartnerAvailabilityChanges.mockRejectedValue(new Error('Unauthorized'))
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.getPartnerAvailabilityChanges.initiate({ id: 'partner-1' })
+    )
+
+    expect(result.error).toBeDefined()
+    expect(result.data).toBeUndefined()
   })
 })
