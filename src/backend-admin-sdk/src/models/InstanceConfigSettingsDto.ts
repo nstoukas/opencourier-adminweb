@@ -165,6 +165,30 @@ export interface InstanceConfigSettingsDto {
    */
   noCourierRetrySeconds?: number | null;
   /**
+   * Spec 0033: restaurant delay pay, on or off. Hand edited.
+   * @type {boolean}
+   * @memberof InstanceConfigSettingsDto
+   */
+  waitPayEnabled?: boolean | null;
+  /**
+   * Spec 0033: free minutes after the promised time, 0 to 60. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  waitPayFreeMinutes?: number | null;
+  /**
+   * Spec 0033: rider pay per minute in cents, 0 to 200. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  waitPayCentsPerMinute?: number | null;
+  /**
+   * Spec 0033: minutes after arriving before a rider can leave, 1 to 60. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  waitLimitMinutes?: number | null;
+  /**
    * Spec 0031: whether offers are timed to food readiness. Hand edited.
    * @type {boolean}
    * @memberof InstanceConfigSettingsDto
@@ -405,6 +429,10 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
       ? null
       : json["noCourierRetrySeconds"],
+    waitPayEnabled: !exists(json, "waitPayEnabled") ? null : json["waitPayEnabled"],
+    waitPayFreeMinutes: !exists(json, "waitPayFreeMinutes") ? null : json["waitPayFreeMinutes"],
+    waitPayCentsPerMinute: !exists(json, "waitPayCentsPerMinute") ? null : json["waitPayCentsPerMinute"],
+    waitLimitMinutes: !exists(json, "waitLimitMinutes") ? null : json["waitLimitMinutes"],
     offerTimingEnabled: !exists(json, "offerTimingEnabled") ? null : json["offerTimingEnabled"],
     offerLeadMinutes: !exists(json, "offerLeadMinutes") ? null : json["offerLeadMinutes"],
     offerTimingCandidates: !exists(json, "offerTimingCandidates") ? null : json["offerTimingCandidates"],
@@ -469,6 +497,10 @@ export function InstanceConfigSettingsDtoToJSON(
     offerExpiryEnabled: value.offerExpiryEnabled,
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
+    waitPayEnabled: value.waitPayEnabled,
+    waitPayFreeMinutes: value.waitPayFreeMinutes,
+    waitPayCentsPerMinute: value.waitPayCentsPerMinute,
+    waitLimitMinutes: value.waitLimitMinutes,
     offerTimingEnabled: value.offerTimingEnabled,
     offerLeadMinutes: value.offerLeadMinutes,
     offerTimingCandidates: value.offerTimingCandidates,

@@ -20,6 +20,7 @@ import {
   MATCHER_COPY,
   MatchingCard,
   OffersCard,
+  RestaurantDelaysCard,
   PricingCard,
   PublicPagesCard,
   RiderPayCard,
@@ -304,6 +305,7 @@ const InstanceConfigurationPage: NextPage = () => {
               }
               payoutPolicies={data?.reassignmentPayoutPolicies}
             />
+            <RestaurantDelaysCard {...cardProps} />
             <ShiftsCard {...cardProps} />
             <ServiceAreaCard
               map={

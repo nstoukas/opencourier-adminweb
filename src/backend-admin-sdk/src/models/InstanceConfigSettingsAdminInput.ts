@@ -162,6 +162,30 @@ export interface InstanceConfigSettingsAdminInput {
    */
   noCourierRetrySeconds?: number;
   /**
+   * Spec 0033: restaurant delay pay, on or off. Hand edited.
+   * @type {boolean}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  waitPayEnabled?: boolean;
+  /**
+   * Spec 0033: free minutes after the promised time, 0 to 60. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  waitPayFreeMinutes?: number;
+  /**
+   * Spec 0033: rider pay per minute in cents, 0 to 200. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  waitPayCentsPerMinute?: number;
+  /**
+   * Spec 0033: minutes after arriving before a rider can leave, 1 to 60. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  waitLimitMinutes?: number;
+  /**
    * Spec 0031: whether offers are timed to food readiness. Hand edited.
    * @type {boolean}
    * @memberof InstanceConfigSettingsAdminInput
@@ -431,6 +455,10 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
       ? undefined
       : json["noCourierRetrySeconds"],
+    waitPayEnabled: !exists(json, "waitPayEnabled") ? undefined : json["waitPayEnabled"],
+    waitPayFreeMinutes: !exists(json, "waitPayFreeMinutes") ? undefined : json["waitPayFreeMinutes"],
+    waitPayCentsPerMinute: !exists(json, "waitPayCentsPerMinute") ? undefined : json["waitPayCentsPerMinute"],
+    waitLimitMinutes: !exists(json, "waitLimitMinutes") ? undefined : json["waitLimitMinutes"],
     offerTimingEnabled: !exists(json, "offerTimingEnabled") ? undefined : json["offerTimingEnabled"],
     offerLeadMinutes: !exists(json, "offerLeadMinutes") ? undefined : json["offerLeadMinutes"],
     offerTimingCandidates: !exists(json, "offerTimingCandidates") ? undefined : json["offerTimingCandidates"],
@@ -497,6 +525,10 @@ export function InstanceConfigSettingsAdminInputToJSON(
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
     // Without these three lines a save would drop the timed offers settings before they left the browser.
+    waitPayEnabled: value.waitPayEnabled,
+    waitPayFreeMinutes: value.waitPayFreeMinutes,
+    waitPayCentsPerMinute: value.waitPayCentsPerMinute,
+    waitLimitMinutes: value.waitLimitMinutes,
     offerTimingEnabled: value.offerTimingEnabled,
     offerLeadMinutes: value.offerLeadMinutes,
     offerTimingCandidates: value.offerTimingCandidates,

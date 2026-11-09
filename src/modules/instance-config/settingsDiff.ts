@@ -36,6 +36,11 @@ export type SettingsForm = {
   offerExpiryEnabled: boolean | null
   offerExpirySeconds: string
   noCourierRetrySeconds: string
+  // Restaurant delays (spec 0033): the switch, unknown until loaded, and three numbers.
+  waitPayEnabled: boolean | null
+  waitPayFreeMinutes: string
+  waitPayCentsPerMinute: string
+  waitLimitMinutes: string
   offerTimingEnabled: boolean | null
   offerLeadMinutes: string
   offerTimingCandidates: string
@@ -93,6 +98,10 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'defaultCourierPayRate', label: 'Default courier pay rate', kind: 'number' },
   { key: 'defaultMaxWorkingHours', label: 'Default max working hours', kind: 'number' },
   { key: 'courierCompensationCalculationType', label: 'Courier compensation calculation', kind: 'select' },
+  { key: 'waitPayEnabled', label: 'Delay pay', kind: 'switch' },
+  { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', kind: 'number' },
+  { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', kind: 'number' },
+  { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', kind: 'number' },
   { key: 'shiftsEnabled', label: 'Shifts', kind: 'switch' },
   { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', kind: 'number' },
   { key: 'region', label: 'Service area', kind: 'region', details: true },
@@ -330,6 +339,10 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     offerExpiryEnabled: data.offerExpiryEnabled ?? null,
     offerExpirySeconds: text(data.offerExpirySeconds),
     noCourierRetrySeconds: text(data.noCourierRetrySeconds),
+    waitPayEnabled: data.waitPayEnabled ?? null,
+    waitPayFreeMinutes: text(data.waitPayFreeMinutes),
+    waitPayCentsPerMinute: text(data.waitPayCentsPerMinute),
+    waitLimitMinutes: text(data.waitLimitMinutes),
     offerTimingEnabled: data.offerTimingEnabled ?? null,
     offerLeadMinutes: text(data.offerLeadMinutes),
     offerTimingCandidates: text(data.offerTimingCandidates),
@@ -361,6 +374,14 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('offerTimingEnabled') || keys.has('offerLeadMinutes') || keys.has('offerTimingCandidates')) {
     parts.push('Timed offers apply to the next offer; an offer already out is not moved.')
+  }
+  if (
+    keys.has('waitPayEnabled') ||
+    keys.has('waitPayFreeMinutes') ||
+    keys.has('waitPayCentsPerMinute') ||
+    keys.has('waitLimitMinutes')
+  ) {
+    parts.push('Restaurant delay settings apply to waits that end from now on; a wait already paid keeps its amount.')
   }
   if (keys.has('arrivalRadiusMetres')) {
     parts.push("Riders' apps use the new arrival radius within ten minutes.")

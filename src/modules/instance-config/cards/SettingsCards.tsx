@@ -68,6 +68,7 @@ export const SECTIONS = [
   { id: 'matching', title: 'Matching' },
   { id: 'offers', title: 'Offers' },
   { id: 'rider-pay', title: 'Rider pay' },
+  { id: 'restaurant-delays', title: 'Restaurant delays' },
   { id: 'shifts', title: 'Shifts' },
   { id: 'service-area', title: 'Service area' },
   { id: 'instance', title: 'Instance' },
@@ -463,6 +464,70 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             disabled={!loaded || form.offerTimingEnabled === null}
             description="How many of the nearest riders are compared, 1 to 20. Used only while Timed offers is on."
             onChange={(value) => set('offerTimingCandidates', value)}
+          />
+        </div>
+      </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Restaurant delays (spec 0033): what happens when a restaurant keeps a rider past its promised time.
+// Its own section, as the operator asked (decision 23.7): it is pay, but set on the restaurant's account.
+export function RestaurantDelaysCard({ form, set, loaded }: CardProps) {
+  const notLoaded = form.waitPayEnabled === null
+  return (
+    <SettingsSection
+      id="restaurant-delays"
+      title="Restaurant delays"
+      description="What a rider is paid when a restaurant keeps them past its promised time, and when they can leave."
+    >
+      <FieldGroup>
+        <Field>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="waitPayEnabled"
+              checked={form.waitPayEnabled === true}
+              disabled={!loaded || notLoaded}
+              onCheckedChange={(checked: boolean) => set('waitPayEnabled', checked)}
+            />
+            <FieldLabel htmlFor="waitPayEnabled">Delay pay</FieldLabel>
+            {notLoaded && <span className="text-sm text-muted-foreground">Not loaded yet</span>}
+          </div>
+          <FieldDescription>
+            Pays a rider for every minute they wait after the free minutes below, and charges the restaurant all of it.
+            Off: nothing is paid or charged. The waiting clock and leaving still work.
+          </FieldDescription>
+        </Field>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <NumberField
+            id="waitPayFreeMinutes"
+            label={labelOf('waitPayFreeMinutes')}
+            value={form.waitPayFreeMinutes}
+            min={0}
+            max={60}
+            disabled={!loaded || notLoaded}
+            description="Whole minutes, 0 to 60. Used only while Delay pay is on."
+            onChange={(value) => set('waitPayFreeMinutes', value)}
+          />
+          <NumberField
+            id="waitPayCentsPerMinute"
+            label={labelOf('waitPayCentsPerMinute')}
+            value={form.waitPayCentsPerMinute}
+            min={0}
+            max={200}
+            disabled={!loaded || notLoaded}
+            description="Whole cents, 0 to 200. The restaurant is charged the same. Used only while Delay pay is on."
+            onChange={(value) => set('waitPayCentsPerMinute', value)}
+          />
+          <NumberField
+            id="waitLimitMinutes"
+            label={labelOf('waitLimitMinutes')}
+            value={form.waitLimitMinutes}
+            min={1}
+            max={60}
+            disabled={!loaded || notLoaded}
+            description="Whole minutes, 1 to 60, from the rider's arrival. Applies whether Delay pay is on or off."
+            onChange={(value) => set('waitLimitMinutes', value)}
           />
         </div>
       </FieldGroup>
