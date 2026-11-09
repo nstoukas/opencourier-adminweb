@@ -165,6 +165,24 @@ export interface InstanceConfigSettingsDto {
    */
   noCourierRetrySeconds?: number | null;
   /**
+   * Spec 0031: whether offers are timed to food readiness. Hand edited.
+   * @type {boolean}
+   * @memberof InstanceConfigSettingsDto
+   */
+  offerTimingEnabled?: boolean | null;
+  /**
+   * Spec 0031: minutes added before the rider's road time. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  offerLeadMinutes?: number | null;
+  /**
+   * Spec 0031: how many of the nearest riders are compared by road time. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  offerTimingCandidates?: number | null;
+  /**
    * Months an unused saved customer is kept (1 to 36). Hand edited (spec 0005).
    * @type {number}
    * @memberof InstanceConfigSettingsDto
@@ -387,6 +405,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
       ? null
       : json["noCourierRetrySeconds"],
+    offerTimingEnabled: !exists(json, "offerTimingEnabled") ? null : json["offerTimingEnabled"],
+    offerLeadMinutes: !exists(json, "offerLeadMinutes") ? null : json["offerLeadMinutes"],
+    offerTimingCandidates: !exists(json, "offerTimingCandidates") ? null : json["offerTimingCandidates"],
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? null
       : json["savedCustomerRetentionMonths"],
@@ -448,6 +469,9 @@ export function InstanceConfigSettingsDtoToJSON(
     offerExpiryEnabled: value.offerExpiryEnabled,
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
+    offerTimingEnabled: value.offerTimingEnabled,
+    offerLeadMinutes: value.offerLeadMinutes,
+    offerTimingCandidates: value.offerTimingCandidates,
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     restaurantHistoryDays: value.restaurantHistoryDays,
     sosLocationRetentionDays: value.sosLocationRetentionDays,

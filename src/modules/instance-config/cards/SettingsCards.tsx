@@ -425,6 +425,45 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             onChange={(value) => set('handBackSeconds', value)}
           />
         </div>
+
+        {/* Spec 0031: off until the assembly decides. The matching algorithm is the pay structure. */}
+        <Field>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="offerTimingEnabled"
+              checked={form.offerTimingEnabled === true}
+              disabled={!loaded || form.offerTimingEnabled === null}
+              onCheckedChange={(checked: boolean) => set('offerTimingEnabled', checked)}
+            />
+            <FieldLabel htmlFor="offerTimingEnabled">Timed offers</FieldLabel>
+          </div>
+          <FieldDescription>
+            Hold an offer until the rider needs to leave, so they arrive about when the food is ready, and pick the
+            rider by road time. Off: every offer goes out at once, as before.
+          </FieldDescription>
+        </Field>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <NumberField
+            id="offerLeadMinutes"
+            label={labelOf('offerLeadMinutes')}
+            value={form.offerLeadMinutes}
+            min={0}
+            max={30}
+            disabled={!loaded}
+            description="Whole minutes, 0 to 30, added before the rider's road time. Used only while Timed offers is on."
+            onChange={(value) => set('offerLeadMinutes', value)}
+          />
+          <NumberField
+            id="offerTimingCandidates"
+            label={labelOf('offerTimingCandidates')}
+            value={form.offerTimingCandidates}
+            min={1}
+            max={20}
+            disabled={!loaded}
+            description="How many of the nearest riders are compared, 1 to 20. Used only while Timed offers is on."
+            onChange={(value) => set('offerTimingCandidates', value)}
+          />
+        </div>
       </FieldGroup>
     </SettingsSection>
   )

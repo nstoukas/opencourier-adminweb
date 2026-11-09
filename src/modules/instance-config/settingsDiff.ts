@@ -36,6 +36,9 @@ export type SettingsForm = {
   offerExpiryEnabled: boolean | null
   offerExpirySeconds: string
   noCourierRetrySeconds: string
+  offerTimingEnabled: boolean | null
+  offerLeadMinutes: string
+  offerTimingCandidates: string
   handBackSeconds: string
   cancellationPayoutPolicy: string
   savedCustomerRetentionMonths: string
@@ -82,6 +85,9 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'offerExpiryEnabled', label: 'Offer expiry', kind: 'switch' },
   { key: 'offerExpirySeconds', label: 'Seconds before an unanswered offer ends', kind: 'number' },
   { key: 'noCourierRetrySeconds', label: 'Seconds between retries when no rider is free', kind: 'number' },
+  { key: 'offerTimingEnabled', label: 'Timed offers', kind: 'switch' },
+  { key: 'offerLeadMinutes', label: 'Lead time before an offer (minutes)', kind: 'number' },
+  { key: 'offerTimingCandidates', label: 'Riders compared by road time', kind: 'number' },
   { key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', kind: 'number' },
   { key: 'cancellationPayoutPolicy', label: 'Pay when a job is cancelled', kind: 'select' },
   { key: 'defaultCourierPayRate', label: 'Default courier pay rate', kind: 'number' },
@@ -324,6 +330,9 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     offerExpiryEnabled: data.offerExpiryEnabled ?? null,
     offerExpirySeconds: text(data.offerExpirySeconds),
     noCourierRetrySeconds: text(data.noCourierRetrySeconds),
+    offerTimingEnabled: data.offerTimingEnabled ?? null,
+    offerLeadMinutes: text(data.offerLeadMinutes),
+    offerTimingCandidates: text(data.offerTimingCandidates),
     handBackSeconds: text(data.handBackSeconds),
     // The backend answers the rule in force, FULL_COMPENSATION when none is stored (spec 0015).
     // Before the settings load it is empty, like every other select.
@@ -349,6 +358,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('offerExpiryEnabled') || keys.has('offerExpirySeconds') || keys.has('noCourierRetrySeconds')) {
     parts.push('Offer settings apply to the next offer; an offer already out keeps its deadline.')
+  }
+  if (keys.has('offerTimingEnabled') || keys.has('offerLeadMinutes') || keys.has('offerTimingCandidates')) {
+    parts.push('Timed offers apply to the next offer; an offer already out is not moved.')
   }
   if (keys.has('arrivalRadiusMetres')) {
     parts.push("Riders' apps use the new arrival radius within ten minutes.")

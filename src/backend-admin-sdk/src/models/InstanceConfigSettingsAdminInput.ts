@@ -162,6 +162,24 @@ export interface InstanceConfigSettingsAdminInput {
    */
   noCourierRetrySeconds?: number;
   /**
+   * Spec 0031: whether offers are timed to food readiness. Hand edited.
+   * @type {boolean}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  offerTimingEnabled?: boolean;
+  /**
+   * Spec 0031: minutes added before the rider's road time, 0 to 30. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  offerLeadMinutes?: number;
+  /**
+   * Spec 0031: how many of the nearest riders are compared by road time, 1 to 20. Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  offerTimingCandidates?: number;
+  /**
    * Months an unused saved customer is kept before the daily job deletes it: a whole number,
    * 1 to 36. Hand edited (spec 0005).
    * @type {number}
@@ -413,6 +431,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     noCourierRetrySeconds: !exists(json, "noCourierRetrySeconds")
       ? undefined
       : json["noCourierRetrySeconds"],
+    offerTimingEnabled: !exists(json, "offerTimingEnabled") ? undefined : json["offerTimingEnabled"],
+    offerLeadMinutes: !exists(json, "offerLeadMinutes") ? undefined : json["offerLeadMinutes"],
+    offerTimingCandidates: !exists(json, "offerTimingCandidates") ? undefined : json["offerTimingCandidates"],
     savedCustomerRetentionMonths: !exists(json, "savedCustomerRetentionMonths")
       ? undefined
       : json["savedCustomerRetentionMonths"],
@@ -475,6 +496,10 @@ export function InstanceConfigSettingsAdminInputToJSON(
     offerExpiryEnabled: value.offerExpiryEnabled,
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
+    // Without these three lines a save would drop the timed offers settings before they left the browser.
+    offerTimingEnabled: value.offerTimingEnabled,
+    offerLeadMinutes: value.offerLeadMinutes,
+    offerTimingCandidates: value.offerTimingCandidates,
     // Without this line a save would drop the retention setting before it left the browser.
     savedCustomerRetentionMonths: value.savedCustomerRetentionMonths,
     // Without this line a save would drop the order history period before it left the browser.
