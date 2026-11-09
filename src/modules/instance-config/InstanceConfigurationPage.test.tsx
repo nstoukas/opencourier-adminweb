@@ -1595,4 +1595,194 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(mockSetInstanceConfig).not.toHaveBeenCalled()
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // Timed offers card (spec 0031, row 22, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('Timed offers settings (spec 0031, AC-1)', () => {
+    const withTimedOffers = (
+      offerTimingEnabled: boolean,
+      offerLeadMinutes = 3,
+      offerTimingCandidates = 5
+    ) => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          offerTimingEnabled,
+          offerLeadMinutes,
+          offerTimingCandidates,
+        },
+        isLoading: false,
+      })
+    }
+
+    it('renders Timed offers switch bound to offerTimingEnabled and the two number fields with range limits', () => {
+      withTimedOffers(false, 3, 5)
+      render(<InstanceConfigurationPage />)
+
+      const section = document.getElementById('offers') as HTMLElement
+      expect(section).toBeInTheDocument()
+
+      // Switch
+      const toggle = document.getElementById('offerTimingEnabled') as HTMLElement
+      expect(section).toContainElement(toggle)
+      expect(toggle).toHaveAttribute('role', 'switch')
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+      expect(toggle).not.toBeDisabled()
+      expect(within(section).getByLabelText('Timed offers')).toBe(toggle)
+
+      // Number field 1: offerLeadMinutes (min 0, max 30)
+      const leadInput = document.getElementById('offerLeadMinutes') as HTMLInputElement
+      expect(section).toContainElement(leadInput)
+      expect(leadInput.value).toBe('3')
+      expect(leadInput).toHaveAttribute('min', '0')
+      expect(leadInput).toHaveAttribute('max', '30')
+      expect(leadInput).not.toBeDisabled()
+      expect(screen.getByLabelText('Lead time before an offer (minutes)')).toBe(leadInput)
+
+      // Number field 2: offerTimingCandidates (min 1, max 20)
+      const candidatesInput = document.getElementById('offerTimingCandidates') as HTMLInputElement
+      expect(section).toContainElement(candidatesInput)
+      expect(candidatesInput.value).toBe('5')
+      expect(candidatesInput).toHaveAttribute('min', '1')
+      expect(candidatesInput).toHaveAttribute('max', '20')
+      expect(candidatesInput).not.toBeDisabled()
+      expect(screen.getByLabelText('Riders compared by road time')).toBe(candidatesInput)
+    })
+
+    it('shows the switch on when the saved setting is true', () => {
+      withTimedOffers(true, 5, 10)
+      render(<InstanceConfigurationPage />)
+
+      const toggle = document.getElementById('offerTimingEnabled') as HTMLElement
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      const leadInput = document.getElementById('offerLeadMinutes') as HTMLInputElement
+      expect(leadInput.value).toBe('5')
+
+      const candidatesInput = document.getElementById('offerTimingCandidates') as HTMLInputElement
+      expect(candidatesInput.value).toBe('10')
+    })
+
+    it('switching Timed offers on puts it on the bar and Save sends offerTimingEnabled: true with the timed offers toast sentence', async () => {
+      withTimedOffers(false, 3, 5)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('offerTimingEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^Timed offers Off →\s*(?:changes to )?On$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ offerTimingEnabled: true })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Saved',
+            description:
+              'Saved: Timed offers. Timed offers apply to the next offer; an offer already out is not moved.',
+          })
+        )
+      })
+    })
+
+    it('switching Timed offers off sends offerTimingEnabled: false (false switch is sent as false)', async () => {
+      withTimedOffers(true, 3, 5)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('offerTimingEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^Timed offers On →\s*(?:changes to )?Off$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ offerTimingEnabled: false })
+      })
+    })
+
+    it('editing offerLeadMinutes to 0 sends number 0 (min valid limit)', async () => {
+      withTimedOffers(false, 3, 5)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const leadInput = document.getElementById('offerLeadMinutes') as HTMLInputElement
+      fireEvent.change(leadInput, { target: { value: '0' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Lead time before an offer (minutes)')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ offerLeadMinutes: 0 })
+      })
+    })
+
+    it('editing offerTimingCandidates sends number value (e.g. 20 upper limit)', async () => {
+      withTimedOffers(false, 3, 5)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const candidatesInput = document.getElementById('offerTimingCandidates') as HTMLInputElement
+      fireEvent.change(candidatesInput, { target: { value: '20' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Riders compared by road time')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ offerTimingCandidates: 20 })
+      })
+    })
+
+    it('emptying offerLeadMinutes blocks Save and is never sent', () => {
+      withTimedOffers(false, 3, 5)
+      render(<InstanceConfigurationPage />)
+
+      const leadInput = document.getElementById('offerLeadMinutes') as HTMLInputElement
+      fireEvent.change(leadInput, { target: { value: '' } })
+
+      expect(document.getElementById('save-all-blockers')?.textContent).toContain(
+        'Lead time before an offer (minutes) is empty'
+      )
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).toBeDisabled()
+      fireEvent.click(saveButton)
+      expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+    })
+
+    it('emptying offerTimingCandidates blocks Save and is never sent', () => {
+      withTimedOffers(false, 3, 5)
+      render(<InstanceConfigurationPage />)
+
+      const candidatesInput = document.getElementById('offerTimingCandidates') as HTMLInputElement
+      fireEvent.change(candidatesInput, { target: { value: '' } })
+
+      expect(document.getElementById('save-all-blockers')?.textContent).toContain(
+        'Riders compared by road time is empty'
+      )
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).toBeDisabled()
+      fireEvent.click(saveButton)
+      expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+    })
+
+    it('timed offers fields are disabled before settings load', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      })
+      render(<InstanceConfigurationPage />)
+
+      expect(document.getElementById('offerTimingEnabled')).toBeDisabled()
+      expect(document.getElementById('offerLeadMinutes')).toBeDisabled()
+      expect(document.getElementById('offerTimingCandidates')).toBeDisabled()
+    })
+  })
 })

@@ -60,6 +60,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     offerExpiryEnabled: true,
     offerExpirySeconds: '60',
     noCourierRetrySeconds: '30',
+    offerTimingEnabled: false,
+    offerLeadMinutes: '3',
+    offerTimingCandidates: '5',
     handBackSeconds: '60',
     cancellationPayoutPolicy: 'FULL_COMPENSATION',
     savedCustomerRetentionMonths: '12',
@@ -676,6 +679,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(EMPTY_FORM.restaurantHistoryDays).toBe('')
       expect(EMPTY_FORM.sosLocationRetentionDays).toBe('')
       expect(EMPTY_FORM.dispatchPhoneNumber).toBe('')
+      expect(EMPTY_FORM.offerTimingEnabled).toBeNull()
+      expect(EMPTY_FORM.offerLeadMinutes).toBe('')
+      expect(EMPTY_FORM.offerTimingCandidates).toBe('')
     })
   })
 
@@ -705,6 +711,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(labelOf('restaurantHistoryDays')).toBe('Restaurant order history (days)')
       expect(labelOf('sosLocationRetentionDays')).toBe('SOS location kept for (days)')
       expect(labelOf('dispatchPhoneNumber')).toBe('Dispatch phone number')
+      expect(labelOf('offerTimingEnabled')).toBe('Timed offers')
+      expect(labelOf('offerLeadMinutes')).toBe('Lead time before an offer (minutes)')
+      expect(labelOf('offerTimingCandidates')).toBe('Riders compared by road time')
     })
   })
 
@@ -714,6 +723,25 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(setting).toBeDefined()
       expect(setting?.kind).toBe('number')
       expect(setting?.label).toBe('SOS location kept for (days)')
+    })
+
+    it('declares timed offers settings (spec 0031, AC-1)', () => {
+      const timingEnabled = SETTINGS.find((s) => s.key === 'offerTimingEnabled')
+      expect(timingEnabled).toMatchObject({ key: 'offerTimingEnabled', kind: 'switch', label: 'Timed offers' })
+
+      const leadMinutes = SETTINGS.find((s) => s.key === 'offerLeadMinutes')
+      expect(leadMinutes).toMatchObject({
+        key: 'offerLeadMinutes',
+        kind: 'number',
+        label: 'Lead time before an offer (minutes)',
+      })
+
+      const candidates = SETTINGS.find((s) => s.key === 'offerTimingCandidates')
+      expect(candidates).toMatchObject({
+        key: 'offerTimingCandidates',
+        kind: 'number',
+        label: 'Riders compared by road time',
+      })
     })
   })
 
@@ -859,6 +887,170 @@ describe('settingsDiff unit tests (spec 0010)', () => {
           { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', from: '12', to: '24' },
         ] as any)
       ).toBe('Saved: Shifts, Notice to drop a shift, in hours. Riders see nothing of shifts until shift booking is built.')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Timed offers (spec 0031, row 22, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('Timed offers settings (spec 0031, row 22, AC-1)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('formFromSettings preserves boolean switch (false included) and numbers as strings (0 included)', () => {
+      const on = formFromSettings({
+        offerTimingEnabled: true,
+        offerLeadMinutes: 3,
+        offerTimingCandidates: 5,
+      })
+      expect(on.offerTimingEnabled).toBe(true)
+      expect(on.offerLeadMinutes).toBe('3')
+      expect(on.offerTimingCandidates).toBe('5')
+
+      const off = formFromSettings({
+        offerTimingEnabled: false,
+        offerLeadMinutes: 0,
+        offerTimingCandidates: 1,
+      })
+      expect(off.offerTimingEnabled).toBe(false)
+      expect(off.offerLeadMinutes).toBe('0')
+      expect(off.offerTimingCandidates).toBe('1')
+    })
+
+    it('formFromSettings handles missing and null values as null/empty string', () => {
+      const form = formFromSettings({
+        offerTimingEnabled: null,
+      })
+      expect(form.offerTimingEnabled).toBeNull()
+      expect(form.offerLeadMinutes).toBe('')
+      expect(form.offerTimingCandidates).toBe('')
+    })
+
+    it('pendingChanges detects toggling switch from Off to On and from On to Off', () => {
+      // Off -> On
+      const baseOff: SettingsForm = { ...baseSavedForm, offerTimingEnabled: false }
+      const changesOn = pendingChanges(baseOff, { ...baseOff, offerTimingEnabled: true })
+      expect(changesOn).toHaveLength(1)
+      expect(changesOn[0]).toMatchObject({
+        key: 'offerTimingEnabled',
+        label: 'Timed offers',
+        from: 'Off',
+        to: 'On',
+      })
+
+      // On -> Off
+      const baseOn: SettingsForm = { ...baseSavedForm, offerTimingEnabled: true }
+      const changesOff = pendingChanges(baseOn, { ...baseOn, offerTimingEnabled: false })
+      expect(changesOff).toHaveLength(1)
+      expect(changesOff[0]).toMatchObject({
+        key: 'offerTimingEnabled',
+        label: 'Timed offers',
+        from: 'On',
+        to: 'Off',
+      })
+    })
+
+    it('pendingChanges detects edits to offerLeadMinutes and offerTimingCandidates', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        offerLeadMinutes: '0',
+        offerTimingCandidates: '10',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: 'offerLeadMinutes',
+            label: 'Lead time before an offer (minutes)',
+            from: '3',
+            to: '0',
+          }),
+          expect.objectContaining({
+            key: 'offerTimingCandidates',
+            label: 'Riders compared by road time',
+            from: '5',
+            to: '10',
+          }),
+        ])
+      )
+    })
+
+    it('blockers blocks save when offerLeadMinutes or offerTimingCandidates is emptied', () => {
+      const editedEmptyLead: SettingsForm = { ...baseSavedForm, offerLeadMinutes: '' }
+      const changesLead = pendingChanges(baseSavedForm, editedEmptyLead)
+      expect(blockers(changesLead, editedEmptyLead)).toContain('Lead time before an offer (minutes) is empty')
+
+      const editedEmptyCandidates: SettingsForm = { ...baseSavedForm, offerTimingCandidates: '' }
+      const changesCandidates = pendingChanges(baseSavedForm, editedEmptyCandidates)
+      expect(blockers(changesCandidates, editedEmptyCandidates)).toContain('Riders compared by road time is empty')
+    })
+
+    it('savePayload sends offerTimingEnabled as boolean (false sent as false) and numbers as numbers', () => {
+      // Saving switch ON
+      const editedOn: SettingsForm = {
+        ...baseSavedForm,
+        offerTimingEnabled: true,
+        offerLeadMinutes: '10',
+        offerTimingCandidates: '8',
+      }
+      const payloadOn = savePayload(pendingChanges(baseSavedForm, editedOn), editedOn, savedDetails)
+      expect(payloadOn).toEqual({
+        offerTimingEnabled: true,
+        offerLeadMinutes: 10,
+        offerTimingCandidates: 8,
+      })
+      expect(typeof payloadOn.offerTimingEnabled).toBe('boolean')
+      expect(typeof payloadOn.offerLeadMinutes).toBe('number')
+      expect(typeof payloadOn.offerTimingCandidates).toBe('number')
+      expect(payloadOn).not.toHaveProperty('details')
+
+      // Saving switch OFF: crucial invariant - false must be sent as false, not omitted or dropped!
+      const savedOn: SettingsForm = { ...baseSavedForm, offerTimingEnabled: true }
+      const editedOff: SettingsForm = {
+        ...savedOn,
+        offerTimingEnabled: false,
+        offerLeadMinutes: '0',
+      }
+      const payloadOff = savePayload(pendingChanges(savedOn, editedOff), editedOff, savedDetails)
+      expect(payloadOff).toEqual({
+        offerTimingEnabled: false,
+        offerLeadMinutes: 0,
+      })
+      expect(payloadOff.offerTimingEnabled).toBe(false)
+      expect(payloadOff.offerLeadMinutes).toBe(0)
+      expect(payloadOff).not.toHaveProperty('details')
+    })
+
+    it('successMessage appends timed offers sentence when any timed offer setting changes', () => {
+      expect(
+        successMessage([{ key: 'offerTimingEnabled', label: 'Timed offers', from: 'Off', to: 'On' }] as any)
+      ).toBe('Saved: Timed offers. Timed offers apply to the next offer; an offer already out is not moved.')
+
+      expect(
+        successMessage([
+          { key: 'offerLeadMinutes', label: 'Lead time before an offer (minutes)', from: '3', to: '5' },
+        ] as any)
+      ).toBe(
+        'Saved: Lead time before an offer (minutes). Timed offers apply to the next offer; an offer already out is not moved.'
+      )
+
+      expect(
+        successMessage([
+          { key: 'offerTimingCandidates', label: 'Riders compared by road time', from: '5', to: '10' },
+        ] as any)
+      ).toBe(
+        'Saved: Riders compared by road time. Timed offers apply to the next offer; an offer already out is not moved.'
+      )
+
+      // When multiple timed offers settings change, the sentence is appended only once
+      expect(
+        successMessage([
+          { key: 'offerTimingEnabled', label: 'Timed offers', from: 'Off', to: 'On' },
+          { key: 'offerLeadMinutes', label: 'Lead time before an offer (minutes)', from: '3', to: '5' },
+          { key: 'offerTimingCandidates', label: 'Riders compared by road time', from: '5', to: '10' },
+        ] as any)
+      ).toBe(
+        'Saved: Timed offers, Lead time before an offer (minutes), Riders compared by road time. Timed offers apply to the next offer; an offer already out is not moved.'
+      )
     })
   })
 })

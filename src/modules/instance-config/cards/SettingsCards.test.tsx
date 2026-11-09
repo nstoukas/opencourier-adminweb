@@ -208,6 +208,160 @@ describe('SettingsCards components (row 87 review fixes)', () => {
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // OffersCard: Timed offers settings (spec 0031, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('OffersCard timed offers (spec 0031, AC-1)', () => {
+    it('renders Timed offers switch with loaded boolean and toggles via set', () => {
+      const mockSet = jest.fn()
+      const { rerender } = render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: false }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const toggle = screen.getByRole('switch', { name: 'Timed offers' })
+      expect(toggle).toBeInTheDocument()
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+      expect(toggle).not.toBeDisabled()
+
+      // Description text per spec 0031
+      expect(
+        screen.getByText(
+          /Hold an offer until the rider needs to leave, so they arrive about when the food is ready/i
+        )
+      ).toBeInTheDocument()
+
+      fireEvent.click(toggle)
+      expect(mockSet).toHaveBeenCalledWith('offerTimingEnabled', true)
+
+      // Rerender with offerTimingEnabled true
+      rerender(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: true }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      fireEvent.click(toggle)
+      expect(mockSet).toHaveBeenCalledWith('offerTimingEnabled', false)
+    })
+
+    it('Timed offers switch is disabled before settings load or when value is null', () => {
+      const { rerender } = render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: null }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(screen.getByRole('switch', { name: 'Timed offers' })).toBeDisabled()
+
+      rerender(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+      expect(screen.getByRole('switch', { name: 'Timed offers' })).toBeDisabled()
+    })
+
+    it('renders offerLeadMinutes with range limits 0 to 30, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerLeadMinutes: '3' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Lead time before an offer (minutes)') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('offerLeadMinutes')
+      expect(input.value).toBe('3')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '30')
+      expect(input).not.toBeDisabled()
+
+      expect(
+        screen.getByText(/Whole minutes, 0 to 30, added before the rider's road time/i)
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '0' } })
+      expect(mockSet).toHaveBeenCalledWith('offerLeadMinutes', '0')
+
+      fireEvent.change(input, { target: { value: '30' } })
+      expect(mockSet).toHaveBeenCalledWith('offerLeadMinutes', '30')
+    })
+
+    it('disables offerLeadMinutes input before settings load', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerLeadMinutes: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Lead time before an offer (minutes)')).toBeDisabled()
+    })
+
+    it('renders offerTimingCandidates with range limits 1 to 20, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingCandidates: '5' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Riders compared by road time') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('offerTimingCandidates')
+      expect(input.value).toBe('5')
+      expect(input).toHaveAttribute('min', '1')
+      expect(input).toHaveAttribute('max', '20')
+      expect(input).not.toBeDisabled()
+
+      expect(
+        screen.getByText(/How many of the nearest riders are compared, 1 to 20/i)
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '1' } })
+      expect(mockSet).toHaveBeenCalledWith('offerTimingCandidates', '1')
+
+      fireEvent.change(input, { target: { value: '20' } })
+      expect(mockSet).toHaveBeenCalledWith('offerTimingCandidates', '20')
+    })
+
+    it('disables offerTimingCandidates input before settings load', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerTimingCandidates: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Riders compared by road time')).toBeDisabled()
+    })
+  })
+
   describe('RiderPayCard (spec 0015, row 32)', () => {
     const mockPayoutPolicies = {
       DEFAULT: 50,

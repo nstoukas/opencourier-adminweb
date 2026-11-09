@@ -116,6 +116,90 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.noCourierRetrySeconds).toBe(20)
     })
 
+    it('preserves offerTimingEnabled, offerLeadMinutes, and offerTimingCandidates in ToJSON (spec 0031, AC-1)', () => {
+      // Load-bearing test guard: without these fields in ToJSON, the SDK silently drops them
+      // and the save reports success for a change never sent.
+      const input = {
+        offerTimingEnabled: true,
+        offerLeadMinutes: 3,
+        offerTimingCandidates: 5,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.offerTimingEnabled).toBe(true)
+      expect(json.offerLeadMinutes).toBe(3)
+      expect(json.offerTimingCandidates).toBe(5)
+
+      // Ensure false and 0 (valid min for lead minutes) are preserved and not dropped as falsy
+      const inputDisabled = {
+        offerTimingEnabled: false,
+        offerLeadMinutes: 0,
+        offerTimingCandidates: 1,
+      }
+      const jsonDisabled = InstanceConfigSettingsAdminInputToJSON(inputDisabled)
+      expect(jsonDisabled.offerTimingEnabled).toBe(false)
+      expect(jsonDisabled.offerLeadMinutes).toBe(0)
+      expect(jsonDisabled.offerTimingCandidates).toBe(1)
+
+      // Also verify upper range limits: 30 minutes lead time, 20 candidates
+      const inputUpper = {
+        offerTimingEnabled: true,
+        offerLeadMinutes: 30,
+        offerTimingCandidates: 20,
+      }
+      const jsonUpper = InstanceConfigSettingsAdminInputToJSON(inputUpper)
+      expect(jsonUpper.offerTimingEnabled).toBe(true)
+      expect(jsonUpper.offerLeadMinutes).toBe(30)
+      expect(jsonUpper.offerTimingCandidates).toBe(20)
+    })
+
+    it('round-trips timed offers settings through FromJSON and ToJSON (spec 0031, AC-1)', () => {
+      const originalJson = {
+        offerTimingEnabled: true,
+        offerLeadMinutes: 10,
+        offerTimingCandidates: 8,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.offerTimingEnabled).toBe(true)
+      expect(model.offerLeadMinutes).toBe(10)
+      expect(model.offerTimingCandidates).toBe(8)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.offerTimingEnabled).toBe(true)
+      expect(serialized.offerLeadMinutes).toBe(10)
+      expect(serialized.offerTimingCandidates).toBe(8)
+
+      // Round-trip with false and 0
+      const zeroJson = {
+        offerTimingEnabled: false,
+        offerLeadMinutes: 0,
+        offerTimingCandidates: 1,
+      }
+      const zeroModel = InstanceConfigSettingsAdminInputFromJSON(zeroJson)
+      expect(zeroModel.offerTimingEnabled).toBe(false)
+      expect(zeroModel.offerLeadMinutes).toBe(0)
+      expect(zeroModel.offerTimingCandidates).toBe(1)
+
+      const zeroSerialized = InstanceConfigSettingsAdminInputToJSON(zeroModel)
+      expect(zeroSerialized.offerTimingEnabled).toBe(false)
+      expect(zeroSerialized.offerLeadMinutes).toBe(0)
+      expect(zeroSerialized.offerTimingCandidates).toBe(1)
+    })
+
+    it('handles undefined timed offers settings in FromJSON and ToJSON (spec 0031, AC-1)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.offerTimingEnabled).toBeUndefined()
+      expect(model.offerLeadMinutes).toBeUndefined()
+      expect(model.offerTimingCandidates).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.offerTimingEnabled).toBeUndefined()
+      expect(serialized.offerLeadMinutes).toBeUndefined()
+      expect(serialized.offerTimingCandidates).toBeUndefined()
+    })
+
     it('preserves savedCustomerRetentionMonths in ToJSON serialization (spec 0005, AC-7)', () => {
       // Load-bearing test guard: without savedCustomerRetentionMonths in ToJSON, the SDK silently drops
       // it and the save reports success for a change never sent.
@@ -489,6 +573,58 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.offerExpiryEnabled).toBe(false)
       expect(json.offerExpirySeconds).toBe(60)
       expect(json.noCourierRetrySeconds).toBe(30)
+    })
+
+    it('deserializes offerTimingEnabled, offerLeadMinutes, and offerTimingCandidates when present (spec 0031, AC-1)', () => {
+      const json = {
+        details: {},
+        offerTimingEnabled: true,
+        offerLeadMinutes: 3,
+        offerTimingCandidates: 5,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.offerTimingEnabled).toBe(true)
+      expect(dto.offerLeadMinutes).toBe(3)
+      expect(dto.offerTimingCandidates).toBe(5)
+
+      const jsonDisabled = {
+        details: {},
+        offerTimingEnabled: false,
+        offerLeadMinutes: 0,
+        offerTimingCandidates: 1,
+      }
+
+      const dtoDisabled = InstanceConfigSettingsDtoFromJSON(jsonDisabled)
+      expect(dtoDisabled.offerTimingEnabled).toBe(false)
+      expect(dtoDisabled.offerLeadMinutes).toBe(0)
+      expect(dtoDisabled.offerTimingCandidates).toBe(1)
+    })
+
+    it('deserializes timed offers fields as null when keys are absent in backend response (spec 0031, AC-1)', () => {
+      // Missing keys mean "not sent" (older backend) rather than false/0, so the page can distinguish
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.offerTimingEnabled).toBeNull()
+      expect(dto.offerLeadMinutes).toBeNull()
+      expect(dto.offerTimingCandidates).toBeNull()
+    })
+
+    it('serializes DTO carrying timed offers fields back to JSON (spec 0031, AC-1)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        offerTimingEnabled: false,
+        offerLeadMinutes: 0,
+        offerTimingCandidates: 5,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.offerTimingEnabled).toBe(false)
+      expect(json.offerLeadMinutes).toBe(0)
+      expect(json.offerTimingCandidates).toBe(5)
     })
 
     it('deserializes savedCustomerRetentionMonths when present (spec 0005, AC-7)', () => {
