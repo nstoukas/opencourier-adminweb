@@ -494,8 +494,9 @@ export function RestaurantDelaysCard({ form, set, loaded }: CardProps) {
             {notLoaded && <span className="text-sm text-muted-foreground">Not loaded yet</span>}
           </div>
           <FieldDescription>
-            Pays a rider for every minute they wait after the free minutes below, and charges the restaurant all of it.
-            Off: nothing is paid or charged. The waiting clock and leaving still work.
+            Pays a rider per minute once the restaurant's promised time plus the free minutes below has passed and the
+            rider is still waiting, and charges the restaurant all of it. Off: nothing is paid or charged. The waiting
+            clock and leaving still work.
           </FieldDescription>
         </Field>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

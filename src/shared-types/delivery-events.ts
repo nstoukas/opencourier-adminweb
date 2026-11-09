@@ -34,7 +34,11 @@ export enum EnumDeliveryEventType {
   FOOD_READY = 'FOOD_READY',
   // A wrong or missing product, and its resolution (spec 0032). Never in STATE_MACHINE or the admin menus.
   PRODUCT_REPORTED = 'PRODUCT_REPORTED',
-  PRODUCT_REPORT_RESOLVED = 'PRODUCT_REPORT_RESOLVED'
+  PRODUCT_REPORT_RESOLVED = 'PRODUCT_REPORT_RESOLVED',
+  // A rider left a late order, and the pay for a wait (spec 0033). Recorded by the backend: never in
+  // STATE_MACHINE or the admin menus.
+  WAIT_UNDISPATCHED = 'WAIT_UNDISPATCHED',
+  COURIER_PAID_FOR_WAIT = 'COURIER_PAID_FOR_WAIT'
 }
 
 export enum EnumEventActor {

@@ -524,11 +524,12 @@ export function InstanceConfigSettingsAdminInputToJSON(
     offerExpiryEnabled: value.offerExpiryEnabled,
     offerExpirySeconds: value.offerExpirySeconds,
     noCourierRetrySeconds: value.noCourierRetrySeconds,
-    // Without these three lines a save would drop the timed offers settings before they left the browser.
+    // Without these four lines a save would drop the restaurant delay settings (spec 0033).
     waitPayEnabled: value.waitPayEnabled,
     waitPayFreeMinutes: value.waitPayFreeMinutes,
     waitPayCentsPerMinute: value.waitPayCentsPerMinute,
     waitLimitMinutes: value.waitLimitMinutes,
+    // Without these three lines a save would drop the timed offers settings before they left the browser.
     offerTimingEnabled: value.offerTimingEnabled,
     offerLeadMinutes: value.offerLeadMinutes,
     offerTimingCandidates: value.offerTimingCandidates,
