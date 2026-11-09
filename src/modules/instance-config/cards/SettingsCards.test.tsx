@@ -477,7 +477,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       expect(
         screen.getByText(
-          /Pays a rider for every minute they wait after the free minutes below, and charges the restaurant all of it/i
+          /Pays a rider per minute once the restaurant's promised time plus the free minutes below has passed and the rider is still waiting, and charges the restaurant all of it/i
         )
       ).toBeInTheDocument()
 

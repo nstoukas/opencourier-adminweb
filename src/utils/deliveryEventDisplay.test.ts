@@ -21,6 +21,8 @@ describe('deliveryEventDisplay utils', () => {
     expect(humanizeEventType('FOOD_READY')).toBe('Food ready')
     expect(humanizeEventType('PRODUCT_REPORTED')).toBe('Product reported')
     expect(humanizeEventType('PRODUCT_REPORT_RESOLVED')).toBe('Product report resolved')
+    expect(humanizeEventType('WAIT_UNDISPATCHED')).toBe('Wait undispatched')
+    expect(humanizeEventType('COURIER_PAID_FOR_WAIT')).toBe('Courier paid for wait')
     expect(humanizeEventType('')).toBe('—')
   })
 

@@ -156,6 +156,9 @@ const NUMERIC_SETTINGS = [
   { key: 'noCourierRetrySeconds', id: 'noCourierRetrySeconds', label: 'Seconds between retries when no rider is free' },
   { key: 'offerLeadMinutes', id: 'offerLeadMinutes', label: 'Lead time before an offer (minutes)' },
   { key: 'offerTimingCandidates', id: 'offerTimingCandidates', label: 'Riders compared by road time' },
+  { key: 'waitPayFreeMinutes', id: 'waitPayFreeMinutes', label: 'Free minutes after the promised time' },
+  { key: 'waitPayCentsPerMinute', id: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)' },
+  { key: 'waitLimitMinutes', id: 'waitLimitMinutes', label: 'Minutes before a rider can leave' },
   { key: 'savedCustomerRetentionMonths', id: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)' },
 ] as const
 
@@ -238,10 +241,13 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
   // Zero-valid settings & cleared boxes (row 49 & row 56, AC-4)
   // ---------------------------------------------------------------------------
   describe('Zero-valid settings & cleared boxes (row 49, row 56, AC-4)', () => {
-    it('NUMERIC_SETTINGS includes offerLeadMinutes and offerTimingCandidates (Fable L2)', () => {
+    it('NUMERIC_SETTINGS includes offerLeadMinutes, offerTimingCandidates, and restaurant delay settings (spec 0033)', () => {
       const keys = NUMERIC_SETTINGS.map((s) => s.key)
       expect(keys).toContain('offerLeadMinutes')
       expect(keys).toContain('offerTimingCandidates')
+      expect(keys).toContain('waitPayFreeMinutes')
+      expect(keys).toContain('waitPayCentsPerMinute')
+      expect(keys).toContain('waitLimitMinutes')
     })
 
     describe.each(NUMERIC_SETTINGS)('numeric setting: $key ($label)', ({ key, id, label }) => {

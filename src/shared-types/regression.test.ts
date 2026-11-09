@@ -128,6 +128,24 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(allTransitions).not.toContain('PRODUCT_REPORT_RESOLVED')
     })
 
+    it('ensures EnumDeliveryEventType contains WAIT_UNDISPATCHED and COURIER_PAID_FOR_WAIT (spec 0033, AC-3, AC-6)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('WAIT_UNDISPATCHED')
+      expect(eventTypes).toContain('COURIER_PAID_FOR_WAIT')
+      expect(EnumDeliveryEventType.WAIT_UNDISPATCHED).toBe('WAIT_UNDISPATCHED')
+      expect(EnumDeliveryEventType.COURIER_PAID_FOR_WAIT).toBe('COURIER_PAID_FOR_WAIT')
+    })
+
+    it('ensures STATE_MACHINE does NOT contain WAIT_UNDISPATCHED or COURIER_PAID_FOR_WAIT (spec 0033, AC-3, AC-6)', () => {
+      // WAIT_UNDISPATCHED is recorded outside processDeliveryEvent by a rider leaving; COURIER_PAID_FOR_WAIT is a platform event;
+      // keeping them out of STATE_MACHINE keeps them out of the admin Change status menu.
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('WAIT_UNDISPATCHED')
+      expect(allTransitions).not.toContain('COURIER_PAID_FOR_WAIT')
+    })
+
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {
       // Value 5 / AC-12 rule: An expired offer is never held against a rider.
       // No rating, streak, acceptance rate, or missed offer count may exist per rider.
