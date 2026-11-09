@@ -8,12 +8,13 @@ describe('EnumDeliveryIssueReason and DELIVERY_ISSUE_REASON_TO_HUMAN (decision 6
     expect(EnumDeliveryIssueReason.WRONG_ADDRESS).toBe('WRONG_ADDRESS')
     expect(EnumDeliveryIssueReason.NO_SIGNAL).toBe('NO_SIGNAL')
     expect(EnumDeliveryIssueReason.ORDER_HANDED).toBe('ORDER_HANDED')
+    expect(EnumDeliveryIssueReason.FOOD_NOT_READY).toBe('FOOD_NOT_READY')
     expect(EnumDeliveryIssueReason.OTHER).toBe('OTHER')
 
     const reasons = Object.values(EnumDeliveryIssueReason)
-    expect(reasons).toHaveLength(4)
+    expect(reasons).toHaveLength(5)
     expect(reasons).toEqual(
-      expect.arrayContaining(['WRONG_ADDRESS', 'NO_SIGNAL', 'ORDER_HANDED', 'OTHER'])
+      expect.arrayContaining(['WRONG_ADDRESS', 'NO_SIGNAL', 'ORDER_HANDED', 'FOOD_NOT_READY', 'OTHER'])
     )
   })
 
@@ -26,6 +27,9 @@ describe('EnumDeliveryIssueReason and DELIVERY_ISSUE_REASON_TO_HUMAN (decision 6
     )
     expect(DELIVERY_ISSUE_REASON_TO_HUMAN[EnumDeliveryIssueReason.ORDER_HANDED]).toBe(
       'Order handed to the customer'
+    )
+    expect(DELIVERY_ISSUE_REASON_TO_HUMAN[EnumDeliveryIssueReason.FOOD_NOT_READY]).toBe(
+      'Marked ready but not ready'
     )
     expect(DELIVERY_ISSUE_REASON_TO_HUMAN[EnumDeliveryIssueReason.OTHER]).toBe('Other')
 

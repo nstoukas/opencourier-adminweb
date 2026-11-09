@@ -54,3 +54,51 @@ describe('DeliveryAdminDto floor and doorbell (row 99)', () => {
     expect(again.dropoffDoorbell).toBe('K. Dimas')
   })
 })
+
+// Spec 0033 (AC-10, decision 23.20): what the restaurant was charged for keeping riders waiting.
+describe('DeliveryAdminDto waitCharges (spec 0033, AC-10)', () => {
+  const baseJson = {
+    id: 'd-99',
+    pickupReadyAt: '2026-11-03T10:00:00.000Z',
+    pickupDeadlineAt: '2026-11-03T10:30:00.000Z',
+    dropoffReadyAt: '2026-11-03T10:15:00.000Z',
+    dropoffEta: null,
+    dropoffDeadlineAt: '2026-11-03T10:45:00.000Z',
+    createdAt: '2026-11-03T09:55:00.000Z',
+    dropoffNotes: 'Floor: 3 · Doorbell: Dimas',
+  }
+
+  it('DeliveryAdminDtoFromJSON reads waitCharges when the API sends them', () => {
+    const charges = [
+      { amount: 150, currencyCode: 'EUR', createdAt: '2026-11-09T10:00:00.000Z' },
+      { amount: 100, currencyCode: 'EUR', createdAt: '2026-11-09T10:45:00.000Z' },
+    ]
+    const dto = DeliveryAdminDtoFromJSON({ ...baseJson, waitCharges: charges })
+
+    expect(dto.waitCharges).toEqual(charges)
+  })
+
+  it('DeliveryAdminDtoFromJSON reads an absent waitCharges field as an empty list (never undefined)', () => {
+    const dto = DeliveryAdminDtoFromJSON(baseJson)
+
+    expect(dto.waitCharges).toEqual([])
+  })
+
+  it('DeliveryAdminDtoToJSON writes waitCharges', () => {
+    const charges = [{ amount: 200, currencyCode: 'EUR', createdAt: '2026-11-09T11:00:00.000Z' }]
+    const dto = DeliveryAdminDtoFromJSON({ ...baseJson, waitCharges: charges })
+
+    const json = DeliveryAdminDtoToJSON(dto)
+
+    expect(json.waitCharges).toEqual(charges)
+  })
+
+  it('round trips waitCharges through ToJSON and FromJSON unchanged', () => {
+    const charges = [{ amount: 250, currencyCode: 'EUR', createdAt: '2026-11-09T11:30:00.000Z' }]
+    const first = DeliveryAdminDtoFromJSON({ ...baseJson, waitCharges: charges })
+
+    const again = DeliveryAdminDtoFromJSON(DeliveryAdminDtoToJSON(first))
+
+    expect(again.waitCharges).toEqual(charges)
+  })
+})

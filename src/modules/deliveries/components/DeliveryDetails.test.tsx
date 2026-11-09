@@ -732,6 +732,44 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(screen.getByRole('heading', { name: 'Cancellation' })).toBeInTheDocument()
       expect(screen.getByText('The co-op')).toBeInTheDocument()
     })
+
+    it('renders WaitChargesCard when delivery has wait charges, and nothing when it has none or undefined (spec 0033, AC-10)', () => {
+      // When no wait charges (empty list)
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: { ...sampleEurDelivery, waitCharges: [] },
+        isLoading: false,
+      })
+      const { unmount: unmountEmpty } = render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.queryByRole('heading', { name: 'Restaurant delay charges' })).toBeNull()
+      unmountEmpty()
+
+      // When waitCharges is undefined
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: { ...sampleEurDelivery, waitCharges: undefined },
+        isLoading: false,
+      })
+      const { unmount: unmountUndef } = render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.queryByRole('heading', { name: 'Restaurant delay charges' })).toBeNull()
+      unmountUndef()
+
+      // When wait charges are present
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleEurDelivery,
+          waitCharges: [
+            {
+              amount: 150,
+              currencyCode: 'EUR',
+              createdAt: '2026-11-09T10:30:00.000Z',
+            },
+          ],
+        },
+        isLoading: false,
+      })
+      render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.getByRole('heading', { name: 'Restaurant delay charges' })).toBeInTheDocument()
+      expect(screen.getByText('€1.50')).toBeInTheDocument()
+    })
   })
 
   describe('DeliveryEventTimeline integration & regression guards (Test Plan C)', () => {
