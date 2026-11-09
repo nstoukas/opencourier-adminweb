@@ -158,7 +158,7 @@ const NUMERIC_SETTINGS = [
   { key: 'offerTimingCandidates', id: 'offerTimingCandidates', label: 'Riders compared by road time' },
   { key: 'waitPayFreeMinutes', id: 'waitPayFreeMinutes', label: 'Free minutes after the promised time' },
   { key: 'waitPayCentsPerMinute', id: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)' },
-  { key: 'waitLimitMinutes', id: 'waitLimitMinutes', label: 'Minutes after the promised time before a rider can leave' },
+  { key: 'waitLimitMinutes', id: 'waitLimitMinutes', label: 'Minutes before a rider can leave' },
   { key: 'savedCustomerRetentionMonths', id: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)' },
 ] as const
 

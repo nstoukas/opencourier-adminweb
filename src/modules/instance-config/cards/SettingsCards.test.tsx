@@ -671,7 +671,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
         />
       )
 
-      const input = screen.getByLabelText('Minutes after the promised time before a rider can leave') as HTMLInputElement
+      const input = screen.getByLabelText('Minutes before a rider can leave') as HTMLInputElement
       expect(input).toBeInTheDocument()
       expect(input.id).toBe('waitLimitMinutes')
       expect(input.value).toBe('10')
@@ -681,7 +681,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       expect(
         screen.getByText(
-          "Whole minutes, 1 to 60, counted from the restaurant's promised time. Applies whether Delay pay is on or off."
+          "Whole minutes, 1 to 60, counted from the restaurant's promised time, or from the rider's arrival if that was later. Applies whether Delay pay is on or off."
         )
       ).toBeInTheDocument()
 
@@ -702,7 +702,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
         />
       )
 
-      expect(screen.getByLabelText('Minutes after the promised time before a rider can leave')).toBeDisabled()
+      expect(screen.getByLabelText('Minutes before a rider can leave')).toBeDisabled()
     })
 
     it('disables waitLimitMinutes input before settings load', () => {
@@ -715,7 +715,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
         />
       )
 
-      expect(screen.getByLabelText('Minutes after the promised time before a rider can leave')).toBeDisabled()
+      expect(screen.getByLabelText('Minutes before a rider can leave')).toBeDisabled()
     })
   })
 

@@ -770,7 +770,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(waitLimit).toMatchObject({
         key: 'waitLimitMinutes',
         kind: 'number',
-        label: 'Minutes after the promised time before a rider can leave',
+        label: 'Minutes before a rider can leave',
       })
     })
   })
@@ -1178,7 +1178,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
           }),
           expect.objectContaining({
             key: 'waitLimitMinutes',
-            label: 'Minutes after the promised time before a rider can leave',
+            label: 'Minutes before a rider can leave',
             from: '10',
             to: '15',
           }),
@@ -1197,7 +1197,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
       const editedEmptyLimit: SettingsForm = { ...baseSavedForm, waitLimitMinutes: '' }
       const changesLimit = pendingChanges(baseSavedForm, editedEmptyLimit)
-      expect(blockers(changesLimit, editedEmptyLimit)).toContain('Minutes after the promised time before a rider can leave is empty')
+      expect(blockers(changesLimit, editedEmptyLimit)).toContain('Minutes before a rider can leave is empty')
     })
 
     it('savePayload sends waitPayEnabled as boolean (false sent as false) and numbers as numbers', () => {
@@ -1261,9 +1261,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
       expect(
         successMessage([
-          { key: 'waitLimitMinutes', label: 'Minutes after the promised time before a rider can leave', from: '10', to: '15' },
+          { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', from: '10', to: '15' },
         ] as any)
-      ).toBe(`Saved: Minutes after the promised time before a rider can leave. ${sentence}`)
+      ).toBe(`Saved: Minutes before a rider can leave. ${sentence}`)
 
       // When multiple restaurant delay settings change, the sentence is appended only once
       expect(
@@ -1271,10 +1271,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
           { key: 'waitPayEnabled', label: 'Delay pay', from: 'Off', to: 'On' },
           { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', from: '5', to: '10' },
           { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', from: '10', to: '15' },
-          { key: 'waitLimitMinutes', label: 'Minutes after the promised time before a rider can leave', from: '10', to: '15' },
+          { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', from: '10', to: '15' },
         ] as any)
       ).toBe(
-        `Saved: Delay pay, Free minutes after the promised time, Delay pay per minute (cents), Minutes after the promised time before a rider can leave. ${sentence}`
+        `Saved: Delay pay, Free minutes after the promised time, Delay pay per minute (cents), Minutes before a rider can leave. ${sentence}`
       )
     })
   })
