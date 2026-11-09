@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Button, Textarea } from '@/admin-web-components'
+import Link from 'next/link'
+import { Button, Textarea, useToast } from '@/admin-web-components'
 import { useResolveProductReportMutation } from '@/api/deliveriesApi'
 import type { ProductReportAdminDto } from '@/backend-admin-sdk'
 import { formatDate } from '@/ui-shared-utils'
@@ -9,13 +10,18 @@ const SOURCE_WORDS = { COURIER: 'Rider', PARTNER: 'Restaurant', ADMIN: 'Admin' }
 
 // One product report: what it is, who sent it, and a way to resolve it (spec 0032, AC-6, AC-7).
 export function ProductReportRow({ report }: { report: ProductReportAdminDto }) {
+  const { toast } = useToast()
   const [resolving, setResolving] = useState(false)
   const [resolution, setResolution] = useState('')
   const [resolveReport, state] = useResolveProductReportMutation()
 
   const save = async () => {
-    await resolveReport({ id: report.id, resolution: resolution.trim() || undefined })
-    setResolving(false)
+    try {
+      await resolveReport({ id: report.id, resolution: resolution.trim() || undefined }).unwrap()
+      setResolving(false)
+    } catch (err: any) {
+      toast({ title: err?.message || 'The report could not be resolved.', variant: 'destructive' })
+    }
   }
 
   return (
@@ -25,6 +31,9 @@ export function ProductReportRow({ report }: { report: ProductReportAdminDto }) 
           {KIND_WORDS[report.kind]}
           {report.itemName ? `: ${report.itemName}` : ''}
         </span>
+        <Link href={`/deliveries/${report.deliveryId}`} className="text-xs underline">
+          Delivery
+        </Link>
         <span className="text-xs text-muted-foreground">{formatDate(report.createdAt)}</span>
       </div>
       <div className="text-xs">

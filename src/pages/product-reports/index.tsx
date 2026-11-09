@@ -18,8 +18,10 @@ const STATES: { key: State; label: string }[] = [
 // Spec 0032 (AC-6): the co-op's product reports, newest first.
 const ProductReportsPage: NextPage = () => {
   const [state, setState] = useState<State>('open')
-  const reportsQuery = useGetProductReportsQuery({ state, page: 1, perPage: PER_PAGE })
+  const [page, setPage] = useState(1)
+  const reportsQuery = useGetProductReportsQuery({ state, page, perPage: PER_PAGE })
   const reports = reportsQuery.currentData?.data ?? []
+  const pageCount = reportsQuery.currentData?.pagination?.totalPages ?? 1
 
   return (
     <DefaultLayout>
@@ -32,7 +34,10 @@ const ProductReportsPage: NextPage = () => {
               type="button"
               size="sm"
               variant={state === option.key ? 'default' : 'outline'}
-              onClick={() => setState(option.key)}
+              onClick={() => {
+                setState(option.key)
+                setPage(1)
+              }}
             >
               {option.label}
             </Button>
@@ -45,6 +50,19 @@ const ProductReportsPage: NextPage = () => {
         {reports.map((report) => (
           <ProductReportRow key={report.id} report={report} />
         ))}
+        {pageCount > 1 ? (
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {pageCount}
+            </span>
+            <Button type="button" variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
+              Next
+            </Button>
+          </div>
+        ) : null}
       </div>
     </DefaultLayout>
   )
