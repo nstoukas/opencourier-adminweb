@@ -4,12 +4,22 @@ import {
   useGetDeliveryIssuesQuery,
   useGetDeliveriesQuery,
   useSubmitDeliveryEventMutation,
+  useGetDeliveryProductReportsQuery,
+  useGetProductReportsQuery,
+  useCreateDeliveryProductReportMutation,
+  useResolveProductReportMutation,
 } from './deliveriesApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
 import { authSlice } from '@/modules/auth/slices/authSlice'
 import { ApiError } from '../backend-admin-sdk'
-import type { DeliveryIssueAdminDto, DeliveryAdminPaginatedDto, DeliveryAdminDto } from '../backend-admin-sdk'
+import type {
+  DeliveryIssueAdminDto,
+  DeliveryAdminPaginatedDto,
+  DeliveryAdminDto,
+  ProductReportAdminDto,
+  ProductReportPageAdminDto,
+} from '../backend-admin-sdk'
 import { EnumDeliveryEventType } from '../shared-types'
 
 jest.mock('.', () => {
@@ -39,11 +49,15 @@ function setupTestStore(accessToken: string | null = 'test-token') {
   })
 }
 
-describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
+describe('deliveriesApi endpoints', () => {
   let mockGetDeliveryIssues: jest.Mock
   let mockGetDeliveryEvents: jest.Mock
   let mockGetDeliveries: jest.Mock
   let mockSubmitOrderEvent: jest.Mock
+  let mockGetDeliveryProductReports: jest.Mock
+  let mockGetProductReports: jest.Mock
+  let mockCreateDeliveryProductReport: jest.Mock
+  let mockResolveProductReport: jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -51,12 +65,20 @@ describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
     mockGetDeliveryEvents = jest.fn()
     mockGetDeliveries = jest.fn()
     mockSubmitOrderEvent = jest.fn()
+    mockGetDeliveryProductReports = jest.fn()
+    mockGetProductReports = jest.fn()
+    mockCreateDeliveryProductReport = jest.fn()
+    mockResolveProductReport = jest.fn()
     mockPrepareAdminSdk.mockReturnValue({
       deliveries: () => ({
         getDeliveryIssues: mockGetDeliveryIssues,
         getDeliveryEvents: mockGetDeliveryEvents,
         getDeliveries: mockGetDeliveries,
         submitOrderEvent: mockSubmitOrderEvent,
+        getDeliveryProductReports: mockGetDeliveryProductReports,
+        getProductReports: mockGetProductReports,
+        createDeliveryProductReport: mockCreateDeliveryProductReport,
+        resolveProductReport: mockResolveProductReport,
       }),
     })
   })
@@ -250,6 +272,173 @@ describe('deliveriesApi getDeliveryIssues endpoint (decision 66.11)', () => {
       })
       const payload = mockSubmitOrderEvent.mock.calls[0][0].deliverySubmitEventAdminInput
       expect(payload).not.toHaveProperty('cancelledBy')
+    })
+  })
+
+  describe('getDeliveryProductReports endpoint (spec 0032, AC-6)', () => {
+    it('exports useGetDeliveryProductReportsQuery hook function', () => {
+      expect(typeof useGetDeliveryProductReportsQuery).toBe('function')
+    })
+
+    it('defines getDeliveryProductReports endpoint on deliveriesApi with productReports tag', () => {
+      expect(deliveriesApi.endpoints.getDeliveryProductReports).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.getDeliveryProductReports.initiate).toBe('function')
+      expect(Tags.productReports).toBe('ProductReports')
+    })
+
+    it('calls sdk.deliveries().getDeliveryProductReports with deliveryId and resolves data', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockReports: ProductReportAdminDto[] = [
+        {
+          id: 'report-1',
+          deliveryId: 'del-100',
+          kind: 'WRONG_ITEM',
+          source: 'COURIER',
+          reporterEmail: 'rider@example.com',
+          itemName: 'Pizza Margherita',
+          note: null,
+          resolvedAt: null,
+          resolution: null,
+          createdAt: new Date('2026-11-09T08:00:00Z'),
+        },
+      ]
+
+      mockGetDeliveryProductReports.mockResolvedValueOnce(mockReports)
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.getDeliveryProductReports.initiate({ deliveryId: 'del-100' })
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockGetDeliveryProductReports).toHaveBeenCalledTimes(1)
+      expect(mockGetDeliveryProductReports).toHaveBeenCalledWith({ deliveryId: 'del-100' })
+      expect(result.data).toEqual(mockReports)
+      expect(result.error).toBeUndefined()
+    })
+
+    it('handles SDK rejection (e.g. 404 ApiError): sets error and leaves data undefined', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const apiError = new ApiError('DELIVERY_NOT_FOUND' as any, 'Delivery not found', 404)
+      mockGetDeliveryProductReports.mockRejectedValueOnce(apiError)
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.getDeliveryProductReports.initiate({ deliveryId: 'non-existent' })
+      )
+
+      expect(mockGetDeliveryProductReports).toHaveBeenCalledWith({ deliveryId: 'non-existent' })
+      expect(result.error).toEqual(apiError)
+      expect(result.data).toBeUndefined()
+    })
+  })
+
+  describe('getProductReports endpoint (spec 0032, AC-6)', () => {
+    it('exports useGetProductReportsQuery hook function', () => {
+      expect(typeof useGetProductReportsQuery).toBe('function')
+    })
+
+    it('defines getProductReports endpoint on deliveriesApi with productReports tag', () => {
+      expect(deliveriesApi.endpoints.getProductReports).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.getProductReports.initiate).toBe('function')
+    })
+
+    it('forwards state, page and perPage parameters to sdk.deliveries().getProductReports', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockResult: ProductReportPageAdminDto = {
+        data: [],
+        pagination: { total: 0, page: 1, perPage: 20 },
+      }
+      mockGetProductReports.mockResolvedValueOnce(mockResult)
+
+      const params = { state: 'open' as const, page: 1, perPage: 20 }
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.getProductReports.initiate(params)
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockGetProductReports).toHaveBeenCalledWith(params)
+      expect(result.data).toEqual(mockResult)
+    })
+  })
+
+  describe('createDeliveryProductReport endpoint (spec 0032, AC-1, AC-9)', () => {
+    it('exports useCreateDeliveryProductReportMutation hook function', () => {
+      expect(typeof useCreateDeliveryProductReportMutation).toBe('function')
+    })
+
+    it('defines createDeliveryProductReport endpoint on deliveriesApi', () => {
+      expect(deliveriesApi.endpoints.createDeliveryProductReport).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.createDeliveryProductReport.initiate).toBe('function')
+    })
+
+    it('forwards payload to sdk.deliveries().createDeliveryProductReport and returns created report', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockCreatedReport: ProductReportAdminDto = {
+        id: 'report-new',
+        deliveryId: 'del-200',
+        kind: 'MISSING_ITEM',
+        source: 'ADMIN',
+        reporterEmail: 'admin@coop.gr',
+        itemName: 'Fries',
+        note: 'Customer phoned',
+        resolvedAt: null,
+        resolution: null,
+        createdAt: new Date('2026-11-09T09:00:00Z'),
+      }
+
+      mockCreateDeliveryProductReport.mockResolvedValueOnce(mockCreatedReport)
+
+      const payload = {
+        deliveryId: 'del-200',
+        kind: 'MISSING_ITEM' as const,
+        itemName: 'Fries',
+        note: 'Customer phoned',
+      }
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.createDeliveryProductReport.initiate(payload)
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockCreateDeliveryProductReport).toHaveBeenCalledWith(payload)
+      expect('data' in result ? result.data : undefined).toEqual(mockCreatedReport)
+    })
+  })
+
+  describe('resolveProductReport endpoint (spec 0032, AC-7)', () => {
+    it('exports useResolveProductReportMutation hook function', () => {
+      expect(typeof useResolveProductReportMutation).toBe('function')
+    })
+
+    it('defines resolveProductReport endpoint on deliveriesApi', () => {
+      expect(deliveriesApi.endpoints.resolveProductReport).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.resolveProductReport.initiate).toBe('function')
+    })
+
+    it('forwards id and resolution to sdk.deliveries().resolveProductReport', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockResolvedReport: ProductReportAdminDto = {
+        id: 'report-300',
+        deliveryId: 'del-300',
+        kind: 'WRONG_ITEM',
+        source: 'COURIER',
+        reporterEmail: 'rider@example.com',
+        itemName: 'Burger',
+        note: null,
+        resolvedAt: new Date('2026-11-09T10:00:00Z'),
+        resolution: 'Voucher issued',
+        createdAt: new Date('2026-11-09T09:30:00Z'),
+      }
+
+      mockResolveProductReport.mockResolvedValueOnce(mockResolvedReport)
+
+      const payload = { id: 'report-300', resolution: 'Voucher issued' }
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.resolveProductReport.initiate(payload)
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockResolveProductReport).toHaveBeenCalledWith(payload)
+      expect('data' in result ? result.data : undefined).toEqual(mockResolvedReport)
     })
   })
 })

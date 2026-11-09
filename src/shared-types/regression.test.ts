@@ -18,11 +18,15 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
     expect(allTransitions.includes('REASSIGNED')).toBe(false)
   })
 
-  it('ensures deliveriesApi exports useSubmitDeliveryEventMutation, useAssignDeliveryToCourierMutation, and useGetDeliveryIssuesQuery alongside useReassignDeliveryMutation', () => {
+  it('ensures deliveriesApi exports useSubmitDeliveryEventMutation, useAssignDeliveryToCourierMutation, useGetDeliveryIssuesQuery, useGetDeliveryProductReportsQuery, useGetProductReportsQuery, useCreateDeliveryProductReportMutation, and useResolveProductReportMutation alongside useReassignDeliveryMutation', () => {
     expect(typeof deliveriesApiModule.useSubmitDeliveryEventMutation).toBe('function')
     expect(typeof deliveriesApiModule.useAssignDeliveryToCourierMutation).toBe('function')
     expect(typeof deliveriesApiModule.useReassignDeliveryMutation).toBe('function')
     expect(typeof deliveriesApiModule.useGetDeliveryIssuesQuery).toBe('function')
+    expect(typeof deliveriesApiModule.useGetDeliveryProductReportsQuery).toBe('function')
+    expect(typeof deliveriesApiModule.useGetProductReportsQuery).toBe('function')
+    expect(typeof deliveriesApiModule.useCreateDeliveryProductReportMutation).toBe('function')
+    expect(typeof deliveriesApiModule.useResolveProductReportMutation).toBe('function')
   })
 
   describe('Offer expiry & Value 5 guards (spec 0002, AC-11, AC-12)', () => {
@@ -104,6 +108,24 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       )
       expect(allTransitions).not.toContain('READY_DELAYED')
       expect(allTransitions).not.toContain('FOOD_READY')
+    })
+
+    it('ensures EnumDeliveryEventType contains PRODUCT_REPORTED and PRODUCT_REPORT_RESOLVED (spec 0032, AC-5, AC-6, AC-9)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('PRODUCT_REPORTED')
+      expect(eventTypes).toContain('PRODUCT_REPORT_RESOLVED')
+      expect(EnumDeliveryEventType.PRODUCT_REPORTED).toBe('PRODUCT_REPORTED')
+      expect(EnumDeliveryEventType.PRODUCT_REPORT_RESOLVED).toBe('PRODUCT_REPORT_RESOLVED')
+    })
+
+    it('ensures STATE_MACHINE does NOT contain PRODUCT_REPORTED or PRODUCT_REPORT_RESOLVED (spec 0032, AC-5, decision 15.1)', () => {
+      // Product reported and resolved events are recorded by the backend outside the state machine (decision 15.1);
+      // keeping them out of STATE_MACHINE keeps them out of the admin Change status menu.
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('PRODUCT_REPORTED')
+      expect(allTransitions).not.toContain('PRODUCT_REPORT_RESOLVED')
     })
 
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers per courier', () => {

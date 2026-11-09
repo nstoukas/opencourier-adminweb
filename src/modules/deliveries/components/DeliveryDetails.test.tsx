@@ -11,6 +11,9 @@ import {
   useAssignDeliveryToCourierMutation,
   useGetDeliveryEventsQuery,
   useGetDeliveryIssuesQuery,
+  useGetDeliveryProductReportsQuery,
+  useCreateDeliveryProductReportMutation,
+  useResolveProductReportMutation,
 } from '../../../api/deliveriesApi'
 import { useGetAllCouriersQuery } from '../../../api/couriersApi'
 import { useGetInstanceConfigQuery } from '../../../api/configApi'
@@ -94,6 +97,9 @@ jest.mock('../../../api/deliveriesApi', () => ({
   useAssignDeliveryToCourierMutation: jest.fn(),
   useGetDeliveryEventsQuery: jest.fn(),
   useGetDeliveryIssuesQuery: jest.fn(),
+  useGetDeliveryProductReportsQuery: jest.fn(),
+  useCreateDeliveryProductReportMutation: jest.fn(),
+  useResolveProductReportMutation: jest.fn(),
 }))
 
 jest.mock('../../../api/couriersApi', () => ({
@@ -129,6 +135,9 @@ const mockUseReassignDeliveryMutation = useReassignDeliveryMutation as jest.Mock
 const mockUseAssignDeliveryToCourierMutation = useAssignDeliveryToCourierMutation as jest.Mock
 const mockUseGetDeliveryEventsQuery = useGetDeliveryEventsQuery as jest.Mock
 const mockUseGetDeliveryIssuesQuery = useGetDeliveryIssuesQuery as jest.Mock
+const mockUseGetDeliveryProductReportsQuery = useGetDeliveryProductReportsQuery as jest.Mock
+const mockUseCreateDeliveryProductReportMutation = useCreateDeliveryProductReportMutation as jest.Mock
+const mockUseResolveProductReportMutation = useResolveProductReportMutation as jest.Mock
 const mockUseGetAllCouriersQuery = useGetAllCouriersQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 
@@ -220,6 +229,14 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       isError: false,
       error: null,
     })
+    mockUseGetDeliveryProductReportsQuery.mockReturnValue({
+      currentData: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    mockUseCreateDeliveryProductReportMutation.mockReturnValue([jest.fn(), { isLoading: false }])
+    mockUseResolveProductReportMutation.mockReturnValue([jest.fn(), { isLoading: false }])
     mockUseGetAllCouriersQuery.mockReturnValue({ data: [], isLoading: false })
     mockUseGetInstanceConfigQuery.mockReturnValue({ data: {}, isLoading: false })
   })
@@ -324,6 +341,26 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
     // Rider reports card must appear above (before) the What happened timeline card
     const position = riderReportsTitle.compareDocumentPosition(whatHappenedTitle)
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders Product reports card under the Rider reports card and above the What happened timeline card (spec 0032, AC-9)', () => {
+    render(<DeliveryDetails deliveryId="d100" />)
+
+    const riderReportsTitle = screen.getByText('Rider reports')
+    const productReportsTitle = screen.getByRole('heading', { level: 3, name: 'Product reports' })
+    const whatHappenedTitle = screen.getByText('What happened')
+
+    expect(riderReportsTitle).toBeInTheDocument()
+    expect(productReportsTitle).toBeInTheDocument()
+    expect(whatHappenedTitle).toBeInTheDocument()
+
+    // Product reports must appear below Rider reports
+    const pos1 = riderReportsTitle.compareDocumentPosition(productReportsTitle)
+    expect(pos1 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Product reports must appear above What happened timeline
+    const pos2 = productReportsTitle.compareDocumentPosition(whatHappenedTitle)
+    expect(pos2 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   describe('Money formatting per Delivery currencyCode (Test Plan B & AC-3)', () => {
