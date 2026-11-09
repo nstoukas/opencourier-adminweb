@@ -528,7 +528,7 @@ export function RestaurantDelaysCard({ form, set, loaded }: CardProps) {
             min={1}
             max={60}
             disabled={!loaded || notLoaded}
-            description="Whole minutes, 1 to 60, counted from the restaurant's promised time. Applies whether Delay pay is on or off."
+            description="Whole minutes, 1 to 60, counted from the restaurant's promised time, or from the rider's arrival if that was later. Applies whether Delay pay is on or off."
             onChange={(value) => set('waitLimitMinutes', value)}
           />
         </div>
