@@ -95,6 +95,7 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
       data: defaultBoardData,
       isError: false,
       refetch: mockRefetch,
+      fulfilledTimeStamp: Date.now(),
     })
   })
 
@@ -113,6 +114,27 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
       // "All Deliveries" button links to /deliveries
       const allDeliveriesLink = screen.getByRole('link', { name: 'All Deliveries' })
       expect(allDeliveriesLink).toHaveAttribute('href', '/deliveries')
+    })
+
+    it('reads "live, updated 40 s ago" on the very first render when fulfilledTimeStamp is 40 seconds in the past', () => {
+      jest.useFakeTimers()
+      const baseTime = new Date('2026-11-09T14:30:40.000Z').getTime()
+      jest.setSystemTime(baseTime)
+
+      mockUseGetDispatchBoardQuery.mockReturnValue({
+        data: defaultBoardData,
+        isError: false,
+        refetch: mockRefetch,
+        fulfilledTimeStamp: baseTime - 40_000,
+      })
+
+      render(<DispatchPage />)
+
+      // Must read 40 s ago on the very first render, never 0 s
+      expect(screen.getByText('live, updated 40 s ago')).toBeInTheDocument()
+      expect(screen.queryByText('live, updated 0 s ago')).toBeNull()
+
+      jest.useRealTimers()
     })
   })
 
@@ -199,16 +221,36 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
   })
 
   describe('AC-15: Polling, visibility, and empty/error states', () => {
-    it('renders skeleton on initial load before data arrives', () => {
+    it('shows skeleton and no alert when there is no data and no error', () => {
       mockUseGetDispatchBoardQuery.mockReturnValue({
         data: undefined,
         isError: false,
         refetch: mockRefetch,
+        fulfilledTimeStamp: undefined,
       })
 
       render(<DispatchPage />)
 
       expect(screen.getByTestId('dispatch-skeleton')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(screen.queryByText("Can't reach the server")).toBeNull()
+    })
+
+    it('shows alert reading "Can\'t reach the server" and no skeleton when there is no data and isError is true', () => {
+      mockUseGetDispatchBoardQuery.mockReturnValue({
+        data: undefined,
+        isError: true,
+        refetch: mockRefetch,
+        fulfilledTimeStamp: undefined,
+      })
+
+      render(<DispatchPage />)
+
+      const alert = screen.getByRole('alert')
+      expect(alert).toBeInTheDocument()
+      expect(alert).toHaveTextContent("Can't reach the server")
+      expect(alert).toHaveTextContent('Trying again every 10 seconds.')
+      expect(screen.queryByTestId('dispatch-skeleton')).toBeNull()
     })
 
     it('passes pollingInterval of 10000 ms when page is visible, and 0 ms when hidden', () => {
@@ -218,6 +260,7 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
 
       expect(mockUseGetDispatchBoardQuery).toHaveBeenCalledWith(undefined, {
         pollingInterval: 10_000,
+        refetchOnMountOrArgChange: true,
       })
 
       // 2. Tab hidden
@@ -226,13 +269,39 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
 
       expect(mockUseGetDispatchBoardQuery).toHaveBeenCalledWith(undefined, {
         pollingInterval: 0,
+        refetchOnMountOrArgChange: true,
       })
+    })
+
+    it('calls useGetDispatchBoardQuery with refetchOnMountOrArgChange: true', () => {
+      render(<DispatchPage />)
+      expect(mockUseGetDispatchBoardQuery).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ refetchOnMountOrArgChange: true }),
+      )
     })
 
     it('triggers immediate refetch when tab comes back from background', () => {
       // Initially tab is visible and loads data
       mockUsePageVisible.mockReturnValue(true)
+      mockUseGetDispatchBoardQuery.mockReturnValue({
+        data: defaultBoardData,
+        isError: false,
+        refetch: mockRefetch,
+        fulfilledTimeStamp: undefined,
+      })
       const { rerender } = render(<DispatchPage />)
+
+      expect(mockRefetch).not.toHaveBeenCalled()
+
+      // Data arrives with fulfilledTimeStamp
+      mockUseGetDispatchBoardQuery.mockReturnValue({
+        data: defaultBoardData,
+        isError: false,
+        refetch: mockRefetch,
+        fulfilledTimeStamp: Date.now(),
+      })
+      rerender(<DispatchPage />)
 
       expect(mockRefetch).not.toHaveBeenCalled()
 
@@ -255,6 +324,7 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
         },
         isError: false,
         refetch: mockRefetch,
+        fulfilledTimeStamp: Date.now(),
       })
 
       render(<DispatchPage />)
@@ -272,6 +342,7 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
         data: defaultBoardData,
         isError: false,
         refetch: mockRefetch,
+        fulfilledTimeStamp: baseTime,
       })
 
       const { rerender } = render(<DispatchPage />)
@@ -284,6 +355,7 @@ describe('DispatchPage (spec 0034, AC-1, AC-2, AC-11, AC-15, AC-16)', () => {
         data: defaultBoardData,
         isError: true,
         refetch: mockRefetch,
+        fulfilledTimeStamp: baseTime,
       })
 
       rerender(<DispatchPage />)

@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { AttentionList } from './AttentionList'
 import type { DispatchAttentionRowDto } from '@/backend-admin-sdk'
 import { DeliveryAdminDtoStatusEnum } from '@/backend-admin-sdk'
@@ -172,6 +172,96 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
     // RIDER_REPORT has yellow dot: bg-warning
     const reportDot = renderedRows[3]?.querySelector('span[aria-hidden="true"]')
     expect(reportDot).toHaveClass('bg-warning')
+  })
+
+  it('renders hidden text "Nobody has taken this." for each red row and "Running." for each yellow row', () => {
+    const rows: DispatchAttentionRowDto[] = [
+      {
+        id: 'r-sos',
+        kind: 'SOS',
+        since: '2026-11-09T14:25:00.000Z',
+        deliveryId: null,
+        sosId: 'sos-1',
+        issueId: null,
+        threadId: null,
+        status: null,
+        courierId: 'c-1',
+        orderReference: null,
+        restaurantName: null,
+        riderName: 'Giorgos',
+        customerLabel: null,
+        detail: 'SOS: Giorgos pressed SOS',
+        held: false,
+      },
+      {
+        id: 'r-waiting',
+        kind: 'WAITING_FOR_RIDER',
+        since: '2026-11-09T14:20:00.000Z',
+        deliveryId: 'del-w',
+        sosId: null,
+        issueId: null,
+        threadId: null,
+        status: DeliveryAdminDtoStatusEnum.AssigningCourier,
+        courierId: null,
+        orderReference: 'W1',
+        restaurantName: 'Pizza Mia',
+        riderName: null,
+        customerLabel: 'Maria',
+        detail: 'Waiting for rider',
+        held: false,
+      },
+      {
+        id: 'r-late',
+        kind: 'RESTAURANT_LATE',
+        since: '2026-11-09T14:15:00.000Z',
+        deliveryId: 'del-late',
+        sosId: null,
+        issueId: null,
+        threadId: null,
+        status: DeliveryAdminDtoStatusEnum.CourierArrivedAtPickupLocation,
+        courierId: 'c-2',
+        orderReference: 'L1',
+        restaurantName: 'Burger House',
+        riderName: 'Dimitris',
+        customerLabel: 'John',
+        detail: 'Dimitris waiting at Burger House, food was due 16:15',
+        held: false,
+      },
+      {
+        id: 'r-report',
+        kind: 'RIDER_REPORT',
+        since: '2026-11-09T14:22:00.000Z',
+        deliveryId: 'del-rep',
+        sosId: null,
+        issueId: 'iss-1',
+        threadId: null,
+        status: DeliveryAdminDtoStatusEnum.Dispatched,
+        courierId: 'c-3',
+        orderReference: 'REP1',
+        restaurantName: 'Creperie',
+        riderName: 'Kostas',
+        customerLabel: 'Anna',
+        detail: 'Kostas reported: Wrong address\nFlat 3C not found',
+        held: false,
+      },
+    ]
+
+    render(<AttentionList rows={rows} more={0} nowMs={nowMs} />)
+
+    const renderedRows = screen.getAllByTestId('attention-row')
+    expect(renderedRows).toHaveLength(4)
+
+    // Red rows (SOS, WAITING_FOR_RIDER) have hidden text "Nobody has taken this."
+    const sosRow = renderedRows[0] as HTMLElement
+    const waitingRow = renderedRows[1] as HTMLElement
+    expect(sosRow.querySelector('.sr-only')).toHaveTextContent('Nobody has taken this.')
+    expect(waitingRow.querySelector('.sr-only')).toHaveTextContent('Nobody has taken this.')
+
+    // Yellow rows (RESTAURANT_LATE, RIDER_REPORT) have hidden text "Running."
+    const lateRow = renderedRows[2] as HTMLElement
+    const reportRow = renderedRows[3] as HTMLElement
+    expect(lateRow.querySelector('.sr-only')).toHaveTextContent('Running.')
+    expect(reportRow.querySelector('.sr-only')).toHaveTextContent('Running.')
   })
 
   it('calculates and shows minutes from since for every row with since (AC-3)', () => {
@@ -350,11 +440,14 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
       expect(screen.getByRole('button', { name: 'Mark Handled' })).toBeInTheDocument()
     })
 
-    it('clicking Mark Handled sends deliveryId and issueId once', () => {
+    it('clicking Mark Handled sends deliveryId and issueId once', async () => {
       render(<AttentionList rows={[reportRow]} more={0} nowMs={nowMs} />)
 
       const markHandledBtn = screen.getByRole('button', { name: 'Mark Handled' })
-      fireEvent.click(markHandledBtn)
+      await act(async () => {
+        fireEvent.click(markHandledBtn)
+        await Promise.resolve()
+      })
 
       expect(mockMarkHandled).toHaveBeenCalledTimes(1)
       expect(mockMarkHandled).toHaveBeenCalledWith({
@@ -362,6 +455,61 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
         issueId: 'iss-99',
       })
       expect(mockMarkHandledUnwrap).toHaveBeenCalledTimes(1)
+    })
+
+    it('after a successful Mark Handled the button is disabled while the row stays, and a second click sends nothing', async () => {
+      mockMarkHandledUnwrap.mockResolvedValueOnce({})
+
+      render(<AttentionList rows={[reportRow]} more={0} nowMs={nowMs} />)
+
+      const markHandledBtn = screen.getByRole('button', { name: 'Mark Handled' })
+      expect(markHandledBtn).toBeEnabled()
+
+      // First click: triggers markHandled mutation and sets saved state
+      await act(async () => {
+        fireEvent.click(markHandledBtn)
+        await Promise.resolve()
+      })
+
+      expect(mockMarkHandled).toHaveBeenCalledTimes(1)
+      expect(mockMarkHandled).toHaveBeenCalledWith({
+        deliveryId: 'del-rep-1',
+        issueId: 'iss-99',
+      })
+
+      // The button is disabled while the row stays on screen
+      expect(markHandledBtn).toBeDisabled()
+      expect(screen.getByText(/#REP99 · Kostas reported: Wrong address/)).toBeInTheDocument()
+
+      // A second click sends nothing
+      await act(async () => {
+        fireEvent.click(markHandledBtn)
+        await Promise.resolve()
+      })
+
+      expect(mockMarkHandled).toHaveBeenCalledTimes(1)
+    })
+
+    it('after a failed Mark Handled the button is enabled again', async () => {
+      mockMarkHandledUnwrap.mockRejectedValueOnce(new Error('Server error'))
+
+      render(<AttentionList rows={[reportRow]} more={0} nowMs={nowMs} />)
+
+      const markHandledBtn = screen.getByRole('button', { name: 'Mark Handled' })
+      expect(markHandledBtn).toBeEnabled()
+
+      await act(async () => {
+        fireEvent.click(markHandledBtn)
+        await Promise.resolve()
+      })
+
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Could not mark the report handled',
+        variant: 'destructive',
+      })
+
+      // Button is enabled again after failure
+      expect(markHandledBtn).toBeEnabled()
     })
 
     it('disables Mark Handled button while mutation isLoading is true', () => {
@@ -379,10 +527,10 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
       render(<AttentionList rows={[reportRow]} more={0} nowMs={nowMs} />)
 
       const markHandledBtn = screen.getByRole('button', { name: 'Mark Handled' })
-      fireEvent.click(markHandledBtn)
-
-      // Allow promise rejection to propagate to try/catch
-      await Promise.resolve()
+      await act(async () => {
+        fireEvent.click(markHandledBtn)
+        await Promise.resolve()
+      })
 
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Could not mark the report handled',
