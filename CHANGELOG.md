@@ -60,6 +60,11 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### A restaurant's availability (scope row 34, spec 0029): `65d20ec` to `cdc80e1`
+Built on the branch `feat/busy-pause` and merged on 9 November, with the backend and request-web halves.
+- An Availability card on the restaurant's page: its state, Disable with a reason, Enable, and the last 50 changes with who made them.
+- 1569 tests pass; put backs by hand. Reviewed by Fable and agy.
+
 ### Each restaurant's usual prep time (scope row 21, spec 0023): `db219ab` to `3096bfb`
 Built on the branch `feat/ready-signals` and merged on 9 November, with the backend, request-web and courier app halves.
 - "Usual prep time (minutes)" on the restaurant form, 0 to 90, starting at 15. An emptied box is refused, on create as on edit.
