@@ -104,17 +104,16 @@ function DispatchSkeleton() {
 export function DispatchPage() {
   const pageVisible = usePageVisible()
   // RTK Query keeps the last good `data` when a poll fails, so the page stays on screen (AC-15).
-  const { data, isError, refetch } = useGetDispatchBoardQuery(undefined, {
+  // `refetchOnMountOrArgChange`: coming back to this page asks at once, instead of showing the
+  // cached board until the next poll. `fulfilledTimeStamp` is when the last good answer arrived,
+  // so a cached board can never read as just updated (review of row 90).
+  const { data, isError, refetch, fulfilledTimeStamp } = useGetDispatchBoardQuery(undefined, {
     pollingInterval: pageVisible ? POLL_MS : 0,
+    refetchOnMountOrArgChange: true,
   })
   const { data: config } = useGetInstanceConfigQuery({})
   const region = (config?.details as { region?: unknown } | null | undefined)?.region
-
-  // `generatedAt` differs on every answer, so a new `data` means a poll really succeeded.
-  const [lastGoodAt, setLastGoodAt] = useState<number | null>(null)
-  useEffect(() => {
-    if (data) setLastGoodAt(Date.now())
-  }, [data])
+  const lastGoodAt = fulfilledTimeStamp ?? null
 
   // Ticks once a second, for "updated N s ago" and each row's minutes.
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -160,7 +159,12 @@ export function DispatchPage() {
           </AlertDescription>
         </Alert>
       ) : null}
-      {!data ? (
+      {!data && isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Can&apos;t reach the server</AlertTitle>
+          <AlertDescription>Trying again every 10 seconds.</AlertDescription>
+        </Alert>
+      ) : !data ? (
         <DispatchSkeleton />
       ) : (
         <div className="space-y-4">

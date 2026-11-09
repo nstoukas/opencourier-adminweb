@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Link from 'next/link'
 import { useMarkDeliveryIssueHandledMutation } from '@/api/deliveriesApi'
 import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@/admin-web-components'
@@ -16,16 +17,19 @@ function OpenButton({ row }: { row: DispatchAttentionRowDto }) {
 function MarkHandledButton({ row }: { row: DispatchAttentionRowDto }) {
   const { toast } = useToast()
   const [markHandled, { isLoading }] = useMarkDeliveryIssueHandledMutation()
+  // Stays true until the board's refresh removes this row, so the button cannot be pressed again.
+  const [saved, setSaved] = useState(false)
   const onClick = async () => {
     if (!row.deliveryId || !row.issueId) return
     try {
       await markHandled({ deliveryId: row.deliveryId, issueId: row.issueId }).unwrap()
+      setSaved(true)
     } catch {
       toast({ title: 'Could not mark the report handled', variant: 'destructive' })
     }
   }
   return (
-    <Button type="button" size="sm" disabled={isLoading} onClick={onClick}>
+    <Button type="button" size="sm" disabled={isLoading || saved} onClick={onClick}>
       Mark Handled
     </Button>
   )
@@ -75,6 +79,8 @@ function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: num
           aria-hidden="true"
           className={`mt-1.5 size-2.5 shrink-0 rounded-full ${isRedRow(row.kind) ? 'bg-destructive' : 'bg-warning'}`}
         />
+        {/* The dot's meaning for anyone who cannot see its colour. */}
+        <span className="sr-only">{isRedRow(row.kind) ? 'Nobody has taken this.' : 'Running.'}</span>
         <div className="min-w-0 space-y-0.5 text-sm">
           <p className="break-words font-medium">
             <Link href={rowHref(row)} className="hover:underline">
