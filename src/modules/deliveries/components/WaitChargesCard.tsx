@@ -17,8 +17,8 @@ export const WaitChargesCard: React.FC<{ delivery: DeliveryAdminDto }> = ({ deli
       </CardHeader>
       <CardContent className="text-sm">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-          {charges.map((charge) => (
-            <React.Fragment key={charge.createdAt}>
+          {charges.map((charge, index) => (
+            <React.Fragment key={`${charge.createdAt}-${index}`}>
               <dt className="text-muted-foreground">{formatOptionalDate(charge.createdAt)}</dt>
               <dd className="font-medium break-words">
                 {formatMoney(charge.amount, charge.currencyCode) ?? String(charge.amount)}
