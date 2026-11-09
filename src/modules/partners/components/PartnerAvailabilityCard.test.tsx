@@ -181,6 +181,59 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
       expect(mockDisableTrigger).not.toHaveBeenCalled()
     })
 
+    it('refuses reason longer than 200 characters with an error message and does not call the mutation', async () => {
+      render(<PartnerAvailabilityCard partner={samplePartner} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Disable' }))
+
+      const dialog = screen.getByRole('dialog')
+      const submitBtn = within(dialog).getByRole('button', { name: 'Disable' })
+      const textarea = within(dialog).getByLabelText('Reason')
+
+      // fireEvent.change bypasses textarea maxLength to test the component logic guard
+      const overLongReason = 'a'.repeat(201)
+      fireEvent.change(textarea, { target: { value: overLongReason } })
+      fireEvent.click(submitBtn)
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Give a reason, up to 200 characters.')
+      expect(mockDisableTrigger).not.toHaveBeenCalled()
+    })
+
+    it('submits reason of exactly 200 characters successfully', async () => {
+      mockDisableTrigger.mockReturnValue({
+        unwrap: jest.fn().mockResolvedValue({ id: 'partner-123' }),
+      })
+
+      render(<PartnerAvailabilityCard partner={samplePartner} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Disable' }))
+
+      const dialog = screen.getByRole('dialog')
+      const exact200Reason = 'b'.repeat(200)
+      fireEvent.change(within(dialog).getByLabelText('Reason'), {
+        target: { value: exact200Reason },
+      })
+
+      const dialogDisableBtn = within(dialog).getByRole('button', { name: 'Disable' })
+      fireEvent.click(dialogDisableBtn)
+
+      await waitFor(() => {
+        expect(mockDisableTrigger).toHaveBeenCalledTimes(1)
+        expect(mockDisableTrigger).toHaveBeenCalledWith({
+          id: 'partner-123',
+          reason: exact200Reason,
+        })
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Souvlaki Bar is disabled.',
+        })
+      })
+
+      // Dialog is closed
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Disable Souvlaki Bar' })).toBeNull()
+      })
+    })
+
     it('submits valid trimmed reason, toasts success and closes dialog', async () => {
       mockDisableTrigger.mockReturnValue({
         unwrap: jest.fn().mockResolvedValue({ id: 'partner-123' }),
