@@ -329,11 +329,11 @@ export function MatchingCard({ form, set, options, loaded }: CardProps) {
           />
           <NumberField
             id="maxDriftDistance"
-            label="Max drift distance (metres)"
+            label={`${labelOf('maxDriftDistance')} (${unit})`}
             value={form.maxDriftDistance}
             min={0}
             disabled={!loaded}
-            description="How far the delivery's pickup may be from the quote's."
+            description="How far a delivery's pickup or drop off may be from where it was quoted."
             onChange={(value) => set('maxDriftDistance', value)}
           />
           {/* Spec 0021: the rider's app records an arrival within this distance of the restaurant or the
