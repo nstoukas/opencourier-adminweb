@@ -54,6 +54,8 @@ jest.mock('../../api/partnersApi', () => ({
   useDisablePartnerMutation: () => [jest.fn(), { isLoading: false }],
   useEnablePartnerMutation: () => [jest.fn(), { isLoading: false }],
   useGetPartnerAvailabilityChangesQuery: () => ({ data: [], isLoading: false, isError: false }),
+  useGetPartnerWaitRecordQuery: () => ({ currentData: undefined, isLoading: false, isError: false }),
+  useUpdatePartnerMutation: () => [jest.fn(), { isLoading: false }],
 }))
 
 const mockUseGetDeliveriesQuery = jest.fn()
@@ -597,6 +599,16 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       expect(screen.getByRole('heading', { level: 3, name: 'Availability' })).toBeInTheDocument()
       expect(screen.getByTestId('availability-state')).toHaveTextContent('Accepting orders.')
       expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument()
+    })
+  })
+
+  // Spec 0030 (AC-7): wait record card rendered on the restaurant page.
+  describe('spec 0030, AC-7: wait record card', () => {
+    it('shows the wait record card with its heading on the restaurant page', () => {
+      render(<PartnerDetailsPage />)
+
+      expect(screen.getByTestId('wait-record')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 3, name: 'Wait record' })).toBeInTheDocument()
     })
   })
 })

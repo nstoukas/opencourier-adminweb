@@ -4,6 +4,7 @@ import {
   useDisablePartnerMutation,
   useEnablePartnerMutation,
   useGetPartnerAvailabilityChangesQuery,
+  useGetPartnerWaitRecordQuery,
 } from './partnersApi'
 import { prepareAdminSdk } from '.'
 import { authSlice } from '@/modules/auth/slices/authSlice'
@@ -11,6 +12,7 @@ import type {
   PartnerAdminDto,
   PartnerAvailabilityChangeAdminDto,
   PartnerPaginatedAdminDto,
+  PartnerWaitRecordAdminDto,
 } from '../backend-admin-sdk'
 
 jest.mock('.', () => {
@@ -226,6 +228,62 @@ describe('partnersApi availability endpoints (spec 0029, AC-5 and AC-9)', () => 
 
     const result: any = await store.dispatch(
       partnersApi.endpoints.getPartnerAvailabilityChanges.initiate({ id: 'partner-1' })
+    )
+
+    expect(result.error).toBeDefined()
+    expect(result.data).toBeUndefined()
+  })
+})
+
+// Spec 0030 (AC-1, AC-6, AC-7): partnersApi RTK endpoint for restaurant wait record.
+describe('partnersApi wait record endpoint (spec 0030, AC-1, AC-6, AC-7)', () => {
+  let mockGetPartnerWaitRecord: jest.Mock
+
+  const sampleWaitRecord: PartnerWaitRecordAdminDto = {
+    days: 30,
+    orderCount: 15,
+    waitSamples: 12,
+    averageWaitMinutes: 5.1,
+    lateShare: 0.2,
+    prepSamples: 10,
+    medianPrepMinutes: 19,
+    usualPrepMinutes: 15,
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGetPartnerWaitRecord = jest.fn().mockResolvedValue(sampleWaitRecord)
+
+    mockPrepareAdminSdk.mockReturnValue({
+      partners: () => ({
+        getPartnerWaitRecord: mockGetPartnerWaitRecord,
+      }),
+    })
+  })
+
+  it('exports wait record hook function', () => {
+    expect(typeof useGetPartnerWaitRecordQuery).toBe('function')
+  })
+
+  it('getPartnerWaitRecord endpoint calls SDK with id and days, returns wait record', async () => {
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.getPartnerWaitRecord.initiate({ id: 'partner-1', days: 30 })
+    )
+
+    expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+    expect(mockGetPartnerWaitRecord).toHaveBeenCalledTimes(1)
+    expect(mockGetPartnerWaitRecord).toHaveBeenCalledWith({ id: 'partner-1', days: 30 })
+    expect(result.data).toEqual(sampleWaitRecord)
+  })
+
+  it('getPartnerWaitRecord endpoint catches error and returns formatted error object', async () => {
+    mockGetPartnerWaitRecord.mockRejectedValue(new Error('Backend error 500'))
+    const store = setupTestStore()
+
+    const result: any = await store.dispatch(
+      partnersApi.endpoints.getPartnerWaitRecord.initiate({ id: 'partner-1', days: 30 })
     )
 
     expect(result.error).toBeDefined()

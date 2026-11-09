@@ -184,4 +184,33 @@ describe('PartnerApi availability routes (spec 0029, AC-5 and AC-9)', () => {
     expect(changes[1]?.action).toBe('DISABLED')
     expect(changes[1]?.reason).toBe('Staff shortage')
   })
+
+  // Spec 0030 (AC-1, AC-6): admin SDK route for restaurant wait record.
+  it('getPartnerWaitRecord calls GET /api/admin/v1/partner/:id/wait-record?days=N with encoded id and bearer token', async () => {
+    const waitRecordResponse = {
+      days: 30,
+      orderCount: 12,
+      waitSamples: 10,
+      averageWaitMinutes: 4.8,
+      lateShare: 0.25,
+      prepSamples: 9,
+      medianPrepMinutes: 18,
+      usualPrepMinutes: 15,
+    }
+    mockFetch.mockResolvedValueOnce(createMockResponse(waitRecordResponse))
+
+    const record = await api.getPartnerWaitRecord({ id: 'partner/volos special', days: 30 })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+    expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/partner%2Fvolos%20special/wait-record?days=30')
+    expect(calledInit.method).toBe('GET')
+    expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+    expect(record.days).toBe(30)
+    expect(record.orderCount).toBe(12)
+    expect(record.averageWaitMinutes).toBe(4.8)
+    expect(record.lateShare).toBe(0.25)
+    expect(record.medianPrepMinutes).toBe(18)
+    expect(record.usualPrepMinutes).toBe(15)
+  })
 })
