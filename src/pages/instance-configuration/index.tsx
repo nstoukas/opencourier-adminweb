@@ -31,6 +31,7 @@ import {
   type PublicPage,
 } from "@/modules/instance-config/cards/SettingsCards";
 import { PublicPageEditor } from "@/modules/instance-config/PublicPageEditor";
+import { RemovalReasonsCard } from "@/modules/instance-config/cards/RemovalReasonsCard";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
 import { SaveBar } from "@/modules/instance-config/SaveBar";
 import {
@@ -305,6 +306,7 @@ const InstanceConfigurationPage: NextPage = () => {
               }
               payoutPolicies={data?.reassignmentPayoutPolicies}
             />
+            <RemovalReasonsCard {...cardProps} />
             <RestaurantDelaysCard {...cardProps} />
             <ShiftsCard {...cardProps} />
             <ServiceAreaCard

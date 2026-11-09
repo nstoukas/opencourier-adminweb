@@ -38,7 +38,16 @@ export enum EnumDeliveryEventType {
   // A rider left a late order, and the pay for a wait (spec 0033). Recorded by the backend: never in
   // STATE_MACHINE or the admin menus.
   WAIT_UNDISPATCHED = 'WAIT_UNDISPATCHED',
-  COURIER_PAID_FOR_WAIT = 'COURIER_PAID_FOR_WAIT'
+  COURIER_PAID_FOR_WAIT = 'COURIER_PAID_FOR_WAIT',
+  // A rider's request to come off an order, its answer and its pay (spec 0035). Recorded by the
+  // backend, never in STATE_MACHINE or the admin menus; the timeline reads each one in words.
+  REMOVAL_REQUESTED = 'REMOVAL_REQUESTED',
+  REMOVAL_WITHDRAWN = 'REMOVAL_WITHDRAWN',
+  REMOVAL_DECLINED = 'REMOVAL_DECLINED',
+  REMOVAL_APPROVED = 'REMOVAL_APPROVED',
+  COURIER_PAID_FOR_REMOVAL = 'COURIER_PAID_FOR_REMOVAL',
+  PARTNER_CHARGED_FOR_REMOVAL = 'PARTNER_CHARGED_FOR_REMOVAL',
+  COURIER_PAID_FOR_RETURN_TRIP = 'COURIER_PAID_FOR_RETURN_TRIP'
 }
 
 export enum EnumEventActor {

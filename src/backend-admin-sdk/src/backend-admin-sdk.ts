@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
+import { AuthApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, RemovalRequestApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -90,6 +90,11 @@ export class BackendAdminSdk {
 
   dispatchBoard(): DispatchBoardApi {
     return this.getOrCreateApi(DispatchBoardApi)
+  }
+
+  // A rider's request to come off an order, and the co-op's reasons (spec 0035).
+  removalRequests(): RemovalRequestApi {
+    return this.getOrCreateApi(RemovalRequestApi)
   }
 
   partners(): PartnerApi {

@@ -13,6 +13,8 @@ const tagTypes = {
   dispatchStops: 'DispatchStops',
   shiftSlots: 'ShiftSlots',
   sos: 'Sos',
+  removalRequests: 'RemovalRequests',
+  removalReasons: 'RemovalReasons',
 }
 
 export const Tags = {
@@ -34,4 +36,6 @@ export const Tags = {
   dispatchStops: tagTypes['dispatchStops'],
   shiftSlots: tagTypes['shiftSlots'],
   sos: tagTypes['sos'],
+  removalRequests: tagTypes['removalRequests'],
+  removalReasons: tagTypes['removalReasons'],
 }

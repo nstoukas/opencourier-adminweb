@@ -68,6 +68,7 @@ export const SECTIONS = [
   { id: 'matching', title: 'Matching' },
   { id: 'offers', title: 'Offers' },
   { id: 'rider-pay', title: 'Rider pay' },
+  { id: 'removal-reasons', title: 'Removal reasons' },
   { id: 'restaurant-delays', title: 'Restaurant delays' },
   { id: 'shifts', title: 'Shifts' },
   { id: 'service-area', title: 'Service area' },
@@ -76,7 +77,7 @@ export const SECTIONS = [
 ] as const
 
 // One card of the page: an h2 title the pills link to, a line under it, the fields.
-function SettingsSection({
+export function SettingsSection({
   id,
   title,
   description,
@@ -143,7 +144,7 @@ function OptionSelect({
 }
 
 // A number box holding the text typed; an emptied box stays empty, never 0 (row 56).
-function NumberField({
+export function NumberField({
   id,
   label,
   value,

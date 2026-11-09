@@ -34,6 +34,9 @@ export interface DispatchAttentionRowDto {
     // The sentence the row reads. A report's note follows on a second line.
     detail: string;
     held: boolean;
+    // Spec 0035, only on a REMOVAL_REQUEST row. The approve sends `pickedUp` back as read here.
+    removalRequestId?: string;
+    pickedUp?: boolean;
 }
 
 export interface DispatchMapCourierDto {

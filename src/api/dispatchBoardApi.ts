@@ -4,8 +4,8 @@ import { api as baseApi, prepareAdminSdk } from '.'
 import { AppState } from '@/redux/store'
 import { handleBackendError } from './utils/api'
 
-// The live Dispatch board (spec 0034). An assignment or a handled report refreshes it at once,
-// through these two tags; everything else arrives with the next 10 s poll.
+// The live Dispatch board (spec 0034). An assignment, a handled report or an answered removal
+// request refreshes it at once, through these tags; everything else arrives with the next 10 s poll.
 export const dispatchBoardApi = baseApi.injectEndpoints({
   overrideExisting: true,
   endpoints: (build) => ({
@@ -19,7 +19,7 @@ export const dispatchBoardApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      providesTags: [Tags.deliveries, Tags.deliveryIssues],
+      providesTags: [Tags.deliveries, Tags.deliveryIssues, Tags.removalRequests],
     }),
   }),
 })

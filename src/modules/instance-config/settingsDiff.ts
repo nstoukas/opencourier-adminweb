@@ -46,6 +46,7 @@ export type SettingsForm = {
   offerTimingCandidates: string
   handBackSeconds: string
   cancellationPayoutPolicy: string
+  returnTripPayPercent: string
   savedCustomerRetentionMonths: string
   restaurantHistoryDays: string
   sosLocationRetentionDays: string
@@ -98,6 +99,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'defaultCourierPayRate', label: 'Default courier pay rate', kind: 'number' },
   { key: 'defaultMaxWorkingHours', label: 'Default max working hours', kind: 'number' },
   { key: 'courierCompensationCalculationType', label: 'Courier compensation calculation', kind: 'select' },
+  { key: 'returnTripPayPercent', label: 'Return trip pay (%)', kind: 'number' },
   { key: 'waitPayEnabled', label: 'Delay pay', kind: 'switch' },
   { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', kind: 'number' },
   { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', kind: 'number' },
@@ -350,6 +352,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     // The backend answers the rule in force, FULL_COMPENSATION when none is stored (spec 0015).
     // Before the settings load it is empty, like every other select.
     cancellationPayoutPolicy: data.cancellationPayoutPolicy ?? '',
+    returnTripPayPercent: text(data.returnTripPayPercent),
     savedCustomerRetentionMonths: text(data.savedCustomerRetentionMonths),
     restaurantHistoryDays: text(data.restaurantHistoryDays),
     sosLocationRetentionDays: text(data.sosLocationRetentionDays),
@@ -394,6 +397,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('cancellationPayoutPolicy')) {
     parts.push('Cancelled job pay applies to cancellations from now on.')
+  }
+  if (keys.has('returnTripPayPercent')) {
+    parts.push('Return trip pay applies to food recorded as returned from now on.')
   }
   if (keys.has('savedCustomerRetentionMonths')) {
     parts.push('The daily job uses the retention from its next run.')

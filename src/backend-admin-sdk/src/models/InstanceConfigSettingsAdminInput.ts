@@ -232,6 +232,12 @@ export interface InstanceConfigSettingsAdminInput {
    */
   handBackSeconds?: number;
   /**
+   * Share of the quote's distance fee paid for bringing food back, 0 to 100 (spec 0035). Hand edited (row 24).
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  returnTripPayPercent?: number;
+  /**
    * Metres from a stop that the rider's app counts as arrived; 0 switches detection off, else 20 to
    * 300 (spec 0021). Hand edited (row 19).
    * @type {number}
@@ -474,6 +480,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     handBackSeconds: !exists(json, "handBackSeconds")
       ? undefined
       : json["handBackSeconds"],
+    returnTripPayPercent: !exists(json, "returnTripPayPercent")
+      ? undefined
+      : json["returnTripPayPercent"],
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? undefined
       : json["arrivalRadiusMetres"],
@@ -541,6 +550,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     sosLocationRetentionDays: value.sosLocationRetentionDays,
     // Without this line a save would drop the hand back window before it left the browser.
     handBackSeconds: value.handBackSeconds,
+    // Without this line a save would drop the return trip share before it left the browser (spec 0035).
+    returnTripPayPercent: value.returnTripPayPercent,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,

@@ -232,6 +232,12 @@ export interface InstanceConfigSettingsDto {
    */
   handBackSeconds?: number | null;
   /**
+   * Share of the quote's distance fee paid for bringing food back, 0 to 100 (spec 0035). Hand edited (row 24).
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  returnTripPayPercent?: number | null;
+  /**
    * Metres from the restaurant or the customer that the rider's app counts as arrived; 0 switches
    * detection off (spec 0021). Hand edited (row 19).
    * @type {number}
@@ -448,6 +454,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     handBackSeconds: !exists(json, "handBackSeconds")
       ? null
       : json["handBackSeconds"],
+    returnTripPayPercent: !exists(json, "returnTripPayPercent")
+      ? null
+      : json["returnTripPayPercent"],
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? null
       : json["arrivalRadiusMetres"],
@@ -508,6 +517,7 @@ export function InstanceConfigSettingsDtoToJSON(
     restaurantHistoryDays: value.restaurantHistoryDays,
     sosLocationRetentionDays: value.sosLocationRetentionDays,
     handBackSeconds: value.handBackSeconds,
+    returnTripPayPercent: value.returnTripPayPercent,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,

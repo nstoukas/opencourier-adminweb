@@ -11,6 +11,7 @@ import { CancellationCard } from '@/modules/deliveries/components/CancellationCa
 import { WaitChargesCard } from '@/modules/deliveries/components/WaitChargesCard'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { DeliveryIssues } from '@/modules/deliveries/components/DeliveryIssues'
+import { DeliveryRemovalRequests } from '@/modules/deliveries/components/DeliveryRemovalRequests'
 import { ProductReportsCard } from '@/modules/product-reports/ProductReportsCard'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
@@ -296,6 +297,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
           <CancellationCard delivery={delivery} />
           <WaitChargesCard delivery={delivery} />
           <DeliveryIssues deliveryId={delivery.id} />
+          <DeliveryRemovalRequests deliveryId={delivery.id} />
           <ProductReportsCard deliveryId={delivery.id} />
           <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
         </div>

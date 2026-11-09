@@ -5,6 +5,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@/ad
 import type { DispatchAttentionRowDto } from '@/backend-admin-sdk'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { isRedRow, minutesSince, rowHref } from './dispatchDisplay'
+import { ApproveRemovalButton, DeclineRemovalButton } from './RemovalRequestActions'
 
 function OpenButton({ row }: { row: DispatchAttentionRowDto }) {
   return (
@@ -49,6 +50,14 @@ function RowActions({ row }: { row: DispatchAttentionRowDto }) {
         <>
           <OpenButton row={row} />
           <MarkHandledButton row={row} />
+        </>
+      )
+    case 'REMOVAL_REQUEST':
+      return (
+        <>
+          <OpenButton row={row} />
+          <DeclineRemovalButton row={row} />
+          <ApproveRemovalButton row={row} />
         </>
       )
     default:
