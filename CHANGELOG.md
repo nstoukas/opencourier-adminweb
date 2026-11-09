@@ -60,6 +60,11 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### Product reports (scope row 15, spec 0032)
+Built on `feat/product-reports` and merged on 9 November, with the backend, request-web and courier app halves.
+- A Product reports card on the delivery page, with Add report and Resolve, and a Product reports page with Open, Resolved and All.
+- 1716 tests pass; put backs by hand. Reviewed by Fable.
+
 ### Timed offers settings (scope row 22, spec 0031) and the Wait record card (scope row 25, spec 0030)
 Built on `feat/offer-timing` and `feat/wait-record`, merged on 9 November with their backend halves.
 - **Timed offers.** A switch (off by default), the lead minutes and how many riders are compared, in the Offers card.
