@@ -405,6 +405,8 @@ export interface DeliveryAdminDto {
     foodOutcomeAt?: Date | null;
     /** Spec 0015: what the restaurant was charged for its own cancellation (cents). Hand edited. */
     partnerCharge?: { amount: number; currencyCode: string; createdAt: string } | null;
+    /** Spec 0033: what the restaurant was charged for keeping riders waiting (cents). Hand edited. */
+    waitCharges?: { amount: number; currencyCode: string; createdAt: string }[];
 }
 
 
@@ -584,6 +586,7 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'foodOutcome': !exists(json, 'foodOutcome') ? null : json['foodOutcome'],
         'foodOutcomeAt': !exists(json, 'foodOutcomeAt') ? null : new Date(json['foodOutcomeAt']),
         'partnerCharge': !exists(json, 'partnerCharge') ? null : json['partnerCharge'],
+        'waitCharges': !exists(json, 'waitCharges') ? [] : json['waitCharges'],
     };
 }
 
@@ -665,6 +668,7 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'foodOutcome': value.foodOutcome,
         'foodOutcomeAt': value.foodOutcomeAt == null ? null : value.foodOutcomeAt.toISOString(),
         'partnerCharge': value.partnerCharge,
+        'waitCharges': value.waitCharges,
     };
 }
 

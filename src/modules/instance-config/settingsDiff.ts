@@ -101,7 +101,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'waitPayEnabled', label: 'Delay pay', kind: 'switch' },
   { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', kind: 'number' },
   { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', kind: 'number' },
-  { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', kind: 'number' },
+  { key: 'waitLimitMinutes', label: 'Minutes after the promised time before a rider can leave', kind: 'number' },
   { key: 'shiftsEnabled', label: 'Shifts', kind: 'switch' },
   { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', kind: 'number' },
   { key: 'region', label: 'Service area', kind: 'region', details: true },

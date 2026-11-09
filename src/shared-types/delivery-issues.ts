@@ -4,6 +4,7 @@ export enum EnumDeliveryIssueReason {
   WRONG_ADDRESS = 'WRONG_ADDRESS',
   NO_SIGNAL = 'NO_SIGNAL',
   ORDER_HANDED = 'ORDER_HANDED',
+  FOOD_NOT_READY = 'FOOD_NOT_READY',
   OTHER = 'OTHER',
 }
 
@@ -12,5 +13,6 @@ export const DELIVERY_ISSUE_REASON_TO_HUMAN: Record<EnumDeliveryIssueReason, str
   WRONG_ADDRESS: 'Wrong address',
   NO_SIGNAL: 'No internet, GPS or signal',
   ORDER_HANDED: 'Order handed to the customer',
+  FOOD_NOT_READY: 'Marked ready but not ready',
   OTHER: 'Other',
 }

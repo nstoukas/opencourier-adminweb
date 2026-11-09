@@ -495,8 +495,9 @@ export function RestaurantDelaysCard({ form, set, loaded }: CardProps) {
           </div>
           <FieldDescription>
             Pays a rider per minute once the restaurant's promised time plus the free minutes below has passed and the
-            rider is still waiting, and charges the restaurant all of it. Off: nothing is paid or charged. The waiting
-            clock and leaving still work.
+            rider is still waiting, and charges the restaurant all of it. A rider who arrives after that, to food
+            already marked ready, is not paid and the restaurant is not charged. Off: nothing is paid or charged. The
+            waiting clock and leaving still work.
           </FieldDescription>
         </Field>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -527,7 +528,7 @@ export function RestaurantDelaysCard({ form, set, loaded }: CardProps) {
             min={1}
             max={60}
             disabled={!loaded || notLoaded}
-            description="Whole minutes, 1 to 60, from the rider's arrival. Applies whether Delay pay is on or off."
+            description="Whole minutes, 1 to 60, counted from the restaurant's promised time. Applies whether Delay pay is on or off."
             onChange={(value) => set('waitLimitMinutes', value)}
           />
         </div>

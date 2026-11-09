@@ -8,6 +8,7 @@ import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourier
 import { ReassignCourierDialog } from '@/modules/deliveries/components/ReassignCourierDialog'
 import { CancelDeliveryDialog } from '@/modules/deliveries/components/CancelDeliveryDialog'
 import { CancellationCard } from '@/modules/deliveries/components/CancellationCard'
+import { WaitChargesCard } from '@/modules/deliveries/components/WaitChargesCard'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { DeliveryIssues } from '@/modules/deliveries/components/DeliveryIssues'
 import { ProductReportsCard } from '@/modules/product-reports/ProductReportsCard'
@@ -293,6 +294,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
         <div className="flex min-w-0 flex-col gap-6">
           <OfferCard delivery={delivery} now={now} />
           <CancellationCard delivery={delivery} />
+          <WaitChargesCard delivery={delivery} />
           <DeliveryIssues deliveryId={delivery.id} />
           <ProductReportsCard deliveryId={delivery.id} />
           <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
