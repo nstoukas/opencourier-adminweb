@@ -14,6 +14,8 @@
 
 
 import * as runtime from '../runtime';
+import type { ProductReportAdminDto, ProductReportPageAdminDto } from '../models/ProductReportAdminDto';
+import { ProductReportAdminDtoFromJSON } from '../models/ProductReportAdminDto';
 import type {
   DeliveryAdminDto,
   DeliveryAdminPaginatedDto,
@@ -334,4 +336,41 @@ export class DeliveriesApi extends runtime.BaseAPI {
         return await response.value();
     }
 
+
+    // Spec 0032 (hand edited). The four share this request: the admin token, a path, an optional body.
+    private async productReportRequest(path: string, method: 'GET' | 'POST', body: object | undefined, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Response> {
+        const headerParameters: runtime.HTTPHeaders = {};
+        if (body !== undefined) headerParameters['Content-Type'] = 'application/json';
+        if (this.configuration && this.configuration.accessToken) {
+            const tokenString = await this.configuration.accessToken("bearer", []);
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        return this.request({ path, method, headers: headerParameters, query: {}, body }, initOverrides);
+    }
+
+    async getDeliveryProductReports(requestParameters: { deliveryId: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<ProductReportAdminDto>> {
+        const response = await this.productReportRequest(`/api/admin/v1/deliveries/${encodeURIComponent(requestParameters.deliveryId)}/product-reports`, 'GET', undefined, initOverrides);
+        const json = await response.json();
+        return (json as any[]).map(ProductReportAdminDtoFromJSON);
+    }
+
+    async createDeliveryProductReport(requestParameters: { deliveryId: string; kind: 'WRONG_ITEM' | 'MISSING_ITEM'; itemName?: string; note?: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProductReportAdminDto> {
+        const { deliveryId, ...body } = requestParameters;
+        const response = await this.productReportRequest(`/api/admin/v1/deliveries/${encodeURIComponent(deliveryId)}/product-reports`, 'POST', body, initOverrides);
+        return ProductReportAdminDtoFromJSON(await response.json());
+    }
+
+    async getProductReports(requestParameters: { state: 'open' | 'resolved' | 'all'; page: number; perPage: number }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProductReportPageAdminDto> {
+        const { state, page, perPage } = requestParameters;
+        const response = await this.productReportRequest(`/api/admin/v1/product-reports?state=${state}&page=${page}&perPage=${perPage}`, 'GET', undefined, initOverrides);
+        const json = await response.json();
+        return { data: (json.data as any[]).map(ProductReportAdminDtoFromJSON), pagination: json.pagination };
+    }
+
+    async resolveProductReport(requestParameters: { id: string; resolution?: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProductReportAdminDto> {
+        const response = await this.productReportRequest(`/api/admin/v1/product-reports/${encodeURIComponent(requestParameters.id)}/resolve`, 'POST', { resolution: requestParameters.resolution }, initOverrides);
+        return ProductReportAdminDtoFromJSON(await response.json());
+    }
 }

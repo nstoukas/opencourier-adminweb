@@ -3,6 +3,8 @@ import {
   DeliveryAdminPaginatedDto,
   DeliveryEventAdminDto,
   DeliveryIssueAdminDto,
+  ProductReportAdminDto,
+  ProductReportPageAdminDto,
   DeliverySubmitEventAdminInputEventTypeEnum,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
@@ -74,6 +76,62 @@ export const deliveriesApi = baseApi.injectEndpoints({
         }
       },
       providesTags: [Tags.deliveryIssues],
+    }),
+    // Spec 0032: product reports, one delivery's and the co-op's open list.
+    getDeliveryProductReports: build.query<ProductReportAdminDto[], { deliveryId: string }>({
+      queryFn: async ({ deliveryId }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().getDeliveryProductReports({ deliveryId })
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      providesTags: [Tags.productReports],
+    }),
+    getProductReports: build.query<ProductReportPageAdminDto, { state: 'open' | 'resolved' | 'all'; page: number; perPage: number }>({
+      queryFn: async (params, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().getProductReports(params)
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      providesTags: [Tags.productReports],
+    }),
+    createDeliveryProductReport: build.mutation<
+      ProductReportAdminDto,
+      { deliveryId: string; kind: 'WRONG_ITEM' | 'MISSING_ITEM'; itemName?: string; note?: string }
+    >({
+      queryFn: async (params, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().createDeliveryProductReport(params)
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      invalidatesTags: [Tags.productReports, Tags.deliveryEvents],
+    }),
+    resolveProductReport: build.mutation<ProductReportAdminDto, { id: string; resolution?: string }>({
+      queryFn: async (params, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.deliveries().resolveProductReport(params)
+          return { data }
+        } catch (error) {
+          return { error: handleBackendError(error, api) }
+        }
+      },
+      invalidatesTags: [Tags.productReports, Tags.deliveryEvents],
     }),
     submitDeliveryEvent: build.mutation<
       DeliveryAdminDto,
@@ -173,6 +231,10 @@ export const {
   useGetDeliveryQuery,
   useGetDeliveryEventsQuery,
   useGetDeliveryIssuesQuery,
+  useGetDeliveryProductReportsQuery,
+  useGetProductReportsQuery,
+  useCreateDeliveryProductReportMutation,
+  useResolveProductReportMutation,
   useSubmitDeliveryEventMutation,
   useAssignDeliveryToCourierMutation,
   useReassignDeliveryMutation,

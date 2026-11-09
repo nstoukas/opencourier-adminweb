@@ -5,6 +5,7 @@ export enum EAdminRoutes {
   INSTANCE_CONFIGURATION = '/instance-configuration',
   LOGIN = '/login',
   PARTNERS = '/partners',
+  PRODUCT_REPORTS = '/product-reports',
   PARTNER_DETAILS = '/partners/[partnerId]',
   DELIVERIES = '/deliveries',
   DELIVERY_DETAILS = '/deliveries/[deliveryId]',

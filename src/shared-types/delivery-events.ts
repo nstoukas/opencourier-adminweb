@@ -31,7 +31,10 @@ export enum EnumDeliveryEventType {
   // The restaurant moved its ready time, or marked the food ready (spec 0023). Its own step,
   // recorded by the backend: never in STATE_MACHINE or the admin menus.
   READY_DELAYED = 'READY_DELAYED',
-  FOOD_READY = 'FOOD_READY'
+  FOOD_READY = 'FOOD_READY',
+  // A wrong or missing product, and its resolution (spec 0032). Never in STATE_MACHINE or the admin menus.
+  PRODUCT_REPORTED = 'PRODUCT_REPORTED',
+  PRODUCT_REPORT_RESOLVED = 'PRODUCT_REPORT_RESOLVED'
 }
 
 export enum EnumEventActor {

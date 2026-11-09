@@ -10,6 +10,7 @@ import { CancelDeliveryDialog } from '@/modules/deliveries/components/CancelDeli
 import { CancellationCard } from '@/modules/deliveries/components/CancellationCard'
 import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryEventTimeline'
 import { DeliveryIssues } from '@/modules/deliveries/components/DeliveryIssues'
+import { ProductReportsCard } from '@/modules/product-reports/ProductReportsCard'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
 import { formatMoney } from '@/utils/formatMoney'
@@ -293,6 +294,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
           <OfferCard delivery={delivery} now={now} />
           <CancellationCard delivery={delivery} />
           <DeliveryIssues deliveryId={delivery.id} />
+          <ProductReportsCard deliveryId={delivery.id} />
           <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
         </div>
 
