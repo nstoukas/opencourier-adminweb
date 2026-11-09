@@ -60,6 +60,12 @@ below; the others are recorded in the workspace's scope and walkthroughs. With t
 at **1022 passing tests**. The co-op settings redesign (row 87, branch `feat/coop-settings`) is
 not in this merge.
 
+### Each restaurant's usual prep time (scope row 21, spec 0023): `db219ab` to `3096bfb`
+Built on the branch `feat/ready-signals` and merged on 9 November, with the backend, request-web and courier app halves.
+- "Usual prep time (minutes)" on the restaurant form, 0 to 90, starting at 15. An emptied box is refused, on create as on edit.
+- `READY_DELAYED` and `FOOD_READY` are in the event enum copy, never in `STATE_MACHINE`.
+- 1528 tests pass; put backs by hand. Reviewed by Fable and agy.
+
 ### Shift slots, and the Shifts settings (scope row 77, spec 0026): `00a171f` to `e356229`
 Built on the branch `feat/shift-slots` and merged on 3 November, with the backend half.
 - **A Shift slots page** (Co-op group in the sidebar):
