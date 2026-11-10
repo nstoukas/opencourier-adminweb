@@ -56,4 +56,6 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 
 - The Dispatch board (`src/modules/dispatch/`, spec 0034) draws row kinds in one `switch` in `AttentionList`, and a kind it does not know gets a plain Open, so a new backend kind never breaks an older tab. Its "updated N s ago" reads RTK Query's `fulfilledTimeStamp`, because a new `data` object can be the cache returning.
 
+- The value 5 guard's broad patterns for removal requests run only on files about them (a path containing "removal", or a source importing `removalRequestApi` or `shared-types/removal-requests`, or naming `RemovalRequestAdminDto`), so ordinary code like `i++` or `new Map` can fail there. A failure names the file and pattern.
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
