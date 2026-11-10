@@ -392,6 +392,83 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
       )
       expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     })
+
+    it('returns focus to the Add reason button after successful removal even though removed row button remains', async () => {
+      renderCard()
+
+      const addButton = screen.getByRole('button', { name: 'Add reason' })
+      const [firstRow] = screen.getAllByTestId('removal-reason-row')
+      if (!firstRow) throw new Error('Expected firstRow')
+      const firstRowRemoveBtn = within(firstRow).getByRole('button', { name: /Remove/i })
+
+      fireEvent.click(firstRowRemoveBtn)
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+      const confirmBtn = screen.getByRole('button', { name: 'Remove reason' })
+      fireEvent.click(confirmBtn)
+
+      await waitFor(() => {
+        expect(mockRemoveReason).toHaveBeenCalledWith({ id: 'reason-1' })
+      })
+
+      // Even though the removed row's Remove button is still connected (mutation mocked, list not refetched)
+      expect(firstRowRemoveBtn).toBeInTheDocument()
+      await waitFor(() => {
+        expect(document.activeElement).not.toBe(firstRowRemoveBtn)
+        expect(document.activeElement).toBe(addButton)
+      })
+    })
+
+    it('returns focus to that same row Remove button after Cancel on remove dialog (picking a row that is not the first)', async () => {
+      renderCard()
+
+      const rows = screen.getAllByTestId('removal-reason-row')
+      expect(rows.length).toBeGreaterThanOrEqual(2)
+      const [firstRow, secondRow] = rows
+      if (!firstRow || !secondRow) throw new Error('Expected two rows')
+      // Pick row 2 (not the first)
+      const secondRowRemoveBtn = within(secondRow).getByRole('button', { name: /Remove/i })
+      const firstRowRemoveBtn = within(firstRow).getByRole('button', { name: /Remove/i })
+
+      fireEvent.click(secondRowRemoveBtn)
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
+      fireEvent.click(cancelBtn)
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      })
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(secondRowRemoveBtn)
+        expect(document.activeElement).not.toBe(firstRowRemoveBtn)
+      })
+    })
+
+    it('keeps dialog open with error and does not move focus to Add button on failed removal', async () => {
+      mockRemoveReason.mockReturnValue(
+        rejected({ message: 'The reason could not be removed. Try again in a moment.' })
+      )
+
+      renderCard()
+
+      const addButton = screen.getByRole('button', { name: 'Add reason' })
+      const [firstRow] = screen.getAllByTestId('removal-reason-row')
+      if (!firstRow) throw new Error('Expected firstRow')
+      const removeBtn = within(firstRow).getByRole('button', { name: /Remove/i })
+
+      fireEvent.click(removeBtn)
+
+      const confirmBtn = screen.getByRole('button', { name: 'Remove reason' })
+      fireEvent.click(confirmBtn)
+
+      expect(
+        await screen.findByText('The reason could not be removed. Try again in a moment.')
+      ).toBeInTheDocument()
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+      expect(document.activeElement).not.toBe(addButton)
+    })
   })
 
   describe('returnTripPayPercent number field', () => {

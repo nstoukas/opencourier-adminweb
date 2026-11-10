@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import { EnumDeliveryEventType } from './delivery-events'
 import { STATE_MACHINE } from './state-machine'
 import * as deliveriesApiModule from '../api/deliveriesApi'
@@ -214,10 +216,13 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       /(?:handedBack|handBack|autoAccept)(s?)(Count|Total|Rate|Score)/i,
     ]
 
-    const removalRequestBannedAggregations = [
+    const narrowRemovalPatterns = [
       // Value 5 / spec 0035, AC-22: No counting, summing, ranking, scoring, or aggregation of removal requests per courier or rider
       /(?:courier|rider|perCourier)Removal(s?)(Count|Total|Rate|Score|Rank|Stats)/i,
       /removalRequest(s?)(Count|Total|Rate|Score|Rank|Stats)/i,
+    ]
+
+    const broadRemovalPatterns = [
       /(?:groupBy|reduce)\b[\s\S]{0,250}\b(?:removalRequests?|removals?|RemovalRequestAdminDto)\b/i,
       /(?:removalRequests?|removals?|RemovalRequestAdminDto)\b[\s\S]{0,250}\b(?:groupBy|reduce)\b/i,
       /\b(?:count|total|sum|rank)\b[\s\S]{0,100}\b(?:removalRequests?|removals?|RemovalRequestAdminDto)\b[\s\S]{0,100}\b(?:courier|rider)\b/i,
@@ -237,12 +242,44 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       /(?:new\s+Map|Map<string,\s*number>)[\s\S]{0,350}?(?:removalRequests?|removals?|RemovalRequestAdminDto)\b/i,
     ]
 
+    const removalRequestBannedAggregations = [
+      ...narrowRemovalPatterns,
+      ...broadRemovalPatterns,
+    ]
+
+    // Pure selection and pattern-checking function (decision 24.55).
+    // Narrow name patterns always scan all files; broad patterns run only on files about removal requests.
+    const isFileAboutRemovalRequests = (filePath: string, content: string): boolean => {
+      const srcDir = path.resolve(__dirname, '..')
+      const relPath = path.isAbsolute(filePath) ? path.relative(srcDir, filePath) : filePath
+      return (
+        /removal/i.test(relPath) ||
+        /(?:from\s*|require\s*\(\s*|import\s*\(\s*)['"][^'"]*removalRequestApi['"]\)?/.test(content) ||
+        /(?:from\s*|require\s*\(\s*|import\s*\(\s*)['"][^'"]*shared-types\/removal-requests['"]\)?/.test(content) ||
+        /\bRemovalRequestAdminDto\b/.test(content)
+      )
+    }
+
+    const checkRemovalBannedAggregations = (filePath: string, content: string): RegExp[] => {
+      const firing: RegExp[] = []
+      for (const pattern of narrowRemovalPatterns) {
+        if (pattern.test(content)) {
+          firing.push(pattern)
+        }
+      }
+      if (isFileAboutRemovalRequests(filePath, content)) {
+        for (const pattern of broadRemovalPatterns) {
+          if (pattern.test(content)) {
+            firing.push(pattern)
+          }
+        }
+      }
+      return firing
+    }
+
     it('Value 5 guard: verifies no SDK DTO or frontend module aggregates or groups expired offers or removal requests per courier (AC-22)', () => {
       // Value 5 / AC-12, AC-22 rule: An expired offer or removal request is never held against a rider.
       // No rating, streak, acceptance rate, missed offer count, or removal request count/rank may exist per rider.
-      const fs = require('fs')
-      const path = require('path')
-
       // Recursively collect all source files (excluding tests) from a directory
       function getSourceFiles(dir: string): string[] {
         if (!fs.existsSync(dir)) return []
@@ -287,15 +324,175 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
         }
       }
 
-      // Removal request patterns scan every source file under src (spec 0035, AC-22)
-      const allSrcFiles = getSourceFiles(path.resolve(__dirname, '..'))
+      // Removal request patterns scan every source file under src (spec 0035, AC-22, decision 24.55)
+      const srcDir = path.resolve(__dirname, '..')
+      const allSrcFiles = getSourceFiles(srcDir)
       expect(allSrcFiles.length).toBeGreaterThan(0)
+      const violations: string[] = []
       for (const file of allSrcFiles) {
         const content = fs.readFileSync(file, 'utf-8')
-        for (const pattern of removalRequestBannedAggregations) {
-          expect(content).not.toMatch(pattern)
+        const relativePath = path.relative(srcDir, file)
+        const firing = checkRemovalBannedAggregations(relativePath, content)
+        for (const pattern of firing) {
+          violations.push(`${relativePath}: ${pattern}`)
         }
       }
+      expect(violations).toEqual([])
+    })
+
+    it('Value 5 guard: proves file selection and pattern behaviour on samples (decision 24.55)', () => {
+      // 1. A real per rider count of removal requests in a file about removals fails (fires)
+      const realPerRiderCount = `
+        export const getRemovalStats = (removalRequests: { courierId: string }[]) => {
+          return removalRequests.filter((r) => r.courierId === 'c-1').length
+        }
+      `
+      const expectedFilterPattern =
+        /(?:removalRequests?|removals?|RemovalRequestAdminDto)\b[\s\S]{0,300}?\bfilter\b[\s\S]{0,150}?\b(?:courierId|courier|rider)\b[\s\S]{0,150}?\blength\b/i
+
+      // (a) File path contains "removal" (case blind)
+      expect(
+        checkRemovalBannedAggregations('modules/deliveries/components/DeliveryRemovalRequests.tsx', realPerRiderCount)
+      ).toEqual([expectedFilterPattern])
+
+      // (b) File path says nothing about removals, but imports from removalRequestApi
+      const withApiImport = `
+        import { useGetDeliveryRemovalRequestsQuery } from '@/api/removalRequestApi'
+        export const getRemovalStats = (removalRequests: { courierId: string }[]) => {
+          return removalRequests.filter((r) => r.courierId === 'c-1').length
+        }
+      `
+      expect(
+        checkRemovalBannedAggregations('modules/dispatch/attention.ts', withApiImport)
+      ).toEqual([expectedFilterPattern])
+
+      // (c) File path says nothing about removals, but imports from shared-types/removal-requests
+      const withSharedTypesImport = `
+        import { REMOVAL_REQUEST_STATUS_TO_HUMAN } from '@/shared-types/removal-requests'
+        export const getRemovalStats = (removalRequests: { courierId: string }[]) => {
+          return removalRequests.filter((r) => r.courierId === 'c-1').length
+        }
+      `
+      expect(
+        checkRemovalBannedAggregations('modules/dispatch/attention.ts', withSharedTypesImport)
+      ).toEqual([expectedFilterPattern])
+
+      // (d) File path says nothing about removals, but names RemovalRequestAdminDto
+      const withDtoName = `
+        export const getRemovalStats = (requests: RemovalRequestAdminDto[]) => {
+          return requests.filter((r) => r.courierId === 'c-1').length
+        }
+      `
+      expect(
+        checkRemovalBannedAggregations('modules/dispatch/attention.ts', withDtoName)
+      ).toEqual([expectedFilterPattern])
+
+      // 2. Each of the seven innocent samples is shown to be evidence (decision 24.55):
+      // In a file not about removals nothing fires (toEqual([]), as now).
+      // The same source text with a path about removals (e.g. 'modules/dispatch/RemovalThing.ts')
+      // fires at least one broad pattern.
+      const innocentSamples = [
+        {
+          name: 'innocent1 (comment naming removal requests followed by new Map)',
+          code: `
+            // Removal requests: show each rider's name
+            const courierMap = new Map(couriers.map((c) => [c.id, c.name]))
+          `,
+        },
+        {
+          name: 'innocent2 (comment naming removal request and rider followed by page + 1)',
+          code: `
+            // After removal request from rider, load next page
+            const nextPage = page + 1
+          `,
+        },
+        {
+          name: 'innocent3 (comment naming removal request followed by params.set)',
+          code: `
+            // Filter by rider after removal request
+            params.set('tab', 'jobs')
+          `,
+        },
+        {
+          name: 'innocent4 (comment mentioning removal and rider followed by const total = ...)',
+          code: `
+            // What the removal paid the rider
+            const total = payAmount + waitPay
+          `,
+        },
+        {
+          name: 'innocent5 (heading/comment with courierName followed by a plain for loop with i++)',
+          code: `
+            // Removal requests for courierName
+            for (let i = 0; i < items.length; i++) {
+              processItem(items[i])
+            }
+          `,
+        },
+        {
+          name: 'innocent6 (per delivery requests.filter with rider in comment and open.length === 0)',
+          code: `
+            // Removal requests of this delivery
+            const open = requests.filter((r) => r.open)
+            // Check if rider has any open requests on this delivery
+            if (open.length === 0) return null
+          `,
+        },
+        {
+          name: 'innocent7 (reasons.reduce joining removal reason labels for a tooltip)',
+          code: `
+            // Reasons reduce joining removal reason labels for a tooltip
+            const labels = reasons.reduce((acc, r) => (acc ? acc + ', ' + r.label : r.label), '')
+          `,
+        },
+      ]
+
+      // Assert both halves for all seven innocent samples:
+      // Half 1: in a file not about removals nothing fires (selection keeps the guard quiet)
+      const unselectedViolations = innocentSamples.flatMap((sample) =>
+        checkRemovalBannedAggregations('modules/dispatch/attention.ts', sample.code).map((p) => ({
+          sample: sample.name,
+          firedPattern: p.toString(),
+        }))
+      )
+      expect(unselectedViolations).toEqual([])
+
+      // Half 2: with a path about removals, at least one broad pattern fires (showing sample is real evidence)
+      const unselectedOnRemovalPath = innocentSamples
+        .filter((sample) => checkRemovalBannedAggregations('modules/dispatch/RemovalThing.ts', sample.code).length === 0)
+        .map((sample) => sample.name)
+      expect(unselectedOnRemovalPath).toEqual([])
+
+      // Per-sample assertions with sample name in received value
+      for (const sample of innocentSamples) {
+        expect({
+          sample: sample.name,
+          unselectedFired: checkRemovalBannedAggregations('modules/dispatch/attention.ts', sample.code),
+        }).toEqual({
+          sample: sample.name,
+          unselectedFired: [],
+        })
+
+        const selectedFired = checkRemovalBannedAggregations('modules/dispatch/RemovalThing.ts', sample.code)
+        expect({
+          sample: sample.name,
+          firesWhenSelected: selectedFired.length > 0,
+        }).toEqual({
+          sample: sample.name,
+          firesWhenSelected: true,
+        })
+      }
+
+      // 3. Narrow name patterns fire even in a file not about removals
+      const narrowName1 = 'export const removalRequestCount = 42'
+      expect(
+        checkRemovalBannedAggregations('modules/dispatch/attention.ts', narrowName1)
+      ).toEqual([/removalRequest(s?)(Count|Total|Rate|Score|Rank|Stats)/i])
+
+      const narrowName2 = 'export const riderRemovalRank = 1'
+      expect(
+        checkRemovalBannedAggregations('modules/dispatch/attention.ts', narrowName2)
+      ).toEqual([/(?:courier|rider|perCourier)Removal(s?)(Count|Total|Rate|Score|Rank|Stats)/i])
     })
 
     it('Value 5 guard: proves that planted counts, groupings, or filters of removal requests per courier trigger the guard (AC-22)', () => {
@@ -331,12 +528,16 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       expect(removalRequestBannedAggregations.some((p) => p.test(sampleB))).toBe(true)
       expect(removalRequestBannedAggregations.some((p) => p.test(sampleC))).toBe(true)
       expect(removalRequestBannedAggregations.some((p) => p.test(sampleD))).toBe(true)
+
+      // And prove that the selection logic catches all four samples
+      expect(checkRemovalBannedAggregations('src/any/file.ts', sampleA).length).toBeGreaterThan(0)
+      expect(checkRemovalBannedAggregations('src/any/file.ts', sampleB).length).toBeGreaterThan(0)
+      expect(checkRemovalBannedAggregations('src/modules/removal/requests.ts', sampleC).length).toBeGreaterThan(0)
+      expect(checkRemovalBannedAggregations('src/any/file.ts', sampleD).length).toBeGreaterThan(0)
     })
 
     it('Value 5 guard: verifies DeliveryIssues renders no count of rider reports (decision 66.11)', () => {
       // Contract (6): nothing shows a count of reports (e.g. no "Rider reports (2)" or similar)
-      const fs = require('fs')
-      const path = require('path')
       const issuesComponentFile = path.resolve(
         __dirname,
         '../modules/deliveries/components/DeliveryIssues.tsx'
@@ -346,8 +547,6 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
     })
 
     it('Value 5 guard: ensures DispatchBoardDto contains no per-rider timing, position age, score, or count fields (spec 0034, AC-10, AC-13)', () => {
-      const fs = require('fs')
-      const path = require('path')
       const boardApiFile = path.resolve(
         __dirname,
         '../backend-admin-sdk/src/apis/DispatchBoardApi.ts'
