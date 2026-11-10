@@ -172,6 +172,7 @@ const NUMERIC_SETTINGS = [
   { key: 'waitPayCentsPerMinute', id: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)' },
   { key: 'waitLimitMinutes', id: 'waitLimitMinutes', label: 'Minutes before a rider can leave' },
   { key: 'savedCustomerRetentionMonths', id: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)' },
+  { key: 'returnTripPayPercent', id: 'returnTripPayPercent', label: 'Return trip pay (%)' },
 ] as const
 
 describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)', () => {
