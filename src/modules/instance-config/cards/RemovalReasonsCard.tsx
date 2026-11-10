@@ -135,6 +135,11 @@ export function RemovalReasonsCard({ form, set, loaded }: Pick<CardProps, 'form'
         <RemoveRemovalReasonDialog
           reason={removing}
           onClose={() => setRemoving(null)}
+          onRemoved={() => {
+            // The removed row's button is still on the page until the refetch, then it goes, so focus moves to Add now.
+            openerRef.current = addRef.current
+            setRemoving(null)
+          }}
           onCloseAutoFocus={returnFocus}
         />
       ) : null}

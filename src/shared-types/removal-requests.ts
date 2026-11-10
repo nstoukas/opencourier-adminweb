@@ -14,5 +14,5 @@ export const REMOVAL_REQUEST_STATUS_TO_HUMAN: Record<EnumRemovalRequestStatus, s
   APPROVED: 'Approved',
   DECLINED: 'Declined',
   WITHDRAWN: 'Withdrawn by the rider',
-  CLOSED: 'Closed: the rider came off this order another way',
+  CLOSED: 'Closed: the order ended or changed rider before an answer',
 }

@@ -189,10 +189,12 @@ export function RemovalReasonDialog({ open, reason, onOpenChange, onCloseAutoFoc
 export function RemoveRemovalReasonDialog({
   reason,
   onClose,
+  onRemoved,
   onCloseAutoFocus,
 }: {
   reason: RemovalReasonAdminDto
   onClose: () => void
+  onRemoved: () => void
   onCloseAutoFocus: (event: Event) => void
 }) {
   const [removeReason, { isLoading }] = useRemoveRemovalReasonMutation()
@@ -202,7 +204,7 @@ export function RemoveRemovalReasonDialog({
     setError(null)
     try {
       await removeReason({ id: reason.id }).unwrap()
-      onClose()
+      onRemoved()
     } catch (err) {
       setError(backendMessage(err, 'The reason could not be removed. Try again in a moment.'))
     }
