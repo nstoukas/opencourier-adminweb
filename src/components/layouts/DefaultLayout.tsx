@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import React, { useEffect } from 'react'
 import { AdminSidebar, useCoopName } from './AdminSidebar'
 import { SosAlerts } from '@/modules/sos/SosAlerts'
+import { ChatLive } from '@/modules/chat/ChatLive'
 
 interface DefaultLayoutProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -28,6 +29,8 @@ export function DefaultLayout({ children, className }: DefaultLayoutProps) {
         <MobileBar />
         {/* Riders' SOS on every page, polled every 10 s (spec 0022, AC-8). */}
         <SosAlerts />
+        {/* The chat's live connection and message sound (spec 0034, chat). Draws nothing. */}
+        <ChatLive />
         <div className={cn('flex-1 p-4 sm:p-6', className)}>{children}</div>
       </SidebarInset>
     </SidebarProvider>

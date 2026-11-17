@@ -54,6 +54,11 @@ export type SettingsForm = {
   // Shifts (spec 0026): the co-op switch, unknown until loaded, and the drop notice in hours.
   shiftsEnabled: boolean | null
   shiftDropNoticeHours: string
+  // Chat (spec 0034, AC-13 and AC-18): each preset list as typed, one preset per line, and the days
+  // messages are kept.
+  chatQuickRepliesDispatch: string
+  chatQuickRepliesCourier: string
+  chatRetentionDays: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -69,6 +74,7 @@ type Kind =
   | 'number' // a number box; range rules stay with the backend
   | 'switch' // on or off
   | 'phone' // a phone number, compared without the spaces, dashes, dots and brackets the backend removes
+  | 'lines' // a list typed one entry per line, sent as a list of the trimmed, non empty lines
 
 export type SettingDefinition = { key: SettingKey; label: string; kind: Kind; details?: boolean }
 
@@ -116,6 +122,10 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', kind: 'number' },
   { key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', kind: 'number' },
   { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', kind: 'phone' },
+  // Chat (spec 0034).
+  { key: 'chatQuickRepliesDispatch', label: 'Dispatch quick replies', kind: 'lines' },
+  { key: 'chatQuickRepliesCourier', label: 'Courier quick replies', kind: 'lines' },
+  { key: 'chatRetentionDays', label: 'Chat messages kept for (days)', kind: 'number' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -127,6 +137,19 @@ export function labelOf(key: SettingKey, form?: Pick<SettingsForm, 'distanceUnit
   return SETTINGS.find((definition) => definition.key === key)?.label ?? key
 }
 
+
+// A 'lines' box as it is saved: one entry per line, trimmed, blank lines dropped (spec 0034, AC-13).
+export function linesOf(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+}
+
+// The backend's limits for a preset list (AC-13). It refuses the same by name; checking here first
+// lets the bar say why before anything is sent.
+export const QUICK_REPLIES_MAX_ENTRIES = 8
+export const QUICK_REPLY_MAX_LENGTH = 100
 
 // A link as it is saved: trimmed, without a trailing slash (today's sanitizeURL).
 export const sanitizeURL = (url: string): string => url.trim().replace(/\/$/, '')
@@ -164,6 +187,8 @@ function comparable(definition: SettingDefinition, value: unknown): string {
       return [...((value as string[] | undefined) ?? [])].sort().join(',')
     case 'switch':
       return value === null || value === undefined ? '' : String(value)
+    case 'lines':
+      return linesOf(String(value ?? '')).join('\n')
     case 'phone':
       // The backend stores the number with these removed (row 72), so "+30 24210 12345" typed
       // and "+302421012345" saved are the same number and the edit leaves the bar after a save.
@@ -193,6 +218,10 @@ function shown(
   optionLabel: (key: SettingKey, option: string) => string,
 ): string {
   if (definition.kind === 'region') return ''
+  if (definition.kind === 'lines') {
+    const list = linesOf(String(value ?? ''))
+    return list.length ? list.join(' · ') : '(none)'
+  }
   if (definition.kind === 'switch') return value === true ? 'On' : value === false ? 'Off' : '—'
   if (definition.kind === 'multi') {
     const list = (value as string[] | undefined) ?? []
@@ -259,6 +288,15 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
     if (definition.kind === 'number' && String(value ?? '').trim() === '') {
       found.push(`${definition.label} is empty`)
     }
+    if (definition.kind === 'lines') {
+      const list = linesOf(String(value ?? ''))
+      if (list.length > QUICK_REPLIES_MAX_ENTRIES) {
+        found.push(`${definition.label}: at most ${QUICK_REPLIES_MAX_ENTRIES}, one per line`)
+      }
+      if (list.some((line) => line.length > QUICK_REPLY_MAX_LENGTH)) {
+        found.push(`${definition.label}: each at most ${QUICK_REPLY_MAX_LENGTH} characters`)
+      }
+    }
   }
   return found
 }
@@ -293,6 +331,8 @@ export function savePayload(
     const value = edited[definition.key]
     if (definition.kind === 'cents' || definition.kind === 'number') {
       payload[definition.key] = Number(String(value).trim())
+    } else if (definition.kind === 'lines') {
+      payload[definition.key] = linesOf(String(value ?? ''))
     } else {
       payload[definition.key] = value
     }
@@ -359,6 +399,9 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     dispatchPhoneNumber: data.dispatchPhoneNumber ?? '',
     shiftsEnabled: data.shiftsEnabled ?? null,
     shiftDropNoticeHours: text(data.shiftDropNoticeHours),
+    chatQuickRepliesDispatch: Array.isArray(data.chatQuickRepliesDispatch) ? data.chatQuickRepliesDispatch.join('\n') : '',
+    chatQuickRepliesCourier: Array.isArray(data.chatQuickRepliesCourier) ? data.chatQuickRepliesCourier.join('\n') : '',
+    chatRetentionDays: text(data.chatRetentionDays),
   }
 }
 
@@ -409,6 +452,12 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('sosLocationRetentionDays')) {
     parts.push('The daily job deletes SOS positions under the new period from its next run.')
+  }
+  if (keys.has('chatQuickRepliesDispatch') || keys.has('chatQuickRepliesCourier')) {
+    parts.push('The new quick replies show the next time a conversation is opened.')
+  }
+  if (keys.has('chatRetentionDays')) {
+    parts.push('The daily job deletes chat messages under the new period from its next run.')
   }
   const dispatchPhone = changes.find((change) => change.key === 'dispatchPhoneNumber')
   if (dispatchPhone) {

@@ -259,6 +259,10 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   dispatchPhoneNumber?: string | null;
+  // Chat (spec 0034): the two preset lists and the days messages are kept.
+  chatQuickRepliesDispatch?: Array<string> | null;
+  chatQuickRepliesCourier?: Array<string> | null;
+  chatRetentionDays?: number | null;
   /**
    * Spec 0015: the payout policy (a key of reassignmentPayoutPolicies) that pays a rider whose job
    * is cancelled after they accepted it; FULL_COMPENSATION when none is stored. Hand edited.
@@ -465,6 +469,15 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
+    chatQuickRepliesDispatch: !exists(json, "chatQuickRepliesDispatch")
+      ? null
+      : json["chatQuickRepliesDispatch"],
+    chatQuickRepliesCourier: !exists(json, "chatQuickRepliesCourier")
+      ? null
+      : json["chatQuickRepliesCourier"],
+    chatRetentionDays: !exists(json, "chatRetentionDays")
+      ? null
+      : json["chatRetentionDays"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
       ? null
       : json["cancellationPayoutPolicy"],
@@ -523,6 +536,9 @@ export function InstanceConfigSettingsDtoToJSON(
     shiftsEnabled: value.shiftsEnabled,
     shiftDropNoticeHours: value.shiftDropNoticeHours,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
+    chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
+    chatQuickRepliesCourier: value.chatQuickRepliesCourier,
+    chatRetentionDays: value.chatRetentionDays,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };
 }

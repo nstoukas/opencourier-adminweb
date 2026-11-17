@@ -19,7 +19,8 @@ export const dispatchBoardApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      providesTags: [Tags.deliveries, Tags.deliveryIssues, Tags.removalRequests],
+      // chatThreads: a new chat message refreshes the board's UNREAD_MESSAGE rows at once (spec 0034, AC-17).
+      providesTags: [Tags.deliveries, Tags.deliveryIssues, Tags.removalRequests, Tags.chatThreads],
     }),
   }),
 })

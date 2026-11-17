@@ -25,6 +25,7 @@ import type { DeliveryListState } from '@/modules/deliveries/components/Deliveri
 import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
 import { PartnerFormDialog } from './components/PartnerFormDialog'
 import { RotateCredentialsDialog } from './components/RotateCredentialsDialog'
+import { MessageButton, NO_LOGIN_REASON } from '@/modules/chat/MessageButton'
 import { PartnerAvailabilityCard } from './components/PartnerAvailabilityCard'
 import { PartnerWaitRecordCard } from './components/PartnerWaitRecordCard'
 import { PartnerCustomersCard } from './components/PartnerCustomersCard'
@@ -119,6 +120,13 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
                 See its orders
               </Link>
             </Button>
+            {/* Its chat thread with dispatch (spec 0034, AC-15). With no sign in it could never read a
+                reply, so the button is off and says why. */}
+            <MessageButton
+              party={{ partnerId: partner.id }}
+              name={partner.name}
+              disabledReason={partner.userId ? undefined : NO_LOGIN_REASON}
+            />
             <Button ref={passwordButtonRef} type="button" variant="outline" onClick={() => setRotateDialogOpen(true)}>
               <Key aria-hidden="true" className="mr-2 h-4 w-4" />
               Set New Password

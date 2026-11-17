@@ -11,6 +11,7 @@ import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle, DetailLis
 import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
 import { courierName, deliverySettingLabel, memberSince } from './courierDisplay'
 import { RotateCourierPasswordDialog } from './RotateCourierPasswordDialog'
+import { MessageButton } from '@/modules/chat/MessageButton'
 
 // How many deliveries each card asks for (spec 0012). A rider carries one or two at a time.
 const DELIVERIES_PER_CARD = 10
@@ -81,6 +82,8 @@ export function CourierDetails({ courierId }: { courierId: string }) {
         title={name}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {/* Their chat thread with dispatch (spec 0034, AC-15). */}
+            <MessageButton party={{ courierId: courier.id }} name={name} />
             <Button ref={passwordButtonRef} type="button" variant="outline" onClick={() => setPasswordDialogOpen(true)}>
               <Key aria-hidden="true" className="mr-2 h-4 w-4" />
               Change password

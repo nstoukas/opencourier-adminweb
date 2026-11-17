@@ -260,6 +260,10 @@ export interface InstanceConfigSettingsAdminInput {
    * @memberof InstanceConfigSettingsAdminInput
    */
   dispatchPhoneNumber?: string;
+  // Chat (spec 0034). Without the ToJSON lines below a save would drop them silently.
+  chatQuickRepliesDispatch?: Array<string>;
+  chatQuickRepliesCourier?: Array<string>;
+  chatRetentionDays?: number;
   /**
    * Spec 0015: which payout policy pays a rider whose job is cancelled; a key of
    * reassignmentPayoutPolicies, checked by the backend. Hand edited.
@@ -491,6 +495,15 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
+    chatQuickRepliesDispatch: !exists(json, "chatQuickRepliesDispatch")
+      ? undefined
+      : json["chatQuickRepliesDispatch"],
+    chatQuickRepliesCourier: !exists(json, "chatQuickRepliesCourier")
+      ? undefined
+      : json["chatQuickRepliesCourier"],
+    chatRetentionDays: !exists(json, "chatRetentionDays")
+      ? undefined
+      : json["chatRetentionDays"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
       ? undefined
       : json["cancellationPayoutPolicy"],
@@ -558,6 +571,9 @@ export function InstanceConfigSettingsAdminInputToJSON(
     shiftDropNoticeHours: value.shiftDropNoticeHours,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
+    chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
+    chatQuickRepliesCourier: value.chatQuickRepliesCourier,
+    chatRetentionDays: value.chatRetentionDays,
     // Without this line a save would drop the cancellation rule before it left the browser.
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };

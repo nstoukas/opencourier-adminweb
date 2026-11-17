@@ -15,6 +15,8 @@ const tagTypes = {
   sos: 'Sos',
   removalRequests: 'RemovalRequests',
   removalReasons: 'RemovalReasons',
+  chatThreads: 'ChatThreads',
+  chatMessages: 'ChatMessages',
 }
 
 export const Tags = {
@@ -38,4 +40,6 @@ export const Tags = {
   sos: tagTypes['sos'],
   removalRequests: tagTypes['removalRequests'],
   removalReasons: tagTypes['removalReasons'],
+  chatThreads: tagTypes['chatThreads'],
+  chatMessages: tagTypes['chatMessages'],
 }

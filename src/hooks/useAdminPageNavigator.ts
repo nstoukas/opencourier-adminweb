@@ -16,6 +16,9 @@ export enum EAdminRoutes {
   // The co-op's weekly shift slots (spec 0026).
   SHIFT_SLOTS = '/shift-slots',
   SOS_DETAILS = '/sos/[sosId]',
+  // Dispatch's chat inbox (spec 0034, chat).
+  CHAT = '/chat',
+  CHAT_THREAD = '/chat/[threadId]',
 }
 
 export const Routes = Object.values(EAdminRoutes)

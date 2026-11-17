@@ -811,6 +811,36 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
             </FieldDescription>
           </Field>
         </div>
+        {/* Chat (spec 0034, AC-13 and AC-18): the one tap presets above each message box, and how long
+            messages are kept. A plain <textarea>, one preset per line. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <PresetsField
+            id="chatQuickRepliesCourier"
+            label={labelOf('chatQuickRepliesCourier')}
+            value={form.chatQuickRepliesCourier}
+            disabled={!loaded}
+            description="The presets riders tap above their message box, to write to dispatch without typing. One per line, at most 8, each up to 100 characters."
+            onChange={(value) => set('chatQuickRepliesCourier', value)}
+          />
+          <PresetsField
+            id="chatQuickRepliesDispatch"
+            label={labelOf('chatQuickRepliesDispatch')}
+            value={form.chatQuickRepliesDispatch}
+            disabled={!loaded}
+            description="The presets dispatch sees on Messages. A click puts the words in the box. One per line, at most 8, each up to 100 characters."
+            onChange={(value) => set('chatQuickRepliesDispatch', value)}
+          />
+          <NumberField
+            id="chatRetentionDays"
+            label={labelOf('chatRetentionDays')}
+            value={form.chatRetentionDays}
+            min={7}
+            max={365}
+            disabled={!loaded}
+            description="Chat messages are personal data. Each is deleted this many days after it was written, at 04:20. Whole days, 7 to 365."
+            onChange={(value) => set('chatRetentionDays', value)}
+          />
+        </div>
       </FieldGroup>
     </SettingsSection>
   )
@@ -869,5 +899,38 @@ export function PublicPagesCard({ onEdit }: { onEdit: (view: PublicPage) => void
         ))}
       </ul>
     </SettingsSection>
+  )
+}
+
+// A preset list typed one per line (spec 0034, AC-13). Lowercase <textarea>: the settings coverage
+// guard looks for a bound input-like tag, and the design system's Textarea is drawn the same way.
+function PresetsField({
+  id,
+  label,
+  value,
+  disabled,
+  description,
+  onChange,
+}: {
+  id: string
+  label: string
+  value: string
+  disabled: boolean
+  description: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <textarea
+        id={id}
+        rows={5}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      />
+      <FieldDescription>{description}</FieldDescription>
+    </Field>
   )
 }

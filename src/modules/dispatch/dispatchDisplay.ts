@@ -21,6 +21,8 @@ export function isRedRow(kind: string): boolean {
 // Where a row's Open goes. A kind this page does not know yet still opens something.
 export function rowHref(row: DispatchAttentionRowDto): string {
   if (row.sosId) return `/sos/${row.sosId}`
+  // An unread chat thread (spec 0034, AC-17).
+  if (row.threadId) return `/chat/${row.threadId}`
   if (row.deliveryId) return `/deliveries/${row.deliveryId}`
   return '/deliveries'
 }

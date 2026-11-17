@@ -60,6 +60,14 @@ function RowActions({ row }: { row: DispatchAttentionRowDto }) {
           <ApproveRemovalButton row={row} />
         </>
       )
+    // Spec 0034 (chat), AC-17: a thread with a message dispatch has not read. Yellow, like every row
+    // that is not SOS or a delivery nobody has.
+    case 'UNREAD_MESSAGE':
+      return (
+        <Button asChild size="sm" variant="outline">
+          <Link href={rowHref(row)}>Open Chat</Link>
+        </Button>
+      )
     default:
       return <OpenButton row={row} />
   }

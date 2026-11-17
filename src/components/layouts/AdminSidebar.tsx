@@ -18,7 +18,8 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { CalendarBlank, GearSix, MapPin, Moped, Package, SignOut, Siren, Storefront, WarningCircle } from '@phosphor-icons/react'
+import { CalendarBlank, ChatCircle, GearSix, MapPin, Moped, Package, SignOut, Siren, Storefront, WarningCircle } from '@phosphor-icons/react'
+import { MessagesBadge } from '@/modules/chat/MessagesBadge'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -26,6 +27,8 @@ type NavItem = {
   title: string
   icon: PhosphorIcon
   href: string
+  // Drawn after the title, such as Messages' unread count.
+  badge?: () => JSX.Element | null
 }
 
 type NavGroup = {
@@ -33,8 +36,8 @@ type NavGroup = {
   items: NavItem[]
 }
 
-// The redesign's three groups, holding today's pages. Dispatch and Messages join "Run the day"
-// when rows 90 builds them; Instance Configuration became Settings in row 87.
+// The redesign's three groups, holding today's pages. Dispatch joined "Run the day" with row 90 and
+// Messages with row 111; Instance Configuration became Settings in row 87.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Run the day',
@@ -42,6 +45,8 @@ const NAV_GROUPS: NavGroup[] = [
       // The live board (spec 0034).
       { title: 'Dispatch', icon: MapPin, href: EAdminRoutes.HOME },
       { title: 'Deliveries', icon: Package, href: EAdminRoutes.DELIVERIES },
+      // Dispatch's chat with riders and restaurants, with its count of unread threads (spec 0034, AC-2).
+      { title: 'Messages', icon: ChatCircle, href: EAdminRoutes.CHAT, badge: MessagesBadge },
       // Riders' SOS incidents (spec 0022).
       { title: 'SOS', icon: Siren, href: EAdminRoutes.SOS },
       // Wrong or missing products (spec 0032).
@@ -132,6 +137,7 @@ export function AdminSidebar() {
                           <Link href={item.href} aria-current={active ? 'page' : undefined}>
                             <item.icon />
                             <span>{item.title}</span>
+                            {item.badge ? <item.badge /> : null}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
