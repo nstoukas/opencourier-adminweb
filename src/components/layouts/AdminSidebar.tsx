@@ -20,6 +20,7 @@ import { useAppDispatch } from '../../ui-shared-utils'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { CalendarBlank, ChatCircle, GearSix, MapPin, Moped, Package, SignOut, Siren, Storefront, WarningCircle } from '@phosphor-icons/react'
 import { MessagesBadge } from '@/modules/chat/MessagesBadge'
+import { disconnectChatLive } from '@/modules/chat/chatLive'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -107,6 +108,8 @@ export function AdminSidebar() {
     // fetched so far is dropped from memory.
     dispatch(api.util.resetApiState())
     dispatch(closeAllSheets())
+    // The chat's live connection would keep receiving messages on the sign in page (spec 0034).
+    disconnectChatLive()
   }
 
   return (

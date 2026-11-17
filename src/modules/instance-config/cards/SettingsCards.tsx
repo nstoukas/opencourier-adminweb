@@ -902,8 +902,8 @@ export function PublicPagesCard({ onEdit }: { onEdit: (view: PublicPage) => void
   )
 }
 
-// A preset list typed one per line (spec 0034, AC-13). Lowercase <textarea>: the settings coverage
-// guard looks for a bound input-like tag, and the design system's Textarea is drawn the same way.
+// A preset list typed one per line (spec 0034, AC-13). A plain <textarea>, drawn like the design
+// system's Textarea. The settings coverage guard finds this control by its own name, <PresetsField>.
 function PresetsField({
   id,
   label,

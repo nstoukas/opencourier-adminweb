@@ -18,7 +18,8 @@ export enum EAdminRoutes {
   SOS_DETAILS = '/sos/[sosId]',
   // Dispatch's chat inbox (spec 0034, chat).
   CHAT = '/chat',
-  CHAT_THREAD = '/chat/[threadId]',
+  // One page file answers /chat and /chat/<id> (an optional catch all), so the inbox survives opening a thread.
+  CHAT_THREAD = '/chat/[[...threadId]]',
 }
 
 export const Routes = Object.values(EAdminRoutes)

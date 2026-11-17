@@ -99,7 +99,8 @@ export function ThreadList({ activeThreadId }: { activeThreadId: string | null }
         {!isLoading && !isError && threads.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">{search ? `No conversation matches “${search}”.` : EMPTY_WORDS[tab]}</p>
         ) : null}
-        <ul aria-label="Conversations">
+        {/* No label of its own: the section around it is already named "Conversations". */}
+        <ul>
           {threads.map((thread) => (
             <ThreadRow key={thread.id} thread={thread} active={thread.id === activeThreadId} />
           ))}

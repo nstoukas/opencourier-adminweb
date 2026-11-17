@@ -23,6 +23,9 @@ export type ChatLiveHandlers = {
 let socket: Socket | null = null
 let socketToken: string | null = null
 let live = false
+// A close asked for when ChatLive unmounted, waiting to see whether the next page mounts it again.
+// `ReturnType<typeof setTimeout>` is "whatever setTimeout returns", a number in the browser.
+let pendingClose: ReturnType<typeof setTimeout> | null = null
 const listeners = new Set<() => void>()
 
 function setLive(next: boolean): void {
@@ -54,6 +57,7 @@ export function chatSocketUrl(apiUrl: string | undefined): string | null {
 // Opens the connection for this token, or keeps the one already open for it. A different token (a new
 // sign in) closes the old one first; no token closes it.
 export function connectChatLive(token: string | null, handlers: ChatLiveHandlers): void {
+  cancelPendingClose()
   if (token === socketToken && socket) return
   disconnectChatLive()
   const url = chatSocketUrl(process.env.NEXT_PUBLIC_API_URL)
@@ -85,7 +89,21 @@ export function connectChatLive(token: string | null, handlers: ChatLiveHandlers
   })
 }
 
+// ChatLive unmounted. On a page change the next page's ChatLive mounts in the same render and cancels
+// this, so the connection survives; when nothing mounts it again (signed out), it closes.
+export function closeChatLiveSoon(): void {
+  cancelPendingClose()
+  pendingClose = setTimeout(disconnectChatLive, 0)
+}
+
+function cancelPendingClose(): void {
+  if (pendingClose !== null) clearTimeout(pendingClose)
+  pendingClose = null
+}
+
+// Closes the connection now: sign out, a 401, or a new sign in replacing it.
 export function disconnectChatLive(): void {
+  cancelPendingClose()
   socket?.removeAllListeners()
   socket?.disconnect()
   socket = null

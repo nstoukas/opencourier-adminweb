@@ -45,8 +45,10 @@ export function MessageButton({
         <ChatCircle aria-hidden="true" className="mr-2 h-4 w-4" />
         Message
       </Button>
+      {/* Said on screen beside the button, not only to a screen reader: a disabled button takes no focus
+          and a touch screen shows no title, so this is the one place everyone can read why (AC-15). */}
       {disabledReason ? (
-        <span id={reasonId} className="sr-only">
+        <span id={reasonId} className="max-w-[16rem] text-sm text-muted-foreground">
           {disabledReason}
         </span>
       ) : null}

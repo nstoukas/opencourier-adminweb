@@ -12,6 +12,14 @@ export function messageTime(iso: string): string {
   return clock.format(new Date(iso))
 }
 
+// A message's stamp: the clock for today (Athens day), the date and the clock before that, since one
+// thread runs for up to 90 days (AC-18). "14:05" today, "17 Nov, 14:05" for an older day.
+export function messageStamp(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso)
+  const time = clock.format(date)
+  return dayKey.format(date) === dayKey.format(now) ? time : `${day.format(date)}, ${time}`
+}
+
 // A thread row's time: the clock for today, the date before that.
 export function threadTime(iso: string | null, now: Date = new Date()): string {
   if (!iso) return ''

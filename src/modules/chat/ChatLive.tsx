@@ -3,7 +3,7 @@ import { chatApi } from '@/api/chatApi'
 import { Tags } from '@/api/utils/tags'
 import useAppSelector from '@/hooks/useAppSelector'
 import { useAppDispatch } from '../../ui-shared-utils'
-import { connectChatLive, isChatLive, subscribeChatLive } from './chatLive'
+import { closeChatLiveSoon, connectChatLive, isChatLive, subscribeChatLive } from './chatLive'
 import { listenForChatSoundUnlock, playChatSound } from './chatSound'
 
 // The senders dispatch has to read (AC-7, AC-9). A SYSTEM line repeats a rider's report, which has
@@ -33,8 +33,13 @@ export function ChatLive() {
         dispatch(chatApi.util.invalidateTags([Tags.chatThreads, Tags.chatMessages]))
       },
     })
-    // No cleanup on unmount: the connection outlives a page change. A new token replaces it.
+    // A new token replaces the connection. Every page draws its own DefaultLayout, so this unmounts on
+    // each page change too: the close waits a moment, and the next page's ChatLive cancels it.
   }, [accessToken, dispatch])
+
+  // Unmounted for good (signed out, or a 401: the sign in guard draws nothing): close the connection, so
+  // a signed out tab stops receiving messages. An effect's returned function runs when it unmounts.
+  useEffect(() => () => closeChatLiveSoon(), [])
 
   return null
 }

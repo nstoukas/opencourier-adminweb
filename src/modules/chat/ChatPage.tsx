@@ -6,11 +6,15 @@ import { Conversation } from './Conversation'
 import { ThreadList } from './ThreadList'
 
 // Spec 0034 (chat), AC-2: Messages. On a wide screen the inbox and the open conversation sit side by
-// side; below 1024 px one shows at a time (the inbox at /chat, a conversation at /chat/[threadId]),
+// side; below 1024 px one shows at a time (the inbox at /chat, a conversation at /chat/<id>, one page file),
 // so nothing scrolls sideways at 768.
 export function ChatPage({ threadId }: { threadId: string | null }) {
   return (
     <DefaultLayout className="p-0 sm:p-0" fillViewport>
+      {/* Below 1024 px an open thread hides the inbox, and with it the inbox's h1 (display: none takes it
+          out of what a screen reader can reach). This visually hidden h1 stands in there, and is itself
+          hidden from 1024 px, where the inbox and its h1 show: one reachable h1 at every width (AC-2). */}
+      {threadId ? <h1 className="sr-only lg:hidden">Messages</h1> : null}
       <div className="flex min-h-[calc(100dvh-3.5rem)] lg:h-full lg:min-h-0">
         <section
           aria-label="Conversations"

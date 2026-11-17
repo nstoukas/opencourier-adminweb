@@ -13,7 +13,7 @@ import { usePageVisible } from '@/hooks/usePageVisible'
 import { Avatar, AvatarFallback, Button, StatusBadge, Textarea, statusLabel } from '../../admin-web-components'
 import { cn } from '../../ui-shared-utils'
 import { useChatLive } from './ChatLive'
-import { CHAT_MESSAGE_MAX_LENGTH, initials, messageTime, newClientMessageId, orderLabel, roleLabel, sendableText } from './chatDisplay'
+import { CHAT_MESSAGE_MAX_LENGTH, initials, messageStamp, messageTime, newClientMessageId, orderLabel, roleLabel, sendableText } from './chatDisplay'
 
 // Without the live connection, an open conversation asks again on this beat (AC-8).
 export const CONVERSATION_POLL_MS = 10_000
@@ -38,30 +38,53 @@ export function Conversation({ threadId }: { threadId: string }) {
   const [noMoreOlder, setNoMoreOlder] = useState(false)
   const [outgoing, setOutgoing] = useState<Outgoing[]>([])
   const [loadOlder, olderQuery] = useLazyGetChatMessagesQuery()
-  useEffect(() => {
-    setOlder([])
-    setNoMoreOlder(false)
-    setOutgoing([])
-  }, [threadId])
 
   const messages = useMemo(() => {
     const seen = new Set<string>()
     return [...older, ...(newest ?? [])].filter((message) => (seen.has(message.id) ? false : (seen.add(message.id), true)))
   }, [older, newest])
   const shownIds = useMemo(() => new Set(messages.map((message) => message.id)), [messages])
-  // A sent message leaves the outgoing list once the server's list holds it.
-  const pending = outgoing.filter((item) => !item.serverId || !shownIds.has(item.serverId))
+  // The ids this admin's screen gave its messages, as the server sends them back (AC-19).
+  const shownClientIds = useMemo(() => new Set(messages.map((message) => message.clientMessageId).filter(Boolean)), [messages])
+  // A sent message leaves the outgoing list once the server's list holds it. Matching on clientMessageId
+  // also catches a send whose answer was lost on the way back: the message was stored, so its "Not sent"
+  // copy goes instead of showing twice.
+  const pending = outgoing.filter(
+    (item) => !(item.serverId && shownIds.has(item.serverId)) && !shownClientIds.has(item.clientMessageId)
+  )
 
   // AC-7: opening the thread in a visible tab reads it for every admin, and so does a message arriving
   // while it is open. Asked once per newest message.
   const [markRead] = useMarkChatThreadReadMutation()
   const newestId = newest?.at(-1)?.id ?? null
   const markedFor = useRef<string | null>(null)
+  // Changes on every fetch of the messages (a poll, a live event, a refetch), so a failed mark is tried
+  // again on the next one even when no new message came.
+  const messagesFetchedAt = messagesQuery.fulfilledTimeStamp
   useEffect(() => {
-    if (!pageVisible || !newestId || markedFor.current === `${threadId}:${newestId}`) return
-    markedFor.current = `${threadId}:${newestId}`
-    void markRead(threadId)
-  }, [markRead, newestId, pageVisible, threadId])
+    const key = `${threadId}:${newestId}`
+    if (!pageVisible || !newestId || markedFor.current === key) return
+    markedFor.current = key
+    void markRead(threadId).then((result) => {
+      // Failed: forget it, so the next fetch, event or return to the tab asks again.
+      if ('error' in result && markedFor.current === key) markedFor.current = null
+    })
+  }, [markRead, messagesFetchedAt, newestId, pageVisible, threadId])
+
+  // A screen reader hears a new message from the rider or restaurant that arrives while the thread is
+  // open, through the status line below, instead of the whole list being read out on every load.
+  // `undefined` means the first page has not loaded yet: what is there on opening is not announced.
+  const newestFromParty = newest?.filter((message) => message.senderKind === 'COURIER' || message.senderKind === 'PARTNER').at(-1)
+  const lastFromParty = useRef<string | null | undefined>(undefined)
+  const [announcement, setAnnouncement] = useState('')
+  useEffect(() => {
+    if (!newest) return
+    const id = newestFromParty?.id ?? null
+    if (lastFromParty.current !== undefined && newestFromParty && id !== lastFromParty.current) {
+      setAnnouncement(`New message from ${newestFromParty.senderName ?? 'them'}, ${messageTime(newestFromParty.createdAt)}`)
+    }
+    lastFromParty.current = id
+  }, [newest, newestFromParty])
 
   // Keep the newest message in view as messages arrive.
   const endRef = useRef<HTMLDivElement>(null)
@@ -119,7 +142,12 @@ export function Conversation({ threadId }: { threadId: string }) {
     <div className="flex h-full min-h-0 flex-col">
       <ConversationHeader thread={thread} />
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6" aria-live="polite" aria-label={`Messages with ${thread.name}`}>
+      {/* role="status" is a polite live region: a screen reader reads out what is put in it. */}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
+
+      <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         {messagesQuery.isError ? (
           <p role="status" className="text-sm text-destructive">
             Messages can&apos;t be reached right now. They will load again on their own.
@@ -135,7 +163,7 @@ export function Conversation({ threadId }: { threadId: string }) {
         {messagesQuery.isSuccess && messages.length === 0 && pending.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">No messages yet. Write the first one below.</p>
         ) : null}
-        <ol className="space-y-4">
+        <ol className="space-y-4" aria-label={`Messages with ${thread.name}`}>
           {messages.map((message) => (
             <MessageItem key={message.id} message={message} partyName={thread.name} />
           ))}
@@ -243,7 +271,7 @@ function MessageItem({ message, partyName }: { message: ChatMessageAdminDto; par
     return (
       <li className="flex justify-center">
         <p className="max-w-[90%] whitespace-pre-wrap break-words rounded-full bg-destructive-soft px-3 py-1 text-center text-xs font-medium">
-          {messageTime(message.createdAt)} · {message.body}
+          {messageStamp(message.createdAt)} · {message.body}
           {orderLink ? <> · {orderLink}</> : null}
         </p>
       </li>
@@ -263,7 +291,7 @@ function MessageItem({ message, partyName }: { message: ChatMessageAdminDto; par
         {message.body}
       </p>
       <span className="text-xs text-muted-foreground">
-        {who} · {messageTime(message.createdAt)}
+        {who} · {messageStamp(message.createdAt)}
         {orderLink ? <> · {orderLink}</> : null}
         {/* "Sent" means the server stored it. Dispatch never sees whether a rider read it (AC-6). */}
         {fromDispatch ? ' · Sent' : ''}
@@ -301,12 +329,15 @@ function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (tex
           (decision 111.6). */}
       {thread.quickReplies.length > 0 ? (
         <div className="flex flex-wrap gap-2" aria-label="Quick replies" role="group">
-          {thread.quickReplies.map((reply) => (
+          {/* The index in the key too: the co-op may save the same preset twice. A preset wraps instead of
+              spilling out of a one line button (presets may be 100 characters). */}
+          {thread.quickReplies.map((reply, index) => (
             <Button
-              key={reply}
+              key={`${index}-${reply}`}
               type="button"
               variant="outline"
               size="sm"
+              className="h-auto min-h-9 whitespace-normal break-words py-1.5 text-left"
               onClick={() => {
                 setText(reply)
                 boxRef.current?.focus()

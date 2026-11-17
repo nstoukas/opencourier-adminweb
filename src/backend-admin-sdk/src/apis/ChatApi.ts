@@ -23,6 +23,9 @@ export interface ChatMessageAdminDto {
     body: string;
     deliveryId: string | null;
     orderReference: string | null;
+    // The id the sender's screen made for this message (AC-19), so a screen can match its own pending copy.
+    // `?` because an older backend leaves it out; null for a message sent without one.
+    clientMessageId?: string | null;
     createdAt: string;
 }
 
