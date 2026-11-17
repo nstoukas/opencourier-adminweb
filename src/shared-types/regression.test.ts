@@ -561,5 +561,113 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
         expect(content).not.toMatch(pattern)
       }
     })
+
+    it('Value 5 guard: ensures readByDispatch does not appear anywhere in adminweb (spec 0034, AC-6, AC-20)', () => {
+      // AC-6: The server stores no record of when a rider or restaurant read a message.
+      // readByDispatch appears only on COURIER and PARTNER messages on the courier/partner APIs,
+      // and must never appear in adminweb at all.
+      function getAllSourceFiles(dir: string): string[] {
+        if (!fs.existsSync(dir)) return []
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+        const results: string[] = []
+        for (const entry of entries) {
+          if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
+          const fullPath = path.join(dir, entry.name)
+          if (entry.isDirectory()) {
+            results.push(...getAllSourceFiles(fullPath))
+          } else if (
+            (entry.name.endsWith('.ts') ||
+              entry.name.endsWith('.tsx') ||
+              entry.name.endsWith('.js') ||
+              entry.name.endsWith('.jsx')) &&
+            !entry.name.includes('.test.') &&
+            !entry.name.includes('.spec.')
+          ) {
+            results.push(fullPath)
+          }
+        }
+        return results
+      }
+
+      const srcDir = path.resolve(__dirname, '..')
+      const allFiles = getAllSourceFiles(srcDir)
+      expect(allFiles.length).toBeGreaterThan(0)
+
+      for (const file of allFiles) {
+        const content = fs.readFileSync(file, 'utf-8')
+        expect(content).not.toMatch(/\breadByDispatch\b/)
+      }
+    })
+
+    it('Value 5 guard: ensures chat files contain no count, timing or ranking of one person messages and no field about rider or restaurant reading (spec 0034, AC-6, AC-20)', () => {
+      // Contract & AC-20: Nothing counts, times or ranks messages per person; no screen shows answer times.
+      // No field about a rider or restaurant reading may exist in the SDK DTOs, API, or chat modules.
+      const chatDir = path.resolve(__dirname, '../modules/chat')
+      const chatFiles = [
+        path.resolve(__dirname, '../api/chatApi.ts'),
+        path.resolve(__dirname, '../backend-admin-sdk/src/apis/ChatApi.ts'),
+      ]
+
+      if (fs.existsSync(chatDir)) {
+        const entries = fs.readdirSync(chatDir)
+        for (const entry of entries) {
+          if (
+            (entry.endsWith('.ts') || entry.endsWith('.tsx')) &&
+            !entry.includes('.test.') &&
+            !entry.includes('.spec.')
+          ) {
+            chatFiles.push(path.join(chatDir, entry))
+          }
+        }
+      }
+
+      expect(chatFiles.length).toBeGreaterThanOrEqual(10)
+
+      const bannedChatPatterns = [
+        /\breadByDispatch\b/i,
+        /\b(?:readBy|lastReadAt)(?:Courier|Partner|Rider|Restaurant)\b/i,
+        /\b(?:courier|partner|rider|restaurant)(?:ReadAt|LastReadAt)\b/i,
+        /\b(?:courier|rider|partner|person|user)Message(?:s)?(?:Count|Total|Rate|Score|Rank|Stats)\b/i,
+        /(?:responseTime|answerTime|replyTime|timeToAnswer|firstResponseTime|messageTiming)/i,
+        /(?:message|messages)Ranking/i,
+        /(?:rider|courier|partner).*(?:answerTime|responseTime)/i,
+      ]
+
+      for (const file of chatFiles) {
+        const content = fs.readFileSync(file, 'utf-8')
+        for (const pattern of bannedChatPatterns) {
+          expect(content).not.toMatch(pattern)
+        }
+      }
+    })
+
+    it('Value 5 guard: proves chat patterns catch planted per-person counts, response times, and rider read fields', () => {
+      const bannedChatPatterns = [
+        /\breadByDispatch\b/i,
+        /\b(?:readBy|lastReadAt)(?:Courier|Partner|Rider|Restaurant)\b/i,
+        /\b(?:courier|partner|rider|restaurant)(?:ReadAt|LastReadAt)\b/i,
+        /\b(?:courier|rider|partner|person|user)Message(?:s)?(?:Count|Total|Rate|Score|Rank|Stats)\b/i,
+        /(?:responseTime|answerTime|replyTime|timeToAnswer|firstResponseTime|messageTiming)/i,
+        /(?:message|messages)Ranking/i,
+        /(?:rider|courier|partner).*(?:answerTime|responseTime)/i,
+      ]
+
+      const plantedViolations = [
+        'export const courierMessageCount = 15',
+        'export const riderMessageStats = { count: 10 }',
+        'export const responseTime = 45',
+        'export const averageAnswerTime = 120',
+        'export const riderReadAt = "2026-11-17T14:00:00Z"',
+        'export const readByCourier = true',
+        'export const courierLastReadAt = "2026-11-17T14:00:00Z"',
+        'export const messageRanking = ["c-1", "c-2"]',
+        'export interface ChatMessage { readByDispatch: boolean }',
+      ]
+
+      for (const sample of plantedViolations) {
+        const fires = bannedChatPatterns.some((pattern) => pattern.test(sample))
+        expect(fires).toBe(true)
+      }
+    })
   })
 })

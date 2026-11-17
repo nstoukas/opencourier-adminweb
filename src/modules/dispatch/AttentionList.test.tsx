@@ -578,19 +578,19 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
     it('draws a plain row with an Open button and does not throw', () => {
       const unknownRow: DispatchAttentionRowDto = {
         id: 'r-future',
-        kind: 'UNREAD_MESSAGE',
+        kind: 'FUTURE_UNKNOWN_KIND' as any,
         since: '2026-11-09T14:27:00.000Z',
         deliveryId: 'del-chat-1',
         sosId: null,
         issueId: null,
-        threadId: 'th-1',
+        threadId: null,
         status: DeliveryAdminDtoStatusEnum.Dispatched,
         courierId: 'c-chat',
         orderReference: 'CHAT1',
         restaurantName: 'Grill',
         riderName: 'Petros',
         customerLabel: 'Maria',
-        detail: 'Petros sent: Running 5 min late',
+        detail: 'Future event occurred',
         held: false,
       }
 
@@ -598,9 +598,58 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
         render(<AttentionList rows={[unknownRow]} more={0} nowMs={nowMs} />)
       }).not.toThrow()
 
-      expect(screen.getByText(/#CHAT1 · Petros sent: Running 5 min late/)).toBeInTheDocument()
+      expect(screen.getByText(/#CHAT1 · Future event occurred/)).toBeInTheDocument()
       const openBtn = screen.getByRole('link', { name: 'Open' })
       expect(openBtn).toHaveAttribute('href', '/deliveries/del-chat-1')
+    })
+  })
+
+  describe('UNREAD_MESSAGE row (spec 0034, AC-17)', () => {
+    const unreadMessageRow: DispatchAttentionRowDto = {
+      id: 'r-chat-unread-1',
+      kind: 'UNREAD_MESSAGE',
+      since: '2026-11-09T14:20:00.000Z',
+      deliveryId: 'del-chat-1',
+      sosId: null,
+      issueId: null,
+      threadId: 'thread-xyz-789',
+      status: DeliveryAdminDtoStatusEnum.Dispatched,
+      courierId: 'c-chat',
+      orderReference: 'CHAT42',
+      restaurantName: 'Souvlaki House',
+      riderName: 'Petros',
+      customerLabel: 'Maria',
+      detail: 'Petros sent: Running 5 min late',
+      held: false,
+    }
+
+    it('draws dot as yellow (bg-warning, sr-only "Running.", never bg-destructive or "Nobody has taken this.")', () => {
+      render(<AttentionList rows={[unreadMessageRow]} more={0} nowMs={nowMs} />)
+
+      const rowElement = screen.getByTestId('attention-row')
+      const dot = rowElement.querySelector('span[aria-hidden="true"]')
+      expect(dot?.className).toContain('bg-warning')
+      expect(dot?.className).not.toContain('bg-destructive')
+
+      expect(rowElement).toHaveTextContent('Running.')
+      expect(rowElement).not.toHaveTextContent('Nobody has taken this.')
+    })
+
+    it('draws an "Open Chat" link to /chat/<threadId>', () => {
+      render(<AttentionList rows={[unreadMessageRow]} more={0} nowMs={nowMs} />)
+
+      const openChatLink = screen.getByRole('link', { name: 'Open Chat' })
+      expect(openChatLink).toBeInTheDocument()
+      expect(openChatLink).toHaveAttribute('href', '/chat/thread-xyz-789')
+    })
+
+    it('rowHref and headline link go to /chat/<threadId> when threadId is set', () => {
+      render(<AttentionList rows={[unreadMessageRow]} more={0} nowMs={nowMs} />)
+
+      const headlineLink = screen.getByRole('link', {
+        name: /#CHAT42 · Petros sent: Running 5 min late/,
+      })
+      expect(headlineLink).toHaveAttribute('href', '/chat/thread-xyz-789')
     })
   })
 

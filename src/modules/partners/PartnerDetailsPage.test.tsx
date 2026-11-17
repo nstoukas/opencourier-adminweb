@@ -63,6 +63,10 @@ jest.mock('../../api/deliveriesApi', () => ({
   useGetDeliveriesQuery: (args: any, options: any) => mockUseGetDeliveriesQuery(args, options),
 }))
 
+jest.mock('../../api/chatApi', () => ({
+  useOpenChatThreadMutation: () => [jest.fn(), { isLoading: false }],
+}))
+
 // Mock child dialogs and customer card to keep tests focused on the page
 jest.mock('./components/PartnerCustomersCard', () => ({
   PartnerCustomersCard: ({ partnerId, restaurantName }: { partnerId: string; restaurantName: string }) => (

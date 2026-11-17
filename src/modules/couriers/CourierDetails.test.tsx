@@ -51,6 +51,10 @@ jest.mock('../../api/deliveriesApi', () => ({
   useGetDeliveriesQuery: (args: any, options: any) => mockUseGetDeliveriesQuery(args, options),
 }))
 
+jest.mock('../../api/chatApi', () => ({
+  useOpenChatThreadMutation: () => [jest.fn(), { isLoading: false }],
+}))
+
 describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () => {
   const baseCourier: CourierAdminDto = {
     id: 'c1',

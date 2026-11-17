@@ -26,13 +26,13 @@ const describeSuite = backendExists ? describe : describe.skip
 /**
  * Scans comment-stripped page source text for opening tags of input-like elements:
  * <Input ...>, <NativeSelect ...>, <Select ...>, <select ...>, <textarea ...>, <RadioGroup ...>, <Switch ...>,
- * <ReassignmentPayoutPolicyEditor ...>, <OptionSelect ...>, <NumberField ...>.
+ * <ReassignmentPayoutPolicyEditor ...>, <OptionSelect ...>, <NumberField ...>, <PresetsField ...>.
  * Correctly handles JSX attribute expressions {...} and nested quotes so tags spanning
  * multiple lines or containing arrow functions (=>) are fully captured.
  */
 function extractInputTags(sourceText: string): string[] {
   const inputTagRegex =
-    /<(Input|NativeSelect|Select|select|textarea|RadioGroup|Switch|ReassignmentPayoutPolicyEditor|OptionSelect|NumberField)\b/g
+    /<(Input|NativeSelect|Select|select|textarea|RadioGroup|Switch|ReassignmentPayoutPolicyEditor|OptionSelect|NumberField|PresetsField)\b/g
   const tags: string[] = []
   let match: RegExpExecArray | null
 

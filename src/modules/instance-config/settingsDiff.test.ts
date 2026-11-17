@@ -78,6 +78,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     dispatchPhoneNumber: '+302421012345',
     shiftsEnabled: false,
     shiftDropNoticeHours: '12',
+    chatQuickRepliesDispatch: 'Line 1\nLine 2',
+    chatQuickRepliesCourier: 'Courier line 1\nCourier line 2',
+    chatRetentionDays: '90',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {
@@ -1341,6 +1344,137 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
       const deserialized = InstanceConfigSettingsDtoFromJSON({ returnTripPayPercent: 65 })
       expect(deserialized.returnTripPayPercent).toBe(65)
+    })
+  })
+
+  describe('Chat settings (spec 0034, AC-13, AC-18)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('formFromSettings joins quick replies lists with newlines and converts retention days to string', () => {
+      const backendData = {
+        chatQuickRepliesDispatch: ['Wait 5 min', 'Leave at door'],
+        chatQuickRepliesCourier: ['At the door', 'Food not ready'],
+        chatRetentionDays: 90,
+      }
+      const form = formFromSettings(backendData)
+      expect(form.chatQuickRepliesDispatch).toBe('Wait 5 min\nLeave at door')
+      expect(form.chatQuickRepliesCourier).toBe('At the door\nFood not ready')
+      expect(form.chatRetentionDays).toBe('90')
+
+      // Empty or missing falls back to empty strings
+      expect(EMPTY_FORM.chatQuickRepliesDispatch).toBe('')
+      expect(EMPTY_FORM.chatQuickRepliesCourier).toBe('')
+      expect(EMPTY_FORM.chatRetentionDays).toBe('')
+    })
+
+    it('pendingChanges detects edits to chatQuickRepliesDispatch and chatQuickRepliesCourier as kind "lines"', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesDispatch: 'Wait 5 min\nLeave at door\nBring back to store',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('chatQuickRepliesDispatch')
+      expect(changes[0]?.label).toBe('Dispatch quick replies')
+      expect(changes[0]?.from).toBe('Line 1 · Line 2')
+      expect(changes[0]?.to).toBe('Wait 5 min · Leave at door · Bring back to store')
+    })
+
+    it('sameValue ignores blank lines and trailing whitespace on lines kind', () => {
+      const a = 'Line 1\nLine 2'
+      const b = '  Line 1  \n\n  Line 2\n'
+      expect(sameValue('chatQuickRepliesDispatch', a, b)).toBe(true)
+      expect(sameValue('chatQuickRepliesCourier', a, b)).toBe(true)
+    })
+
+    it('blockers rejects more than 8 lines for dispatch or courier presets, naming the setting', () => {
+      const nineLines = Array.from({ length: 9 }, (_, i) => `Preset ${i + 1}`).join('\n')
+
+      const editedDispatch: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesDispatch: nineLines,
+      }
+      const changesDispatch = pendingChanges(baseSavedForm, editedDispatch)
+      const dispatchBlockers = blockers(changesDispatch, editedDispatch)
+      expect(dispatchBlockers).toContain('Dispatch quick replies: at most 8, one per line')
+
+      const editedCourier: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesCourier: nineLines,
+      }
+      const changesCourier = pendingChanges(baseSavedForm, editedCourier)
+      const courierBlockers = blockers(changesCourier, editedCourier)
+      expect(courierBlockers).toContain('Courier quick replies: at most 8, one per line')
+    })
+
+    it('blockers rejects any line over 100 characters in presets, naming the setting', () => {
+      const longLine = 'a'.repeat(101)
+
+      const editedDispatch: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesDispatch: `Short line\n${longLine}`,
+      }
+      const changesDispatch = pendingChanges(baseSavedForm, editedDispatch)
+      expect(blockers(changesDispatch, editedDispatch)).toContain('Dispatch quick replies: each at most 100 characters')
+
+      const editedCourier: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesCourier: longLine,
+      }
+      const changesCourier = pendingChanges(baseSavedForm, editedCourier)
+      expect(courierBlockers(changesCourier, editedCourier)).toContain('Courier quick replies: each at most 100 characters')
+
+      function courierBlockers(c: any, e: any) {
+        return blockers(c, e)
+      }
+    })
+
+    it('blockers rejects empty chatRetentionDays', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        chatRetentionDays: '   ',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(blockers(changes, edited)).toContain('Chat messages kept for (days) is empty')
+    })
+
+    it('savePayload sends presets as trimmed lists with blank lines dropped, and retention days as a number', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesDispatch: '  First reply  \n\n  Second reply  \n',
+        chatQuickRepliesCourier: 'Courier reply 1\nCourier reply 2',
+        chatRetentionDays: '60',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.chatQuickRepliesDispatch).toEqual(['First reply', 'Second reply'])
+      expect(payload.chatQuickRepliesCourier).toEqual(['Courier reply 1', 'Courier reply 2'])
+      expect(payload.chatRetentionDays).toBe(60)
+      expect(typeof payload.chatRetentionDays).toBe('number')
+      expect(payload).not.toHaveProperty('details')
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON and InstanceConfigSettingsDtoFromJSON carry all three chat keys', () => {
+      const input = {
+        chatQuickRepliesDispatch: ['Dispatch reply 1'],
+        chatQuickRepliesCourier: ['Courier reply 1'],
+        chatRetentionDays: 90,
+      }
+      const serialized = InstanceConfigSettingsAdminInputToJSON(input as any)
+      expect(serialized.chatQuickRepliesDispatch).toEqual(['Dispatch reply 1'])
+      expect(serialized.chatQuickRepliesCourier).toEqual(['Courier reply 1'])
+      expect(serialized.chatRetentionDays).toBe(90)
+
+      const dtoData = {
+        chatQuickRepliesDispatch: ['Preset A', 'Preset B'],
+        chatQuickRepliesCourier: ['Rider Preset'],
+        chatRetentionDays: 45,
+      }
+      const deserialized = InstanceConfigSettingsDtoFromJSON(dtoData)
+      expect(deserialized.chatQuickRepliesDispatch).toEqual(['Preset A', 'Preset B'])
+      expect(deserialized.chatQuickRepliesCourier).toEqual(['Rider Preset'])
+      expect(deserialized.chatRetentionDays).toBe(45)
     })
   })
 })

@@ -24,6 +24,12 @@ jest.mock('../../api/configApi', () => ({
   useGetInstanceConfigQuery: () => mockUseGetInstanceConfigQuery(),
 }))
 
+// Mock chat API query for unread count badge
+const mockUseGetChatUnreadCountQuery = jest.fn()
+jest.mock('../../api/chatApi', () => ({
+  useGetChatUnreadCountQuery: () => mockUseGetChatUnreadCountQuery(),
+}))
+
 describe('DefaultLayout and Admin shell (row 86)', () => {
   let store: ReturnType<typeof makeStore>
 
@@ -39,12 +45,18 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
         },
       },
     })
+    mockUseGetChatUnreadCountQuery.mockReturnValue({
+      data: { count: 0 },
+    })
   })
 
-  const renderLayout = (ui: React.ReactNode = <div>Page Content</div>) => {
+  const renderLayout = (
+    ui: React.ReactNode = <div>Page Content</div>,
+    props?: React.ComponentProps<typeof DefaultLayout>
+  ) => {
     return render(
       <Provider store={store}>
-        <DefaultLayout>{ui}</DefaultLayout>
+        <DefaultLayout {...props}>{ui}</DefaultLayout>
       </Provider>
     )
   }
@@ -98,6 +110,33 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(h1s).toHaveLength(1)
       expect(h1s[0]).toHaveTextContent('Deliveries')
     })
+
+    // Spec 0034, decision 111.10: viewport-filling layout for single-screen pages like Messages (/chat)
+    it('applies viewport-filling classes when fillViewport is true and omits them when false (decision 111.10)', () => {
+      // 1. With fillViewport={true}: <main> carries lg:h-svh lg:overflow-hidden and content wrapper carries lg:min-h-0
+      const { unmount } = renderLayout(<div data-testid="page-child">Chat Viewport</div>, {
+        fillViewport: true,
+      })
+
+      const main = screen.getByRole('main')
+      expect(main).toHaveClass('lg:h-svh')
+      expect(main).toHaveClass('lg:overflow-hidden')
+
+      const contentWrapper = screen.getByTestId('page-child').parentElement
+      expect(contentWrapper).toHaveClass('lg:min-h-0')
+
+      unmount()
+
+      // 2. Without fillViewport (default false): neither <main> nor content wrapper carries viewport-filling classes
+      renderLayout(<div data-testid="page-child">Standard Content</div>)
+
+      const defaultMain = screen.getByRole('main')
+      expect(defaultMain).not.toHaveClass('lg:h-svh')
+      expect(defaultMain).not.toHaveClass('lg:overflow-hidden')
+
+      const defaultContentWrapper = screen.getByTestId('page-child').parentElement
+      expect(defaultContentWrapper).not.toHaveClass('lg:min-h-0')
+    })
   })
 
   describe('AdminSidebar and Groups', () => {
@@ -140,6 +179,10 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(screen.queryByRole('link', { name: /Overview/i })).toBeNull()
       const deliveriesLink = screen.getByRole('link', { name: /Deliveries/i })
       expect(deliveriesLink).toHaveAttribute('href', '/deliveries')
+      // Spec 0034, AC-2: Messages under Run the day linking to /chat
+      const messagesLink = screen.getByRole('link', { name: /Messages/i })
+      expect(messagesLink).toHaveAttribute('href', '/chat')
+      expect(EAdminRoutes.CHAT).toBe('/chat')
       const sosLink = screen.getByRole('link', { name: /SOS/i })
       expect(sosLink).toHaveAttribute('href', '/sos')
       const productReportsLink = screen.getByRole('link', { name: /Product reports/i })
@@ -172,6 +215,30 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(links[1]).toHaveAttribute('aria-current', 'page')
       expect(links[0]).not.toHaveAttribute('aria-current')
       expect(screen.getAllByRole('link', { name: /Shift slots/ })).toHaveLength(1)
+    })
+
+    // Spec 0034 (chat), AC-2: Messages under Run the day with unread count, hidden at 0
+    it('Messages unread badge is hidden when count is 0, and visible when count > 0', () => {
+      // 1. With count = 0: badge is hidden
+      mockUseGetChatUnreadCountQuery.mockReturnValue({
+        data: { count: 0 },
+      })
+      const { unmount } = renderLayout()
+
+      const messagesLink = screen.getByRole('link', { name: /Messages/i })
+      expect(messagesLink).toBeInTheDocument()
+      expect(screen.queryByLabelText(/unread/i)).toBeNull()
+      unmount()
+
+      // 2. With count = 4: badge renders with "4" and aria-label "4 unread"
+      mockUseGetChatUnreadCountQuery.mockReturnValue({
+        data: { count: 4 },
+      })
+      renderLayout()
+
+      const badge = screen.getByLabelText('4 unread')
+      expect(badge).toBeInTheDocument()
+      expect(badge).toHaveTextContent('4')
     })
 
     it('marks current page with aria-current="page" and data-active="true"', () => {
