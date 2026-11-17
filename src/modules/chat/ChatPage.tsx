@@ -10,8 +10,8 @@ import { ThreadList } from './ThreadList'
 // so nothing scrolls sideways at 768.
 export function ChatPage({ threadId }: { threadId: string | null }) {
   return (
-    <DefaultLayout className="p-0 sm:p-0">
-      <div className="flex min-h-[calc(100dvh-3.5rem)] lg:h-dvh lg:min-h-0">
+    <DefaultLayout className="p-0 sm:p-0" fillViewport>
+      <div className="flex min-h-[calc(100dvh-3.5rem)] lg:h-full lg:min-h-0">
         <section
           aria-label="Conversations"
           className={cn('flex w-full flex-col border-r lg:w-96 lg:shrink-0', threadId ? 'hidden lg:flex' : 'flex')}

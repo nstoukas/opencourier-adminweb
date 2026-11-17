@@ -76,7 +76,7 @@ export function ThreadList({ activeThreadId }: { activeThreadId: string | null }
             setPage(1)
           }}
         >
-          <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsList className="w-full justify-start">
             {TABS.map((item) => (
               <TabsTrigger key={item.value} value={item.value} className="gap-1.5">
                 {item.label}

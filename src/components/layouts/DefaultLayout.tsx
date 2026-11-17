@@ -6,14 +6,18 @@ import { AdminSidebar, useCoopName } from './AdminSidebar'
 import { SosAlerts } from '@/modules/sos/SosAlerts'
 import { ChatLive } from '@/modules/chat/ChatLive'
 
-interface DefaultLayoutProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface DefaultLayoutProps extends React.HTMLAttributes<HTMLDivElement> {
+  // From 1024 px, the page is exactly one screen tall and its own parts scroll (Messages, spec 0034),
+  // instead of the whole page growing with its content.
+  fillViewport?: boolean
+}
 
 /**
  * The shell every signed in admin page sits in: the sidebar on the left and the page in
  * `<main>` beside it. Each page starts its content with a PageHeader (its h1 and action).
  * Below 1024px the sidebar becomes a sheet, opened from a slim bar at the top.
  */
-export function DefaultLayout({ children, className }: DefaultLayoutProps) {
+export function DefaultLayout({ children, className, fillViewport = false }: DefaultLayoutProps) {
   return (
     <SidebarProvider>
       {/* Hidden until a keyboard user presses Tab, then the first thing on the page. */}
@@ -25,13 +29,13 @@ export function DefaultLayout({ children, className }: DefaultLayoutProps) {
       </a>
       <AdminSidebar />
       <CloseSheetOnNavigation />
-      <SidebarInset>
+      <SidebarInset className={fillViewport ? 'lg:h-svh lg:overflow-hidden' : undefined}>
         <MobileBar />
         {/* Riders' SOS on every page, polled every 10 s (spec 0022, AC-8). */}
         <SosAlerts />
         {/* The chat's live connection and message sound (spec 0034, chat). Draws nothing. */}
         <ChatLive />
-        <div className={cn('flex-1 p-4 sm:p-6', className)}>{children}</div>
+        <div className={cn('flex-1 p-4 sm:p-6', fillViewport && 'lg:min-h-0', className)}>{children}</div>
       </SidebarInset>
     </SidebarProvider>
   )
