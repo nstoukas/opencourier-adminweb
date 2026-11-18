@@ -28,6 +28,7 @@ import { RotateCredentialsDialog } from './components/RotateCredentialsDialog'
 import { MessageButton, NO_LOGIN_REASON } from '@/modules/chat/MessageButton'
 import { PartnerAvailabilityCard } from './components/PartnerAvailabilityCard'
 import { PartnerWaitRecordCard } from './components/PartnerWaitRecordCard'
+import { PartnerApiKeyCard } from './components/PartnerApiKeyCard'
 import { PartnerUnbilledLine } from '@/modules/charges/PartnerUnbilledLine'
 import { PartnerCustomersCard } from './components/PartnerCustomersCard'
 
@@ -229,6 +230,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         {/* key: another restaurant's page starts the card afresh (Next keeps it mounted otherwise),
             so a search typed for one restaurant never carries over to the next. */}
         <PartnerCustomersCard key={partner.id} partnerId={partner.id} restaurantName={partner.name} />
+
+        {/* Whether the restaurant has an API key and since when; an admin makes or removes it (spec 0037). */}
+        <PartnerApiKeyCard partner={partner} />
       </div>
 
       <PartnerFormDialog

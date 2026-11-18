@@ -83,6 +83,12 @@ export interface PartnerAdminDto {
      */
     email: string | null;
     /**
+     * When the restaurant's current API key was made; null when it has none (spec 0037, hand edited).
+     * @type {Date}
+     * @memberof PartnerAdminDto
+     */
+    apiKeyCreatedAt: Date | null;
+    /**
      * 
      * @type {LocationAdminDto}
      * @memberof PartnerAdminDto
@@ -133,6 +139,7 @@ export function PartnerAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: boo
         'availability': !exists(json, 'availability') ? undefined : PartnerAvailabilityAdminDtoFromJSON(json['availability']),
         'userId': !exists(json, 'userId') ? null : json['userId'],
         'email': !exists(json, 'email') ? null : json['email'],
+        'apiKeyCreatedAt': !exists(json, 'apiKeyCreatedAt') || json['apiKeyCreatedAt'] === null ? null : new Date(json['apiKeyCreatedAt']),
         'pickupAddress': !exists(json, 'pickupAddress') || json['pickupAddress'] === null ? null : LocationAdminDtoFromJSON(json['pickupAddress']),
         'createdAt': (new Date(json['createdAt'])),
         'updatedAt': (new Date(json['updatedAt'])),
@@ -155,6 +162,7 @@ export function PartnerAdminDtoToJSON(value?: PartnerAdminDto | null): any {
         'usualPrepMinutes': value.usualPrepMinutes,
         'userId': value.userId,
         'email': value.email,
+        'apiKeyCreatedAt': value.apiKeyCreatedAt === null ? null : value.apiKeyCreatedAt.toISOString(),
         'pickupAddress': LocationAdminDtoToJSON(value.pickupAddress),
         'createdAt': (value.createdAt.toISOString()),
         'updatedAt': (value.updatedAt.toISOString()),

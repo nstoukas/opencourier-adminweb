@@ -5,6 +5,8 @@ import type {
   PartnerPaginatedAdminDto,
   PartnerWaitRecordAdminDto,
   PartnerUpdateAdminInput,
+  PartnerApiKeyAdminAnswer,
+  PartnerRotatePasswordAdminAnswer,
 } from '../backend-admin-sdk'
 import { Tags } from '@/api/utils/tags'
 import { api as baseApi, prepareAdminSdk } from '.'
@@ -80,23 +82,57 @@ export const partnersApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [Tags.partners],
     }),
-    rotatePartnerPassword: build.mutation<void, { id: string; password: string }>({
+    // Spec 0037: the answer carries the restaurant's new API key when it had one (shown once), else
+    // null. The restaurant is fetched again, so the API key card shows the new key's date.
+    rotatePartnerPassword: build.mutation<PartnerRotatePasswordAdminAnswer, { id: string; password: string }>({
       queryFn: async ({ id, password }, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
           const sdk = prepareAdminSdk(accessToken || '')
-          await sdk.partners().rotatePartnerPassword({
+          const data = await sdk.partners().rotatePartnerPassword({
             id,
             partnerRotatePasswordAdminInput: { password },
           })
-          return { data: undefined }
+          return { data }
         } catch (error) {
           return {
             error: handleBackendError(error, api),
           }
         }
       },
-      invalidatesTags: [],
+      invalidatesTags: [Tags.partners],
+    }),
+    // Spec 0037, AC-3: a new API key for the restaurant, replacing any earlier one. Shown once.
+    createPartnerApiKey: build.mutation<PartnerApiKeyAdminAnswer, { id: string }>({
+      queryFn: async ({ id }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.partners().createPartnerApiKey({ id })
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      invalidatesTags: [Tags.partners],
+    }),
+    // Spec 0037, AC-4: the restaurant's API key stops working. A 204 has no result, so `data: null`.
+    removePartnerApiKey: build.mutation<null, { id: string }>({
+      queryFn: async ({ id }, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          await sdk.partners().removePartnerApiKey({ id })
+          return { data: null }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+      invalidatesTags: [Tags.partners],
     }),
     // Spec 0029: disable or enable a restaurant, and its availability history.
     disablePartner: build.mutation<PartnerAdminDto, { id: string; reason: string }>({
@@ -169,6 +205,8 @@ export const {
   useCreatePartnerMutation,
   useUpdatePartnerMutation,
   useRotatePartnerPasswordMutation,
+  useCreatePartnerApiKeyMutation,
+  useRemovePartnerApiKeyMutation,
   useDisablePartnerMutation,
   useEnablePartnerMutation,
   useGetPartnerAvailabilityChangesQuery,

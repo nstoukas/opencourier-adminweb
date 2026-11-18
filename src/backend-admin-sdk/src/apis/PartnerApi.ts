@@ -61,6 +61,16 @@ export interface PartnerApiRotatePartnerPasswordRequest {
 /**
  * 
  */
+// Spec 0037 (hand edited): the answers that carry a restaurant's new API key, the only time it is shown.
+export interface PartnerApiKeyAdminAnswer {
+    apiKey: string;
+    apiKeyCreatedAt: Date;
+}
+
+export interface PartnerRotatePasswordAdminAnswer {
+    apiKey: string | null;
+}
+
 export class PartnerApi extends runtime.BaseAPI {
 
     /**
@@ -230,7 +240,7 @@ export class PartnerApi extends runtime.BaseAPI {
     /**
      * Rotate partner password
      */
-    async rotatePartnerPasswordRaw(requestParameters: PartnerApiRotatePartnerPasswordRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async rotatePartnerPasswordRaw(requestParameters: PartnerApiRotatePartnerPasswordRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<PartnerRotatePasswordAdminAnswer>> {
         if (requestParameters.id === null || requestParameters.id === undefined) {
             throw new runtime.RequiredError('id', 'Required parameter requestParameters.id was null or undefined when calling rotatePartnerPassword.');
         }
@@ -258,18 +268,22 @@ export class PartnerApi extends runtime.BaseAPI {
             body: PartnerRotatePasswordAdminInputToJSON(requestParameters.partnerRotatePasswordAdminInput),
         }, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        // Spec 0037 (hand edited): 200 with the restaurant's new API key when it had one, else null.
+        return new runtime.JSONApiResponse(response, (json): PartnerRotatePasswordAdminAnswer => ({
+            apiKey: typeof json?.apiKey === 'string' ? json.apiKey : null,
+        }));
     }
 
     /**
      * Rotate partner password
      */
-    async rotatePartnerPassword(requestParameters: PartnerApiRotatePartnerPasswordRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.rotatePartnerPasswordRaw(requestParameters, initOverrides);
+    async rotatePartnerPassword(requestParameters: PartnerApiRotatePartnerPasswordRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerRotatePasswordAdminAnswer> {
+        const response = await this.rotatePartnerPasswordRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     // Spec 0029 (hand edited). The three share this request: the admin token, a path, an optional body.
-    private async availabilityRequest(path: string, method: 'GET' | 'POST', body: object | undefined, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Response> {
+    private async availabilityRequest(path: string, method: 'GET' | 'POST' | 'DELETE', body: object | undefined, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Response> {
         const headerParameters: runtime.HTTPHeaders = {};
         if (body !== undefined) headerParameters['Content-Type'] = 'application/json';
         if (this.configuration && this.configuration.accessToken) {
@@ -294,6 +308,18 @@ export class PartnerApi extends runtime.BaseAPI {
     async getPartnerWaitRecord(requestParameters: { id: string; days: number }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerWaitRecordAdminDto> {
         const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/wait-record?days=${requestParameters.days}`, 'GET', undefined, initOverrides);
         return PartnerWaitRecordAdminDtoFromJSON(await response.json());
+    }
+
+    // Spec 0037 (hand edited): a new API key, shown once; the server keeps only its hash.
+    async createPartnerApiKey(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerApiKeyAdminAnswer> {
+        const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/api-key`, 'POST', undefined, initOverrides);
+        const json = await response.json();
+        return { apiKey: json.apiKey, apiKeyCreatedAt: new Date(json.apiKeyCreatedAt) };
+    }
+
+    // Spec 0037 (hand edited): the restaurant's API key stops working. 204, no body.
+    async removePartnerApiKey(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/api-key`, 'DELETE', undefined, initOverrides);
     }
 
     async getPartnerAvailabilityChanges(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<PartnerAvailabilityChangeAdminDto>> {
