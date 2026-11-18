@@ -41,7 +41,12 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   list, a delivery, a courier) polls every 30 s while `usePageVisible()` is true. A page read by an id from the URL
   takes RTK Query's `currentData`, so going back between two ids never shows the previous record.
 - An RTK `queryFn` with no result (a 204) returns `{ data: null }`: `{ data: undefined }` makes RTK Query log an error
-  (`rotatePartnerPassword` and the saved customer delete still do, a follow up of spec 0013).
+  (the saved customer delete still does, a follow up of spec 0013).
+- RTK Query 1.9.7's hook `reset` is stale inside the handler that triggered the mutation (it holds the render before
+  the request), so it does nothing there. To drop an answer from the store, keep the request object
+  (`const request = trigger(arg)`) and call `request.reset()` after `unwrap()`, as the API key card and Set New Password
+  do for a restaurant's key (spec 0037). A step only its own button may close passes `hideCloseButton` to `DialogContent`
+  and ignores other closes in `onOpenChange`.
 - Times a co-op enters for the instance (dispatch stops, spec 0014) are Athens time: format with `Intl` and
   `timeZone: 'Europe/Athens'` (`src/modules/dispatch-stop/dispatchStopDisplay.ts`), never the browser's zone. A dialog
   whose title or focus target derives from its open state changes them during Radix's closing animation: keep open and
