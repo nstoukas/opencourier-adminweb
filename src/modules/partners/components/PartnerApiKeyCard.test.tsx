@@ -1,13 +1,36 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
 import { PartnerApiKeyCard, formatKeyMade, NO_LOGIN_NO_KEY } from './PartnerApiKeyCard'
-import { useCreatePartnerApiKeyMutation, useRemovePartnerApiKeyMutation } from '../../../api/partnersApi'
+import {
+  partnersApi,
+  useCreatePartnerApiKeyMutation,
+  useRemovePartnerApiKeyMutation,
+} from '../../../api/partnersApi'
+import { authSlice } from '@/modules/auth/slices/authSlice'
+import { prepareAdminSdk } from '../../../api'
 import type { PartnerAdminDto } from '../../../backend-admin-sdk'
 
-jest.mock('../../../api/partnersApi', () => ({
-  useCreatePartnerApiKeyMutation: jest.fn(),
-  useRemovePartnerApiKeyMutation: jest.fn(),
-}))
+const actualPartnersApi = jest.requireActual('../../../api/partnersApi')
+
+jest.mock('../../../api/partnersApi', () => {
+  const actual = jest.requireActual('../../../api/partnersApi')
+  return {
+    ...actual,
+    useCreatePartnerApiKeyMutation: jest.fn(),
+    useRemovePartnerApiKeyMutation: jest.fn(),
+  }
+})
+
+const mockPrepareAdminSdk = jest.fn()
+jest.mock('../../../api', () => {
+  const actual = jest.requireActual('../../../api')
+  return {
+    ...actual,
+    prepareAdminSdk: (...args: any[]) => mockPrepareAdminSdk(...args),
+  }
+})
 
 const mockToast = jest.fn()
 jest.mock('../../../admin-web-components', () => {
@@ -19,10 +42,22 @@ jest.mock('../../../admin-web-components', () => {
 })
 
 const mockCreateApiKey = jest.fn()
-const mockCreateReset = jest.fn()
+let mockCreateRequestReset = jest.fn()
 const mockRemoveApiKey = jest.fn()
 const mockUseCreatePartnerApiKeyMutation = useCreatePartnerApiKeyMutation as jest.Mock
 const mockUseRemovePartnerApiKeyMutation = useRemovePartnerApiKeyMutation as jest.Mock
+
+function setupTestStore() {
+  return configureStore({
+    reducer: {
+      [partnersApi.reducerPath]: partnersApi.reducer,
+      [authSlice.name]: authSlice.reducer,
+    },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({ serializableCheck: false, immutableCheck: false }).concat(partnersApi.middleware),
+    preloadedState: { auth: { accessToken: 'admin-token' } },
+  })
+}
 
 describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
   const basePartner: PartnerAdminDto = {
@@ -43,9 +78,18 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockCreateRequestReset = jest.fn()
+    mockCreateApiKey.mockReturnValue({
+      unwrap: () =>
+        Promise.resolve({
+          apiKey: 'ock_fresh_api_key_001',
+          apiKeyCreatedAt: new Date('2026-11-18T20:00:00.000Z'),
+        }),
+      reset: mockCreateRequestReset,
+    })
     mockUseCreatePartnerApiKeyMutation.mockReturnValue([
       mockCreateApiKey,
-      { isLoading: false, reset: mockCreateReset },
+      { isLoading: false },
     ])
     mockUseRemovePartnerApiKeyMutation.mockReturnValue([
       mockRemoveApiKey,
@@ -103,6 +147,8 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
 
       const stateElem = screen.getByTestId('api-key-state')
       expect(stateElem).toHaveTextContent('No API key.')
+      const reasonId = stateElem.getAttribute('id')
+      expect(reasonId).toBeTruthy()
 
       const newKeyBtn = screen.getByRole('button', { name: /^new api key$/i })
       const removeKeyBtn = screen.getByRole('button', { name: /^remove key$/i })
@@ -111,7 +157,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       expect(newKeyBtn).not.toHaveAttribute('aria-describedby')
 
       expect(removeKeyBtn).toBeDisabled()
-      expect(removeKeyBtn).not.toHaveAttribute('aria-describedby')
+      expect(removeKeyBtn).toHaveAttribute('aria-describedby', reasonId)
     })
 
     it('shows "Key made <Athens time>" when partner has an API key; both buttons are enabled', () => {
@@ -135,13 +181,14 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
   })
 
   describe('New API key flow (AC-13)', () => {
-    it('without an existing key: makes one straight away without asking confirmation; shows key panel', async () => {
+    it('without an existing key: makes one straight away; hides Close, autoFocuses key, calls request.reset(), and only Done closes', async () => {
       mockCreateApiKey.mockReturnValue({
         unwrap: () =>
           Promise.resolve({
             apiKey: 'ock_fresh_api_key_001',
             apiKeyCreatedAt: new Date('2026-11-18T20:00:00.000Z'),
           }),
+        reset: mockCreateRequestReset,
       })
 
       const partnerNoKey: PartnerAdminDto = {
@@ -160,13 +207,19 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       expect(mockCreateApiKey).toHaveBeenCalledWith({ id: 'partner-volos-1' })
 
       await waitFor(() => {
-        expect(mockCreateReset).toHaveBeenCalledTimes(1)
+        expect(mockCreateRequestReset).toHaveBeenCalledTimes(1)
         expect(screen.getByRole('heading', { name: 'New API key' })).toBeInTheDocument()
       })
 
       expect(screen.getByText('For Nosh Volos.')).toBeInTheDocument()
       const keyInput = screen.getByRole('textbox', { name: 'New API key' }) as HTMLInputElement
       expect(keyInput.value).toBe('ock_fresh_api_key_001')
+
+      // Key step renders no element named "Close" (hideCloseButton={true})
+      expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+
+      // When the key panel appears, the key field has focus (autoFocus)
+      expect(document.activeElement).toBe(keyInput)
 
       // Escape does not close the key panel
       fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' })
@@ -181,13 +234,14 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       })
     })
 
-    it('with an existing key: asks "Replace the API key?" first, only makes key on confirm', async () => {
+    it('with an existing key: asks "Replace the API key?" first (showing Close), only makes key on confirm', async () => {
       mockCreateApiKey.mockReturnValue({
         unwrap: () =>
           Promise.resolve({
             apiKey: 'ock_replaced_api_key_002',
             apiKeyCreatedAt: new Date('2026-11-18T20:00:00.000Z'),
           }),
+        reset: mockCreateRequestReset,
       })
 
       const partnerWithKey: PartnerAdminDto = {
@@ -204,8 +258,9 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       // Did NOT call mutation yet
       expect(mockCreateApiKey).not.toHaveBeenCalled()
 
-      // Confirmation dialog is shown
+      // Confirmation dialog is shown with a Close button
       expect(screen.getByRole('heading', { name: 'Replace the API key?' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
       expect(
         screen.getByText(
           'The current key of Nosh Volos stops working at once. Whatever uses it must be given the new key.'
@@ -220,9 +275,12 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       expect(mockCreateApiKey).toHaveBeenCalledWith({ id: 'partner-volos-1' })
 
       await waitFor(() => {
-        expect(mockCreateReset).toHaveBeenCalledTimes(1)
+        expect(mockCreateRequestReset).toHaveBeenCalledTimes(1)
         expect(screen.getByRole('heading', { name: 'New API key' })).toBeInTheDocument()
       })
+
+      // In key step, Close button is now absent
+      expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
 
       const keyInput = screen.getByRole('textbox', { name: 'New API key' }) as HTMLInputElement
       expect(keyInput.value).toBe('ock_replaced_api_key_002')
@@ -257,7 +315,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
   })
 
   describe('Remove key flow (AC-4, AC-13)', () => {
-    it('asks "Remove the API key?" confirmation, confirms and calls remove mutation', async () => {
+    it('asks "Remove the API key?" confirmation, confirms, calls remove mutation, and focuses New API key on close', async () => {
       mockRemoveApiKey.mockReturnValue({
         unwrap: () => Promise.resolve(null),
       })
@@ -275,6 +333,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
 
       expect(mockRemoveApiKey).not.toHaveBeenCalled()
       expect(screen.getByRole('heading', { name: 'Remove the API key?' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
       expect(
         screen.getByText('The key of Nosh Volos stops working at once, and no new one is made.')
       ).toBeInTheDocument()
@@ -289,6 +348,8 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith({ title: 'The API key of Nosh Volos is removed.' })
         expect(screen.queryByRole('heading', { name: 'Remove the API key?' })).toBeNull()
+        // Focus is returned to "New API key" (minor 2)
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: /^new api key$/i }))
       })
     })
 
@@ -313,10 +374,11 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
     })
   })
 
-  describe('Error handling', () => {
-    it('shows destructive toast when direct makeKey fails without open dialog', async () => {
+  describe('Error handling (openRef, minor 5)', () => {
+    it('shows destructive toast and calls request.reset() when direct makeKey fails without open dialog', async () => {
       mockCreateApiKey.mockReturnValue({
         unwrap: () => Promise.reject({ message: 'Server error creating key' }),
+        reset: mockCreateRequestReset,
       })
 
       const partnerNoKey: PartnerAdminDto = {
@@ -330,14 +392,42 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       fireEvent.click(screen.getByRole('button', { name: /^new api key$/i }))
 
       await waitFor(() => {
+        expect(mockCreateRequestReset).toHaveBeenCalledTimes(1)
         expect(mockToast).toHaveBeenCalledWith({
           title: 'Server error creating key',
           variant: 'destructive',
         })
       })
+      expect(screen.queryByRole('alert')).toBeNull()
     })
 
-    it('displays error message in dialog when removeApiKey fails', async () => {
+    it('shows inline error and calls request.reset() when makeKey fails with confirmation dialog open', async () => {
+      mockCreateApiKey.mockReturnValue({
+        unwrap: () => Promise.reject({ message: 'Server error replacing key' }),
+        reset: mockCreateRequestReset,
+      })
+
+      const partnerWithKey: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: new Date('2026-11-18T10:00:00.000Z'),
+      }
+
+      render(<PartnerApiKeyCard partner={partnerWithKey} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /^new api key$/i }))
+      expect(screen.getByRole('heading', { name: 'Replace the API key?' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Make a new key' }))
+
+      await waitFor(() => {
+        expect(mockCreateRequestReset).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('alert')).toHaveTextContent('Server error replacing key')
+      })
+      expect(mockToast).not.toHaveBeenCalled()
+    })
+
+    it('displays inline error in dialog when removeApiKey fails while dialog is open', async () => {
       mockRemoveApiKey.mockReturnValue({
         unwrap: () => Promise.reject({ message: 'Failed to delete key from database' }),
       })
@@ -354,9 +444,89 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove key' }))
 
       await waitFor(() => {
-        expect(screen.getByText('Failed to delete key from database')).toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent('Failed to delete key from database')
       })
       expect(mockToast).not.toHaveBeenCalled()
+    })
+
+    it('shows destructive toast when removeApiKey fails after dialog was closed', async () => {
+      let rejectPromise!: (err: any) => void
+      const pendingPromise = new Promise((_, reject) => {
+        rejectPromise = reject
+      })
+
+      mockRemoveApiKey.mockReturnValue({
+        unwrap: () => pendingPromise,
+      })
+
+      const partnerWithKey: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: new Date('2026-11-18T10:00:00.000Z'),
+      }
+
+      render(<PartnerApiKeyCard partner={partnerWithKey} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /^remove key$/i }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove key' }))
+
+      // Admin dismisses the dialog while remove is in flight
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      // Now the in-flight request fails
+      rejectPromise({ message: 'Network lost during remove' })
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Network lost during remove',
+          variant: 'destructive',
+        })
+      })
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
+  })
+
+  describe('Real Redux store integration (AC-13, major)', () => {
+    it('ensures API key leaves Redux store mutations via request.reset()', async () => {
+      const store = setupTestStore()
+      const mockCreatePartnerApiKey = jest.fn().mockResolvedValue({
+        apiKey: 'ock_test_generated_key_real_store_secret',
+        apiKeyCreatedAt: new Date('2026-11-18T12:00:00.000Z'),
+      })
+      mockPrepareAdminSdk.mockReturnValue({
+        partners: () => ({
+          createPartnerApiKey: mockCreatePartnerApiKey,
+        }),
+      })
+
+      mockUseCreatePartnerApiKeyMutation.mockImplementation(
+        actualPartnersApi.useCreatePartnerApiKeyMutation
+      )
+
+      const partnerNoKey: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: null,
+      }
+
+      render(
+        <Provider store={store}>
+          <PartnerApiKeyCard partner={partnerNoKey} />
+        </Provider>
+      )
+
+      const newKeyBtn = screen.getByRole('button', { name: /^new api key$/i })
+      fireEvent.click(newKeyBtn)
+
+      // Wait for the key panel to appear
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'New API key' })).toBeInTheDocument()
+      })
+
+      // Assert that after the answer, no entry in store.getState().api.mutations holds the key string
+      const mutations = (store.getState() as any).api.mutations
+      const serializedMutations = JSON.stringify(mutations)
+      expect(serializedMutations).not.toContain('ock_test_generated_key_real_store_secret')
     })
   })
 })

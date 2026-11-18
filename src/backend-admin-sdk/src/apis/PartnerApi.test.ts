@@ -234,6 +234,26 @@ describe('PartnerApi availability routes (spec 0029, AC-5 and AC-9)', () => {
       expect(result.apiKeyCreatedAt).toEqual(new Date('2026-11-18T14:30:00.000Z'))
     })
 
+    it('createPartnerApiKey throws when the answer has no string apiKey (minor 4)', async () => {
+      // Empty object
+      mockFetch.mockResolvedValueOnce(createMockResponse({}, 201))
+      await expect(api.createPartnerApiKey({ id: 'partner-1' })).rejects.toThrow(
+        'The server did not send a new API key. Try again.'
+      )
+
+      // apiKey is null
+      mockFetch.mockResolvedValueOnce(createMockResponse({ apiKey: null }, 201))
+      await expect(api.createPartnerApiKey({ id: 'partner-1' })).rejects.toThrow(
+        'The server did not send a new API key. Try again.'
+      )
+
+      // apiKey is empty string
+      mockFetch.mockResolvedValueOnce(createMockResponse({ apiKey: '' }, 201))
+      await expect(api.createPartnerApiKey({ id: 'partner-1' })).rejects.toThrow(
+        'The server did not send a new API key. Try again.'
+      )
+    })
+
     it('removePartnerApiKey calls DELETE /api/admin/v1/partner/:id/api-key with encoded id', async () => {
       mockFetch.mockResolvedValueOnce(createMockResponse(null, 204))
 

@@ -113,6 +113,7 @@ const basePartner = {
   logo: null,
   webhookUrl: 'https://souvlaki.example/hook',
   userId: 'u1',
+  apiKeyCreatedAt: null,
   pickupAddress: {
     id: 'loc1',
     street: 'Ermou',
@@ -631,6 +632,26 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
       const line = screen.getByTestId('mock-partner-unbilled-line')
       expect(line).toBeInTheDocument()
       expect(line).toHaveAttribute('data-partner-id', 'partner-abc-123')
+    })
+  })
+
+  // Spec 0037 (AC-5, bug a436114): API key card rendered on the restaurant page with unique React keys.
+  describe('spec 0037: restaurant API key card and React keys', () => {
+    it('renders the API key card on the restaurant page (AC-5)', () => {
+      render(<PartnerDetailsPage />)
+
+      expect(screen.getByRole('heading', { level: 3, name: 'API key' })).toBeInTheDocument()
+      expect(screen.getByTestId('api-key-state')).toBeInTheDocument()
+    })
+
+    it('renders without duplicate React key warnings on children (bug a436114)', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error')
+      render(<PartnerDetailsPage />)
+
+      const duplicateKeyWarnings = consoleErrorSpy.mock.calls.filter((call) =>
+        call.some((arg) => typeof arg === 'string' && arg.includes('Encountered two children with the same key'))
+      )
+      expect(duplicateKeyWarnings).toHaveLength(0)
     })
   })
 })

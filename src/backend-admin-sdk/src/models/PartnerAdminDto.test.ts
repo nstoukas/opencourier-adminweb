@@ -93,5 +93,26 @@ describe('PartnerAdminDto (spec 0037)', () => {
 
       expect(json.apiKeyCreatedAt).toBeNull()
     })
+
+    it('serializes apiKeyCreatedAt as null when undefined (minor 4)', () => {
+      const dto: any = {
+        id: 'partner-123',
+        name: 'Volos Kitchen',
+        phoneNumber: '+302421099999',
+        logo: null,
+        webhookUrl: null,
+        usualPrepMinutes: 15,
+        userId: 'user-456',
+        email: 'volos@kitchen.gr',
+        apiKeyCreatedAt: undefined,
+        pickupAddress: null,
+        createdAt: new Date('2026-11-01T10:00:00.000Z'),
+        updatedAt: new Date('2026-11-01T10:00:00.000Z'),
+      }
+
+      const json = PartnerAdminDtoToJSON(dto)
+
+      expect(json.apiKeyCreatedAt).toBeNull()
+    })
   })
 })

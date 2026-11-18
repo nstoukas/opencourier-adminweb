@@ -17,15 +17,20 @@ jest.mock('../../../admin-web-components', () => {
 })
 
 const mockRotatePasswordMutation = jest.fn()
-const mockReset = jest.fn()
+let mockRequestReset = jest.fn()
 const mockUseRotatePartnerPasswordMutation = useRotatePartnerPasswordMutation as jest.Mock
 
 describe('RotateCredentialsDialog component', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockRequestReset = jest.fn()
+    mockRotatePasswordMutation.mockReturnValue({
+      unwrap: () => Promise.resolve({ apiKey: null }),
+      reset: mockRequestReset,
+    })
     mockUseRotatePartnerPasswordMutation.mockReturnValue([
       mockRotatePasswordMutation,
-      { isLoading: false, reset: mockReset },
+      { isLoading: false },
     ])
   })
 
@@ -62,9 +67,10 @@ describe('RotateCredentialsDialog component', () => {
     expect(submitBtn).not.toBeDisabled()
   })
 
-  it('with apiKey: null toasts and closes the dialog (spec 0037, AC-1, AC-13)', async () => {
+  it('with apiKey: null toasts and closes the dialog, calling request.reset() (spec 0037, AC-1, AC-13)', async () => {
     mockRotatePasswordMutation.mockReturnValue({
       unwrap: () => Promise.resolve({ apiKey: null }),
+      reset: mockRequestReset,
     })
     const onOpenChangeMock = jest.fn()
 
@@ -76,6 +82,9 @@ describe('RotateCredentialsDialog component', () => {
         partnerName="Souvlaki tou Nikou"
       />
     )
+
+    // In the password step, the corner Close button is present
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('New password'), {
       target: { value: 'newpassword123' },
@@ -92,16 +101,17 @@ describe('RotateCredentialsDialog component', () => {
         id: 'p1',
         password: 'newpassword123',
       })
-      expect(mockReset).toHaveBeenCalledTimes(1)
+      expect(mockRequestReset).toHaveBeenCalledTimes(1)
       expect(mockToast).toHaveBeenCalledWith({ title: 'Password updated for Souvlaki tou Nikou.' })
       expect(onOpenChangeMock).toHaveBeenCalledWith(false)
     })
     expect(screen.queryByText(/password set for souvlaki tou nikou/i)).toBeNull()
   })
 
-  it('with apiKey present shows the key panel, resets mutation, does not toast or close (spec 0037, AC-1, AC-13)', async () => {
+  it('with apiKey present shows the key panel, calls request.reset(), hides Close, focuses key and only Done closes (spec 0037, AC-1, AC-13)', async () => {
     mockRotatePasswordMutation.mockReturnValue({
       unwrap: () => Promise.resolve({ apiKey: 'ock_rotated_secret_key_789' }),
+      reset: mockRequestReset,
     })
     const onOpenChangeMock = jest.fn()
 
@@ -125,7 +135,7 @@ describe('RotateCredentialsDialog component', () => {
 
     await waitFor(() => {
       expect(mockRotatePasswordMutation).toHaveBeenCalledTimes(1)
-      expect(mockReset).toHaveBeenCalledTimes(1)
+      expect(mockRequestReset).toHaveBeenCalledTimes(1)
       // AC-13: Does NOT toast and does NOT close
       expect(mockToast).not.toHaveBeenCalled()
       expect(onOpenChangeMock).not.toHaveBeenCalled()
@@ -137,10 +147,14 @@ describe('RotateCredentialsDialog component', () => {
       screen.getByText(/this restaurant also had an api key: it was replaced too, so the old key stopped working/i)
     ).toBeInTheDocument()
 
-    // Key is shown in read-only input
+    // Key step renders no element named "Close" (hideCloseButton={true})
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+
+    // Key is shown in read-only input and has focus (autoFocus)
     const keyInput = screen.getByRole('textbox', { name: 'New API key' }) as HTMLInputElement
     expect(keyInput.value).toBe('ock_rotated_secret_key_789')
     expect(keyInput).toHaveAttribute('readOnly')
+    expect(document.activeElement).toBe(keyInput)
 
     // Escape does not close the dialog while the key panel is shown
     fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' })
@@ -149,6 +163,38 @@ describe('RotateCredentialsDialog component', () => {
     // Clicking Done closes the dialog
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(onOpenChangeMock).toHaveBeenCalledWith(false)
+  })
+
+  it('calls request.reset() on failure and displays error message in dialog', async () => {
+    mockRotatePasswordMutation.mockReturnValue({
+      unwrap: () => Promise.reject({ message: 'Server error updating password' }),
+      reset: mockRequestReset,
+    })
+
+    render(
+      <RotateCredentialsDialog
+        open={true}
+        onOpenChange={jest.fn()}
+        partnerId="p1"
+        partnerName="Souvlaki tou Nikou"
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText('New password'), {
+      target: { value: 'newpassword123' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'newpassword123' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^set new password$/i }))
+
+    await waitFor(() => {
+      expect(mockRotatePasswordMutation).toHaveBeenCalledTimes(1)
+      expect(mockRequestReset).toHaveBeenCalledTimes(1)
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Server error updating password')
+    })
   })
 
   it('is titled "Set New Password for <name>" (spec 0024, AC-2)', () => {
