@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { ChatCircle } from '@phosphor-icons/react'
 import { useOpenChatThreadMutation } from '@/api/chatApi'
 import { Button, useToast } from '../../admin-web-components'
+import { focusComposerOnOpen } from './composerFocus'
 
 // The reason a restaurant with no sign in has no Message button to press (AC-15).
 export const NO_LOGIN_REASON = 'This restaurant has no sign in, so it could never read a reply.'
@@ -26,6 +27,7 @@ export function MessageButton({
   async function onClick() {
     const result = await openThread(party)
     if ('data' in result) {
+      focusComposerOnOpen(result.data.id)
       void router.push(`/chat/${result.data.id}`)
     } else {
       toast({ title: `Could not open the conversation with ${name}`, variant: 'destructive' })

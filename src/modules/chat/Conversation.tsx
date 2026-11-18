@@ -13,6 +13,7 @@ import { usePageVisible } from '@/hooks/usePageVisible'
 import { Avatar, AvatarFallback, Button, StatusBadge, Textarea, statusLabel } from '../../admin-web-components'
 import { cn } from '../../ui-shared-utils'
 import { useChatLive } from './ChatLive'
+import { takeComposerFocus } from './composerFocus'
 import { CHAT_MESSAGE_MAX_LENGTH, initials, messageStamp, messageTime, newClientMessageId, orderLabel, roleLabel, sendableText } from './chatDisplay'
 
 // Without the live connection, an open conversation asks again on this beat (AC-8).
@@ -86,11 +87,38 @@ export function Conversation({ threadId }: { threadId: string }) {
     lastFromParty.current = id
   }, [newest, newestFromParty])
 
-  // Keep the newest message in view as messages arrive.
-  const endRef = useRef<HTMLDivElement>(null)
+  // Keep the newest message in view: on opening the thread (once it and its messages have drawn), when a
+  // message arrives or is sent, and while the list's size still changes after that (fonts, the header,
+  // the presets). Scrolling the list box itself, never the page, so the header and the box stay put.
+  const listRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLOListElement>(null)
+  // Whether the admin is at the newest message. True on opening; scrolling up to read older lines turns
+  // it off, so a late size change does not pull them back down.
+  const atNewest = useRef(true)
+  const shown = Boolean(thread)
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [newestId, pending.length])
+    const list = listRef.current
+    if (!list) return
+    atNewest.current = true
+    list.scrollTop = list.scrollHeight
+  }, [shown, newestId, pending.length])
+  useEffect(() => {
+    const list = listRef.current
+    const content = contentRef.current
+    if (!list || !content) return
+    // A ResizeObserver calls back whenever an observed element changes size: here the visible box
+    // (the window or the header changed) and the messages inside it (a line drew or wrapped).
+    const observer = new ResizeObserver(() => {
+      if (atNewest.current) list.scrollTop = list.scrollHeight
+    })
+    observer.observe(list)
+    observer.observe(content)
+    return () => observer.disconnect()
+  }, [shown])
+  function onListScroll() {
+    const list = listRef.current
+    if (list) atNewest.current = list.scrollHeight - list.scrollTop - list.clientHeight < 8
+  }
 
   const [send] = useSendChatMessageMutation()
   async function deliver(item: Outgoing) {
@@ -147,7 +175,7 @@ export function Conversation({ threadId }: { threadId: string }) {
         {announcement}
       </p>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+      <div ref={listRef} onScroll={onListScroll} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         {messagesQuery.isError ? (
           <p role="status" className="text-sm text-destructive">
             Messages can&apos;t be reached right now. They will load again on their own.
@@ -163,7 +191,7 @@ export function Conversation({ threadId }: { threadId: string }) {
         {messagesQuery.isSuccess && messages.length === 0 && pending.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">No messages yet. Write the first one below.</p>
         ) : null}
-        <ol className="space-y-4" aria-label={`Messages with ${thread.name}`}>
+        <ol ref={contentRef} className="space-y-4" aria-label={`Messages with ${thread.name}`}>
           {messages.map((message) => (
             <MessageItem key={message.id} message={message} partyName={thread.name} />
           ))}
@@ -184,7 +212,6 @@ export function Conversation({ threadId }: { threadId: string }) {
             </li>
           ))}
         </ol>
-        <div ref={endRef} />
       </div>
 
       <Composer thread={thread} onSend={sendText} />
@@ -210,9 +237,15 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
             <h2 className="truncate text-lg font-semibold">{thread.name}</h2>
             {thread.courierStatus ? <StatusBadge status={thread.courierStatus} kind="courier" /> : null}
           </div>
-          <p className="truncate text-sm text-muted-foreground">
+          {/* The number never breaks or cuts: in a narrow pane it moves whole to its own line. */}
+          <p className="text-sm text-muted-foreground">
             {roleLabel(thread.kind)}
-            {thread.phoneNumber ? ` · ${thread.phoneNumber}` : ''}
+            {thread.phoneNumber ? (
+              <>
+                {' · '}
+                <span className="whitespace-nowrap">{thread.phoneNumber}</span>
+              </>
+            ) : null}
           </p>
         </div>
         {thread.phoneNumber ? (
@@ -305,6 +338,11 @@ function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (tex
   const boxRef = useRef<HTMLTextAreaElement>(null)
   const firstName = thread.name.split(' ')[0] || thread.name
   const canSend = sendableText(text) !== null
+  // Opened with the Message button: the cursor starts in the box (AC-15). Runs when the box first draws;
+  // the note is spent then, so it never moves the cursor again.
+  useEffect(() => {
+    if (takeComposerFocus(thread.id)) boxRef.current?.focus()
+  }, [thread.id])
 
   function submit() {
     if (onSend(text)) setText('')
@@ -326,18 +364,19 @@ function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (tex
       }}
     >
       {/* AC-13: dispatch's presets. A tap puts the words in the box, to send as they are or edit first
-          (decision 111.6). */}
+          (decision 111.6). One row that scrolls sideways inside itself, so the presets never take the
+          messages' room however many the co-op saves (verify run, 2026-11-18). */}
       {thread.quickReplies.length > 0 ? (
-        <div className="flex flex-wrap gap-2" aria-label="Quick replies" role="group">
-          {/* The index in the key too: the co-op may save the same preset twice. A preset wraps instead of
-              spilling out of a one line button (presets may be 100 characters). */}
+        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Quick replies" role="group">
+          {/* The index in the key too: the co-op may save the same preset twice. A long preset wraps inside
+              a button at most 16rem wide instead of spilling out of it (presets may be 100 characters). */}
           {thread.quickReplies.map((reply, index) => (
             <Button
               key={`${index}-${reply}`}
               type="button"
               variant="outline"
               size="sm"
-              className="h-auto min-h-9 whitespace-normal break-words py-1.5 text-left"
+              className="h-auto min-h-9 max-w-[16rem] shrink-0 whitespace-normal break-words py-1.5 text-left"
               onClick={() => {
                 setText(reply)
                 boxRef.current?.focus()

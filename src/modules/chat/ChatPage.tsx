@@ -15,7 +15,7 @@ export function ChatPage({ threadId }: { threadId: string | null }) {
           out of what a screen reader can reach). This visually hidden h1 stands in there, and is itself
           hidden from 1024 px, where the inbox and its h1 show: one reachable h1 at every width (AC-2). */}
       {threadId ? <h1 className="sr-only lg:hidden">Messages</h1> : null}
-      <div className="flex min-h-[calc(100dvh-3.5rem)] lg:h-full lg:min-h-0">
+      <div className="flex h-full min-h-0">
         <section
           aria-label="Conversations"
           className={cn('flex w-full flex-col border-r lg:w-96 lg:shrink-0', threadId ? 'hidden lg:flex' : 'flex')}
