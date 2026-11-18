@@ -82,4 +82,24 @@ describe('ChatPage (spec 0034, AC-2, decisions 111.7, 111.10)', () => {
     const conversation = screen.getByTestId('conversation')
     expect(conversation).toHaveAttribute('data-thread-id', 'th-volos-42')
   })
+
+  it('h1 accessibility (Minor 4): exactly one h1 when threadId is null; with thread open, an h1 "Messages" exists outside display:none ancestors with sr-only lg:hidden', () => {
+    // 1. With no thread open: exactly one h1
+    const { unmount } = render(<ChatPage threadId={null} />)
+    const headingsNoThread = screen.getAllByRole('heading', { level: 1 })
+    expect(headingsNoThread).toHaveLength(1)
+    expect(headingsNoThread[0]).toHaveTextContent('Messages')
+    unmount()
+
+    // 2. With a thread open: an h1 "Messages" exists that is not inside a display:none ancestor at narrow width (sr-only lg:hidden)
+    render(<ChatPage threadId="th-volos-42" />)
+    const headingsWithThread = screen.getAllByRole('heading', { level: 1 })
+    const narrowH1 = headingsWithThread.find((h) => h.classList.contains('sr-only'))
+
+    expect(narrowH1).toBeDefined()
+    expect(narrowH1).toHaveTextContent('Messages')
+    expect(narrowH1).toHaveClass('sr-only', 'lg:hidden')
+    // Crucially: it is NOT inside an ancestor that has "hidden" (such as the inbox section)
+    expect(narrowH1?.closest('.hidden')).toBeNull()
+  })
 })

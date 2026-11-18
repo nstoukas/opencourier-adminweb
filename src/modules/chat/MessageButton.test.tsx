@@ -86,9 +86,12 @@ describe('MessageButton (spec 0034, AC-15)', () => {
     const describedById = button.getAttribute('aria-describedby')
     expect(describedById).toBeTruthy()
 
-    const reasonEl = document.getElementById(describedById!)
+    const reasonEl = describedById ? document.getElementById(describedById) : null
+    expect(reasonEl).not.toBeNull()
+    if (!reasonEl) throw new Error('Expected reasonEl')
     expect(reasonEl).toHaveTextContent(NO_LOGIN_REASON)
-    expect(reasonEl).toHaveClass('sr-only')
+    expect(reasonEl).not.toHaveClass('sr-only')
+    expect(reasonEl).toHaveClass('text-sm', 'text-muted-foreground')
 
     fireEvent.click(button)
     expect(mockOpenThread).not.toHaveBeenCalled()

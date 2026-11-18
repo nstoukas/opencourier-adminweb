@@ -1,5 +1,6 @@
 import {
   initials,
+  messageStamp,
   messageTime,
   newClientMessageId,
   orderLabel,
@@ -67,6 +68,44 @@ describe('chatDisplay (spec 0034, AC-2, AC-3, AC-4, AC-19)', () => {
       expect(threadTime(earlierIso, nowDate)).toBe('15 Nov')
 
       expect(threadTime(null)).toBe('')
+    })
+  })
+
+  describe('messageStamp (Minor 3, Athens Europe/Athens timezone)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+      // Fix system time to 2026-11-18 10:00:00 UTC (12:00 Athens time, UTC+2)
+      jest.setSystemTime(new Date('2026-11-18T10:00:00.000Z'))
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('gives "HH:mm" for a message from today (Europe/Athens)', () => {
+      // 08:15 UTC is 10:15 Athens time today
+      const todayIso = '2026-11-18T08:15:00.000Z'
+      expect(messageStamp(todayIso)).toBe('10:15')
+    })
+
+    it('gives day plus time ("d MMM, HH:mm") for a message from an earlier day', () => {
+      // 14:05 UTC on Nov 17 is 16:05 Athens time yesterday
+      const earlierIso = '2026-11-17T14:05:00.000Z'
+      expect(messageStamp(earlierIso)).toBe('17 Nov, 16:05')
+
+      // Older message
+      const olderIso = '2026-11-10T07:30:00.000Z'
+      expect(messageStamp(olderIso)).toBe('10 Nov, 09:30')
+    })
+
+    it('respects midnight boundary in Europe/Athens timezone', () => {
+      // 2026-11-17T21:59:00.000Z is 2026-11-17 23:59:00 Athens time (yesterday)
+      const yesterdayNight = '2026-11-17T21:59:00.000Z'
+      expect(messageStamp(yesterdayNight)).toBe('17 Nov, 23:59')
+
+      // 2026-11-17T22:01:00.000Z is 2026-11-18 00:01:00 Athens time (today)
+      const todayMidnight = '2026-11-17T22:01:00.000Z'
+      expect(messageStamp(todayMidnight)).toBe('00:01')
     })
   })
 

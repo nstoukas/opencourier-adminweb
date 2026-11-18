@@ -3,6 +3,7 @@ import {
   chatSocketUrl,
   connectChatLive,
   disconnectChatLive,
+  closeChatLiveSoon,
   isChatLive,
   subscribeChatLive,
   CHAT_SOCKET_NAMESPACE,
@@ -116,6 +117,49 @@ describe('chatLive (spec 0034, AC-8)', () => {
       connectChatLive(null, mockHandlers)
       expect(mockSocket.disconnect).toHaveBeenCalled()
       expect(isChatLive()).toBe(false)
+    })
+  })
+
+  describe('closeChatLiveSoon and unmount/mount deferred close lifecycle (review Major)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('closeChatLiveSoon disconnects the socket after the timer fires', () => {
+      connectChatLive('admin-token-123', mockHandlers)
+      expect(io).toHaveBeenCalledTimes(1)
+      expect(mockSocket.disconnect).not.toHaveBeenCalled()
+
+      closeChatLiveSoon()
+      // Disconnect is deferred: not called immediately
+      expect(mockSocket.disconnect).not.toHaveBeenCalled()
+
+      // Advancing timer executes disconnectChatLive
+      jest.runAllTimers()
+      expect(mockSocket.disconnect).toHaveBeenCalledTimes(1)
+      expect(isChatLive()).toBe(false)
+    })
+
+    it('unmounting and mounting a new ChatLive with the same token in the next render keeps the same socket (no disconnect, no new io() call)', () => {
+      connectChatLive('admin-token-123', mockHandlers)
+      expect(io).toHaveBeenCalledTimes(1)
+
+      // Simulated page transition: old ChatLive unmounts calling closeChatLiveSoon()
+      closeChatLiveSoon()
+
+      // In the same render / tick, new page ChatLive mounts calling connectChatLive() with same token
+      connectChatLive('admin-token-123', mockHandlers)
+
+      // Timers fire
+      jest.runAllTimers()
+
+      // Socket was NOT disconnected, and no new socket was created
+      expect(mockSocket.disconnect).not.toHaveBeenCalled()
+      expect(io).toHaveBeenCalledTimes(1)
     })
   })
 

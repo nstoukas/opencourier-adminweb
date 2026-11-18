@@ -30,6 +30,15 @@ jest.mock('../../api/chatApi', () => ({
   useGetChatUnreadCountQuery: () => mockUseGetChatUnreadCountQuery(),
 }))
 
+const mockDisconnectChatLive = jest.fn()
+jest.mock('../../modules/chat/chatLive', () => {
+  const actual = jest.requireActual('../../modules/chat/chatLive')
+  return {
+    ...actual,
+    disconnectChatLive: () => mockDisconnectChatLive(),
+  }
+})
+
 describe('DefaultLayout and Admin shell (row 86)', () => {
   let store: ReturnType<typeof makeStore>
 
@@ -317,6 +326,7 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(dispatchSpy).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'sheets/closeAllSheets' })
       )
+      expect(mockDisconnectChatLive).toHaveBeenCalledTimes(1)
 
       // Post-conditions: after Sign Out the store has no token, no cached queries and no open sheets
       expect(selectAccessToken(store.getState())).toBeNull()

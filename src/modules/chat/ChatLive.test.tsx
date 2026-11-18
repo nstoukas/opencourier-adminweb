@@ -10,11 +10,15 @@ import { ChatLive, SOUNDING_SENDERS } from './ChatLive'
 const mockConnectChatLive = jest.fn()
 const mockIsChatLive = jest.fn(() => false)
 const mockSubscribeChatLive = jest.fn((_listener?: any) => () => {})
+const mockCloseChatLiveSoon = jest.fn()
+const mockDisconnectChatLive = jest.fn()
 
 jest.mock('./chatLive', () => ({
   connectChatLive: (token: any, handlers: any) => mockConnectChatLive(token, handlers),
   isChatLive: () => mockIsChatLive(),
   subscribeChatLive: (listener: any) => mockSubscribeChatLive(listener),
+  closeChatLiveSoon: () => mockCloseChatLiveSoon(),
+  disconnectChatLive: () => mockDisconnectChatLive(),
 }))
 
 const mockPlayChatSound = jest.fn()
@@ -160,5 +164,17 @@ describe('ChatLive (spec 0034, AC-8, AC-9, decision 111.2)', () => {
     expect(dispatchSpy).toHaveBeenCalledWith(
       chatApi.util.invalidateTags([Tags.chatThreads, Tags.chatMessages])
     )
+  })
+
+  it('unmounting ChatLive calls closeChatLiveSoon() (spec 0034, review Major)', () => {
+    const { unmount } = render(
+      <Provider store={store}>
+        <ChatLive />
+      </Provider>
+    )
+
+    expect(mockCloseChatLiveSoon).not.toHaveBeenCalled()
+    unmount()
+    expect(mockCloseChatLiveSoon).toHaveBeenCalledTimes(1)
   })
 })
