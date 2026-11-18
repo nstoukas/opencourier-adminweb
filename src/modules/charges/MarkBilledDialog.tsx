@@ -91,7 +91,10 @@ export function MarkBilledDialog({
       if (billed !== null) {
         // Nothing was written. Read the lines again; the billed ones drop out of this list.
         dispatch(refreshPartnerCharges())
-        const names = unbilled.filter((line) => billed.includes(line.id)).map(adminOrderLabel)
+        // Time and order, since one order can carry more than one charge.
+        const names = unbilled
+          .filter((line) => billed.includes(line.id))
+          .map((line) => `${adminOrderLabel(line)} (${athensDayTime(line.happenedAt)})`)
         setError(
           names.length > 0
             ? `Nothing was billed: someone else just billed ${names.join(', ')}. The list is up to date now; check it and confirm again.`

@@ -17,6 +17,9 @@ export function currentAthensMonth(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: INSTANCE_TIMEZONE }).format(now).slice(0, 7)
 }
 
+// The earliest month the backend accepts: Previous stops here.
+export const FIRST_MONTH = '1970-01'
+
 // The month `delta` months away (negative goes back): shiftMonth('2026-01', -1) is '2025-12'.
 export function shiftMonth(month: string, delta: number): string {
   const index = Number(month.slice(0, 4)) * 12 + (Number(month.slice(5, 7)) - 1) + delta

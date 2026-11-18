@@ -43,7 +43,8 @@ export function BillStatementPage() {
       </Head>
       <main lang="el" className="mx-auto max-w-3xl bg-background p-8 text-foreground print:max-w-none print:p-0">
         <div className="mb-6 flex justify-end print:hidden">
-          <Button type="button" onClick={() => window.print()}>
+          {/* lang="en": the page is Greek, but this one admin control is English. */}
+          <Button type="button" lang="en" onClick={() => window.print()}>
             <Printer aria-hidden="true" className="mr-2 h-4 w-4" />
             Print
           </Button>

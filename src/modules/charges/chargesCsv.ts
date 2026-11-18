@@ -49,5 +49,6 @@ export function downloadCsv(fileName: string, text: string): void {
   document.body.appendChild(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  // Safari fetches a clicked download a moment later; freeing the link at once can cancel it.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

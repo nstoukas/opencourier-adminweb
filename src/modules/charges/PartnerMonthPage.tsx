@@ -82,7 +82,7 @@ export function PartnerMonthPage() {
       />
       <PageHeader
         title={data ? data.partner.name : 'Charges'}
-        description={`Charges in ${title}, Athens time.`}
+        description={title ? `Charges in ${title}, Athens time.` : undefined}
         action={
           <>
             <Button
@@ -209,6 +209,7 @@ export function PartnerMonthPage() {
                           <Link
                             href={{ pathname: EAdminRoutes.CHARGES_STATEMENT, query: { billId: bill.id } }}
                             target="_blank"
+                            rel="noopener noreferrer"
                             aria-label={`Statement for ${billLabel(bill)}, opens in a new tab`}
                           >
                             <Printer aria-hidden="true" className="mr-2 h-4 w-4" />

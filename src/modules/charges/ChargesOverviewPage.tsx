@@ -6,7 +6,7 @@ import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow }
 import { useGetPartnerChargeMonthQuery } from '@/api/partnerChargeApi'
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { EAdminRoutes } from '@/hooks/useAdminPageNavigator'
-import { currentAthensMonth, isMonth, monthTitle, shiftMonth } from '@/utils/athensMonth'
+import { FIRST_MONTH, currentAthensMonth, isMonth, monthTitle, shiftMonth } from '@/utils/athensMonth'
 import { buildChargesCsv, downloadCsv } from './chargesCsv'
 import { formatTotals } from './chargeTotals'
 import { DELIVERY_FEE_NOTE } from './chargeWording'
@@ -50,7 +50,13 @@ export function ChargesOverviewPage() {
       />
 
       <nav aria-label="Month" className="mb-4 flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => goToMonth(shiftMonth(month, -1))}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={month <= FIRST_MONTH}
+          onClick={() => goToMonth(shiftMonth(month, -1))}
+        >
           <CaretLeft aria-hidden="true" className="mr-1 h-4 w-4" />
           Previous
         </Button>
