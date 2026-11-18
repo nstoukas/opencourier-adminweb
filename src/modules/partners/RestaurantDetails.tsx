@@ -233,8 +233,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
 
         {/* Whether the restaurant has an API key and since when; an admin makes or removes it (spec 0037). */}
         {/* key: another restaurant's page starts the card afresh, so a key shown for one restaurant can
-            never appear under the next one's name (Fable review, minor 3). */}
-        <PartnerApiKeyCard key={partner.id} partner={partner} />
+            never appear under the next one's name (Fable review, minor 3). Prefixed, since the customers
+            card beside it already uses the bare id and React keys must differ between siblings. */}
+        <PartnerApiKeyCard key={`api-key-${partner.id}`} partner={partner} />
       </div>
 
       <PartnerFormDialog
@@ -245,7 +246,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         returnFocusTo={editButtonRef}
       />
       <RotateCredentialsDialog
-        key={partner.id}
+        key={`password-${partner.id}`}
         open={rotateDialogOpen}
         onOpenChange={setRotateDialogOpen}
         partnerId={partner.id}
