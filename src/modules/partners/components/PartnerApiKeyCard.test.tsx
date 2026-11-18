@@ -9,7 +9,6 @@ import {
   useRemovePartnerApiKeyMutation,
 } from '../../../api/partnersApi'
 import { authSlice } from '@/modules/auth/slices/authSlice'
-import { prepareAdminSdk } from '../../../api'
 import type { PartnerAdminDto } from '../../../backend-admin-sdk'
 
 const actualPartnersApi = jest.requireActual('../../../api/partnersApi')
@@ -425,6 +424,46 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
         expect(screen.getByRole('alert')).toHaveTextContent('Server error replacing key')
       })
       expect(mockToast).not.toHaveBeenCalled()
+    })
+
+    it('shows destructive toast and calls request.reset() when makeKey fails after confirmation dialog was closed', async () => {
+      let rejectPromise!: (err: any) => void
+      const pendingPromise = new Promise((_, reject) => {
+        rejectPromise = reject
+      })
+
+      mockCreateApiKey.mockReturnValue({
+        unwrap: () => pendingPromise,
+        reset: mockCreateRequestReset,
+      })
+
+      const partnerWithKey: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: new Date('2026-11-18T10:00:00.000Z'),
+      }
+
+      render(<PartnerApiKeyCard partner={partnerWithKey} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /^new api key$/i }))
+      expect(screen.getByRole('heading', { name: 'Replace the API key?' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Make a new key' }))
+
+      // Admin dismisses the confirmation dialog while key creation is in flight
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      // Now the in-flight request fails
+      rejectPromise({ message: 'Network lost during key creation' })
+
+      await waitFor(() => {
+        expect(mockCreateRequestReset).toHaveBeenCalledTimes(1)
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Network lost during key creation',
+          variant: 'destructive',
+        })
+      })
+      expect(screen.queryByRole('alert')).toBeNull()
     })
 
     it('displays inline error in dialog when removeApiKey fails while dialog is open', async () => {
