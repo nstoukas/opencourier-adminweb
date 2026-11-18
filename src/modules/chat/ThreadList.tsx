@@ -27,7 +27,12 @@ const EMPTY_WORDS: Record<ChatTab, string> = {
   ALL: 'No conversations yet. A courier or restaurant who writes to dispatch shows up here.',
 }
 
+// Row 115: the open thread kept on the Unread tab, with where it was seen.
+type KeptThread = { row: ChatThreadRowAdminDto; tab: ChatTab; search: string; page: number }
+
 // Row 115: the list with the kept thread put back in its place (newest first), shown as read.
+// `lastMessageAt` is compared as text: the server always sends one ISO 8601 format, which sorts
+// the same as the times. A kept row goes after rows with the same time.
 // Nothing changes when there is no kept thread or the server still lists it.
 export function withKeptThread(listed: ChatThreadRowAdminDto[], kept: ChatThreadRowAdminDto | null): ChatThreadRowAdminDto[] {
   if (!kept || listed.some((thread) => thread.id === kept.id)) return listed
@@ -55,7 +60,7 @@ export function ThreadList({ activeThreadId }: { activeThreadId: string | null }
     return () => clearTimeout(timer)
   }, [typed])
 
-  const { data, isLoading, isError } = useGetChatThreadsQuery(
+  const { data, isLoading, isError, isFetching } = useGetChatThreadsQuery(
     { tab, search: search || undefined, page },
     { pollingInterval: !live && pageVisible ? THREAD_LIST_POLL_MS : 0 }
   )
@@ -65,17 +70,22 @@ export function ThreadList({ activeThreadId }: { activeThreadId: string | null }
 
   // Row 115: on the Unread tab, opening a thread reads it, and the server then leaves it out of the
   // list. Keep the open thread in view, shown as read, so a search does not suddenly match nothing
-  // while you are reading. It goes once you open another thread or change the tab or the search.
-  const [kept, setKept] = useState<ChatThreadRowAdminDto | null>(null)
+  // while you are reading. It goes once you open another thread or change the tab, the search or the
+  // page. The row remembers the tab, search and page it was seen under, and the rule below compares
+  // them on every draw (decision 115.3), so no second effect can race to clear it.
+  const [kept, setKept] = useState<KeptThread | null>(null)
   const listed = data?.data ?? []
-  const listedActive = listed.find((thread) => thread.id === activeThreadId)
+  // While a new search loads, `data` still holds the previous answer, so a row is only saved from
+  // an answer that has finished loading for what is on screen now.
+  const listedActive = isFetching ? undefined : listed.find((thread) => thread.id === activeThreadId)
   useEffect(() => {
-    if (listedActive) setKept(listedActive)
-  }, [listedActive])
-  useEffect(() => {
-    setKept(null)
-  }, [tab, search])
-  const threads = withKeptThread(listed, tab === 'UNREAD' && kept?.id === activeThreadId ? kept : null)
+    if (listedActive) setKept({ row: listedActive, tab, search, page })
+  }, [listedActive, tab, search, page])
+  const keepsRow =
+    tab === 'UNREAD' && kept !== null && kept.row.id === activeThreadId && kept.tab === tab && kept.search === search && kept.page === page
+  // Its preview and time stay as they were when it was last listed (a reply of your own does not
+  // bring it back to the Unread list); it is only kept while you read it.
+  const threads = withKeptThread(listed, keepsRow ? kept.row : null)
 
   return (
     <div className="flex h-full flex-col">
