@@ -67,7 +67,12 @@ jest.mock('../../api/chatApi', () => ({
   useOpenChatThreadMutation: () => [jest.fn(), { isLoading: false }],
 }))
 
-// Mock child dialogs and customer card to keep tests focused on the page
+// Mock child dialogs, cards and lines to keep tests focused on the page
+jest.mock('../../modules/charges/PartnerUnbilledLine', () => ({
+  PartnerUnbilledLine: ({ partnerId }: { partnerId: string }) => (
+    <div data-testid="mock-partner-unbilled-line" data-partner-id={partnerId} />
+  ),
+}))
 jest.mock('./components/PartnerCustomersCard', () => ({
   PartnerCustomersCard: ({ partnerId, restaurantName }: { partnerId: string; restaurantName: string }) => (
     <div data-testid="mock-customers-card" data-partner-id={partnerId} data-name={restaurantName} />
@@ -613,6 +618,17 @@ describe('Restaurant page (spec 0024, AC-2 to AC-6)', () => {
 
       expect(screen.getByTestId('wait-record')).toBeInTheDocument()
       expect(screen.getByRole('heading', { level: 3, name: 'Wait record' })).toBeInTheDocument()
+    })
+  })
+
+  // Spec 0036 (AC-11): unbilled charges line rendered on the restaurant page.
+  describe('spec 0036, AC-11: unbilled charges line', () => {
+    it('shows the partner unbilled line with the partner id on the restaurant page', () => {
+      render(<PartnerDetailsPage />)
+
+      const line = screen.getByTestId('mock-partner-unbilled-line')
+      expect(line).toBeInTheDocument()
+      expect(line).toHaveAttribute('data-partner-id', 'partner-abc-123')
     })
   })
 })

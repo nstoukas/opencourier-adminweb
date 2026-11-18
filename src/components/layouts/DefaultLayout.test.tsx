@@ -218,19 +218,26 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     })
 
     // Spec 0026 (row 77): the Co-op group gains "Shift slots" after Settings.
-    it('lists Settings then "Shift slots" (/shift-slots) in the Co-op group, and marks Shift slots active there', () => {
+    // Spec 0036 (row 109): the Co-op group gains "Charges" (/charges).
+    it('lists Settings then "Shift slots" (/shift-slots) and "Charges" (/charges) in the Co-op group, and marks Shift slots active there', () => {
       currentPathname = '/shift-slots'
       renderLayout()
 
       const coop = screen.getByRole('list', { name: 'Co-op' })
       const links = within(coop).getAllByRole('link')
-      expect(links.map((link) => link.textContent?.trim())).toEqual(['Settings', 'Shift slots'])
+      expect(links.map((link) => link.textContent?.trim())).toEqual(['Settings', 'Shift slots', 'Charges'])
       expect(links[1]).toHaveAttribute('href', '/shift-slots')
+      expect(links[2]).toHaveAttribute('href', '/charges')
       expect(EAdminRoutes.SHIFT_SLOTS).toBe('/shift-slots')
+      expect(EAdminRoutes.CHARGES).toBe('/charges')
+      expect(EAdminRoutes.CHARGES_PARTNER_MONTH).toBe('/charges/[month]/[partnerId]')
+      expect(EAdminRoutes.CHARGES_STATEMENT).toBe('/charges/statement/[billId]')
 
       expect(links[1]).toHaveAttribute('aria-current', 'page')
       expect(links[0]).not.toHaveAttribute('aria-current')
+      expect(links[2]).not.toHaveAttribute('aria-current')
       expect(screen.getAllByRole('link', { name: /Shift slots/ })).toHaveLength(1)
+      expect(screen.getAllByRole('link', { name: /Charges/ })).toHaveLength(1)
     })
 
     // Spec 0034 (chat), AC-2: Messages under Run the day with unread count, hidden at 0
