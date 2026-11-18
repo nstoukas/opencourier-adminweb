@@ -581,7 +581,87 @@ describe('ThreadList kept thread on Unread tab (row 115, decision 115.1)', () =>
     expect(screen.getByText('No conversation matches “Nikos”.')).toBeInTheDocument()
   })
 
-  it('does not keep any thread on the ALL tab when server returns empty list', () => {
+  it('does not add kept thread on the ALL tab: with t1 open and the server listing t2 only, t1 is not added', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+    const t2 = makeThread({
+      id: 't2',
+      name: 'Pizza Mia',
+      unread: false,
+      lastMessageAt: '2026-11-17T14:25:00.000Z',
+    })
+
+    // On default ALL tab, server initially lists t1 so it is active
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [t1],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    const { rerender } = render(<ThreadList activeThreadId="t1" />)
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // Server now lists t2 only while t1 remains open
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [t2],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    rerender(<ThreadList activeThreadId="t1" />)
+
+    // t2 is listed, but t1 is NOT added on the ALL tab
+    expect(screen.getByRole('link', { name: /Pizza Mia/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+  })
+
+  it('tab round trip: remembers kept thread on Unread with search typed when switching to All and back', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+    const t2 = makeThread({
+      id: 't2',
+      name: 'Pizza Mia',
+      unread: false,
+      lastMessageAt: '2026-11-17T14:25:00.000Z',
+    })
+
+    // Setup: Unread tab, search "Nikos" typed, t1 open and listed, then server drops it (kept, shown as read)
+    const { rerender } = setupKeptThreadOnUnread(t1, 't1')
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toHaveAttribute('data-unread', 'false')
+
+    // Switch to All tab (server lists t2 only)
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [t2],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    const allTab = screen.getByRole('tab', { name: /All/i })
+    fireEvent.mouseDown(allTab, { button: 0 })
+
+    // On All tab: t2 is shown, t1 is NOT added
+    expect(screen.getByRole('link', { name: /Pizza Mia/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+
+    // Switch back to Unread tab with same search and page (server still not listing t1, t1 still open)
     mockUseGetChatThreadsQuery.mockReturnValue({
       data: {
         data: [],
@@ -589,14 +669,237 @@ describe('ThreadList kept thread on Unread tab (row 115, decision 115.1)', () =>
       },
       isLoading: false,
       isError: false,
+      isFetching: false,
+    })
+    const unreadTab = screen.getByRole('tab', { name: /Unread/i })
+    fireEvent.mouseDown(unreadTab, { button: 0 })
+
+    // Back on Unread: t1 IS shown again, as read (kept row remembered tab, search and page)
+    const keptOnReturn = screen.getByRole('link', { name: /Nikos Pappas/i })
+    expect(keptOnReturn).toBeInTheDocument()
+    expect(keptOnReturn).toHaveAttribute('data-unread', 'false')
+
+    // Then open another thread t2: t1 is no longer shown
+    rerender(<ThreadList activeThreadId="t2" />)
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+  })
+
+  it('going back to a cached search: keeps thread when returning to cached search and server drops it', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
     })
 
-    render(<ThreadList activeThreadId="t1" />)
+    // Cached response holding the exact same array and row object reference as RTK Query cache gives
+    const cachedNoshData = [t1]
 
-    // On default ALL tab with empty server response, no thread is kept
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+
+    const { rerender } = render(<ThreadList activeThreadId="t1" />)
+
+    // Switch to Unread tab
+    const unreadTab = screen.getByRole('tab', { name: /Unread/i })
+    fireEvent.mouseDown(unreadTab, { button: 0 })
+
+    const searchInput = screen.getByLabelText('Search conversations')
+
+    // 1. Search "nosh" lists t1 (open)
+    fireEvent.change(searchInput, { target: { value: 'nosh' } })
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: cachedNoshData,
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // 2. Change search to "x" (t1 not listed)
+    fireEvent.change(searchInput, { target: { value: 'x' } })
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
     expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
-    expect(
-      screen.getByText('No conversations yet. A courier or restaurant who writes to dispatch shows up here.')
-    ).toBeInTheDocument()
+
+    // 3. Change search back to "nosh" where mock answer is SAME array and row object
+    fireEvent.change(searchInput, { target: { value: 'nosh' } })
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: cachedNoshData,
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // 4. Server drops t1 (read): t1 must still be shown as read
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    rerender(<ThreadList activeThreadId="t1" />)
+
+    const keptRow = screen.getByRole('link', { name: /Nikos Pappas/i })
+    expect(keptRow).toBeInTheDocument()
+    expect(keptRow).toHaveAttribute('data-unread', 'false')
+    expect(within(keptRow).queryByText('Unread')).toBeNull()
+    expect(screen.queryByText(/No conversation matches/i)).toBeNull()
+  })
+
+  it('page change: t1 kept on page 1 is not shown on page 2', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+
+    // On Unread tab, page 1 lists t1 with totalPages: 2, nextPage: 2
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [t1],
+        pagination: { currentPage: 1, totalPages: 2, totalItems: 60, prevPage: null, nextPage: 2 },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+
+    const { rerender } = render(<ThreadList activeThreadId="t1" />)
+
+    // Switch to Unread tab
+    const unreadTab = screen.getByRole('tab', { name: /Unread/i })
+    fireEvent.mouseDown(unreadTab, { button: 0 })
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // Server drops t1 (read), still on page 1: t1 is kept on page 1
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 2, totalItems: 59, prevPage: null, nextPage: 2 },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    rerender(<ThreadList activeThreadId="t1" />)
+
+    const keptOnPage1 = screen.getByRole('link', { name: /Nikos Pappas/i })
+    expect(keptOnPage1).toBeInTheDocument()
+    expect(keptOnPage1).toHaveAttribute('data-unread', 'false')
+
+    // Go to page 2 (click "Older", with pagination totalPages 2 and nextPage set)
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 2, totalPages: 2, totalItems: 59, prevPage: 1, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+
+    const olderBtn = screen.getByRole('button', { name: 'Older' })
+    expect(olderBtn).toBeEnabled()
+    fireEvent.click(olderBtn)
+
+    // t1 is NOT shown on page 2
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+  })
+
+  it('stale data while fetching: does not save kept thread under new search while isFetching is true', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+
+    // Start on Unread tab without t1 listed
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+
+    const { rerender } = render(<ThreadList activeThreadId="t1" />)
+
+    // Switch to Unread tab
+    const unreadTab = screen.getByRole('tab', { name: /Unread/i })
+    fireEvent.mouseDown(unreadTab, { button: 0 })
+
+    // User types new search "acme"
+    const searchInput = screen.getByLabelText('Search conversations')
+    fireEvent.change(searchInput, { target: { value: 'acme' } })
+
+    // While fetching new search, mock returns isFetching: true with stale answer containing t1
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [t1],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: true,
+    })
+
+    // Advance 300 ms debounce timer so search parameter updates to "acme"
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
+
+    // Fetch ends with answer without t1 (isFetching: false)
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    })
+    rerender(<ThreadList activeThreadId="t1" />)
+
+    // After fetch ends with answer without t1, t1 is not shown
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+    expect(screen.getByText('No conversation matches “acme”.')).toBeInTheDocument()
   })
 })
