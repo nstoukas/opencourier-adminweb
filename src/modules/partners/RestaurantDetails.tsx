@@ -232,7 +232,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         <PartnerCustomersCard key={partner.id} partnerId={partner.id} restaurantName={partner.name} />
 
         {/* Whether the restaurant has an API key and since when; an admin makes or removes it (spec 0037). */}
-        <PartnerApiKeyCard partner={partner} />
+        {/* key: another restaurant's page starts the card afresh, so a key shown for one restaurant can
+            never appear under the next one's name (Fable review, minor 3). */}
+        <PartnerApiKeyCard key={partner.id} partner={partner} />
       </div>
 
       <PartnerFormDialog
@@ -243,6 +245,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         returnFocusTo={editButtonRef}
       />
       <RotateCredentialsDialog
+        key={partner.id}
         open={rotateDialogOpen}
         onOpenChange={setRotateDialogOpen}
         partnerId={partner.id}

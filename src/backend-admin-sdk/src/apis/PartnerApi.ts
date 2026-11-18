@@ -282,7 +282,8 @@ export class PartnerApi extends runtime.BaseAPI {
         return await response.value();
     }
 
-    // Spec 0029 (hand edited). The three share this request: the admin token, a path, an optional body.
+    // Spec 0029 (hand edited), and spec 0037's API key routes: the admin token, a path, a method, an
+    // optional body.
     private async availabilityRequest(path: string, method: 'GET' | 'POST' | 'DELETE', body: object | undefined, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Response> {
         const headerParameters: runtime.HTTPHeaders = {};
         if (body !== undefined) headerParameters['Content-Type'] = 'application/json';
@@ -314,6 +315,10 @@ export class PartnerApi extends runtime.BaseAPI {
     async createPartnerApiKey(requestParameters: { id: string }, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PartnerApiKeyAdminAnswer> {
         const response = await this.availabilityRequest(`/api/admin/v1/partner/${encodeURIComponent(requestParameters.id)}/api-key`, 'POST', undefined, initOverrides);
         const json = await response.json();
+        // A missing key would open an empty "copy it now" panel, so a malformed answer is an error.
+        if (typeof json?.apiKey !== 'string' || json.apiKey === '') {
+            throw new Error('The server did not send a new API key. Try again.');
+        }
         return { apiKey: json.apiKey, apiKeyCreatedAt: new Date(json.apiKeyCreatedAt) };
     }
 

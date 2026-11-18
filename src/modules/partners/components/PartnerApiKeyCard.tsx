@@ -44,11 +44,14 @@ type DialogMode = 'confirm-new' | 'confirm-remove' | 'shown'
 // API key and Remove key. A new key is shown once; the server keeps only its hash.
 export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
   const { toast } = useToast()
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
   const [mode, setMode] = useState<DialogMode>('confirm-new')
   const [shownKey, setShownKey] = useState<string | null>(null)
   const [error, setError] = useState('')
   const reasonId = useId()
+  // Whether the dialog is open right now. A request that ends after a click may read this, while its
+  // own copy of `open` is the value from when it started (Fable review, minor 5).
+  const openRef = useRef(false)
   // The button that opened the dialog gets focus back when it closes (Radix does not do it here).
   const newButtonRef = useRef<HTMLButtonElement>(null)
   const removeButtonRef = useRef<HTMLButtonElement>(null)
@@ -59,6 +62,13 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
   const noLogin = !partner.userId
   const hasKey = partner.apiKeyCreatedAt !== null
   const busy = createState.isLoading || removeState.isLoading
+  // The step that shows the key; only Done closes it (AC-13).
+  const shown = mode === 'shown' && shownKey !== null
+
+  const setOpen = (next: boolean) => {
+    openRef.current = next
+    setOpenState(next)
+  }
 
   const openDialog = (nextMode: DialogMode, by: React.RefObject<HTMLButtonElement>) => {
     openedBy.current = by
@@ -69,30 +79,33 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
 
   const makeKey = async () => {
     setError('')
+    // The request object, kept so its answer can be dropped from the Redux store right after it is
+    // read: the key must live only in this panel (AC-13). The hook's own `reset` cannot do it here, as
+    // it still holds the render from before this request (Fable review, major).
+    const request = createApiKey({ id: partner.id })
     try {
-      const answer = await createApiKey({ id: partner.id }).unwrap()
+      const answer = await request.unwrap()
       setShownKey(answer.apiKey)
-      // Forget the key in the request cache at once: it stays only in this panel's state, which is
-      // cleared when the dialog closes (AC-13).
-      createState.reset()
       setMode('shown')
       setOpen(true)
     } catch (err: any) {
       const message = err?.message || 'Could not make a new API key.'
-      if (open) {
+      if (openRef.current) {
         setError(message)
       } else {
         toast({ title: message, variant: 'destructive' })
       }
+    } finally {
+      request.reset()
     }
   }
 
   const onNewKey = () => {
-    openedBy.current = newButtonRef
     // A restaurant with a key is asked first, since the current key stops working at once.
     if (hasKey) {
       openDialog('confirm-new', newButtonRef)
     } else {
+      openedBy.current = newButtonRef
       void makeKey()
     }
   }
@@ -102,21 +115,32 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
     try {
       await removeApiKey({ id: partner.id }).unwrap()
       toast({ title: `The API key of ${partner.name} is removed.` })
+      // Remove key is about to be disabled (no key any more), so focus goes to New API key.
+      openedBy.current = newButtonRef
       setOpen(false)
     } catch (err: any) {
-      setError(err?.message || 'Could not remove the API key.')
+      const message = err?.message || 'Could not remove the API key.'
+      if (openRef.current) {
+        setError(message)
+      } else {
+        toast({ title: message, variant: 'destructive' })
+      }
     }
   }
 
-  const shown = mode === 'shown' && shownKey !== null
-  const title =
-    mode === 'shown' ? 'New API key' : mode === 'confirm-new' ? 'Replace the API key?' : 'Remove the API key?'
-  const description =
-    mode === 'shown'
-      ? `For ${partner.name}.`
-      : mode === 'confirm-new'
-      ? `The current key of ${partner.name} stops working at once. Whatever uses it must be given the new key.`
-      : `The key of ${partner.name} stops working at once, and no new one is made.`
+  // Three explicit steps, so the key panel never shows under another step's title.
+  let title: string
+  let description: string
+  if (mode === 'shown') {
+    title = 'New API key'
+    description = `For ${partner.name}.`
+  } else if (mode === 'confirm-new') {
+    title = 'Replace the API key?'
+    description = `The current key of ${partner.name} stops working at once. Whatever uses it must be given the new key.`
+  } else {
+    title = 'Remove the API key?'
+    description = `The key of ${partner.name} stops working at once, and no new one is made.`
+  }
 
   return (
     <Card className="min-w-0">
@@ -128,8 +152,8 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
           {noLogin ? NO_LOGIN_NO_KEY : partner.apiKeyCreatedAt ? formatKeyMade(partner.apiKeyCreatedAt) : 'No API key.'}
         </p>
         <p className="text-muted-foreground">
-          A key lets the restaurant's own system send orders without signing in. Most restaurants use the request app
-          and need none.
+          A key lets the restaurant's own system send orders without signing in. Most restaurants use the request app and
+          need none.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -148,7 +172,8 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
             type="button"
             variant="outline"
             disabled={noLogin || !hasKey || busy}
-            aria-describedby={noLogin ? reasonId : undefined}
+            // Off with no login or no key: the sentence above says which.
+            aria-describedby={noLogin || !hasKey ? reasonId : undefined}
             onClick={() => openDialog('confirm-remove', removeButtonRef)}
           >
             Remove key
@@ -156,11 +181,19 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
         </div>
       </CardContent>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          // While the key shows, nothing but Done closes the dialog (AC-13).
+          if (!next && shown) return
+          setOpen(next)
+        }}
+      >
         <DialogContent
           className="sm:max-w-lg"
-          // The key is shown only now, so only Done closes that step: Escape and a click outside do
-          // nothing there (AC-13). The two confirmations close as usual.
+          // No corner X on the key step, and Escape and a click outside do nothing there. The two
+          // confirmations close as usual.
+          hideCloseButton={shown}
           onEscapeKeyDown={(event) => {
             if (shown) event.preventDefault()
           }}
@@ -181,9 +214,15 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-          {error ? <div className="text-sm text-destructive font-medium">{error}</div> : null}
-          {shown ? (
-            <ApiKeyShownOnce apiKey={shownKey} onDone={() => setOpen(false)} />
+          {error ? (
+            <div role="alert" className="text-sm text-destructive font-medium">
+              {error}
+            </div>
+          ) : null}
+          {mode === 'shown' ? (
+            shownKey !== null ? (
+              <ApiKeyShownOnce apiKey={shownKey} onDone={() => setOpen(false)} />
+            ) : null
           ) : (
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

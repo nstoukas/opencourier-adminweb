@@ -28,6 +28,9 @@ export function ApiKeyShownOnce({ apiKey, onDone }: { apiKey: string; onDone: ()
         <Input
           id="new-api-key"
           readOnly
+          // Focus moves here when the panel appears, so a screen reader reads the label and the key
+          // is selected ready to copy (Fable review, minor 6).
+          autoFocus
           value={apiKey}
           className="font-mono text-sm"
           onFocus={(event) => event.currentTarget.select()}
@@ -37,11 +40,11 @@ export function ApiKeyShownOnce({ apiKey, onDone }: { apiKey: string; onDone: ()
         This key will not be shown again. Copy it now and give it to whoever connects the restaurant's system. The
         server keeps only a fingerprint of it, so a lost key can only be replaced.
       </p>
-      {copyState === 'failed' ? (
-        <p className="text-sm text-destructive" role="status">
-          Could not copy. Select the key instead.
-        </p>
-      ) : null}
+      {/* Always in the page, so a screen reader announces its text when it changes (an element that
+          appears together with its text is often not read out). */}
+      <p className={copyState === 'failed' ? 'text-sm text-destructive' : 'sr-only'} role="status">
+        {copyState === 'failed' ? 'Could not copy. Select the key instead.' : copyState === 'copied' ? 'Copied.' : ''}
+      </p>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => void copy()}>
           <Copy aria-hidden="true" className="mr-2 h-4 w-4" />

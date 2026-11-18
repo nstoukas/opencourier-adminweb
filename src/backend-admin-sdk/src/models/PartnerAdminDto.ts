@@ -162,7 +162,8 @@ export function PartnerAdminDtoToJSON(value?: PartnerAdminDto | null): any {
         'usualPrepMinutes': value.usualPrepMinutes,
         'userId': value.userId,
         'email': value.email,
-        'apiKeyCreatedAt': value.apiKeyCreatedAt === null ? null : value.apiKeyCreatedAt.toISOString(),
+        // `?.` and `?? null`: a fixture or an older answer may leave the field out (the SDK's types are unreliable).
+        'apiKeyCreatedAt': value.apiKeyCreatedAt?.toISOString() ?? null,
         'pickupAddress': LocationAdminDtoToJSON(value.pickupAddress),
         'createdAt': (value.createdAt.toISOString()),
         'updatedAt': (value.updatedAt.toISOString()),

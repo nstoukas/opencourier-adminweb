@@ -33,7 +33,7 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
   returnFocusTo,
 }) => {
   const { toast } = useToast()
-  const [rotatePassword, { isLoading, reset }] = useRotatePartnerPasswordMutation()
+  const [rotatePassword, { isLoading }] = useRotatePartnerPasswordMutation()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -55,9 +55,16 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
     if (!isValid) return
     setError(null)
     try {
-      const answer = await rotatePassword({ id: partnerId, password }).unwrap()
-      // Forget the answer in the request cache at once; the key lives only in this dialog's state.
-      reset()
+      // The request object, kept so its answer is dropped from the Redux store right after it is read:
+      // a key lives only in this dialog's state (AC-13). The hook's own `reset` cannot do it here, as
+      // it still holds the render from before this request (Fable review, major).
+      const request = rotatePassword({ id: partnerId, password })
+      let answer
+      try {
+        answer = await request.unwrap()
+      } finally {
+        request.reset()
+      }
       if (answer.apiKey) {
         // The restaurant had an API key: it was replaced with the password, so the old one stopped
         // working too. Show the new one instead of closing (spec 0037, AC-13).
@@ -72,9 +79,17 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // While the new API key is shown, nothing but Done closes the dialog (spec 0037, AC-13).
+        if (!next && newApiKey) return
+        onOpenChange(next)
+      }}
+    >
       <DialogContent
         className="sm:max-w-md"
+        hideCloseButton={Boolean(newApiKey)}
         // While the new API key is shown, only Done closes the dialog (spec 0037, AC-13).
         onEscapeKeyDown={(event) => {
           if (newApiKey) event.preventDefault()
@@ -112,7 +127,11 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
               </DialogDescription>
             </DialogHeader>
 
-            {error ? <div className="text-sm text-destructive font-medium">{error}</div> : null}
+            {error ? (
+          <div role="alert" className="text-sm text-destructive font-medium">
+            {error}
+          </div>
+        ) : null}
 
             <div className="space-y-3 py-2">
               <div className="space-y-1">
