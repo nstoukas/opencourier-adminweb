@@ -58,4 +58,6 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 
 - The value 5 guard's broad patterns for removal requests run only on files about them (a path containing "removal", or a source importing `removalRequestApi` or `shared-types/removal-requests`, or naming `RemovalRequestAdminDto`), so ordinary code like `i++` or `new Map` can fail there. A failure names the file and pattern.
 
+- Chat (`src/modules/chat/`, spec 0034) is one optional catch all page, `src/pages/chat/[[...threadId]].tsx`, so opening a thread keeps the inbox's tab and search. The live socket (`chatLive.ts`) outlives a page change, because its close waits one tick for the next page's `ChatLive`; sign out and a 401 must call `disconnectChatLive` straight away. A page that fills the screen uses `DefaultLayout`'s `fillViewport` (every width) and scrolls inside its own box.
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
