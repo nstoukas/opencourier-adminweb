@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ChargesOverviewPage } from './ChargesOverviewPage'
 import { useGetPartnerChargeMonthQuery } from '@/api/partnerChargeApi'
+import { FIRST_MONTH } from '@/utils/athensMonth'
 import { DELIVERY_FEE_NOTE } from './chargeWording'
 import type { PartnerChargeMonthDto } from '@/backend-admin-sdk'
 
@@ -211,6 +212,72 @@ describe('ChargesOverviewPage (spec 0036, AC-1, AC-2, AC-4, AC-10)', () => {
       pathname: '/charges',
       query: { month: '2026-12' },
     })
+  })
+
+  it('Previous is disabled at ?month=1970-01 and enabled at 1970-02; while router.isReady is false the month query is skipped', () => {
+    mockUseGetPartnerChargeMonthQuery.mockReturnValue({
+      currentData: {
+        month: FIRST_MONTH,
+        restaurants: [],
+        charges: [],
+        earlierUnbilled: [],
+      } as PartnerChargeMonthDto,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    mockRouter.query = { month: FIRST_MONTH }
+    mockRouter.isReady = true
+    const { rerender } = render(<ChargesOverviewPage />)
+
+    const prevButton = screen.getByRole('button', { name: /Previous/i })
+    expect(prevButton).toBeDisabled()
+
+    mockRouter.query = { month: '1970-02' }
+    rerender(<ChargesOverviewPage />)
+    expect(screen.getByRole('button', { name: /Previous/i })).toBeEnabled()
+
+    mockRouter.isReady = false
+    mockRouter.query = {}
+    rerender(<ChargesOverviewPage />)
+    expect(mockUseGetPartnerChargeMonthQuery).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ skip: true })
+    )
+  })
+
+  it('with a fixture in two currencies (EUR and USD): totals show both figures joined with " · ", never one summed figure', () => {
+    mockUseGetPartnerChargeMonthQuery.mockReturnValue({
+      currentData: {
+        month: '2026-11',
+        restaurants: [
+          {
+            partnerId: 'p-multi',
+            partnerName: 'Global Bistro',
+            count: 2,
+            totals: [
+              { currencyCode: 'EUR', charged: 3500, billed: 1500, unbilled: 2000 },
+              { currencyCode: 'USD', charged: 5000, billed: 2000, unbilled: 3000 },
+            ],
+          },
+        ],
+        charges: [],
+        earlierUnbilled: [],
+      } as PartnerChargeMonthDto,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    render(<ChargesOverviewPage />)
+
+    expect(screen.getByText('€35.00 · $50.00')).toBeInTheDocument()
+    expect(screen.getByText('€15.00 · $20.00')).toBeInTheDocument()
+    expect(screen.getByText('€20.00 · $30.00')).toBeInTheDocument()
+
+    // Never a single summed figure across currencies (e.g. 85, 35+50, etc.)
+    expect(screen.queryByText(/85/)).toBeNull()
   })
 
   it('scans visible text on ChargesOverviewPage for "fee" and "delivery price", allowing only DELIVERY_FEE_NOTE', () => {

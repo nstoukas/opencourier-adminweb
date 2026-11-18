@@ -325,6 +325,62 @@ describe('PartnerMonthPage (spec 0036, AC-3 to AC-8, AC-10)', () => {
     })
   })
 
+  it('with a fixture in two currencies (EUR and USD): totals show both figures joined with " · ", never one summed figure', () => {
+    mockUseGetPartnerChargePartnerMonthQuery.mockReturnValue({
+      currentData: {
+        ...sampleData,
+        totals: [
+          { currencyCode: 'EUR', charged: 3500, billed: 1500, unbilled: 2000 },
+          { currencyCode: 'USD', charged: 5000, billed: 2000, unbilled: 3000 },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderPage()
+
+    const totalsSection = screen.getByRole('region', { name: 'Totals' })
+    expect(within(totalsSection).getByText('€35.00 · $50.00')).toBeInTheDocument()
+    expect(within(totalsSection).getByText('€15.00 · $20.00')).toBeInTheDocument()
+    expect(within(totalsSection).getByText('€20.00 · $30.00')).toBeInTheDocument()
+
+    // Never a single summed figure across currencies
+    expect(within(totalsSection).queryByText(/85/)).toBeNull()
+  })
+
+  it('each Statement link has target="_blank" and rel="noopener noreferrer"; while the month is not known yet the description "Charges in , Athens time." never appears', () => {
+    const { unmount } = renderPage()
+
+    const statementLinks = screen.getAllByRole('link', { name: /Statement for/i })
+    expect(statementLinks.length).toBeGreaterThan(0)
+    for (const link of statementLinks) {
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+
+    unmount()
+
+    mockRouter = {
+      pathname: '/charges/[month]/[partnerId]',
+      query: { partnerId: 'p-1' },
+      isReady: false,
+      push: jest.fn(),
+    }
+    mockUseGetPartnerChargePartnerMonthQuery.mockReturnValue({
+      currentData: undefined,
+      isLoading: true,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderPage()
+
+    expect(screen.queryByText('Charges in , Athens time.')).toBeNull()
+    expect(screen.queryByText(/Charges in , Athens time/)).toBeNull()
+  })
+
   it('scans visible text on PartnerMonthPage for "fee" and "delivery price", allowing only DELIVERY_FEE_NOTE', () => {
     const { container } = renderPage()
     const textContent = container.textContent || ''

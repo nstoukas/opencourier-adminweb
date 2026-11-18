@@ -156,6 +156,7 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
 
   describe('downloadCsv', () => {
     it('creates an anchor, clicks it, and revokes the object URL', () => {
+      jest.useFakeTimers()
       const originalCreateObjectURL = URL.createObjectURL
       const originalRevokeObjectURL = URL.revokeObjectURL
       const mockCreateObjectURL = jest.fn().mockReturnValue('blob:http://localhost/test-uuid')
@@ -166,17 +167,28 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
       const appendChildSpy = jest.spyOn(document.body, 'appendChild')
       const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
-      downloadCsv('charges-test.csv', '\uFEFFheader;\r\n')
+      try {
+        downloadCsv('charges-test.csv', '\uFEFFheader;\r\n')
 
-      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
-      expect(appendChildSpy).toHaveBeenCalled()
-      expect(clickSpy).toHaveBeenCalledTimes(1)
-      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/test-uuid')
+        expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
+        expect(appendChildSpy).toHaveBeenCalled()
+        expect(clickSpy).toHaveBeenCalledTimes(1)
 
-      URL.createObjectURL = originalCreateObjectURL
-      URL.revokeObjectURL = originalRevokeObjectURL
-      appendChildSpy.mockRestore()
-      clickSpy.mockRestore()
+        // The object URL is not revoked before 1000 ms (Safari deferred download fix)
+        expect(mockRevokeObjectURL).not.toHaveBeenCalled()
+        jest.advanceTimersByTime(999)
+        expect(mockRevokeObjectURL).not.toHaveBeenCalled()
+
+        // Revocation occurs after 1000 ms
+        jest.advanceTimersByTime(1)
+        expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/test-uuid')
+      } finally {
+        jest.useRealTimers()
+        URL.createObjectURL = originalCreateObjectURL
+        URL.revokeObjectURL = originalRevokeObjectURL
+        appendChildSpy.mockRestore()
+        clickSpy.mockRestore()
+      }
     })
   })
 })

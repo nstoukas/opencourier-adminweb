@@ -201,9 +201,9 @@ describe('MarkBilledDialog (spec 0036, AC-5, AC-6)', () => {
     // Dispatches refreshPartnerCharges() to invalidate partnerCharges tag
     expect(dispatchSpy).toHaveBeenCalledWith(refreshPartnerCharges())
 
-    // Names charge-1 by adminOrderLabel: "ORD-1 · 111111"
+    // Names charge-1 by adminOrderLabel and Athens happenedAt: "ORD-1 · 111111 (18/11/2026 12:00)"
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Nothing was billed: someone else just billed ORD-1 · 111111.')
+    expect(alert).toHaveTextContent('Nothing was billed: someone else just billed ORD-1 · 111111 (18/11/2026 12:00).')
     expect(alert).toHaveTextContent('The list is up to date now; check it and confirm again.')
   })
 

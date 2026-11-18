@@ -193,6 +193,13 @@ describe('BillStatementPage (spec 0036, AC-9)', () => {
     expect(window.print).toHaveBeenCalledTimes(1)
   })
 
+  it('the Print button has lang="en"', () => {
+    render(<BillStatementPage />)
+
+    const printButton = screen.getByRole('button', { name: /Print/i })
+    expect(printButton).toHaveAttribute('lang', 'en')
+  })
+
   it('shows error state "This bill was not found." on 404 error', () => {
     mockUseGetPartnerBillStatementQuery.mockReturnValue({
       currentData: undefined,
