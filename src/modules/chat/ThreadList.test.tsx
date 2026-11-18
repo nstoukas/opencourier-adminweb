@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
-import { ThreadList, THREAD_LIST_POLL_MS } from './ThreadList'
+import { ThreadList, THREAD_LIST_POLL_MS, withKeptThread } from './ThreadList'
 import type { ChatThreadRowAdminDto } from '../../backend-admin-sdk'
 import { initials, orderLabel, roleLabel, threadTime } from './chatDisplay'
 
@@ -322,5 +322,281 @@ describe('ThreadList (spec 0034, AC-2, AC-20, decision 111.7)', () => {
       expect.objectContaining({ page: 2 }),
       expect.anything()
     )
+  })
+})
+
+// Helper to construct test threads with sensible defaults
+function makeThread(overrides: Partial<ChatThreadRowAdminDto> = {}): ChatThreadRowAdminDto {
+  return {
+    id: 'th-default',
+    kind: 'COURIER',
+    courierId: 'c-1',
+    partnerId: null,
+    name: 'Courier Default',
+    lastMessageAt: '2026-11-17T12:00:00.000Z',
+    lastMessage: {
+      id: 'msg-default',
+      threadId: 'th-default',
+      senderKind: 'COURIER',
+      senderName: 'Courier Default',
+      body: 'Hello',
+      deliveryId: null,
+      orderReference: null,
+      createdAt: '2026-11-17T12:00:00.000Z',
+    },
+    linkedDeliveryId: null,
+    linkedOrderReference: null,
+    unread: true,
+    ...overrides,
+  }
+}
+
+describe('withKeptThread (row 115 pure logic)', () => {
+  it('returns the list unchanged when kept is null', () => {
+    const listed = [makeThread({ id: 't1' })]
+    const result = withKeptThread(listed, null)
+    expect(result).toBe(listed)
+  })
+
+  it('returns the list unchanged when the list already contains the kept thread id', () => {
+    const listed = [makeThread({ id: 't1' }), makeThread({ id: 't2' })]
+    const kept = makeThread({ id: 't1', unread: true })
+    const result = withKeptThread(listed, kept)
+    expect(result).toBe(listed)
+  })
+
+  it('inserts the kept row at the beginning (first position) when its timestamp is newest', () => {
+    const t1 = makeThread({ id: 't1', lastMessageAt: '2026-11-17T14:00:00.000Z' })
+    const t2 = makeThread({ id: 't2', lastMessageAt: '2026-11-17T12:00:00.000Z' })
+    const kept = makeThread({ id: 'kept-newest', lastMessageAt: '2026-11-17T16:00:00.000Z', unread: true })
+
+    const result = withKeptThread([t1, t2], kept)
+
+    expect(result.map((t) => t.id)).toEqual(['kept-newest', 't1', 't2'])
+    expect(result[0]?.unread).toBe(false)
+  })
+
+  it('inserts the kept row in the middle position when its timestamp is between threads', () => {
+    const t1 = makeThread({ id: 't1', lastMessageAt: '2026-11-17T16:00:00.000Z' })
+    const t2 = makeThread({ id: 't2', lastMessageAt: '2026-11-17T12:00:00.000Z' })
+    const kept = makeThread({ id: 'kept-middle', lastMessageAt: '2026-11-17T14:00:00.000Z', unread: true })
+
+    const result = withKeptThread([t1, t2], kept)
+
+    expect(result.map((t) => t.id)).toEqual(['t1', 'kept-middle', 't2'])
+    expect(result[1]?.unread).toBe(false)
+  })
+
+  it('inserts the kept row at the end (last position) when its timestamp is oldest', () => {
+    const t1 = makeThread({ id: 't1', lastMessageAt: '2026-11-17T16:00:00.000Z' })
+    const t2 = makeThread({ id: 't2', lastMessageAt: '2026-11-17T14:00:00.000Z' })
+    const kept = makeThread({ id: 'kept-oldest', lastMessageAt: '2026-11-17T10:00:00.000Z', unread: true })
+
+    const result = withKeptThread([t1, t2], kept)
+
+    expect(result.map((t) => t.id)).toEqual(['t1', 't2', 'kept-oldest'])
+    expect(result[2]?.unread).toBe(false)
+  })
+
+  it('inserts the kept row into an empty list as a single thread with unread false', () => {
+    const kept = makeThread({ id: 'kept-single', lastMessageAt: '2026-11-17T10:00:00.000Z', unread: true })
+    const result = withKeptThread([], kept)
+
+    expect(result.map((t) => t.id)).toEqual(['kept-single'])
+    expect(result[0]?.unread).toBe(false)
+  })
+
+  it('always sets unread: false on the kept row even if kept.unread was true', () => {
+    const kept = makeThread({ id: 'kept-unread', unread: true })
+    const result = withKeptThread([], kept)
+
+    expect(result[0]?.unread).toBe(false)
+  })
+
+  it('handles null lastMessageAt gracefully by placing it after threads with timestamps', () => {
+    const t1 = makeThread({ id: 't1', lastMessageAt: '2026-11-17T12:00:00.000Z' })
+    const kept = makeThread({ id: 'kept-null-time', lastMessageAt: null, unread: true })
+
+    const result = withKeptThread([t1], kept)
+
+    expect(result.map((t) => t.id)).toEqual(['t1', 'kept-null-time'])
+    expect(result[1]?.unread).toBe(false)
+  })
+
+  it('does not mutate the input array or the kept thread object', () => {
+    const t1 = makeThread({ id: 't1', lastMessageAt: '2026-11-17T12:00:00.000Z' })
+    const listed = Object.freeze([t1]) as ChatThreadRowAdminDto[]
+    const kept = Object.freeze(makeThread({ id: 'kept-1', unread: true })) as ChatThreadRowAdminDto
+
+    const result = withKeptThread(listed, kept)
+
+    expect(result).not.toBe(listed)
+    expect(kept.unread).toBe(true)
+    expect(result[1]?.unread).toBe(false)
+  })
+})
+
+describe('ThreadList kept thread on Unread tab (row 115, decision 115.1)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.useFakeTimers()
+    mockLive = true
+    mockPageVisible = true
+    mockUseGetChatUnreadCountQuery.mockReturnValue({ data: { count: 1 } })
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  // Helper setting up the state where t1 is opened, searched on Unread tab, and then read (server returns [])
+  function setupKeptThreadOnUnread(t1: ChatThreadRowAdminDto, activeThreadId = 't1') {
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+    })
+
+    const view = render(<ThreadList activeThreadId={activeThreadId} />)
+
+    // Switch to UNREAD tab
+    const unreadTab = screen.getByRole('tab', { name: /Unread/i })
+    fireEvent.mouseDown(unreadTab, { button: 0 })
+
+    // Type search and advance the 300 ms debounce timer
+    const searchInput = screen.getByLabelText('Search conversations')
+    fireEvent.change(searchInput, { target: { value: 'Nikos' } })
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
+
+    // Server returns search results containing t1
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [t1],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+    })
+    view.rerender(<ThreadList activeThreadId={activeThreadId} />)
+
+    // Now simulate open thread t1 being read: server returns []
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+    })
+    view.rerender(<ThreadList activeThreadId={activeThreadId} />)
+
+    return { ...view, searchInput, unreadTab }
+  }
+
+  it('keeps active thread in view as read when server drops it from Unread tab with search typed', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+
+    setupKeptThreadOnUnread(t1, 't1')
+
+    // t1 must STILL be rendered in the document
+    const keptRow = screen.getByRole('link', { name: /Nikos Pappas/i })
+    expect(keptRow).toBeInTheDocument()
+
+    // t1 must be shown as read: data-unread="false" and no unread dot indicator
+    expect(keptRow).toHaveAttribute('data-unread', 'false')
+    expect(within(keptRow).queryByText('Unread')).toBeNull()
+
+    // "No conversation matches" must NOT appear
+    expect(screen.queryByText(/No conversation matches/i)).toBeNull()
+  })
+
+  it('drops the kept thread and shows the empty search message when search text changes', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+
+    const { searchInput } = setupKeptThreadOnUnread(t1, 't1')
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // Now change search to a different query
+    fireEvent.change(searchInput, { target: { value: 'Andreas' } })
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
+
+    // Kept row is dropped and empty message appears
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+    expect(screen.getByText('No conversation matches “Andreas”.')).toBeInTheDocument()
+  })
+
+  it('drops the kept thread when switching from Unread to another tab', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+
+    setupKeptThreadOnUnread(t1, 't1')
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // Switch to Couriers tab
+    const couriersTab = screen.getByRole('tab', { name: /Couriers/i })
+    fireEvent.mouseDown(couriersTab, { button: 0 })
+
+    // Kept row is dropped
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+    expect(screen.getByText('No conversation matches “Nikos”.')).toBeInTheDocument()
+  })
+
+  it('drops the kept thread once another thread is opened (activeThreadId changes)', () => {
+    const t1 = makeThread({
+      id: 't1',
+      name: 'Nikos Pappas',
+      unread: true,
+      lastMessageAt: '2026-11-17T14:30:00.000Z',
+    })
+
+    const { rerender } = setupKeptThreadOnUnread(t1, 't1')
+    expect(screen.getByRole('link', { name: /Nikos Pappas/i })).toBeInTheDocument()
+
+    // Open another thread (activeThreadId changes to t2)
+    rerender(<ThreadList activeThreadId="t2" />)
+
+    // Kept row t1 is dropped
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+    expect(screen.getByText('No conversation matches “Nikos”.')).toBeInTheDocument()
+  })
+
+  it('does not keep any thread on the ALL tab when server returns empty list', () => {
+    mockUseGetChatThreadsQuery.mockReturnValue({
+      data: {
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0, prevPage: null, nextPage: null },
+      },
+      isLoading: false,
+      isError: false,
+    })
+
+    render(<ThreadList activeThreadId="t1" />)
+
+    // On default ALL tab with empty server response, no thread is kept
+    expect(screen.queryByRole('link', { name: /Nikos Pappas/i })).toBeNull()
+    expect(
+      screen.getByText('No conversations yet. A courier or restaurant who writes to dispatch shows up here.')
+    ).toBeInTheDocument()
   })
 })
