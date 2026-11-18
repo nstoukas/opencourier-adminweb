@@ -27,6 +27,16 @@ const EMPTY_WORDS: Record<ChatTab, string> = {
   ALL: 'No conversations yet. A courier or restaurant who writes to dispatch shows up here.',
 }
 
+// Row 115: the list with the kept thread put back in its place (newest first), shown as read.
+// Nothing changes when there is no kept thread or the server still lists it.
+export function withKeptThread(listed: ChatThreadRowAdminDto[], kept: ChatThreadRowAdminDto | null): ChatThreadRowAdminDto[] {
+  if (!kept || listed.some((thread) => thread.id === kept.id)) return listed
+  const row = { ...kept, unread: false }
+  const newer = (thread: ChatThreadRowAdminDto) => (thread.lastMessageAt ?? '') >= (kept.lastMessageAt ?? '')
+  const at = listed.filter(newer).length
+  return [...listed.slice(0, at), row, ...listed.slice(at)]
+}
+
 // AC-2: the inbox, newest first, 50 a page. Search by a name, a rider's phone or an order number.
 export function ThreadList({ activeThreadId }: { activeThreadId: string | null }) {
   const pageVisible = usePageVisible()
@@ -51,8 +61,21 @@ export function ThreadList({ activeThreadId }: { activeThreadId: string | null }
   )
   const { data: unread } = useGetChatUnreadCountQuery()
   const unreadCount = unread?.count ?? 0
-  const threads = data?.data ?? []
   const pagination = data?.pagination
+
+  // Row 115: on the Unread tab, opening a thread reads it, and the server then leaves it out of the
+  // list. Keep the open thread in view, shown as read, so a search does not suddenly match nothing
+  // while you are reading. It goes once you open another thread or change the tab or the search.
+  const [kept, setKept] = useState<ChatThreadRowAdminDto | null>(null)
+  const listed = data?.data ?? []
+  const listedActive = listed.find((thread) => thread.id === activeThreadId)
+  useEffect(() => {
+    if (listedActive) setKept(listedActive)
+  }, [listedActive])
+  useEffect(() => {
+    setKept(null)
+  }, [tab, search])
+  const threads = withKeptThread(listed, tab === 'UNREAD' && kept?.id === activeThreadId ? kept : null)
 
   return (
     <div className="flex h-full flex-col">
