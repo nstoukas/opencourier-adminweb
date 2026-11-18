@@ -27,10 +27,13 @@ export const UNDO_REASON_MAX = 300
 export function UndoBillDialog({
   bill,
   onClose,
+  onSaved,
   onCloseAutoFocus,
 }: {
   bill: PartnerBillDto
   onClose: () => void
+  // Called once the undo is saved, before the dialog closes.
+  onSaved?: () => void
   onCloseAutoFocus: (event: Event) => void
 }) {
   const [undoBill, { isLoading }] = useUndoPartnerBillMutation()
@@ -44,6 +47,7 @@ export function UndoBillDialog({
     setError(null)
     try {
       await undoBill({ billId: bill.id, reason: trimmed }).unwrap()
+      onSaved?.()
       onClose()
     } catch (err) {
       // Already undone by someone else: show the bill as it is now.

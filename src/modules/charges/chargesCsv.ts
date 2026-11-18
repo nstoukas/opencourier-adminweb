@@ -8,12 +8,13 @@ import { GREEK, formatGreekNumber, greekBillLabel, greekReason } from './greek'
 // CRLF line ends, amounts with a decimal comma and no currency sign. Built in the browser from the
 // route data, so nothing is stored on the server.
 
-const BOM = '﻿'
+const BOM = '\uFEFF'
 
 // A text field, quoted with inner quotes doubled. Restaurant names, references and removal labels
-// are free text: one starting with = + - or @ would run as a formula, so it gets a leading '.
+// are free text: one starting with = + - or @ (AC-10), or a tab or carriage return (which some
+// spreadsheets skip before reading a formula), would run as a formula, so it gets a leading '.
 export function csvText(value: string): string {
-  const guarded = /^[=+\-@]/.test(value) ? `'${value}` : value
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
   return `"${guarded.replace(/"/g, '""')}"`
 }
 

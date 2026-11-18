@@ -27,6 +27,15 @@ export function orderLabel(line: Pick<PartnerChargeLineDto, 'orderReference' | '
   return reference ? reference : line.deliveryId.slice(-6)
 }
 
+// On the admin pages: the reference with the short id beside it, because the legs of one order share
+// a reference (adminweb AGENTS.md); the short id alone when there is no reference. The statement and
+// the CSV keep orderLabel (the CSV has its own delivery id column).
+export function adminOrderLabel(line: Pick<PartnerChargeLineDto, 'orderReference' | 'deliveryId'>): string {
+  const reference = line.orderReference?.trim()
+  const shortId = line.deliveryId.slice(-6)
+  return reference ? `${reference} · ${shortId}` : shortId
+}
+
 // A bill's name: the invoice number typed, else "Billed 18/11/2026 14:05" (Athens time).
 export function billLabel(bill: { reference: string | null; createdAt: string }): string {
   const reference = bill.reference?.trim()

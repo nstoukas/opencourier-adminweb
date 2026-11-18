@@ -80,8 +80,8 @@ export const partnerChargeApi = baseApi.injectEndpoints({
   }),
 })
 
-// A refused bill wrote nothing, so RTK Query refreshes nothing by itself: the dialog calls this to
-// read the lines again after a 409 (AC-6).
+// Read the lines again after a refused bill (AC-6). RTK Query 1.9 already refetches the tag after a
+// rejected mutation; the dialog calls this as well so the reload does not depend on that detail.
 export const refreshPartnerCharges = () => partnerChargeApi.util.invalidateTags([Tags.partnerCharges])
 
 // The ids a bill's 409 says are already billed, or null when the error is something else (AC-6).

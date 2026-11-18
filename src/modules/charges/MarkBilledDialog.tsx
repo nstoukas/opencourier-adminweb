@@ -20,7 +20,7 @@ import { backendMessage } from '@/modules/couriers/courierAccountRules'
 import { useAppDispatch } from '@/ui-shared-utils'
 import { athensDayTime } from '@/utils/athensMonth'
 import { formatMoney } from '@/utils/formatMoney'
-import { orderLabel, reasonText } from './chargeWording'
+import { adminOrderLabel, reasonText } from './chargeWording'
 
 export const REFERENCE_MAX = 60
 
@@ -33,6 +33,7 @@ export function MarkBilledDialog({
   month,
   unbilled,
   onOpenChange,
+  onSaved,
   onCloseAutoFocus,
 }: {
   open: boolean
@@ -41,6 +42,8 @@ export function MarkBilledDialog({
   // The month's lines still unbilled, as the page last read them.
   unbilled: PartnerChargeBilledLineDto[]
   onOpenChange: (open: boolean) => void
+  // Called once the bill is saved, before the dialog closes.
+  onSaved?: () => void
   onCloseAutoFocus: (event: Event) => void
 }) {
   const [createBill, { isLoading }] = useCreatePartnerBillMutation()
@@ -81,13 +84,14 @@ export function MarkBilledDialog({
         chargeIds: ticked.map((line) => line.id),
         ...(trimmed ? { reference: trimmed } : {}),
       }).unwrap()
+      onSaved?.()
       onOpenChange(false)
     } catch (err) {
       const billed = alreadyBilledIds(err)
       if (billed !== null) {
         // Nothing was written. Read the lines again; the billed ones drop out of this list.
         dispatch(refreshPartnerCharges())
-        const names = unbilled.filter((line) => billed.includes(line.id)).map(orderLabel)
+        const names = unbilled.filter((line) => billed.includes(line.id)).map(adminOrderLabel)
         setError(
           names.length > 0
             ? `Nothing was billed: someone else just billed ${names.join(', ')}. The list is up to date now; check it and confirm again.`
@@ -127,7 +131,7 @@ export function MarkBilledDialog({
                     <span>
                       <span className="tabular-nums">{athensDayTime(line.happenedAt)}</span>
                       {' · '}
-                      {orderLabel(line)}
+                      {adminOrderLabel(line)}
                       {' · '}
                       {reasonText(line)}
                     </span>

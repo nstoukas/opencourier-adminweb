@@ -43,7 +43,7 @@ export function greekReason(line: Pick<PartnerChargeLineDto, 'reason' | 'waitMin
       return 'Ακύρωση αφού διανομέας είχε αποδεχτεί την παραγγελία'
     case 'WAITING':
       return line.waitMinutes != null
-        ? `Αναμονή διανομέα, ${line.waitMinutes} λεπτά μετά την ώρα που είχε συμφωνηθεί`
+        ? `Αναμονή διανομέα, ${line.waitMinutes} ${line.waitMinutes === 1 ? 'λεπτό' : 'λεπτά'} μετά την ώρα που είχε συμφωνηθεί`
         : 'Αναμονή διανομέα μετά την ώρα που είχε συμφωνηθεί'
     case 'REMOVAL':
       return `Απομάκρυνση διανομέα από την παραγγελία: ${line.removalLabel ?? ''}`.trimEnd()

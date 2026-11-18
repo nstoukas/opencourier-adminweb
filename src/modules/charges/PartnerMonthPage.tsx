@@ -24,7 +24,7 @@ import { athensDayTime, isMonth, monthTitle } from '@/utils/athensMonth'
 import { formatMoney } from '@/utils/formatMoney'
 import { buildChargesCsv, downloadCsv } from './chargesCsv'
 import { formatAmounts, formatTotals } from './chargeTotals'
-import { DELIVERY_FEE_NOTE, billLabel, orderLabel, reasonText } from './chargeWording'
+import { DELIVERY_FEE_NOTE, adminOrderLabel, billLabel, reasonText } from './chargeWording'
 import { MarkBilledDialog } from './MarkBilledDialog'
 import { UndoBillDialog } from './UndoBillDialog'
 
@@ -44,9 +44,18 @@ export function PartnerMonthPage() {
   const [undoing, setUndoing] = useState<PartnerBillDto | null>(null)
   const billButtonRef = useRef<HTMLButtonElement>(null)
   const undoOpenerRef = useRef<HTMLElement | null>(null)
-  const returnFocus = (target: HTMLElement | null) => (event: Event) => {
-    const element = target?.isConnected ? target : billButtonRef.current
-    if (element) {
+  // After a bill or an undo is saved, focus goes to the Bills heading, where the result shows: the
+  // opening button may be disabled (every line billed) or gone (an undone bill has no Undo) once the
+  // list reloads. A Cancel returns focus to the button that opened the dialog.
+  const billsHeadingRef = useRef<HTMLSpanElement>(null)
+  const savedRef = useRef(false)
+  const onSaved = () => {
+    savedRef.current = true
+  }
+  const returnFocus = (target: React.RefObject<HTMLElement | null>) => (event: Event) => {
+    const element = savedRef.current ? billsHeadingRef.current : target.current
+    savedRef.current = false
+    if (element?.isConnected) {
       event.preventDefault()
       element.focus()
     }
@@ -147,7 +156,7 @@ export function PartnerMonthPage() {
                             className="underline underline-offset-2"
                             href={{ pathname: EAdminRoutes.DELIVERY_DETAILS, query: { deliveryId: line.deliveryId } }}
                           >
-                            {orderLabel(line)}
+                            {adminOrderLabel(line)}
                           </Link>
                         </TableCell>
                         <TableCell>{reasonText(line)}</TableCell>
@@ -167,7 +176,12 @@ export function PartnerMonthPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Bills</CardTitle>
+              <CardTitle className="text-lg">
+                {/* tabIndex -1: focus can be put here by code, but Tab never stops on it. */}
+                <span ref={billsHeadingRef} tabIndex={-1} className="outline-none">
+                  Bills
+                </span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {data.bills.length === 0 ? (
@@ -232,14 +246,16 @@ export function PartnerMonthPage() {
           month={month}
           unbilled={unbilled}
           onOpenChange={setBillOpen}
-          onCloseAutoFocus={returnFocus(billButtonRef.current)}
+          onSaved={onSaved}
+          onCloseAutoFocus={returnFocus(billButtonRef)}
         />
       ) : null}
       {undoing ? (
         <UndoBillDialog
           bill={undoing}
           onClose={() => setUndoing(null)}
-          onCloseAutoFocus={returnFocus(undoOpenerRef.current)}
+          onSaved={onSaved}
+          onCloseAutoFocus={returnFocus(undoOpenerRef)}
         />
       ) : null}
     </>

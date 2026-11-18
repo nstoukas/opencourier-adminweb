@@ -11,7 +11,10 @@ export function PartnerUnbilledLine({ partnerId }: { partnerId: string }) {
   const month = currentAthensMonth()
   const query = useGetPartnerChargeMonthQuery({ month, partnerId }, { skip: !partnerId })
   const data = query.currentData
-  if (!partnerId || query.isError || !data) return null
+  if (!partnerId) return null
+  // A failed read must not look like "nothing owed": say it.
+  if (query.isError) return <p className="text-sm text-destructive">Could not load this month&apos;s charges.</p>
+  if (!data) return null
   return (
     <p className="text-sm">
       <Link
