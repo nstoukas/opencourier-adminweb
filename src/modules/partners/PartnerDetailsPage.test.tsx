@@ -56,6 +56,8 @@ jest.mock('../../api/partnersApi', () => ({
   useGetPartnerAvailabilityChangesQuery: () => ({ data: [], isLoading: false, isError: false }),
   useGetPartnerWaitRecordQuery: () => ({ currentData: undefined, isLoading: false, isError: false }),
   useUpdatePartnerMutation: () => [jest.fn(), { isLoading: false }],
+  useCreatePartnerApiKeyMutation: () => [jest.fn(), { isLoading: false, reset: jest.fn() }],
+  useRemovePartnerApiKeyMutation: () => [jest.fn(), { isLoading: false }],
 }))
 
 const mockUseGetDeliveriesQuery = jest.fn()

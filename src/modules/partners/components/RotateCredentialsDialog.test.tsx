@@ -7,7 +7,17 @@ jest.mock('../../../api/partnersApi', () => ({
   useRotatePartnerPasswordMutation: jest.fn(),
 }))
 
+const mockToast = jest.fn()
+jest.mock('../../../admin-web-components', () => {
+  const actual = jest.requireActual('../../../admin-web-components')
+  return {
+    ...actual,
+    useToast: () => ({ toast: mockToast }),
+  }
+})
+
 const mockRotatePasswordMutation = jest.fn()
+const mockReset = jest.fn()
 const mockUseRotatePartnerPasswordMutation = useRotatePartnerPasswordMutation as jest.Mock
 
 describe('RotateCredentialsDialog component', () => {
@@ -15,7 +25,7 @@ describe('RotateCredentialsDialog component', () => {
     jest.clearAllMocks()
     mockUseRotatePartnerPasswordMutation.mockReturnValue([
       mockRotatePasswordMutation,
-      { isLoading: false },
+      { isLoading: false, reset: mockReset },
     ])
   })
 
@@ -52,9 +62,9 @@ describe('RotateCredentialsDialog component', () => {
     expect(submitBtn).not.toBeDisabled()
   })
 
-  it('submits mutation with partner ID and new password on valid submit', async () => {
+  it('with apiKey: null toasts and closes the dialog (spec 0037, AC-1, AC-13)', async () => {
     mockRotatePasswordMutation.mockReturnValue({
-      unwrap: () => Promise.resolve(),
+      unwrap: () => Promise.resolve({ apiKey: null }),
     })
     const onOpenChangeMock = jest.fn()
 
@@ -82,8 +92,63 @@ describe('RotateCredentialsDialog component', () => {
         id: 'p1',
         password: 'newpassword123',
       })
+      expect(mockReset).toHaveBeenCalledTimes(1)
+      expect(mockToast).toHaveBeenCalledWith({ title: 'Password updated for Souvlaki tou Nikou.' })
       expect(onOpenChangeMock).toHaveBeenCalledWith(false)
     })
+    expect(screen.queryByText(/password set for souvlaki tou nikou/i)).toBeNull()
+  })
+
+  it('with apiKey present shows the key panel, resets mutation, does not toast or close (spec 0037, AC-1, AC-13)', async () => {
+    mockRotatePasswordMutation.mockReturnValue({
+      unwrap: () => Promise.resolve({ apiKey: 'ock_rotated_secret_key_789' }),
+    })
+    const onOpenChangeMock = jest.fn()
+
+    render(
+      <RotateCredentialsDialog
+        open={true}
+        onOpenChange={onOpenChangeMock}
+        partnerId="p1"
+        partnerName="Souvlaki tou Nikou"
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText('New password'), {
+      target: { value: 'newpassword123' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'newpassword123' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^set new password$/i }))
+
+    await waitFor(() => {
+      expect(mockRotatePasswordMutation).toHaveBeenCalledTimes(1)
+      expect(mockReset).toHaveBeenCalledTimes(1)
+      // AC-13: Does NOT toast and does NOT close
+      expect(mockToast).not.toHaveBeenCalled()
+      expect(onOpenChangeMock).not.toHaveBeenCalled()
+    })
+
+    // Shows "Password set for <name>" title and description
+    expect(screen.getByRole('heading', { name: 'Password set for Souvlaki tou Nikou' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/this restaurant also had an api key: it was replaced too, so the old key stopped working/i)
+    ).toBeInTheDocument()
+
+    // Key is shown in read-only input
+    const keyInput = screen.getByRole('textbox', { name: 'New API key' }) as HTMLInputElement
+    expect(keyInput.value).toBe('ock_rotated_secret_key_789')
+    expect(keyInput).toHaveAttribute('readOnly')
+
+    // Escape does not close the dialog while the key panel is shown
+    fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' })
+    expect(onOpenChangeMock).not.toHaveBeenCalled()
+
+    // Clicking Done closes the dialog
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(onOpenChangeMock).toHaveBeenCalledWith(false)
   })
 
   it('is titled "Set New Password for <name>" (spec 0024, AC-2)', () => {

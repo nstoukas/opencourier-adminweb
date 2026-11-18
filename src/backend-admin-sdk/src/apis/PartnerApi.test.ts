@@ -213,4 +213,65 @@ describe('PartnerApi availability routes (spec 0029, AC-5 and AC-9)', () => {
     expect(record.medianPrepMinutes).toBe(18)
     expect(record.usualPrepMinutes).toBe(15)
   })
+
+  // Spec 0037 (AC-1, AC-3, AC-4): admin SDK routes for making, removing API keys and rotating password.
+  describe('API key and password rotation routes (spec 0037)', () => {
+    it('createPartnerApiKey calls POST /api/admin/v1/partner/:id/api-key with encoded id and parses answer', async () => {
+      const apiKeyResponse = {
+        apiKey: 'ock_test_base64_api_key_value',
+        apiKeyCreatedAt: '2026-11-18T14:30:00.000Z',
+      }
+      mockFetch.mockResolvedValueOnce(createMockResponse(apiKeyResponse, 201))
+
+      const result = await api.createPartnerApiKey({ id: 'partner/123 special' })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+      expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/partner%2F123%20special/api-key')
+      expect(calledInit.method).toBe('POST')
+      expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+      expect(result.apiKey).toBe('ock_test_base64_api_key_value')
+      expect(result.apiKeyCreatedAt).toEqual(new Date('2026-11-18T14:30:00.000Z'))
+    })
+
+    it('removePartnerApiKey calls DELETE /api/admin/v1/partner/:id/api-key with encoded id', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(null, 204))
+
+      await api.removePartnerApiKey({ id: 'partner/456 special' })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+      expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/partner%2F456%20special/api-key')
+      expect(calledInit.method).toBe('DELETE')
+      expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+    })
+
+    it('rotatePartnerPassword calls POST /api/admin/v1/partner/:id/rotate-password and parses answer with apiKey', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse({ apiKey: 'ock_new_rotated_key' }, 200))
+
+      const result = await api.rotatePartnerPassword({
+        id: 'partner/789',
+        partnerRotatePasswordAdminInput: { password: 'newsecretpassword' },
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0]
+      expect(calledUrl).toBe('http://localhost:3000/api/admin/v1/partner/partner%2F789/rotate-password')
+      expect(calledInit.method).toBe('POST')
+      expect(calledInit.headers['Authorization']).toBe('Bearer test-admin-token')
+      expect(JSON.parse(calledInit.body)).toEqual({ password: 'newsecretpassword' })
+      expect(result).toEqual({ apiKey: 'ock_new_rotated_key' })
+    })
+
+    it('rotatePartnerPassword parses answer with null when apiKey is null or not a string', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse({ apiKey: null }, 200))
+
+      const result = await api.rotatePartnerPassword({
+        id: 'partner/789',
+        partnerRotatePasswordAdminInput: { password: 'newsecretpassword' },
+      })
+
+      expect(result).toEqual({ apiKey: null })
+    })
+  })
 })

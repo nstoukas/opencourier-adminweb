@@ -47,6 +47,7 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
     usualPrepMinutes: 15,
     userId: 'u1',
     email: 'souvlaki@bar.gr',
+    apiKeyCreatedAt: null,
     pickupAddress: null,
     createdAt: new Date('2026-10-01T10:00:00.000Z'),
     updatedAt: new Date('2026-10-01T10:00:00.000Z'),

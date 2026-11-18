@@ -5,6 +5,9 @@ import {
   useEnablePartnerMutation,
   useGetPartnerAvailabilityChangesQuery,
   useGetPartnerWaitRecordQuery,
+  useCreatePartnerApiKeyMutation,
+  useRemovePartnerApiKeyMutation,
+  useRotatePartnerPasswordMutation,
 } from './partnersApi'
 import { prepareAdminSdk } from '.'
 import { authSlice } from '@/modules/auth/slices/authSlice'
@@ -104,6 +107,7 @@ describe('partnersApi availability endpoints (spec 0029, AC-5 and AC-9)', () => 
     usualPrepMinutes: 15,
     userId: 'u1',
     email: 'souvlaki@bar.gr',
+    apiKeyCreatedAt: null,
     pickupAddress: null,
     createdAt: new Date('2026-11-01T10:00:00.000Z'),
     updatedAt: new Date('2026-11-01T10:00:00.000Z'),
@@ -288,5 +292,199 @@ describe('partnersApi wait record endpoint (spec 0030, AC-1, AC-6, AC-7)', () =>
 
     expect(result.error).toBeDefined()
     expect(result.data).toBeUndefined()
+  })
+})
+
+// Spec 0037 (AC-1, AC-3, AC-4, AC-13): restaurant API key creation, removal, and password rotation.
+describe('partnersApi API key and password rotation endpoints (spec 0037)', () => {
+  let mockGetPartner: jest.Mock
+  let mockCreatePartnerApiKey: jest.Mock
+  let mockRemovePartnerApiKey: jest.Mock
+  let mockRotatePartnerPassword: jest.Mock
+
+  const samplePartner: PartnerAdminDto = {
+    id: 'partner-1',
+    name: 'Souvlaki Bar',
+    phoneNumber: '+302421012345',
+    logo: null,
+    webhookUrl: null,
+    usualPrepMinutes: 15,
+    userId: 'u1',
+    email: 'souvlaki@bar.gr',
+    apiKeyCreatedAt: new Date('2026-11-18T10:00:00.000Z'),
+    pickupAddress: null,
+    createdAt: new Date('2026-11-01T10:00:00.000Z'),
+    updatedAt: new Date('2026-11-01T10:00:00.000Z'),
+    availability: undefined,
+  }
+
+  const sampleKeyAnswer = {
+    apiKey: 'ock_test_generated_api_key_123',
+    apiKeyCreatedAt: new Date('2026-11-18T12:00:00.000Z'),
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGetPartner = jest.fn().mockResolvedValue(samplePartner)
+    mockCreatePartnerApiKey = jest.fn().mockResolvedValue(sampleKeyAnswer)
+    mockRemovePartnerApiKey = jest.fn().mockResolvedValue(undefined)
+    mockRotatePartnerPassword = jest.fn().mockResolvedValue({ apiKey: 'ock_rotated_key_456' })
+
+    mockPrepareAdminSdk.mockReturnValue({
+      partners: () => ({
+        getPartner: mockGetPartner,
+        createPartnerApiKey: mockCreatePartnerApiKey,
+        removePartnerApiKey: mockRemovePartnerApiKey,
+        rotatePartnerPassword: mockRotatePartnerPassword,
+      }),
+    })
+  })
+
+  it('exports hook functions for create, remove, and password rotation', () => {
+    expect(typeof useCreatePartnerApiKeyMutation).toBe('function')
+    expect(typeof useRemovePartnerApiKeyMutation).toBe('function')
+    expect(typeof useRotatePartnerPasswordMutation).toBe('function')
+  })
+
+  describe('createPartnerApiKey endpoint (AC-3, AC-13)', () => {
+    it('calls SDK with partner id and returns key and createdAt', async () => {
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.createPartnerApiKey.initiate({ id: 'partner-1' })
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+      expect(mockCreatePartnerApiKey).toHaveBeenCalledTimes(1)
+      expect(mockCreatePartnerApiKey).toHaveBeenCalledWith({ id: 'partner-1' })
+      expect(result.data).toEqual(sampleKeyAnswer)
+    })
+
+    it('catches SDK error and returns formatted error object', async () => {
+      mockCreatePartnerApiKey.mockRejectedValue(new Error('Admin role conflict'))
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.createPartnerApiKey.initiate({ id: 'partner-1' })
+      )
+
+      expect(result.error).toBeDefined()
+      expect(result.data).toBeUndefined()
+    })
+
+    it('invalidates Tags.partners so the restaurant card refreshes', async () => {
+      const store = setupTestStore()
+
+      // Subscribe to getPartner query
+      const sub = store.dispatch(partnersApi.endpoints.getPartner.initiate({ id: 'partner-1' }))
+      await sub
+      expect(mockGetPartner).toHaveBeenCalledTimes(1)
+
+      // Execute createPartnerApiKey mutation
+      await store.dispatch(partnersApi.endpoints.createPartnerApiKey.initiate({ id: 'partner-1' }))
+
+      // Tags.partners invalidation triggers automatic refetch of getPartner
+      expect(mockGetPartner).toHaveBeenCalledTimes(2)
+
+      sub.unsubscribe()
+    })
+  })
+
+  describe('removePartnerApiKey endpoint (AC-4, AC-13)', () => {
+    it('calls SDK with partner id and returns data: null on 204', async () => {
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.removePartnerApiKey.initiate({ id: 'partner-1' })
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+      expect(mockRemovePartnerApiKey).toHaveBeenCalledTimes(1)
+      expect(mockRemovePartnerApiKey).toHaveBeenCalledWith({ id: 'partner-1' })
+      expect(result.data).toBeNull()
+    })
+
+    it('catches SDK error and returns formatted error object', async () => {
+      mockRemovePartnerApiKey.mockRejectedValue(new Error('Partner not found'))
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.removePartnerApiKey.initiate({ id: 'partner-1' })
+      )
+
+      expect(result.error).toBeDefined()
+      expect(result.data).toBeUndefined()
+    })
+
+    it('invalidates Tags.partners so the restaurant card refreshes', async () => {
+      const store = setupTestStore()
+
+      const sub = store.dispatch(partnersApi.endpoints.getPartner.initiate({ id: 'partner-1' }))
+      await sub
+      expect(mockGetPartner).toHaveBeenCalledTimes(1)
+
+      await store.dispatch(partnersApi.endpoints.removePartnerApiKey.initiate({ id: 'partner-1' }))
+
+      expect(mockGetPartner).toHaveBeenCalledTimes(2)
+
+      sub.unsubscribe()
+    })
+  })
+
+  describe('rotatePartnerPassword endpoint (AC-1, AC-13)', () => {
+    it('calls SDK with partner id and password, returning answer with apiKey', async () => {
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.rotatePartnerPassword.initiate({ id: 'partner-1', password: 'newpassword123' })
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('admin-token')
+      expect(mockRotatePartnerPassword).toHaveBeenCalledTimes(1)
+      expect(mockRotatePartnerPassword).toHaveBeenCalledWith({
+        id: 'partner-1',
+        partnerRotatePasswordAdminInput: { password: 'newpassword123' },
+      })
+      expect(result.data).toEqual({ apiKey: 'ock_rotated_key_456' })
+    })
+
+    it('returns apiKey: null when partner had no API key', async () => {
+      mockRotatePartnerPassword.mockResolvedValue({ apiKey: null })
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.rotatePartnerPassword.initiate({ id: 'partner-1', password: 'newpassword123' })
+      )
+
+      expect(result.data).toEqual({ apiKey: null })
+    })
+
+    it('catches SDK error and returns formatted error object', async () => {
+      mockRotatePartnerPassword.mockRejectedValue(new Error('Password rejected'))
+      const store = setupTestStore()
+
+      const result: any = await store.dispatch(
+        partnersApi.endpoints.rotatePartnerPassword.initiate({ id: 'partner-1', password: 'newpassword123' })
+      )
+
+      expect(result.error).toBeDefined()
+      expect(result.data).toBeUndefined()
+    })
+
+    it('invalidates Tags.partners so the restaurant card refreshes', async () => {
+      const store = setupTestStore()
+
+      const sub = store.dispatch(partnersApi.endpoints.getPartner.initiate({ id: 'partner-1' }))
+      await sub
+      expect(mockGetPartner).toHaveBeenCalledTimes(1)
+
+      await store.dispatch(
+        partnersApi.endpoints.rotatePartnerPassword.initiate({ id: 'partner-1', password: 'newpassword123' })
+      )
+
+      expect(mockGetPartner).toHaveBeenCalledTimes(2)
+
+      sub.unsubscribe()
+    })
   })
 })
