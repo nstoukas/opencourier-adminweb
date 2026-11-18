@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, RemovalRequestApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
+import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -102,6 +102,11 @@ export class BackendAdminSdk {
     return this.getOrCreateApi(ChatApi)
   }
 
+  // What each restaurant owes, and bills made by hand (spec 0036).
+  partnerCharges(): PartnerChargeApi {
+    return this.getOrCreateApi(PartnerChargeApi)
+  }
+
   partners(): PartnerApi {
     return this.getOrCreateApi(PartnerApi)
   }
@@ -132,7 +137,9 @@ export class BackendAdminSdk {
 
   private convertApiError(errorObject: any) {
     if (this.isApiError(errorObject)) {
-      return new ApiError(errorObject.code, errorObject.message, errorObject.statusCode)
+      // A bill's 409 names the charges another bill already covers (spec 0036, AC-6).
+      const alreadyBilled = Array.isArray(errorObject.alreadyBilled) ? errorObject.alreadyBilled : undefined
+      return new ApiError(errorObject.code, errorObject.message, errorObject.statusCode, alreadyBilled)
     }
     return new Error(errorObject)
   }

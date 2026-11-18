@@ -17,6 +17,7 @@ const tagTypes = {
   removalReasons: 'RemovalReasons',
   chatThreads: 'ChatThreads',
   chatMessages: 'ChatMessages',
+  partnerCharges: 'PartnerCharges',
 }
 
 export const Tags = {
@@ -42,4 +43,5 @@ export const Tags = {
   removalReasons: tagTypes['removalReasons'],
   chatThreads: tagTypes['chatThreads'],
   chatMessages: tagTypes['chatMessages'],
+  partnerCharges: tagTypes['partnerCharges'],
 }

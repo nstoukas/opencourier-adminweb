@@ -20,6 +20,12 @@ export enum EAdminRoutes {
   CHAT = '/chat',
   // One page file answers /chat and /chat/<id> (an optional catch all), so the inbox survives opening a thread.
   CHAT_THREAD = '/chat/[[...threadId]]',
+  // What each restaurant owes, per month (spec 0036). `?month=YYYY-MM` picks the month.
+  CHARGES = '/charges',
+  // One restaurant's charges and bills for a month.
+  CHARGES_PARTNER_MONTH = '/charges/[month]/[partnerId]',
+  // A bill's printable statement, in Greek, without the sidebar.
+  CHARGES_STATEMENT = '/charges/statement/[billId]',
 }
 
 export const Routes = Object.values(EAdminRoutes)

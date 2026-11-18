@@ -18,7 +18,7 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { CalendarBlank, ChatCircle, GearSix, MapPin, Moped, Package, SignOut, Siren, Storefront, WarningCircle } from '@phosphor-icons/react'
+import { CalendarBlank, ChatCircle, Coins, GearSix, MapPin, Moped, Package, SignOut, Siren, Storefront, WarningCircle } from '@phosphor-icons/react'
 import { MessagesBadge } from '@/modules/chat/MessagesBadge'
 import { disconnectChatLive } from '@/modules/chat/chatLive'
 import Link from 'next/link'
@@ -67,6 +67,8 @@ const NAV_GROUPS: NavGroup[] = [
       { title: 'Settings', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION },
       // The co-op's weekly shift slots (spec 0026).
       { title: 'Shift slots', icon: CalendarBlank, href: EAdminRoutes.SHIFT_SLOTS },
+      // What each restaurant owes, billed by hand (spec 0036).
+      { title: 'Charges', icon: Coins, href: EAdminRoutes.CHARGES },
     ],
   },
 ]

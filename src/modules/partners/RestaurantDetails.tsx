@@ -28,6 +28,7 @@ import { RotateCredentialsDialog } from './components/RotateCredentialsDialog'
 import { MessageButton, NO_LOGIN_REASON } from '@/modules/chat/MessageButton'
 import { PartnerAvailabilityCard } from './components/PartnerAvailabilityCard'
 import { PartnerWaitRecordCard } from './components/PartnerWaitRecordCard'
+import { PartnerUnbilledLine } from '@/modules/charges/PartnerUnbilledLine'
 import { PartnerCustomersCard } from './components/PartnerCustomersCard'
 
 // Leaflet needs `window`, so the map loads only in the browser.
@@ -154,6 +155,9 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
             </p>
           </CardContent>
         </Card>
+
+        {/* What this restaurant still owes for this month, linking to its charges (spec 0036, AC-11). */}
+        <PartnerUnbilledLine partnerId={partner.id} />
 
         {/* Busy mode, pause, disable, and who changed them (spec 0029). */}
         <PartnerAvailabilityCard partner={partner} />
