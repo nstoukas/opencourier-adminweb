@@ -121,18 +121,22 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     })
 
     // Spec 0034, decision 111.10: viewport-filling layout for single-screen pages like Messages (/chat)
-    it('applies viewport-filling classes when fillViewport is true and omits them when false (decision 111.10)', () => {
-      // 1. With fillViewport={true}: <main> carries lg:h-svh lg:overflow-hidden and content wrapper carries lg:min-h-0
+    // Verify fixes (2026-11-18): fillViewport applies at every width with no lg: prefix (h-svh, overflow-hidden, min-h-0)
+    it('applies viewport-filling classes when fillViewport is true and omits them when false (decision 111.10, verify fixes)', () => {
+      // 1. With fillViewport={true}: <main> carries h-svh overflow-hidden and content wrapper carries min-h-0 (no lg: prefix)
       const { unmount } = renderLayout(<div data-testid="page-child">Chat Viewport</div>, {
         fillViewport: true,
       })
 
       const main = screen.getByRole('main')
-      expect(main).toHaveClass('lg:h-svh')
-      expect(main).toHaveClass('lg:overflow-hidden')
+      expect(main).toHaveClass('h-svh')
+      expect(main).toHaveClass('overflow-hidden')
+      expect(main).not.toHaveClass('lg:h-svh')
+      expect(main).not.toHaveClass('lg:overflow-hidden')
 
       const contentWrapper = screen.getByTestId('page-child').parentElement
-      expect(contentWrapper).toHaveClass('lg:min-h-0')
+      expect(contentWrapper).toHaveClass('min-h-0')
+      expect(contentWrapper).not.toHaveClass('lg:min-h-0')
 
       unmount()
 
@@ -140,10 +144,13 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       renderLayout(<div data-testid="page-child">Standard Content</div>)
 
       const defaultMain = screen.getByRole('main')
+      expect(defaultMain).not.toHaveClass('h-svh')
+      expect(defaultMain).not.toHaveClass('overflow-hidden')
       expect(defaultMain).not.toHaveClass('lg:h-svh')
       expect(defaultMain).not.toHaveClass('lg:overflow-hidden')
 
       const defaultContentWrapper = screen.getByTestId('page-child').parentElement
+      expect(defaultContentWrapper).not.toHaveClass('min-h-0')
       expect(defaultContentWrapper).not.toHaveClass('lg:min-h-0')
     })
   })

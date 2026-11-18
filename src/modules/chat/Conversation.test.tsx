@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { Conversation, CONVERSATION_POLL_MS } from './Conversation'
+import { focusComposerOnOpen } from './composerFocus'
 import type { ChatMessageAdminDto, ChatThreadAdminDto } from '../../backend-admin-sdk'
 
 const mockUseGetChatThreadQuery = jest.fn()
@@ -10,6 +11,16 @@ const mockMarkChatThreadRead = jest.fn()
 const mockUseMarkChatThreadReadMutation = jest.fn()
 const mockSendChatMessage = jest.fn()
 const mockUseSendChatMessageMutation = jest.fn()
+
+let mockScrollHeight = 1000
+let mockClientHeight = 400
+let resizeObservers: Array<{ callback: () => void; observed: Element[] }> = []
+
+function triggerResize() {
+  act(() => {
+    resizeObservers.forEach((ro) => ro.callback())
+  })
+}
 
 jest.mock('../../api/chatApi', () => ({
   useGetChatThreadQuery: (id: string, opts: any) => mockUseGetChatThreadQuery(id, opts),
@@ -87,6 +98,38 @@ describe('Conversation (spec 0034, AC-3, AC-5, AC-6, AC-7, AC-13, AC-19)', () =>
     jest.clearAllMocks()
     mockPageVisible = true
     mockLive = true
+    mockScrollHeight = 1000
+    mockClientHeight = 400
+    resizeObservers = []
+
+    window.ResizeObserver = class {
+      callback: () => void
+      observed: Element[] = []
+      constructor(cb: () => void) {
+        this.callback = cb
+        resizeObservers.push(this)
+      }
+      observe(el: Element) {
+        this.observed.push(el)
+      }
+      unobserve() {}
+      disconnect() {
+        resizeObservers = resizeObservers.filter((o) => o !== this)
+      }
+    } as unknown as typeof ResizeObserver
+
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).classList.contains('overflow-y-auto') ? mockScrollHeight : 0
+      },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).classList.contains('overflow-y-auto') ? mockClientHeight : 0
+      },
+    })
 
     mockUseGetChatThreadQuery.mockReturnValue({
       currentData: sampleThread,
@@ -113,7 +156,16 @@ describe('Conversation (spec 0034, AC-3, AC-5, AC-6, AC-7, AC-13, AC-19)', () =>
 
       // Name and role
       expect(screen.getByRole('heading', { level: 2, name: 'Kostas Karas' })).toBeInTheDocument()
-      expect(screen.getByText(/Courier · \+306912345678/)).toBeInTheDocument()
+      const roleAndPhone = screen.getByText(
+        (_, el) => el?.tagName.toLowerCase() === 'p' && el.textContent?.includes('Courier · +306912345678') === true
+      )
+      expect(roleAndPhone).toBeInTheDocument()
+      expect(roleAndPhone).not.toHaveClass('truncate')
+
+      const phoneSpan = screen.getByText('+306912345678')
+      expect(phoneSpan).toBeInTheDocument()
+      expect(phoneSpan).toHaveClass('whitespace-nowrap')
+      expect(phoneSpan).not.toHaveClass('truncate')
 
       // Call button with tel: protocol
       const callLink = screen.getByRole('link', { name: /Call Kostas/i })
@@ -154,6 +206,19 @@ describe('Conversation (spec 0034, AC-3, AC-5, AC-6, AC-7, AC-13, AC-19)', () =>
       expect(
         screen.getByText(/Kostas is Offline\. A message waits until they next open the app, with no alert\./i)
       ).toBeInTheDocument()
+    })
+
+    it("the rider's phone number in the header is not truncated (no truncate class on it, verify fixes)", () => {
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const phoneSpan = screen.getByText('+306912345678')
+      expect(phoneSpan).toBeInTheDocument()
+      expect(phoneSpan).toHaveClass('whitespace-nowrap')
+      expect(phoneSpan).not.toHaveClass('truncate')
+
+      const parentParagraph = phoneSpan.closest('p')
+      expect(parentParagraph).not.toBeNull()
+      expect(parentParagraph).not.toHaveClass('truncate')
     })
   })
 
@@ -319,6 +384,38 @@ describe('Conversation (spec 0034, AC-3, AC-5, AC-6, AC-7, AC-13, AC-19)', () =>
 
       const presetBtn = screen.getByRole('button', { name: 'Wait 5 min' })
       expect(presetBtn).toHaveClass('h-auto', 'whitespace-normal')
+    })
+
+    it('presets: one row that scrolls sideways (overflow-x-auto and no wrap), each preset has max width and wraps its own text (verify fixes)', () => {
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const group = screen.getByRole('group', { name: 'Quick replies' })
+      expect(group).toBeInTheDocument()
+      expect(group).toHaveClass('overflow-x-auto')
+      expect(group).not.toHaveClass('flex-wrap')
+
+      const presetBtns = screen.getAllByRole('button', { name: /Wait 5 min|Leave at the door/ })
+      expect(presetBtns.length).toBeGreaterThan(0)
+      for (const btn of presetBtns) {
+        expect(btn).toHaveClass('h-auto', 'max-w-[16rem]', 'shrink-0', 'whitespace-normal', 'break-words')
+      }
+    })
+
+    it('puts cursor in the message box (document.activeElement is textarea #chat-message) when opened via Message button (AC-15, verify fixes)', () => {
+      focusComposerOnOpen('thread-volos-1')
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const textarea = screen.getByLabelText(/Message to Kostas Karas/i)
+      expect(textarea).toHaveAttribute('id', 'chat-message')
+      expect(document.activeElement).toBe(textarea)
+    })
+
+    it('does not focus the message box when opened without a focus request or for a different thread', () => {
+      focusComposerOnOpen('thread-other-999')
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const textarea = screen.getByLabelText(/Message to Kostas Karas/i)
+      expect(document.activeElement).not.toBe(textarea)
     })
 
     it('submitting the form sends trimmed text and clears textarea', async () => {
@@ -659,6 +756,180 @@ describe('Conversation (spec 0034, AC-3, AC-5, AC-6, AC-7, AC-13, AC-19)', () =>
 
       rerender(<Conversation threadId="thread-volos-1" />)
       expect(statusLine).toHaveTextContent('')
+    })
+  })
+
+  describe('Message list scrolling and ResizeObserver (spec 0034, verify fixes, decision 111.17)', () => {
+    it('scrolls to the bottom (scrollTop set to scrollHeight) when a thread first shows with its messages', () => {
+      // Initially loading thread
+      mockUseGetChatThreadQuery.mockReturnValue({
+        currentData: null,
+        isError: false,
+        isLoading: true,
+      })
+      const { rerender } = render(<Conversation threadId="thread-volos-1" />)
+      expect(screen.getByText('Loading the conversation…')).toBeInTheDocument()
+
+      mockScrollHeight = 1000
+      mockClientHeight = 400
+      mockUseGetChatThreadQuery.mockReturnValue({
+        currentData: sampleThread,
+        isError: false,
+        isLoading: false,
+      })
+
+      rerender(<Conversation threadId="thread-volos-1" />)
+
+      const list = screen.getByRole('list', { name: /Messages with/i }).parentElement as HTMLDivElement
+      expect(list).toHaveClass('overflow-y-auto')
+      expect(list.scrollTop).toBe(1000)
+      expect(list.scrollTop).toBe(list.scrollHeight)
+    })
+
+    it('scrolls to the bottom when the thread changes to another (rerender with a new thread id and new messages)', () => {
+      mockScrollHeight = 1000
+      mockClientHeight = 400
+      const { rerender } = render(<Conversation threadId="thread-volos-1" />)
+
+      const list = screen.getByRole('list', { name: /Messages with/i }).parentElement as HTMLDivElement
+      expect(list.scrollTop).toBe(1000)
+
+      // Admin had scrolled up
+      list.scrollTop = 150
+      fireEvent.scroll(list)
+      expect(list.scrollTop).toBe(150)
+
+      // Thread changes to thread-volos-2 with different messages
+      const sampleThread2: ChatThreadAdminDto = {
+        ...sampleThread,
+        id: 'thread-volos-2',
+        name: 'Maria Rider',
+      }
+      const sampleMessages2: ChatMessageAdminDto[] = [
+        {
+          id: 'msg-th2-1',
+          threadId: 'thread-volos-2',
+          senderKind: 'COURIER',
+          senderName: 'Maria Rider',
+          body: 'Hello dispatch',
+          deliveryId: null,
+          orderReference: null,
+          createdAt: '2026-11-17T15:00:00.000Z',
+        },
+      ]
+      mockScrollHeight = 1200
+      mockUseGetChatThreadQuery.mockReturnValue({
+        currentData: sampleThread2,
+        isError: false,
+        isLoading: false,
+      })
+      mockUseGetChatMessagesQuery.mockReturnValue({
+        currentData: sampleMessages2,
+        isError: false,
+        isLoading: false,
+        isSuccess: true,
+      })
+
+      rerender(<Conversation threadId="thread-volos-2" />)
+
+      expect(list.scrollTop).toBe(1200)
+      expect(list.scrollTop).toBe(list.scrollHeight)
+    })
+
+    it('scrolls to the bottom on a new message arriving', () => {
+      mockScrollHeight = 1000
+      mockClientHeight = 400
+      const { rerender } = render(<Conversation threadId="thread-volos-1" />)
+
+      const list = screen.getByRole('list', { name: /Messages with/i }).parentElement as HTMLDivElement
+      expect(list.scrollTop).toBe(1000)
+
+      mockScrollHeight = 1350
+      const updatedMessages: ChatMessageAdminDto[] = [
+        ...sampleMessages,
+        {
+          id: 'msg-brand-new',
+          threadId: 'thread-volos-1',
+          senderKind: 'COURIER',
+          senderName: 'Kostas Karas',
+          body: 'At customer door now',
+          deliveryId: null,
+          orderReference: null,
+          createdAt: '2026-11-17T14:40:00.000Z',
+        },
+      ]
+      mockUseGetChatMessagesQuery.mockReturnValue({
+        currentData: updatedMessages,
+        isError: false,
+        isLoading: false,
+        isSuccess: true,
+      })
+
+      rerender(<Conversation threadId="thread-volos-1" />)
+
+      expect(list.scrollTop).toBe(1350)
+      expect(list.scrollTop).toBe(list.scrollHeight)
+    })
+
+    it('scrolls to the bottom after sending a message', async () => {
+      mockScrollHeight = 1000
+      mockClientHeight = 400
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const list = screen.getByRole('list', { name: /Messages with/i }).parentElement as HTMLDivElement
+      expect(list.scrollTop).toBe(1000)
+
+      const textarea = screen.getByLabelText(/Message to Kostas Karas/i)
+      fireEvent.change(textarea, { target: { value: 'Got it, thanks' } })
+
+      mockScrollHeight = 1500
+      mockSendChatMessage.mockResolvedValueOnce({ data: { id: 'srv-msg-new' } })
+
+      const sendBtn = screen.getByRole('button', { name: 'Send' })
+      // eslint-disable-next-line @typescript-eslint/require-await -- async act flushes promises
+      await act(async () => {
+        fireEvent.click(sendBtn)
+      })
+
+      expect(list.scrollTop).toBe(1500)
+      expect(list.scrollTop).toBe(list.scrollHeight)
+    })
+
+    it('a later resize of the list (ResizeObserver callback) scrolls to bottom only while admin was at the newest line', () => {
+      mockScrollHeight = 1000
+      mockClientHeight = 400
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const list = screen.getByRole('list', { name: /Messages with/i }).parentElement as HTMLDivElement
+      expect(list.scrollTop).toBe(1000)
+
+      // Admin is at the newest line; resize happens
+      mockScrollHeight = 1250
+      triggerResize()
+
+      expect(list.scrollTop).toBe(1250)
+      expect(list.scrollTop).toBe(list.scrollHeight)
+    })
+
+    it('after the admin scrolled up (scroll event with scrollTop well above bottom), a resize or an older reflow does not move them', () => {
+      mockScrollHeight = 1000
+      mockClientHeight = 400
+      render(<Conversation threadId="thread-volos-1" />)
+
+      const list = screen.getByRole('list', { name: /Messages with/i }).parentElement as HTMLDivElement
+      expect(list.scrollTop).toBe(1000)
+
+      // Admin scrolls up (1000 - 300 - 400 = 300 >= 8)
+      list.scrollTop = 300
+      fireEvent.scroll(list)
+
+      // Resize event occurs while scrolled up
+      mockScrollHeight = 1600
+      triggerResize()
+
+      // Must remain at 300, NOT dragged down to 1600
+      expect(list.scrollTop).toBe(300)
+      expect(list.scrollTop).not.toBe(1600)
     })
   })
 })

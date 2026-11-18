@@ -102,4 +102,15 @@ describe('ChatPage (spec 0034, AC-2, decisions 111.7, 111.10)', () => {
     // Crucially: it is NOT inside an ancestor that has "hidden" (such as the inbox section)
     expect(narrowH1?.closest('.hidden')).toBeNull()
   })
+
+  it('fills viewport height at every width: inner container uses h-full and min-h-0 with no lg: prefix (verify fixes)', () => {
+    const { container } = render(<ChatPage threadId={null} />)
+    // The main wrapper holding inbox and conversation fills viewport at every width
+    const innerWrapper = container.querySelector('.flex.h-full.min-h-0')
+    expect(innerWrapper).toBeInTheDocument()
+    expect(innerWrapper?.className).toContain('h-full')
+    expect(innerWrapper?.className).toContain('min-h-0')
+    expect(innerWrapper?.className).not.toContain('lg:h-full')
+    expect(innerWrapper?.className).not.toContain('min-h-[calc(100dvh-3.5rem)]')
+  })
 })

@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MessageButton, NO_LOGIN_REASON } from './MessageButton'
+import { Conversation } from './Conversation'
 
 const mockPush = jest.fn()
 jest.mock('next/router', () => ({
@@ -20,14 +21,57 @@ jest.mock('../../admin-web-components', () => {
 
 const mockOpenThread = jest.fn()
 let mockIsLoading = false
+const mockUseGetChatThreadQuery = jest.fn()
+const mockUseGetChatMessagesQuery = jest.fn()
+const mockUseLazyGetChatMessagesQuery = jest.fn()
+const mockUseMarkChatThreadReadMutation = jest.fn()
+const mockUseSendChatMessageMutation = jest.fn()
+
 jest.mock('../../api/chatApi', () => ({
   useOpenChatThreadMutation: () => [mockOpenThread, { isLoading: mockIsLoading }],
+  useGetChatThreadQuery: (id: string, opts: any) => mockUseGetChatThreadQuery(id, opts),
+  useGetChatMessagesQuery: (args: any, opts: any) => mockUseGetChatMessagesQuery(args, opts),
+  useLazyGetChatMessagesQuery: () => [mockUseLazyGetChatMessagesQuery, { isFetching: false }],
+  useMarkChatThreadReadMutation: () => [mockUseMarkChatThreadReadMutation],
+  useSendChatMessageMutation: () => [mockUseSendChatMessageMutation],
+}))
+
+jest.mock('../../hooks/usePageVisible', () => ({
+  usePageVisible: () => true,
+}))
+
+jest.mock('./ChatLive', () => ({
+  useChatLive: () => true,
 }))
 
 describe('MessageButton (spec 0034, AC-15)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockIsLoading = false
+
+    mockUseGetChatThreadQuery.mockReturnValue({
+      currentData: {
+        id: 'thread-c1-xyz',
+        kind: 'COURIER',
+        name: 'Kostas Karas',
+        phoneNumber: '+306912345678',
+        courierStatus: 'ONLINE',
+        activeDeliveries: [],
+        moreActiveDeliveries: 0,
+        quickReplies: [],
+        dispatchLastReadAt: null,
+      },
+      isError: false,
+      isLoading: false,
+    })
+    mockUseGetChatMessagesQuery.mockReturnValue({
+      currentData: [],
+      isError: false,
+      isLoading: false,
+      isSuccess: true,
+    })
+    mockUseMarkChatThreadReadMutation.mockReturnValue([jest.fn().mockResolvedValue({})])
+    mockUseSendChatMessageMutation.mockReturnValue([jest.fn()])
   })
 
   it('on a courier page: calls openChatThread({ courierId }) and navigates to /chat/<id>', async () => {
@@ -103,5 +147,32 @@ describe('MessageButton (spec 0034, AC-15)', () => {
 
     const button = screen.getByRole('button', { name: /Message/i })
     expect(button).toBeDisabled()
+  })
+
+  it('puts the cursor in the message box (document.activeElement is textarea #chat-message) after opening the thread (AC-15, verify fixes)', async () => {
+    mockOpenThread.mockResolvedValueOnce({
+      data: { id: 'thread-c1-xyz' },
+    })
+
+    render(
+      <div>
+        <MessageButton party={{ courierId: 'courier-101' }} name="Kostas Karas" />
+      </div>
+    )
+
+    const button = screen.getByRole('button', { name: /Message/i })
+    // eslint-disable-next-line @typescript-eslint/require-await -- async act flushes promises
+    await act(async () => {
+      fireEvent.click(button)
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/chat/thread-c1-xyz')
+
+    // Open the thread conversation
+    render(<Conversation threadId="thread-c1-xyz" />)
+
+    const textarea = screen.getByLabelText(/Message to Kostas Karas/i)
+    expect(textarea).toHaveAttribute('id', 'chat-message')
+    expect(document.activeElement).toBe(textarea)
   })
 })
