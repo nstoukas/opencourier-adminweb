@@ -40,6 +40,7 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 - A rider's progress is made in the courier app and invalidates nothing here: a page that shows it (deliveries
   list, a delivery, a courier) polls every 30 s while `usePageVisible()` is true. A page read by an id from the URL
   takes RTK Query's `currentData`, so going back between two ids never shows the previous record.
+- A paged list whose tab or page changes (Reviews, spec 0038) also reads `currentData`: with `data`, the last tab's rows and their buttons stay under the new tab's header until the new list lands.
 - An RTK `queryFn` with no result (a 204) returns `{ data: null }`: `{ data: undefined }` makes RTK Query log an error
   (the saved customer delete still does, a follow up of spec 0013).
 - RTK Query 1.9.7's hook `reset` is stale inside the handler that triggered the mutation (it holds the render before
