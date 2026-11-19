@@ -34,7 +34,11 @@ jest.mock('next/link', () => {
 // Mock RTK Query APIs
 const mockUseGetReviewRequestsQuery = jest.fn()
 jest.mock('../../api/reviewRequestApi', () => ({
-  useGetReviewRequestsQuery: (arg: any, opts: any) => mockUseGetReviewRequestsQuery(arg, opts),
+  // The page reads `currentData` (row 30 review); the fake hands back the same rows under both names.
+  useGetReviewRequestsQuery: (arg: any, opts: any) => {
+    const result = mockUseGetReviewRequestsQuery(arg, opts)
+    return result ? { currentData: result.data, ...result } : result
+  },
 }))
 
 const mockUseGetInstanceConfigQuery = jest.fn()

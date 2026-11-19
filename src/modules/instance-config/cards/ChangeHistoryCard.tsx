@@ -16,9 +16,9 @@ export function describeSettingValue(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'number') return String(value)
   if (Array.isArray(value)) return value.map(describeSettingValue).join(', ')
   if (typeof value === 'object') {
-    return Object.entries(value as Record<string, unknown>)
-      .map(([name, part]) => `${name}: ${describeSettingValue(part)}`)
-      .join(', ')
+    const entries = Object.entries(value as Record<string, unknown>)
+    if (entries.length === 0) return 'none'
+    return entries.map(([name, part]) => `${name}: ${describeSettingValue(part)}`).join(', ')
   }
   return String(value)
 }

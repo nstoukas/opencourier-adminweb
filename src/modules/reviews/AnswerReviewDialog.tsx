@@ -52,6 +52,9 @@ export function AnswerReviewButton({
   const [correction, setCorrection] = useState('')
   const [error, setError] = useState<string | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  // True once the answer went (or someone else's did): the row and this button are about to leave the
+  // list, so focus goes to the page's main area instead of a button that no longer exists.
+  const rowLeavingRef = useRef(false)
 
   const canCorrect = outcome === 'CHANGED' && request.delivery !== null
   const correctionText = canCorrect ? correction.trim() : ''
@@ -61,15 +64,19 @@ export function AnswerReviewButton({
       ? null
       : correctionCents === null
         ? 'Write an amount in euro above 0, such as 1.50.'
-        : correctionMaxCents !== null && correctionCents > correctionMaxCents
-          ? `At most ${formatMoney(correctionMaxCents, currencyCode)}, the co-op's limit.`
-          : null
+        : correctionMaxCents === null
+          ? // Without the cap the browser cannot check the amount, so nothing goes to the confirm step.
+            "The co-op's limit has not loaded yet. Try again in a moment."
+          : correctionCents > correctionMaxCents
+            ? `At most ${formatMoney(correctionMaxCents, currencyCode)}, the co-op's limit.`
+            : null
   const reasonText = reason.trim()
   const ready = outcome !== null && reasonText.length > 0 && reasonText.length <= REVIEW_ANSWER_MAX && !correctionError
 
   const handleOpenChange = (next: boolean) => {
     if (isLoading) return
     if (next) {
+      rowLeavingRef.current = false
       setStep('write')
       setOutcome(null)
       setReason('')
@@ -91,12 +98,14 @@ export function AnswerReviewButton({
           ...(correctionCents !== null ? { correctionCents } : {}),
         },
       }).unwrap()
+      rowLeavingRef.current = true
       setOpen(false)
       toast({ title: 'Answer sent', description: `${request.courierName} can read it in the app.` })
     } catch (err) {
       const message = backendMessage(err, 'The answer could not be sent. Try again in a moment.')
       if (isConflict(err)) {
         // Someone else answered it, or the rider withdrew it: the row is about to change under the dialog.
+        rowLeavingRef.current = true
         setOpen(false)
         dispatch(refreshReviewRequests())
         toast({ title: 'Not sent', description: message, variant: 'destructive' })
@@ -123,7 +132,8 @@ export function AnswerReviewButton({
           className="sm:max-w-lg"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
-            triggerRef.current?.focus()
+            if (rowLeavingRef.current) document.getElementById('main')?.focus()
+            else triggerRef.current?.focus()
           }}
         >
           {step === 'write' ? (
@@ -169,13 +179,22 @@ export function AnswerReviewButton({
                     inputMode="decimal"
                     value={correction}
                     aria-invalid={correctionError ? true : undefined}
+                    aria-describedby={
+                      correctionError
+                        ? `review-correction-help-${request.id} review-correction-error-${request.id}`
+                        : `review-correction-help-${request.id}`
+                    }
                     onChange={(event) => setCorrection(event.target.value)}
                   />
-                  <FieldDescription>
+                  <FieldDescription id={`review-correction-help-${request.id}`}>
                     Added to {request.courierName}&apos;s pay for this delivery, today. It only adds, never takes away
                     {correctionMaxCents !== null ? `, up to ${formatMoney(correctionMaxCents, currencyCode)}` : ''}.
                   </FieldDescription>
-                  {correctionError ? <FieldError>{correctionError}</FieldError> : null}
+                  {correctionError ? (
+                    <FieldError id={`review-correction-error-${request.id}`} role="alert">
+                      {correctionError}
+                    </FieldError>
+                  ) : null}
                 </Field>
               ) : null}
               {error ? (
@@ -194,7 +213,8 @@ export function AnswerReviewButton({
             </>
           ) : (
             <>
-              <DialogHeader>
+              {/* role="alert": the step changes inside an open dialog, so a screen reader is told what it now asks. */}
+              <DialogHeader role="alert">
                 <DialogTitle>Add {formatMoney(correctionCents, currencyCode)} to this rider&apos;s pay?</DialogTitle>
                 <DialogDescription>
                   {request.courierName} is paid {formatMoney(correctionCents, currencyCode)} more for this delivery, on
@@ -207,7 +227,8 @@ export function AnswerReviewButton({
                 </p>
               ) : null}
               <DialogFooter>
-                <Button type="button" variant="outline" disabled={isLoading} onClick={() => setStep('write')}>
+                {/* Focus lands on Back, never on the button that pays, when this step opens. */}
+                <Button type="button" variant="outline" autoFocus disabled={isLoading} onClick={() => setStep('write')}>
                   Back
                 </Button>
                 <Button type="button" disabled={isLoading} onClick={() => void send()}>

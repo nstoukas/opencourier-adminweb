@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   Button,
@@ -33,7 +33,9 @@ export function ReviewsPage() {
   const pageVisible = usePageVisible()
   const [status, setStatus] = useState<ReviewRequestStatus>('OPEN')
   const [page, setPage] = useState(1)
-  const { data, isError, isFetching } = useGetReviewRequestsQuery(
+  // `currentData`, not `data`: after a tab or page change, the last tab's rows (with their Answer
+  // buttons) must not sit under the new tab's header while the new list loads.
+  const { currentData: data, isError, isFetching } = useGetReviewRequestsQuery(
     { status, page, perPage: REVIEWS_PAGE_SIZE },
     // Riders send requests from their phones, which invalidates nothing here.
     { pollingInterval: pageVisible ? REVIEWS_POLL_MS : 0 }
@@ -44,6 +46,13 @@ export function ReviewsPage() {
 
   const rows = data?.data ?? []
   const pagination = data?.pagination
+
+  // Answering the last row of a later page leaves that page empty: go back to the last page that has rows.
+  useEffect(() => {
+    if (page > 1 && data && data.data.length === 0) {
+      setPage(Math.max(1, Math.min(page - 1, data.pagination?.totalPages ?? 1)))
+    }
+  }, [data, page])
 
   const changeTab = (value: string) => {
     setStatus(value as ReviewRequestStatus)
