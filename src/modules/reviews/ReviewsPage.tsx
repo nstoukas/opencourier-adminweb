@@ -182,7 +182,7 @@ function ReviewRow({
             <p className="font-medium">{REVIEW_OUTCOME_TO_HUMAN[request.outcome]}</p>
             {request.answer ? <p className="whitespace-pre-wrap break-words">{request.answer}</p> : null}
             {request.correctionCents !== null ? (
-              <p>Pay correction: {formatMoney(request.correctionCents, currencyCode)}</p>
+              <p>Pay correction: {formatMoney(request.correctionCents, request.correctionCurrency ?? currencyCode)}</p>
             ) : null}
             <p className="text-xs text-muted-foreground">Answered by {request.answeredBy ?? 'a removed admin'}</p>
           </div>

@@ -34,6 +34,8 @@ export interface ReviewRequestAdminDto {
     withdrawnAt: string | null;
     // The pay correction the answer added, in cents, or null.
     correctionCents: number | null;
+    // The correction's currency (the delivery's), or null with no correction.
+    correctionCurrency: string | null;
     delivery: ReviewDeliverySummaryDto | null;
     courierId: string;
     courierName: string;
