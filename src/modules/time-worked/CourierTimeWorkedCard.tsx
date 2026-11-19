@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
 import { useGetCourierTimeWorkedQuery } from '@/api/timeWorkedApi'
 import type { WorkedDayDto, WorkedShiftDto } from '@/backend-admin-sdk'
-import { athensDateTime, athensTime, athensToday } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { athensDateTime, athensEnd, athensToday } from '@/modules/dispatch-stop/dispatchStopDisplay'
 import { formatMoney } from '@/utils/formatMoney'
 import { DayRangeForm } from './DayRangeForm'
 import {
@@ -13,18 +13,15 @@ import {
   RIDER_MAX_DAYS,
   STATUS_LABELS,
   addDays,
+  formatDay,
   formatDuration,
 } from './timeWorkedFormat'
 
-function dayTitle(day: string): string {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+const dayTitle = (day: string) => formatDay(day)
+
+// A label for a value the copy does not know yet (a new backend status or cause) falls back to the code.
+const statusLabel = (status: string) => (STATUS_LABELS as Record<string, string>)[status] ?? status
+const causeLabel = (cause: string) => (CAUSE_LABELS as Record<string, string>)[cause] ?? cause
 
 function Split({ job, wait, unpaid }: { job: number; wait: number; unpaid: number }) {
   return (
@@ -36,12 +33,15 @@ function Split({ job, wait, unpaid }: { job: number; wait: number; unpaid: numbe
 
 function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
   const money = (cents: number | null) => (cents === null ? '—' : formatMoney(cents, shift.currencyCode) ?? '—')
+  // Every later time in the shift shows its date too when it falls on another Athens day than the
+  // shift's start, so a long shift (a phone that died while Online, 36.18) reads clearly (review).
+  const at = (iso: string) => athensEnd(shift.startedAt, iso)
   return (
     <li className="rounded-md border border-border p-3">
       {shift.startedBeforeRange ? <p className="text-xs text-muted-foreground">Started before these days</p> : null}
       <p className="font-medium">
-        {athensDateTime(shift.startedAt)} to {shift.endedAt ? athensTime(shift.endedAt) : 'still open'}
-        {shift.onBreakSince ? ` (on a break since ${athensTime(shift.onBreakSince)})` : ''}
+        {athensDateTime(shift.startedAt)} to {shift.endedAt ? at(shift.endedAt) : 'still open'}
+        {shift.onBreakSince ? ` (on a break since ${at(shift.onBreakSince)})` : ''}
         {' · '}
         {formatDuration(shift.workSeconds)} · {money(shift.moneyCents)} · {money(shift.centsPerHour)} per hour
       </p>
@@ -51,7 +51,7 @@ function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
       ) : null}
       {shift.breaks.map((b) => (
         <p key={b.startedAt} className="font-medium text-muted-foreground">
-          Break {athensTime(b.startedAt)} to {athensTime(b.endedAt)}
+          Break {at(b.startedAt)} to {at(b.endedAt)}
         </p>
       ))}
       <details className="mt-2">
@@ -60,8 +60,8 @@ function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
         <ul>
           {shift.statusChanges.map((change) => (
             <li key={`${change.at}-${change.toStatus}`}>
-              {athensTime(change.at)} {STATUS_LABELS[change.fromStatus]} to {STATUS_LABELS[change.toStatus]},{' '}
-              {CAUSE_LABELS[change.cause]}
+              {at(change.at)} {statusLabel(change.fromStatus)} to {statusLabel(change.toStatus)},{' '}
+              {causeLabel(change.cause)}
               {change.adminLabel ? ` (${change.adminLabel})` : ''}
             </li>
           ))}
@@ -72,13 +72,18 @@ function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
             <ul>
               {shift.jobs.map((job) => (
                 <li key={`${job.deliveryId}-${job.acceptedAt}`} className="mt-1">
-                  {athensTime(job.acceptedAt)} to{' '}
+                  {at(job.acceptedAt)} to{' '}
                   {job.endedAt
-                    ? `${athensTime(job.endedAt)}, ${JOB_END_LABELS[job.endEventType ?? ''] ?? 'ended'}`
+                    ? `${athensEnd(job.acceptedAt, job.endedAt)}, ${JOB_END_LABELS[job.endEventType ?? ''] ?? 'ended'}`
                     : 'still held'}{' '}
                   · {job.pickupName} · <span className="font-mono text-xs">{job.deliveryId}</span>
                   <br />
-                  {job.droppedOff ? `Delivery pay ${money(job.deliveryMoneyCents)}` : 'Not delivered by this rider'}
+                  {/* A job still held has no delivery pay yet; only an ended job was "not delivered" (review). */}
+                  {job.droppedOff
+                    ? `Delivery pay ${money(job.deliveryMoneyCents)}`
+                    : job.endedAt
+                    ? 'Not delivered by this rider'
+                    : 'Not delivered yet'}
                   {job.compensations.map((c) => (
                     <React.Fragment key={c.id}>
                       <br />
@@ -107,7 +112,7 @@ function DayItem({ day, shifts, currencyCode }: { day: WorkedDayDto; shifts: Wor
       </p>
       <Split job={day.jobSeconds} wait={day.paidWaitSeconds} unpaid={day.unpaidSeconds} />
       {day.unlinkedMoneyCents > 0 ? (
-        <p className="text-muted-foreground">{money(day.unlinkedMoneyCents)} paid for work before recording began</p>
+        <p className="text-muted-foreground">{money(day.unlinkedMoneyCents)} paid for work outside a recorded shift</p>
       ) : null}
       {shifts.length > 0 ? (
         <ul className="mt-2 flex flex-col gap-2">
@@ -123,22 +128,38 @@ function DayItem({ day, shifts, currencyCode }: { day: WorkedDayDto; shifts: Wor
 // Spec 0040, AC-15: this rider's time worked, the same days, shifts and records the rider sees in the
 // app, plus which admin made an admin caused change. It is here to answer the rider's questions and
 // review requests (36.3, 36.8); nothing on this page compares it with another rider (AC-16).
-export function CourierTimeWorkedCard({ courierId }: { courierId: string }) {
+// `pollingInterval` is the rider page's own (0 while the tab is hidden). The card polls with it only
+// while its range includes today, since an open shift is the only thing that moves and each read costs
+// several queries (review 2026-11-20, decision 36.49).
+export function CourierTimeWorkedCard({
+  courierId,
+  pollingInterval = 0,
+}: {
+  courierId: string
+  pollingInterval?: number
+}) {
   const today = athensToday()
   const [range, setRange] = useState<DayRange>({
     from: addDays(today, -6),
     to: today,
   })
-  const query = useGetCourierTimeWorkedQuery({ courierId, ...range }, { skip: !courierId })
+  const query = useGetCourierTimeWorkedQuery(
+    { courierId, ...range },
+    {
+      skip: !courierId,
+      pollingInterval: range.to >= today ? pollingInterval : 0,
+    }
+  )
   const data = query.currentData
 
   const shownDays = (data?.days ?? []).filter((day) => day.workSeconds > 0 || day.moneyCents > 0).reverse()
-  // A shift is listed under the Athens day it started on; one that began before the range comes first.
+  // A shift is listed under the Athens day it started on; one that began before the first day shown is
+  // the oldest, so it goes last, under its own heading.
   const shiftsOn = (date: string) =>
     (data?.shifts ?? []).filter((shift) => athensToday(new Date(shift.startedAt)) === date).reverse()
-  const earlier = (data?.shifts ?? []).filter(
-    (shift) => !shownDays.some((day) => day.date === athensToday(new Date(shift.startedAt)))
-  )
+  const earlier = (data?.shifts ?? [])
+    .filter((shift) => !shownDays.some((day) => day.date === athensToday(new Date(shift.startedAt))))
+    .reverse()
 
   return (
     <Card>
@@ -166,18 +187,19 @@ export function CourierTimeWorkedCard({ courierId }: { courierId: string }) {
               <p className="text-muted-foreground">No time worked in these days.</p>
             ) : (
               <ul className="flex flex-col gap-3">
+                {shownDays.map((day) => (
+                  <DayItem key={day.date} day={day} shifts={shiftsOn(day.date)} currencyCode={data.currencyCode} />
+                ))}
                 {earlier.length > 0 ? (
-                  <li>
-                    <ul className="flex flex-col gap-2">
+                  <li className="border-t border-border pt-3">
+                    <h3 className="font-semibold">Began before these days</h3>
+                    <ul className="mt-2 flex flex-col gap-2">
                       {earlier.map((s) => (
                         <ShiftItem key={s.startedAt} shift={s} />
                       ))}
                     </ul>
                   </li>
                 ) : null}
-                {shownDays.map((day) => (
-                  <DayItem key={day.date} day={day} shifts={shiftsOn(day.date)} currencyCode={data.currencyCode} />
-                ))}
               </ul>
             )}
           </>

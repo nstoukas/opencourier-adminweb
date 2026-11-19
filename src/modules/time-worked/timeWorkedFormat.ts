@@ -61,6 +61,38 @@ export function rangeFromQuery(
 }
 
 // "3 h 12 min", "48 min", "0 min".
+// A calendar day (YYYY-MM-DD) in words, "Thu 19 Nov 2026". The day is formatted in UTC so it stays the
+// same day whatever the browser's zone. Used by the rider card and the totals page alike.
+export function formatDay(day: string, withWeekday = true): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', {
+    timeZone: 'UTC',
+    weekday: withWeekday ? 'short' : undefined,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+// The totals add up only the days inside the range, so a "By week" row whose Monday to Sunday week
+// reaches outside it is part of a week. This says which part, or null for a whole week (review
+// 2026-11-20, decision 36.49).
+export function weekPart(monday: string, range: DayRange): string | null {
+  const sunday = addDays(monday, 6)
+  const first = monday < range.from ? range.from : monday
+  const last = sunday > range.to ? range.to : sunday
+  if (first === monday && last === sunday) return null
+  const short = (day: string) =>
+    new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', {
+      timeZone: 'UTC',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    })
+  return first === last
+    ? `part of the week: ${short(first)} only`
+    : `part of the week: ${short(first)} to ${short(last)}`
+}
+
 export function formatDuration(seconds: number): string {
   const minutes = Math.max(0, Math.floor(seconds / 60))
   if (minutes < 60) return `${minutes} min`

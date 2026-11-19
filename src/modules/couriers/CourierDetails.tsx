@@ -193,7 +193,7 @@ export function CourierDetails({ courierId }: { courierId: string }) {
         </div>
       </div>
       <div className="mt-6">
-        <CourierTimeWorkedCard courierId={courierId} />
+        <CourierTimeWorkedCard courierId={courierId} pollingInterval={pollingInterval} />
       </div>
     </>
   )

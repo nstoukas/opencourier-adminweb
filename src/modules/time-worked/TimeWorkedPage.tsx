@@ -17,21 +17,21 @@ import { PageHeader } from '@/components/layouts/PageHeader'
 import { EAdminRoutes } from '@/hooks/useAdminPageNavigator'
 import { formatMoney } from '@/utils/formatMoney'
 import { DayRangeForm } from './DayRangeForm'
-import { DayRange, TOTALS_MAX_DAYS, formatDuration, formatShare, rangeFromQuery } from './timeWorkedFormat'
+import {
+  DayRange,
+  TOTALS_MAX_DAYS,
+  formatDay,
+  formatDuration,
+  formatShare,
+  rangeFromQuery,
+  weekPart,
+} from './timeWorkedFormat'
 
 // The default range: the last four weeks.
 const DEFAULT_DAYS = 28
 
 function periodLabel(period: string, by: TimeWorkedTotalsBy): string {
-  // The period is a calendar day; formatting it in UTC keeps that day whatever the browser's zone.
-  const date = new Date(`${period}T00:00:00Z`)
-  const text = date.toLocaleDateString('en-GB', {
-    timeZone: 'UTC',
-    weekday: by === 'day' ? 'short' : undefined,
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  const text = formatDay(period, by === 'day')
   return by === 'week' ? `Week of ${text}` : text
 }
 
@@ -106,28 +106,36 @@ export function TimeWorkedPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.rows.map((row) => (
-                <TableRow key={row.period}>
-                  <TableCell className="font-medium">{periodLabel(row.period, by)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.riderCount}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatDuration(row.workSeconds)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatDuration(row.jobSeconds)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatDuration(row.paidWaitSeconds)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatDuration(row.unpaidSeconds)}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatShare(row.unpaidSeconds, row.workSeconds)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{money(row.moneyCents)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{money(row.unlinkedMoneyCents)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{money(row.centsPerHour)}</TableCell>
-                </TableRow>
-              ))}
+              {data.rows.map((row) => {
+                // A week cut by the range says so, or its few days would read like a bad week.
+                const part = by === 'week' ? weekPart(row.period, range) : null
+                return (
+                  <TableRow key={row.period}>
+                    <TableCell className="font-medium">
+                      {periodLabel(row.period, by)}
+                      {part ? <span className="block text-xs font-normal text-muted-foreground">{part}</span> : null}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{row.riderCount}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatDuration(row.workSeconds)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatDuration(row.jobSeconds)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatDuration(row.paidWaitSeconds)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatDuration(row.unpaidSeconds)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatShare(row.unpaidSeconds, row.workSeconds)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{money(row.moneyCents)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{money(row.unlinkedMoneyCents)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{money(row.centsPerHour)}</TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
           <p className="mt-4 text-sm text-muted-foreground">
             Money is what riders were paid for the jobs they accepted in the period, with pay added later. &quot;Not in
-            a recorded shift&quot; is pay for work from before recording began; it is in Money but left out of the per
-            hour figure.
+            a recorded shift&quot; is pay for work outside any recorded shift, mostly from before recording began; it is
+            in Money but left out of the per hour figure. Each time is rounded down to the minute, so Jobs, Paid waiting
+            and Unpaid can add up to a minute or two less than Time worked.
           </p>
         </>
       )}
