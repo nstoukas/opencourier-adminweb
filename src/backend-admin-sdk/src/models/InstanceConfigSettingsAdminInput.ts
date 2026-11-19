@@ -253,6 +253,10 @@ export interface InstanceConfigSettingsAdminInput {
    */
   shiftDropNoticeHours?: number;
   /**
+   * The longest Offline with no job that stays a break inside one worked shift, 0 to 240 minutes (spec 0040). Hand edited (row 36).
+   */
+  shiftBreakMinutes?: number;
+  /**
    * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
    * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
    * optional leading +. An empty text clears it. Hand edited (row 72).
@@ -495,6 +499,7 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
       : json["arrivalRadiusMetres"],
     shiftsEnabled: !exists(json, "shiftsEnabled") ? undefined : json["shiftsEnabled"],
     shiftDropNoticeHours: !exists(json, "shiftDropNoticeHours") ? undefined : json["shiftDropNoticeHours"],
+    shiftBreakMinutes: !exists(json, "shiftBreakMinutes") ? undefined : json["shiftBreakMinutes"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
@@ -574,6 +579,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,
     shiftDropNoticeHours: value.shiftDropNoticeHours,
+    shiftBreakMinutes: value.shiftBreakMinutes,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,

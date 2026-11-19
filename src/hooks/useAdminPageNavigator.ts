@@ -28,6 +28,8 @@ export enum EAdminRoutes {
   CHARGES_STATEMENT = '/charges/statement/[billId]',
   // Riders' review requests, answered by a person (spec 0038).
   REVIEWS = '/reviews',
+  // The co-op's time worked totals (spec 0040).
+  TIME_WORKED = '/time-worked',
 }
 
 export const Routes = Object.values(EAdminRoutes)

@@ -20,6 +20,7 @@ const tagTypes = {
   partnerCharges: 'PartnerCharges',
   reviewRequests: 'ReviewRequests',
   settingChanges: 'SettingChanges',
+  timeWorked: 'TimeWorked',
 }
 
 export const Tags = {
@@ -42,6 +43,7 @@ export const Tags = {
   shiftSlots: tagTypes['shiftSlots'],
   reviewRequests: tagTypes['reviewRequests'],
   settingChanges: tagTypes['settingChanges'],
+  timeWorked: tagTypes['timeWorked'],
   sos: tagTypes['sos'],
   removalRequests: tagTypes['removalRequests'],
   removalReasons: tagTypes['removalReasons'],

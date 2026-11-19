@@ -54,6 +54,8 @@ export type SettingsForm = {
   // Shifts (spec 0026): the co-op switch, unknown until loaded, and the drop notice in hours.
   shiftsEnabled: boolean | null
   shiftDropNoticeHours: string
+  // Time worked (spec 0040): the longest Offline that stays a break inside one worked shift, in minutes.
+  shiftBreakMinutes: string
   // Chat (spec 0034, AC-13 and AC-18): each preset list as typed, one preset per line, and the days
   // messages are kept.
   chatQuickRepliesDispatch: string
@@ -115,6 +117,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', kind: 'number' },
   { key: 'shiftsEnabled', label: 'Shifts', kind: 'switch' },
   { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', kind: 'number' },
+  { key: 'shiftBreakMinutes', label: 'Longest break inside a worked shift, in minutes', kind: 'number' },
   { key: 'region', label: 'Service area', kind: 'region', details: true },
   { key: 'name', label: 'Name', kind: 'text', details: true },
   { key: 'link', label: 'URL', kind: 'url', details: true },
@@ -405,6 +408,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     dispatchPhoneNumber: data.dispatchPhoneNumber ?? '',
     shiftsEnabled: data.shiftsEnabled ?? null,
     shiftDropNoticeHours: text(data.shiftDropNoticeHours),
+    shiftBreakMinutes: text(data.shiftBreakMinutes),
     chatQuickRepliesDispatch: Array.isArray(data.chatQuickRepliesDispatch) ? data.chatQuickRepliesDispatch.join('\n') : '',
     chatQuickRepliesCourier: Array.isArray(data.chatQuickRepliesCourier) ? data.chatQuickRepliesCourier.join('\n') : '',
     chatRetentionDays: text(data.chatRetentionDays),
@@ -442,6 +446,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('shiftsEnabled') || keys.has('shiftDropNoticeHours')) {
     parts.push('Riders see nothing of shifts until shift booking is built.')
+  }
+  if (keys.has('shiftBreakMinutes')) {
+    parts.push("Every rider's time worked, past shifts included, is worked out again with the new break length.")
   }
   if (keys.has('handBackSeconds')) {
     parts.push('The hand back applies to the next accept; a running hand back keeps its end.')

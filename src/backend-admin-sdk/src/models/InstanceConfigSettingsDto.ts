@@ -253,6 +253,10 @@ export interface InstanceConfigSettingsDto {
    */
   shiftDropNoticeHours?: number | null;
   /**
+   * The longest Offline with no job that stays a break inside one worked shift, 0 to 240 minutes (spec 0040). Hand edited (row 36).
+   */
+  shiftBreakMinutes?: number | null;
+  /**
    * The co-op's dispatch line riders call from the job screen; null when none is set.
    * Hand edited (row 72).
    * @type {string}
@@ -469,6 +473,7 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
       : json["arrivalRadiusMetres"],
     shiftsEnabled: !exists(json, "shiftsEnabled") ? null : json["shiftsEnabled"],
     shiftDropNoticeHours: !exists(json, "shiftDropNoticeHours") ? null : json["shiftDropNoticeHours"],
+    shiftBreakMinutes: !exists(json, "shiftBreakMinutes") ? null : json["shiftBreakMinutes"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
@@ -540,6 +545,7 @@ export function InstanceConfigSettingsDtoToJSON(
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,
     shiftDropNoticeHours: value.shiftDropNoticeHours,
+    shiftBreakMinutes: value.shiftBreakMinutes,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,

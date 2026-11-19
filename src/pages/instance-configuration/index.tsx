@@ -26,6 +26,7 @@ import {
   RiderPayCard,
   ShiftsCard,
   ReviewRequestsCard,
+  TimeWorkedCard,
   SECTIONS,
   ServiceAreaCard,
   PUBLIC_PAGES,
@@ -311,6 +312,7 @@ const InstanceConfigurationPage: NextPage = () => {
             <RemovalReasonsCard {...cardProps} />
             <RestaurantDelaysCard {...cardProps} />
             <ShiftsCard {...cardProps} />
+            <TimeWorkedCard {...cardProps} />
             <ReviewRequestsCard {...cardProps} />
             <ServiceAreaCard
               map={

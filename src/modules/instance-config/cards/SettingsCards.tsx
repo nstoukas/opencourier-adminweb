@@ -71,6 +71,7 @@ export const SECTIONS = [
   { id: 'removal-reasons', title: 'Removal reasons' },
   { id: 'restaurant-delays', title: 'Restaurant delays' },
   { id: 'shifts', title: 'Shifts' },
+  { id: 'time-worked', title: 'Time worked' },
   { id: 'review-requests', title: 'Review requests' },
   { id: 'service-area', title: 'Service area' },
   { id: 'instance', title: 'Instance' },
@@ -578,6 +579,33 @@ export function ShiftsCard({ form, set, loaded }: CardProps) {
             disabled={!loaded}
             description="Whole hours, 0 to 168. A rider can drop a booked shift up to this long before it starts; 0 means up to the start."
             onChange={(value) => set('shiftDropNoticeHours', value)}
+          />
+        </div>
+      </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Spec 0040 (AC-17): how a rider's worked shifts are cut. An Offline with no job shorter than this is a
+// break inside the shift; this long or longer ends it. A change recomputes past shifts too (AC-9).
+export function TimeWorkedCard({ form, set, loaded }: CardProps) {
+  return (
+    <SettingsSection
+      id="time-worked"
+      title="Time worked"
+      description="How riders' time worked is split into shifts, on their Earnings screen and the Time worked page."
+    >
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <NumberField
+            id="shiftBreakMinutes"
+            label={labelOf('shiftBreakMinutes')}
+            value={form.shiftBreakMinutes}
+            min={0}
+            max={240}
+            disabled={!loaded}
+            description="Whole minutes, 0 to 240. An Offline with no job shorter than this is a break inside the same shift, not counted as time worked; 0 means every Offline with no job ends the shift. A change applies to past shifts too."
+            onChange={(value) => set('shiftBreakMinutes', value)}
           />
         </div>
       </FieldGroup>

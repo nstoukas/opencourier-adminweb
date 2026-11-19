@@ -12,6 +12,7 @@ import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
 import { courierName, deliverySettingLabel, memberSince } from './courierDisplay'
 import { RotateCourierPasswordDialog } from './RotateCourierPasswordDialog'
 import { MessageButton } from '@/modules/chat/MessageButton'
+import { CourierTimeWorkedCard } from '@/modules/time-worked/CourierTimeWorkedCard'
 
 // How many deliveries each card asks for (spec 0012). A rider carries one or two at a time.
 const DELIVERIES_PER_CARD = 10
@@ -21,8 +22,9 @@ const DELIVERIES_PER_CARD = 10
 const REFRESH_MS = 30_000
 
 // A rider's page (spec 0012): who they are, what they carry now, their recent deliveries.
-// Nothing here rates, counts or watches a rider (value 5): no acceptance rate, no online time,
-// no totals, no location.
+// Nothing here rates, counts or watches a rider (value 5): no acceptance rate, no totals, no location.
+// The one exception is the Time worked card (spec 0040, decisions 36.3 and 36.8): the same figures the
+// rider sees, shown to answer their questions and review requests, never compared with another rider.
 export function CourierDetails({ courierId }: { courierId: string }) {
   const { goToCouriers, goToDeliveryDetails } = useAdminPageNavigator()
   // The Change password dialog (spec 0013), and its button, which gets focus back on close.
@@ -189,6 +191,9 @@ export function CourierDetails({ courierId }: { courierId: string }) {
             </CardContent>
           </Card>
         </div>
+      </div>
+      <div className="mt-6">
+        <CourierTimeWorkedCard courierId={courierId} />
       </div>
     </>
   )
