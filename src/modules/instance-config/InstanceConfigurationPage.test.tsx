@@ -75,6 +75,15 @@ jest.mock('../../api/removalRequestApi', () => ({
   useRemoveRemovalReasonMutation: jest.fn().mockReturnValue([jest.fn(), { isLoading: false }]),
 }))
 
+jest.mock('../../api/reviewRequestApi', () => ({
+  useGetSettingChangesQuery: jest.fn().mockReturnValue({
+    data: { data: [], pagination: { currentPage: 1, totalPages: 1, totalItems: 0 } },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  }),
+}))
+
 const mockUseGetInstanceConfigOptionsQuery = useGetInstanceConfigOptionsQuery as jest.Mock
 const mockUseGetInstanceConfigQuery = useGetInstanceConfigQuery as jest.Mock
 const mockUseSetInstanceConfigMutation = useSetInstanceConfigMutation as jest.Mock
@@ -204,7 +213,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(h1).toHaveTextContent('Co-op settings')
     })
 
-    it('renders ten pills in exact order linking to the ten card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035)', () => {
+    it('renders twelve pills in exact order linking to the twelve card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035, Review requests and Change history added by spec 0038)', () => {
       render(<InstanceConfigurationPage />)
       const nav = screen.getByRole('navigation', { name: /Settings sections/i })
       const links = nav.querySelectorAll('a')
@@ -217,9 +226,11 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         { title: 'Removal reasons', href: '#removal-reasons' },
         { title: 'Restaurant delays', href: '#restaurant-delays' },
         { title: 'Shifts', href: '#shifts' },
+        { title: 'Review requests', href: '#review-requests' },
         { title: 'Service area', href: '#service-area' },
         { title: 'Instance', href: '#instance' },
         { title: 'Public pages', href: '#public-pages' },
+        { title: 'Change history', href: '#change-history' },
       ]
 
       expect(links).toHaveLength(expectedSections.length)

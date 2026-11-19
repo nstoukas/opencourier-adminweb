@@ -81,6 +81,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     chatQuickRepliesDispatch: 'Line 1\nLine 2',
     chatQuickRepliesCourier: 'Courier line 1\nCourier line 2',
     chatRetentionDays: '90',
+    reviewAnswerDays: '14',
+    reviewCorrectionMaxCents: '5000',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {
@@ -1475,6 +1477,116 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(deserialized.chatQuickRepliesDispatch).toEqual(['Preset A', 'Preset B'])
       expect(deserialized.chatQuickRepliesCourier).toEqual(['Rider Preset'])
       expect(deserialized.chatRetentionDays).toBe(45)
+    })
+  })
+
+  describe('Review requests settings (spec 0038, AC-3, AC-7, AC-13)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('declares reviewAnswerDays and reviewCorrectionMaxCents in SETTINGS with kind number and correct labels', () => {
+      const answerDays = SETTINGS.find((s) => s.key === 'reviewAnswerDays')
+      expect(answerDays).toBeDefined()
+      expect(answerDays?.kind).toBe('number')
+      expect(answerDays?.label).toBe('Days to answer a review request')
+
+      const maxCents = SETTINGS.find((s) => s.key === 'reviewCorrectionMaxCents')
+      expect(maxCents).toBeDefined()
+      expect(maxCents?.kind).toBe('number')
+      expect(maxCents?.label).toBe('Largest review pay correction (cents)')
+    })
+
+    it('formFromSettings converts reviewAnswerDays and reviewCorrectionMaxCents numbers to strings', () => {
+      const form = formFromSettings({
+        reviewAnswerDays: 7,
+        reviewCorrectionMaxCents: 10000,
+      })
+      expect(form.reviewAnswerDays).toBe('7')
+      expect(form.reviewCorrectionMaxCents).toBe('10000')
+
+      const empty = formFromSettings({})
+      expect(empty.reviewAnswerDays).toBe('')
+      expect(empty.reviewCorrectionMaxCents).toBe('')
+    })
+
+    it('pendingChanges detects edits to reviewAnswerDays and reviewCorrectionMaxCents', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        reviewAnswerDays: '7',
+        reviewCorrectionMaxCents: '10000',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const keys = changes.map((c) => c.key)
+
+      expect(keys).toContain('reviewAnswerDays')
+      expect(keys).toContain('reviewCorrectionMaxCents')
+
+      const daysChange = changes.find((c) => c.key === 'reviewAnswerDays')
+      expect(daysChange?.from).toBe('14')
+      expect(daysChange?.to).toBe('7')
+
+      const centsChange = changes.find((c) => c.key === 'reviewCorrectionMaxCents')
+      expect(centsChange?.from).toBe('5000')
+      expect(centsChange?.to).toBe('10000')
+    })
+
+    it('blockers blocks save when reviewAnswerDays or reviewCorrectionMaxCents is emptied', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        reviewAnswerDays: '',
+        reviewCorrectionMaxCents: '',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const errors = blockers(changes, edited)
+
+      expect(errors).toContain('Days to answer a review request is empty')
+      expect(errors).toContain('Largest review pay correction (cents) is empty')
+    })
+
+    it('savePayload sends reviewAnswerDays and reviewCorrectionMaxCents as numbers', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        reviewAnswerDays: '10',
+        reviewCorrectionMaxCents: '7500',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.reviewAnswerDays).toBe(10)
+      expect(typeof payload.reviewAnswerDays).toBe('number')
+      expect(payload.reviewCorrectionMaxCents).toBe(7500)
+      expect(typeof payload.reviewCorrectionMaxCents).toBe('number')
+    })
+
+    it('successMessage appends respective review sentence when review settings change', () => {
+      const daysChange = [{ key: 'reviewAnswerDays' as const, label: 'Days to answer a review request', from: '14', to: '7' }]
+      expect(successMessage(daysChange)).toContain(
+        'New review requests get the new answer period; requests already sent keep their date.'
+      )
+
+      const centsChange = [{ key: 'reviewCorrectionMaxCents' as const, label: 'Largest review pay correction (cents)', from: '5000', to: '10000' }]
+      expect(successMessage(centsChange)).toContain(
+        'The new limit applies to the next answer with a pay correction.'
+      )
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON serializes reviewAnswerDays and reviewCorrectionMaxCents (AC-3, AC-13)', () => {
+      const input = {
+        reviewAnswerDays: 7,
+        reviewCorrectionMaxCents: 5000,
+      }
+      const serialized = InstanceConfigSettingsAdminInputToJSON(input as any)
+      expect(serialized.reviewAnswerDays).toBe(7)
+      expect(serialized.reviewCorrectionMaxCents).toBe(5000)
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON deserializes reviewAnswerDays and reviewCorrectionMaxCents (AC-3, AC-13)', () => {
+      const dto = {
+        reviewAnswerDays: 14,
+        reviewCorrectionMaxCents: 10000,
+      }
+      const deserialized = InstanceConfigSettingsDtoFromJSON(dto)
+      expect(deserialized.reviewAnswerDays).toBe(14)
+      expect(deserialized.reviewCorrectionMaxCents).toBe(10000)
     })
   })
 })

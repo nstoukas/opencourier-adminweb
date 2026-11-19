@@ -10,6 +10,7 @@ import {
   useUpdateRemovalReasonMutation,
   useRemoveRemovalReasonMutation,
 } from './removalRequestApi'
+import { reviewRequestApi } from './reviewRequestApi'
 import { dispatchBoardApi } from './dispatchBoardApi'
 import { deliveriesApi } from './deliveriesApi'
 import { Tags } from './utils/tags'
@@ -69,12 +70,17 @@ describe('removalRequestApi (spec 0035, AC-2, AC-6, decision 24.30)', () => {
     getDeliveryEvents: jest.fn(),
   }
 
+  const mockSdkReviewRequests = {
+    settingChanges: jest.fn(),
+  }
+
   beforeEach(() => {
     jest.clearAllMocks()
     mockPrepareAdminSdk.mockReturnValue({
       removalRequests: () => mockSdkRemovalRequests,
       dispatchBoard: () => mockSdkDispatchBoard,
       deliveries: () => mockSdkDeliveries,
+      reviewRequests: () => mockSdkReviewRequests,
     })
   })
 
@@ -210,6 +216,36 @@ describe('removalRequestApi (spec 0035, AC-2, AC-6, decision 24.30)', () => {
       // Invalidates Tags.removalReasons so listReasons is fetched again
       expect(mockSdkRemovalRequests.listReasons).toHaveBeenCalledTimes(2)
       reasonsSub.unsubscribe()
+    })
+
+    // Spec 0038 (AC-12, AC-13): creating, updating or removing a removal reason records a SettingChange (key removalReason); Change history refetches.
+    it.each([
+      ['createRemovalReason', () => removalRequestApi.endpoints.createRemovalReason.initiate({ label: 'New reason', paidToRider: true, chargedToRestaurant: false, needsNote: false })],
+      ['updateRemovalReason', () => removalRequestApi.endpoints.updateRemovalReason.initiate({ id: 'reason-1', input: { label: 'Updated label' } })],
+      ['removeRemovalReason', () => removalRequestApi.endpoints.removeRemovalReason.initiate({ id: 'reason-1' })],
+    ] as const)('%s invalidates Tags.settingChanges so Change history refetches (spec 0038, AC-13)', async (_name, initiate) => {
+      mockSdkRemovalRequests.listReasons.mockResolvedValue([sampleReason])
+      mockSdkRemovalRequests.createReason.mockResolvedValue(sampleReason)
+      mockSdkRemovalRequests.updateReason.mockResolvedValue(sampleReason)
+      mockSdkRemovalRequests.removeReason.mockResolvedValue({ ...sampleReason, removedAt: '2026-11-09T12:00:00.000Z' })
+      mockSdkReviewRequests.settingChanges.mockResolvedValue({
+        data: [],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 0 },
+      })
+
+      const store = setupTestStore('token-abc')
+
+      const changesSub = store.dispatch(
+        reviewRequestApi.endpoints.getSettingChanges.initiate({ page: 1, perPage: 20 })
+      )
+      await changesSub
+      expect(mockSdkReviewRequests.settingChanges).toHaveBeenCalledTimes(1)
+
+      await store.dispatch(initiate() as any)
+
+      // Invalidates Tags.settingChanges so getSettingChanges is refetched
+      expect(mockSdkReviewRequests.settingChanges).toHaveBeenCalledTimes(2)
+      changesSub.unsubscribe()
     })
   })
 

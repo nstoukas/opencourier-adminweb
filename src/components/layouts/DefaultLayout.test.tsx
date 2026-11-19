@@ -30,6 +30,12 @@ jest.mock('../../api/chatApi', () => ({
   useGetChatUnreadCountQuery: () => mockUseGetChatUnreadCountQuery(),
 }))
 
+// Mock review requests API query for open count badge
+const mockUseGetReviewRequestCountQuery = jest.fn()
+jest.mock('../../api/reviewRequestApi', () => ({
+  useGetReviewRequestCountQuery: () => mockUseGetReviewRequestCountQuery(),
+}))
+
 const mockDisconnectChatLive = jest.fn()
 jest.mock('../../modules/chat/chatLive', () => {
   const actual = jest.requireActual('../../modules/chat/chatLive')
@@ -56,6 +62,9 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     })
     mockUseGetChatUnreadCountQuery.mockReturnValue({
       data: { count: 0 },
+    })
+    mockUseGetReviewRequestCountQuery.mockReturnValue({
+      data: { open: 0, overdue: 0 },
     })
   })
 
@@ -219,19 +228,22 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
 
     // Spec 0026 (row 77): the Co-op group gains "Shift slots" after Settings.
     // Spec 0036 (row 109): the Co-op group gains "Charges" (/charges).
-    it('lists Settings then "Shift slots" (/shift-slots) and "Charges" (/charges) in the Co-op group, and marks Shift slots active there', () => {
+    // Spec 0038 (row 30): the Co-op group gains "Reviews" (/reviews).
+    it('lists Settings then "Shift slots" (/shift-slots), "Charges" (/charges) and "Reviews" (/reviews) in the Co-op group, and marks Shift slots active there', () => {
       currentPathname = '/shift-slots'
       renderLayout()
 
       const coop = screen.getByRole('list', { name: 'Co-op' })
       const links = within(coop).getAllByRole('link')
-      expect(links.map((link) => link.textContent?.trim())).toEqual(['Settings', 'Shift slots', 'Charges'])
+      expect(links.map((link) => link.textContent?.trim())).toEqual(['Settings', 'Shift slots', 'Charges', 'Reviews'])
       expect(links[1]).toHaveAttribute('href', '/shift-slots')
       expect(links[2]).toHaveAttribute('href', '/charges')
+      expect(links[3]).toHaveAttribute('href', '/reviews')
       expect(EAdminRoutes.SHIFT_SLOTS).toBe('/shift-slots')
       expect(EAdminRoutes.CHARGES).toBe('/charges')
       expect(EAdminRoutes.CHARGES_PARTNER_MONTH).toBe('/charges/[month]/[partnerId]')
       expect(EAdminRoutes.CHARGES_STATEMENT).toBe('/charges/statement/[billId]')
+      expect(EAdminRoutes.REVIEWS).toBe('/reviews')
 
       expect(links[1]).toHaveAttribute('aria-current', 'page')
       expect(links[0]).not.toHaveAttribute('aria-current')

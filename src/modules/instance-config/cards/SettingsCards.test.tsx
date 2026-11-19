@@ -8,6 +8,7 @@ import {
   RiderPayCard,
   InstanceCard,
   PublicPagesCard,
+  ReviewRequestsCard,
   PUBLIC_PAGES,
   SECTIONS,
 } from './SettingsCards'
@@ -1059,6 +1060,71 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       })
 
       expect(mockOnEdit).toHaveBeenCalledTimes(4)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // ReviewRequestsCard (spec 0038, AC-3, AC-7)
+  // ---------------------------------------------------------------------------
+  describe('ReviewRequestsCard (spec 0038, AC-3, AC-7)', () => {
+    it('renders heading "Review requests", link to /reviews, and input fields with proper ranges', () => {
+      const mockSet = jest.fn()
+      render(
+        <ReviewRequestsCard
+          form={{
+            ...dummyForm,
+            reviewAnswerDays: '7',
+            reviewCorrectionMaxCents: '5000',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'Review requests' })).toBeInTheDocument()
+      const link = screen.getByRole('link', { name: 'Reviews' })
+      expect(link).toHaveAttribute('href', '/reviews')
+
+      const daysInput = screen.getByLabelText(/Days to answer a review request/i) as HTMLInputElement
+      expect(daysInput.value).toBe('7')
+      expect(daysInput).toHaveAttribute('type', 'number')
+      expect(daysInput).toHaveAttribute('min', '1')
+      expect(daysInput).toHaveAttribute('max', '14')
+      expect(daysInput).not.toBeDisabled()
+
+      fireEvent.change(daysInput, { target: { value: '10' } })
+      expect(mockSet).toHaveBeenCalledWith('reviewAnswerDays', '10')
+
+      const centsInput = screen.getByLabelText(/Largest review pay correction \(cents\)/i) as HTMLInputElement
+      expect(centsInput.value).toBe('5000')
+      expect(centsInput).toHaveAttribute('type', 'number')
+      expect(centsInput).toHaveAttribute('min', '1')
+      expect(centsInput).not.toBeDisabled()
+
+      fireEvent.change(centsInput, { target: { value: '7500' } })
+      expect(mockSet).toHaveBeenCalledWith('reviewCorrectionMaxCents', '7500')
+    })
+
+    it('disables input fields before settings load (loaded = false)', () => {
+      render(
+        <ReviewRequestsCard
+          form={{
+            ...dummyForm,
+            reviewAnswerDays: '',
+            reviewCorrectionMaxCents: '',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const daysInput = screen.getByLabelText(/Days to answer a review request/i)
+      expect(daysInput).toBeDisabled()
+
+      const centsInput = screen.getByLabelText(/Largest review pay correction \(cents\)/i)
+      expect(centsInput).toBeDisabled()
     })
   })
 })

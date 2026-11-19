@@ -1,5 +1,6 @@
 import { configureStore, type AnyAction } from '@reduxjs/toolkit'
 import { isShiftSlotConflict, refreshShiftSlots, shiftSlotApi } from './shiftSlotApi'
+import { reviewRequestApi } from './reviewRequestApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
 import { authSlice } from '@/modules/auth/slices/authSlice'
@@ -56,14 +57,25 @@ describe('shiftSlotApi (spec 0026)', () => {
     removedAt: null,
   }
 
+  const reviewSdk = {
+    settingChanges: jest.fn(),
+  }
+
   beforeEach(() => {
     jest.clearAllMocks()
-    mockPrepareAdminSdk.mockReturnValue({ shiftSlots: () => sdk })
+    mockPrepareAdminSdk.mockReturnValue({
+      shiftSlots: () => sdk,
+      reviewRequests: () => reviewSdk,
+    })
     sdk.list.mockResolvedValue([slot])
     sdk.changes.mockResolvedValue([])
     sdk.create.mockResolvedValue(slot)
     sdk.update.mockResolvedValue(slot)
     sdk.remove.mockResolvedValue({ ...slot, removedAt: '2026-11-03T08:00:00.000Z' })
+    reviewSdk.settingChanges.mockResolvedValue({
+      data: [],
+      pagination: { currentPage: 1, totalPages: 1, totalItems: 0 },
+    })
   })
 
   it('defines the shiftSlots tag', () => {
@@ -111,6 +123,29 @@ describe('shiftSlotApi (spec 0026)', () => {
       .map((a) => a.meta?.arg?.endpointName)
     expect(refetched).toContain('getShiftSlots')
     expect(refetched).toContain('getShiftSlotChanges')
+  })
+
+  // Spec 0038 (AC-12, AC-13): creating, editing or removing a shift slot records a SettingChange; Change history refetches.
+  it.each([
+    ['createShiftSlot', () => shiftSlotApi.endpoints.createShiftSlot.initiate({ weekday: 1, startMinute: 0, endMinute: 60, riderCap: 1 })],
+    ['updateShiftSlot', () => shiftSlotApi.endpoints.updateShiftSlot.initiate({ id: 'slot-1', input: { riderCap: 8 } })],
+    ['removeShiftSlot', () => shiftSlotApi.endpoints.removeShiftSlot.initiate({ id: 'slot-1' })],
+  ] as const)('%s invalidates Tags.settingChanges so the Change history refetches (spec 0038, AC-13)', async (_name, initiate) => {
+    const actions: AnyAction[] = []
+    const store = setupTestStore((action) => actions.push(action))
+
+    // Subscribe to getSettingChanges (provides Tags.settingChanges)
+    void store.dispatch(reviewRequestApi.endpoints.getSettingChanges.initiate({ page: 1, perPage: 20 }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    actions.length = 0
+
+    await store.dispatch(initiate() as any)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const refetched = actions
+      .filter((a) => a.type === 'api/executeQuery/pending')
+      .map((a) => a.meta?.arg?.endpointName)
+    expect(refetched).toContain('getSettingChanges')
   })
 
   it('sends the mutations their arguments', async () => {

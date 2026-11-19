@@ -643,6 +643,71 @@ describe('DeliveryEventTimeline component', () => {
       expect(screen.queryByText('Did not take effect')).toBeNull()
     })
 
+    // Spec 0038 (AC-4): REVIEW_REQUESTED, REVIEW_ANSWERED, COURIER_PAID_FOR_REVIEW
+    it('shows REVIEW_REQUESTED, REVIEW_ANSWERED and COURIER_PAID_FOR_REVIEW as "No status change" (spec 0038, AC-4)', () => {
+      const reviewEvents: DeliveryEventAdminDto[] = [
+        {
+          id: 'rev-1',
+          type: 'REVIEW_REQUESTED',
+          actor: 'COURIER',
+          courierId: 'c-rider-1',
+          eventSource: 'OPENCOURIER',
+          oldStatus: null,
+          newStatus: null,
+          transitionSuccessful: true,
+          message: 'Review requested: PAY',
+          createdAt: new Date('2026-11-19T10:00:00Z'),
+        },
+        {
+          id: 'rev-2',
+          type: 'REVIEW_ANSWERED',
+          actor: 'ADMIN',
+          courierId: 'c-rider-1',
+          eventSource: 'OPENCOURIER',
+          oldStatus: null,
+          newStatus: null,
+          transitionSuccessful: true,
+          message: 'Review answered: CHANGED',
+          createdAt: new Date('2026-11-19T11:00:00Z'),
+        },
+        {
+          id: 'rev-3',
+          type: 'COURIER_PAID_FOR_REVIEW',
+          actor: 'ADMIN',
+          courierId: 'c-rider-1',
+          eventSource: 'OPENCOURIER',
+          oldStatus: null,
+          newStatus: null,
+          transitionSuccessful: true,
+          message: 'Review correction: 150 cents',
+          createdAt: new Date('2026-11-19T11:00:00Z'),
+        },
+      ]
+
+      mockUseGetDeliveryEventsQuery.mockReturnValue({
+        data: reviewEvents,
+        isLoading: false,
+        isError: false,
+        error: null,
+      })
+
+      render(<DeliveryEventTimeline deliveryId="d100" />)
+
+      const rows = screen.getAllByTestId('delivery-event-row')
+      expect(rows).toHaveLength(3)
+
+      expect(screen.getByText('Review requested')).toBeInTheDocument()
+      expect(screen.getByText('Review answered')).toBeInTheDocument()
+      expect(screen.getByText('Courier paid for review')).toBeInTheDocument()
+
+      const transitions = screen.getAllByText('No status change')
+      expect(transitions).toHaveLength(3)
+
+      expect(screen.getByText('Review requested: PAY')).toBeInTheDocument()
+      expect(screen.getByText('Review answered: CHANGED')).toBeInTheDocument()
+      expect(screen.getByText('Review correction: 150 cents')).toBeInTheDocument()
+    })
+
     it('polls for delivery events every 30 seconds via pollingInterval (spec 0002, AC-11)', () => {
       mockUseGetDeliveryEventsQuery.mockReturnValue({
         data: [],

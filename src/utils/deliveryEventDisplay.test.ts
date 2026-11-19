@@ -23,6 +23,9 @@ describe('deliveryEventDisplay utils', () => {
     expect(humanizeEventType('PRODUCT_REPORT_RESOLVED')).toBe('Product report resolved')
     expect(humanizeEventType('WAIT_UNDISPATCHED')).toBe('Wait undispatched')
     expect(humanizeEventType('COURIER_PAID_FOR_WAIT')).toBe('Courier paid for wait')
+    expect(humanizeEventType('REVIEW_REQUESTED')).toBe('Review requested')
+    expect(humanizeEventType('REVIEW_ANSWERED')).toBe('Review answered')
+    expect(humanizeEventType('COURIER_PAID_FOR_REVIEW')).toBe('Courier paid for review')
     expect(humanizeEventType('')).toBe('—')
   })
 
@@ -74,6 +77,17 @@ describe('deliveryEventDisplay utils', () => {
         oldStatus: 'DISPATCHED',
         newStatus: 'ASSIGNING_COURIER',
         transitionSuccessful: false,
+      })
+    ).toBe('No status change')
+  })
+
+  // Spec 0038 (AC-4): review events (REVIEW_REQUESTED, REVIEW_ANSWERED, COURIER_PAID_FOR_REVIEW) carry no status at all.
+  it('describes events with both statuses null as "No status change" (spec 0038, AC-4)', () => {
+    expect(
+      describeTransition({
+        oldStatus: null,
+        newStatus: null,
+        transitionSuccessful: true,
       })
     ).toBe('No status change')
   })
