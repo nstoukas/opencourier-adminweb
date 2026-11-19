@@ -21,6 +21,10 @@ describe('ChangeHistoryCard (spec 0038, AC-13)', () => {
       expect(describeSettingValue('')).toBe('none')
     })
 
+    it('formats empty object as "none"', () => {
+      expect(describeSettingValue({})).toBe('none')
+    })
+
     it('formats booleans as "on" and "off"', () => {
       expect(describeSettingValue(true)).toBe('on')
       expect(describeSettingValue(false)).toBe('off')

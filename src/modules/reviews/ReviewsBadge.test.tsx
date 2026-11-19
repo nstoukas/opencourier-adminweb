@@ -34,7 +34,7 @@ describe('ReviewsBadge (spec 0038, AC-5)', () => {
 
     render(<ReviewsBadge />)
 
-    const badge = screen.getByLabelText('3 open')
+    const badge = screen.getByRole('img', { name: '3 open' })
     expect(badge).toBeInTheDocument()
     expect(badge).toHaveTextContent('3')
     expect(badge).toHaveAttribute('title', '3 open')
@@ -43,20 +43,34 @@ describe('ReviewsBadge (spec 0038, AC-5)', () => {
     expect(badge).not.toHaveClass('bg-destructive')
   })
 
-  it('renders red destructive badge when at least one open request is overdue', () => {
+  it('renders red destructive badge with "!" and "N open, M overdue" label when overdue', () => {
     mockUseGetReviewRequestCountQuery.mockReturnValue({
       data: { open: 4, overdue: 1 },
     })
 
     render(<ReviewsBadge />)
 
-    const badge = screen.getByLabelText('4 open, 1 overdue')
+    const badge = screen.getByRole('img', { name: '4 open, 1 overdue' })
     expect(badge).toBeInTheDocument()
-    expect(badge).toHaveTextContent('4')
+    expect(badge).toHaveTextContent('4!')
     expect(badge).toHaveAttribute('title', '4 open, 1 overdue')
     // Red destructive styling
     expect(badge).toHaveClass('bg-destructive')
     expect(badge).not.toHaveClass('bg-secondary')
+  })
+
+  it('shows "?" with label "Open review requests could not be counted" on failed first load (isError, no data)', () => {
+    mockUseGetReviewRequestCountQuery.mockReturnValue({
+      data: undefined,
+      isError: true,
+    })
+
+    render(<ReviewsBadge />)
+
+    const badge = screen.getByRole('img', { name: 'Open review requests could not be counted' })
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveTextContent('?')
+    expect(badge).toHaveAttribute('title', 'Open review requests could not be counted')
   })
 
   it('polls every 30 seconds while page is visible', () => {

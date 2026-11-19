@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { ReviewsPage, REVIEWS_PAGE_SIZE, REVIEWS_POLL_MS } from './ReviewsPage'
 import type { ReviewRequestAdminDto } from '@/backend-admin-sdk'
 
@@ -351,6 +351,73 @@ describe('ReviewsPage (spec 0038, AC-5, AC-6, AC-7)', () => {
       expect.objectContaining({ page: 2 }),
       expect.anything()
     )
+  })
+
+  it('renders from currentData so stale rows and Answer buttons do not show when currentData is undefined (Loading…)', () => {
+    // When switching tabs or during an in-flight query, data contains the previous tab's rows
+    // while currentData is undefined.
+    mockUseGetReviewRequestsQuery.mockReturnValue({
+      data: {
+        data: [openRequest1],
+        pagination: { currentPage: 1, totalPages: 1, totalItems: 1 },
+      },
+      currentData: undefined,
+      isLoading: false,
+      isFetching: true,
+      isError: false,
+    })
+
+    render(<ReviewsPage />)
+
+    // Stale rows and Answer buttons must NOT be rendered
+    expect(screen.queryByText('Nikos Arvanitis')).toBeNull()
+    expect(screen.queryByTestId('answer-btn-req-open-1')).toBeNull()
+
+    // "Loading…" is displayed instead
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
+  it('steps back to the previous page when an emptied later page (page > 1) returns empty data', async () => {
+    mockUseGetReviewRequestsQuery.mockImplementation(({ page }) => {
+      if (page === 1) {
+        return {
+          data: {
+            data: [openRequest1],
+            pagination: { currentPage: 1, totalPages: 2, totalItems: 21, nextPage: 2, prevPage: null },
+          },
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+        }
+      }
+      if (page === 2) {
+        return {
+          data: {
+            data: [],
+            pagination: { currentPage: 2, totalPages: 1, totalItems: 20, nextPage: null, prevPage: 1 },
+          },
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+        }
+      }
+      return { data: { data: [] } }
+    })
+
+    render(<ReviewsPage />)
+
+    // User navigates to page 2
+    const nextButton = screen.getByRole('button', { name: 'Next' })
+    fireEvent.click(nextButton)
+
+    // ReviewsPage receives empty data on page 2 (page > 1 and data.data.length === 0)
+    // The useEffect must automatically reset page back to 1
+    await waitFor(() => {
+      expect(mockUseGetReviewRequestsQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1 }),
+        expect.anything()
+      )
+    })
   })
 
   it('polls requests every 30 seconds while page is visible', () => {
