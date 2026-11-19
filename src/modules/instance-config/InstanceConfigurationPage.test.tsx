@@ -213,7 +213,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(h1).toHaveTextContent('Co-op settings')
     })
 
-    it('renders twelve pills in exact order linking to the twelve card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035, Review requests and Change history added by spec 0038)', () => {
+    it('renders thirteen pills in exact order linking to the thirteen card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035, Time worked added by spec 0040, Review requests and Change history added by spec 0038)', () => {
       render(<InstanceConfigurationPage />)
       const nav = screen.getByRole('navigation', { name: /Settings sections/i })
       const links = nav.querySelectorAll('a')
@@ -226,6 +226,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         { title: 'Removal reasons', href: '#removal-reasons' },
         { title: 'Restaurant delays', href: '#restaurant-delays' },
         { title: 'Shifts', href: '#shifts' },
+        { title: 'Time worked', href: '#time-worked' },
         { title: 'Review requests', href: '#review-requests' },
         { title: 'Service area', href: '#service-area' },
         { title: 'Instance', href: '#instance' },

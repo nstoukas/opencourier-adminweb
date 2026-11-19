@@ -229,27 +229,39 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     // Spec 0026 (row 77): the Co-op group gains "Shift slots" after Settings.
     // Spec 0036 (row 109): the Co-op group gains "Charges" (/charges).
     // Spec 0038 (row 30): the Co-op group gains "Reviews" (/reviews).
-    it('lists Settings then "Shift slots" (/shift-slots), "Charges" (/charges) and "Reviews" (/reviews) in the Co-op group, and marks Shift slots active there', () => {
+    // Spec 0040 (row 36): the Co-op group gains "Time worked" (/time-worked).
+    it('lists Settings then "Shift slots" (/shift-slots), "Charges" (/charges), "Reviews" (/reviews) and "Time worked" (/time-worked) in the Co-op group, and marks Shift slots active there', () => {
       currentPathname = '/shift-slots'
       renderLayout()
 
       const coop = screen.getByRole('list', { name: 'Co-op' })
       const links = within(coop).getAllByRole('link')
-      expect(links.map((link) => link.textContent?.trim())).toEqual(['Settings', 'Shift slots', 'Charges', 'Reviews'])
+      expect(links.map((link) => link.textContent?.trim())).toEqual([
+        'Settings',
+        'Shift slots',
+        'Charges',
+        'Reviews',
+        'Time worked',
+      ])
       expect(links[1]).toHaveAttribute('href', '/shift-slots')
       expect(links[2]).toHaveAttribute('href', '/charges')
       expect(links[3]).toHaveAttribute('href', '/reviews')
+      expect(links[4]).toHaveAttribute('href', '/time-worked')
       expect(EAdminRoutes.SHIFT_SLOTS).toBe('/shift-slots')
       expect(EAdminRoutes.CHARGES).toBe('/charges')
       expect(EAdminRoutes.CHARGES_PARTNER_MONTH).toBe('/charges/[month]/[partnerId]')
       expect(EAdminRoutes.CHARGES_STATEMENT).toBe('/charges/statement/[billId]')
       expect(EAdminRoutes.REVIEWS).toBe('/reviews')
+      expect(EAdminRoutes.TIME_WORKED).toBe('/time-worked')
 
       expect(links[1]).toHaveAttribute('aria-current', 'page')
       expect(links[0]).not.toHaveAttribute('aria-current')
       expect(links[2]).not.toHaveAttribute('aria-current')
+      expect(links[3]).not.toHaveAttribute('aria-current')
+      expect(links[4]).not.toHaveAttribute('aria-current')
       expect(screen.getAllByRole('link', { name: /Shift slots/ })).toHaveLength(1)
       expect(screen.getAllByRole('link', { name: /Charges/ })).toHaveLength(1)
+      expect(screen.getAllByRole('link', { name: /Time worked/ })).toHaveLength(1)
     })
 
     // Spec 0034 (chat), AC-2: Messages under Run the day with unread count, hidden at 0

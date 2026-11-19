@@ -55,6 +55,11 @@ jest.mock('../../api/chatApi', () => ({
   useOpenChatThreadMutation: () => [jest.fn(), { isLoading: false }],
 }))
 
+const mockUseGetCourierTimeWorkedQuery = jest.fn()
+jest.mock('../../api/timeWorkedApi', () => ({
+  useGetCourierTimeWorkedQuery: (args: any, options: any) => mockUseGetCourierTimeWorkedQuery(args, options),
+}))
+
 describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () => {
   const baseCourier: CourierAdminDto = {
     id: 'c1',
@@ -74,6 +79,12 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
     mockUsePageVisible.mockReturnValue(true)
     mockUseRotateCourierPasswordMutation.mockReturnValue([jest.fn(), { isLoading: false }])
+    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+      currentData: undefined,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
 
     activeDeliveriesResult = {
       data: { data: [] },

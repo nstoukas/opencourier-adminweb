@@ -9,6 +9,7 @@ import {
   InstanceCard,
   PublicPagesCard,
   ReviewRequestsCard,
+  TimeWorkedCard,
   PUBLIC_PAGES,
   SECTIONS,
 } from './SettingsCards'
@@ -1125,6 +1126,57 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       const centsInput = screen.getByLabelText(/Largest review pay correction \(cents\)/i)
       expect(centsInput).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // TimeWorkedCard (spec 0040, AC-17, AC-9)
+  // ---------------------------------------------------------------------------
+  describe('TimeWorkedCard (spec 0040, AC-17, AC-9)', () => {
+    it('renders heading "Time worked", description, and NumberField bound to shiftBreakMinutes with proper min/max and 0 explanation', () => {
+      const mockSet = jest.fn()
+      render(
+        <TimeWorkedCard
+          form={{
+            ...dummyForm,
+            shiftBreakMinutes: '30',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'Time worked' })).toBeInTheDocument()
+      const input = screen.getByLabelText(/Longest break inside a worked shift, in minutes/i) as HTMLInputElement
+      expect(input.value).toBe('30')
+      expect(input).toHaveAttribute('type', 'number')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '240')
+      expect(input).not.toBeDisabled()
+
+      // Description explains 0
+      expect(screen.getByText(/0 means every Offline with no job ends the shift/i)).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '45' } })
+      expect(mockSet).toHaveBeenCalledWith('shiftBreakMinutes', '45')
+    })
+
+    it('disables shiftBreakMinutes input before settings load (loaded = false)', () => {
+      render(
+        <TimeWorkedCard
+          form={{
+            ...dummyForm,
+            shiftBreakMinutes: '',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = screen.getByLabelText(/Longest break inside a worked shift, in minutes/i)
+      expect(input).toBeDisabled()
     })
   })
 })

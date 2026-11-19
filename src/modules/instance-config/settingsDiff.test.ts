@@ -78,6 +78,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     dispatchPhoneNumber: '+302421012345',
     shiftsEnabled: false,
     shiftDropNoticeHours: '12',
+    shiftBreakMinutes: '30',
     chatQuickRepliesDispatch: 'Line 1\nLine 2',
     chatQuickRepliesCourier: 'Courier line 1\nCourier line 2',
     chatRetentionDays: '90',
@@ -1587,6 +1588,87 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const deserialized = InstanceConfigSettingsDtoFromJSON(dto)
       expect(deserialized.reviewAnswerDays).toBe(14)
       expect(deserialized.reviewCorrectionMaxCents).toBe(10000)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Time worked setting (spec 0040, AC-17, AC-9)
+  // ---------------------------------------------------------------------------
+  describe('shiftBreakMinutes setting (spec 0040, AC-17, AC-9)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('defines shiftBreakMinutes in SETTINGS as a number with its label', () => {
+      const definition = SETTINGS.find((s) => s.key === 'shiftBreakMinutes')
+      expect(definition).toBeDefined()
+      expect(definition?.kind).toBe('number')
+      expect(definition?.label).toBe('Longest break inside a worked shift, in minutes')
+      expect(definition?.details).toBeUndefined()
+    })
+
+    it('formFromSettings populates shiftBreakMinutes from data and falls back to empty string', () => {
+      const form1 = formFromSettings({ shiftBreakMinutes: 30 })
+      expect(form1.shiftBreakMinutes).toBe('30')
+
+      const form2 = formFromSettings({ shiftBreakMinutes: null })
+      expect(form2.shiftBreakMinutes).toBe('')
+
+      const form3 = formFromSettings({})
+      expect(form3.shiftBreakMinutes).toBe('')
+    })
+
+    it('blocks saving when shiftBreakMinutes is empty string', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        shiftBreakMinutes: '',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const found = blockers(changes, edited)
+      expect(found).toContain('Longest break inside a worked shift, in minutes is empty')
+    })
+
+    it('savePayload converts shiftBreakMinutes to a Number', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        shiftBreakMinutes: '45',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.shiftBreakMinutes).toBe(45)
+      expect(typeof payload.shiftBreakMinutes).toBe('number')
+    })
+
+    it('successMessage indicates past shifts are worked out again when shiftBreakMinutes changes', () => {
+      const change = [
+        {
+          key: 'shiftBreakMinutes' as const,
+          label: 'Longest break inside a worked shift, in minutes',
+          from: '30',
+          to: '45',
+        },
+      ]
+      const msg = successMessage(change)
+      expect(msg).toContain(
+        "Every rider's time worked, past shifts included, is worked out again with the new break length."
+      )
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON preserves shiftBreakMinutes', () => {
+      const input = {
+        shiftBreakMinutes: 30,
+      }
+      const serialized = InstanceConfigSettingsAdminInputToJSON(input as any)
+      expect(serialized.shiftBreakMinutes).toBe(30)
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON deserializes shiftBreakMinutes and falls back to null when absent', () => {
+      const dtoWith = { shiftBreakMinutes: 45 }
+      const deserialized1 = InstanceConfigSettingsDtoFromJSON(dtoWith)
+      expect(deserialized1.shiftBreakMinutes).toBe(45)
+
+      const dtoWithout = {}
+      const deserialized2 = InstanceConfigSettingsDtoFromJSON(dtoWithout)
+      expect(deserialized2.shiftBreakMinutes).toBeNull()
     })
   })
 })
