@@ -65,7 +65,8 @@ export const configApi = baseApi.injectEndpoints({
           };
         }
       },
-      invalidatesTags: [Tags.config],
+      // A save also adds rows to the settings record (spec 0038).
+      invalidatesTags: [Tags.config, Tags.settingChanges],
     }),
   }),
 });

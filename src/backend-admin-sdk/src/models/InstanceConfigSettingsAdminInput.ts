@@ -264,6 +264,9 @@ export interface InstanceConfigSettingsAdminInput {
   chatQuickRepliesDispatch?: Array<string>;
   chatQuickRepliesCourier?: Array<string>;
   chatRetentionDays?: number;
+  // Review requests (spec 0038). Without the ToJSON lines below a save would drop them silently.
+  reviewAnswerDays?: number;
+  reviewCorrectionMaxCents?: number;
   /**
    * Spec 0015: which payout policy pays a rider whose job is cancelled; a key of
    * reassignmentPayoutPolicies, checked by the backend. Hand edited.
@@ -504,6 +507,8 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     chatRetentionDays: !exists(json, "chatRetentionDays")
       ? undefined
       : json["chatRetentionDays"],
+    reviewAnswerDays: !exists(json, "reviewAnswerDays") ? undefined : json["reviewAnswerDays"],
+    reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? undefined : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
       ? undefined
       : json["cancellationPayoutPolicy"],
@@ -574,6 +579,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,
     chatRetentionDays: value.chatRetentionDays,
+    reviewAnswerDays: value.reviewAnswerDays,
+    reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     // Without this line a save would drop the cancellation rule before it left the browser.
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };

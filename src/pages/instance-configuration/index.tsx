@@ -25,6 +25,7 @@ import {
   PublicPagesCard,
   RiderPayCard,
   ShiftsCard,
+  ReviewRequestsCard,
   SECTIONS,
   ServiceAreaCard,
   PUBLIC_PAGES,
@@ -32,6 +33,7 @@ import {
 } from "@/modules/instance-config/cards/SettingsCards";
 import { PublicPageEditor } from "@/modules/instance-config/PublicPageEditor";
 import { RemovalReasonsCard } from "@/modules/instance-config/cards/RemovalReasonsCard";
+import { ChangeHistoryCard } from "@/modules/instance-config/cards/ChangeHistoryCard";
 import { ReassignmentPayoutPolicyEditor } from "@/modules/instance-config/components/ReassignmentPayoutPolicyEditor";
 import { SaveBar } from "@/modules/instance-config/SaveBar";
 import {
@@ -309,6 +311,7 @@ const InstanceConfigurationPage: NextPage = () => {
             <RemovalReasonsCard {...cardProps} />
             <RestaurantDelaysCard {...cardProps} />
             <ShiftsCard {...cardProps} />
+            <ReviewRequestsCard {...cardProps} />
             <ServiceAreaCard
               map={
                 <AdminMap
@@ -320,6 +323,7 @@ const InstanceConfigurationPage: NextPage = () => {
             />
             <InstanceCard {...cardProps} linkLocked={!!savedDetails.link} />
             <PublicPagesCard onEdit={openPage} />
+            <ChangeHistoryCard />
           </div>
           <SaveBar
             changes={changes}

@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
+import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, ShiftSlotApi, SosApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -105,6 +105,11 @@ export class BackendAdminSdk {
   // What each restaurant owes, and bills made by hand (spec 0036).
   partnerCharges(): PartnerChargeApi {
     return this.getOrCreateApi(PartnerChargeApi)
+  }
+
+  // Riders' review requests and the settings record (spec 0038).
+  reviewRequests(): ReviewRequestApi {
+    return this.getOrCreateApi(ReviewRequestApi)
   }
 
   partners(): PartnerApi {

@@ -263,6 +263,9 @@ export interface InstanceConfigSettingsDto {
   chatQuickRepliesDispatch?: Array<string> | null;
   chatQuickRepliesCourier?: Array<string> | null;
   chatRetentionDays?: number | null;
+  // Review requests (spec 0038): whole days to answer, and the largest pay correction in cents.
+  reviewAnswerDays?: number | null;
+  reviewCorrectionMaxCents?: number | null;
   /**
    * Spec 0015: the payout policy (a key of reassignmentPayoutPolicies) that pays a rider whose job
    * is cancelled after they accepted it; FULL_COMPENSATION when none is stored. Hand edited.
@@ -478,6 +481,8 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     chatRetentionDays: !exists(json, "chatRetentionDays")
       ? null
       : json["chatRetentionDays"],
+    reviewAnswerDays: !exists(json, "reviewAnswerDays") ? null : json["reviewAnswerDays"],
+    reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? null : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
       ? null
       : json["cancellationPayoutPolicy"],
@@ -539,6 +544,8 @@ export function InstanceConfigSettingsDtoToJSON(
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,
     chatRetentionDays: value.chatRetentionDays,
+    reviewAnswerDays: value.reviewAnswerDays,
+    reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,
   };
 }

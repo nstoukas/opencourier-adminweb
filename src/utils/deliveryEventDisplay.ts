@@ -24,6 +24,10 @@ export function describeTransition(event: {
   if (event.transitionSuccessful === false) {
     return 'No status change'
   }
+  // A record beside the delivery, such as a review request (spec 0038), carries no status at all.
+  if (!event.oldStatus && !event.newStatus) {
+    return 'No status change'
+  }
 
   const oldHuman = humanizeStatus(event.oldStatus)
   const newHuman = humanizeStatus(event.newStatus)

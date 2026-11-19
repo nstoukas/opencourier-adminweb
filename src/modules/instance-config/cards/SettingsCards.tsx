@@ -71,9 +71,11 @@ export const SECTIONS = [
   { id: 'removal-reasons', title: 'Removal reasons' },
   { id: 'restaurant-delays', title: 'Restaurant delays' },
   { id: 'shifts', title: 'Shifts' },
+  { id: 'review-requests', title: 'Review requests' },
   { id: 'service-area', title: 'Service area' },
   { id: 'instance', title: 'Instance' },
   { id: 'public-pages', title: 'Public pages' },
+  { id: 'change-history', title: 'Change history' },
 ] as const
 
 // One card of the page: an h2 title the pills link to, a line under it, the fields.
@@ -579,6 +581,49 @@ export function ShiftsCard({ form, set, loaded }: CardProps) {
           />
         </div>
       </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Spec 0038 (AC-3, AC-7): how long a person has to answer a rider's review request, and the most a
+// "changed" answer may add to a rider's pay. Nothing ever answers a request on its own.
+export function ReviewRequestsCard({ form, set, loaded }: CardProps) {
+  return (
+    <SettingsSection
+      id="review-requests"
+      title="Review requests"
+      description={
+        <>
+          A rider can ask a person to look again at any decision the app took about their work. Answer them on{' '}
+          <Link href="/reviews" className="underline underline-offset-2">
+            Reviews
+          </Link>
+          .
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <NumberField
+          id="reviewAnswerDays"
+          label={labelOf('reviewAnswerDays')}
+          value={form.reviewAnswerDays}
+          min={1}
+          max={14}
+          disabled={!loaded}
+          description="Whole days, 1 to 14. A request's due date is fixed when it is sent; a change here applies to new requests only."
+          onChange={(value) => set('reviewAnswerDays', value)}
+        />
+        <NumberField
+          id="reviewCorrectionMaxCents"
+          label={labelOf('reviewCorrectionMaxCents')}
+          value={form.reviewCorrectionMaxCents}
+          min={1}
+          max={100000}
+          disabled={!loaded}
+          description="Whole cents, 1 to 100000 (5000 is €50). A correction only ever adds to a rider's pay."
+          onChange={(value) => set('reviewCorrectionMaxCents', value)}
+        />
+      </div>
     </SettingsSection>
   )
 }

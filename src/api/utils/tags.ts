@@ -18,6 +18,8 @@ const tagTypes = {
   chatThreads: 'ChatThreads',
   chatMessages: 'ChatMessages',
   partnerCharges: 'PartnerCharges',
+  reviewRequests: 'ReviewRequests',
+  settingChanges: 'SettingChanges',
 }
 
 export const Tags = {
@@ -38,6 +40,8 @@ export const Tags = {
   productReports: tagTypes['productReports'],
   dispatchStops: tagTypes['dispatchStops'],
   shiftSlots: tagTypes['shiftSlots'],
+  reviewRequests: tagTypes['reviewRequests'],
+  settingChanges: tagTypes['settingChanges'],
   sos: tagTypes['sos'],
   removalRequests: tagTypes['removalRequests'],
   removalReasons: tagTypes['removalReasons'],

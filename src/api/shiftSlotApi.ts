@@ -44,7 +44,7 @@ export const shiftSlotApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      invalidatesTags: [Tags.shiftSlots],
+      invalidatesTags: [Tags.shiftSlots, Tags.settingChanges],
     }),
     updateShiftSlot: build.mutation<ShiftSlotAdminDto, { id: string; input: Partial<ShiftSlotFieldsAdmin> }>({
       queryFn: async ({ id, input }, api) => {
@@ -56,7 +56,7 @@ export const shiftSlotApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      invalidatesTags: [Tags.shiftSlots],
+      invalidatesTags: [Tags.shiftSlots, Tags.settingChanges],
     }),
     removeShiftSlot: build.mutation<ShiftSlotAdminDto, { id: string }>({
       queryFn: async ({ id }, api) => {
@@ -68,7 +68,7 @@ export const shiftSlotApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      invalidatesTags: [Tags.shiftSlots],
+      invalidatesTags: [Tags.shiftSlots, Tags.settingChanges],
     }),
   }),
 })

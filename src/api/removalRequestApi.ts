@@ -75,7 +75,7 @@ export const removalRequestApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      invalidatesTags: [Tags.removalReasons],
+      invalidatesTags: [Tags.removalReasons, Tags.settingChanges],
     }),
     updateRemovalReason: build.mutation<RemovalReasonAdminDto, { id: string; input: RemovalReasonUpdateAdminInput }>({
       queryFn: async ({ id, input }, api) => {
@@ -87,7 +87,7 @@ export const removalRequestApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      invalidatesTags: [Tags.removalReasons],
+      invalidatesTags: [Tags.removalReasons, Tags.settingChanges],
     }),
     removeRemovalReason: build.mutation<RemovalReasonAdminDto, { id: string }>({
       queryFn: async ({ id }, api) => {
@@ -99,7 +99,7 @@ export const removalRequestApi = baseApi.injectEndpoints({
           return { error: handleBackendError(error, api) }
         }
       },
-      invalidatesTags: [Tags.removalReasons],
+      invalidatesTags: [Tags.removalReasons, Tags.settingChanges],
     }),
   }),
 })

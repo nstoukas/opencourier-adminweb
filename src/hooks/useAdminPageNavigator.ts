@@ -26,6 +26,8 @@ export enum EAdminRoutes {
   CHARGES_PARTNER_MONTH = '/charges/[month]/[partnerId]',
   // A bill's printable statement, in Greek, without the sidebar.
   CHARGES_STATEMENT = '/charges/statement/[billId]',
+  // Riders' review requests, answered by a person (spec 0038).
+  REVIEWS = '/reviews',
 }
 
 export const Routes = Object.values(EAdminRoutes)

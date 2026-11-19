@@ -59,6 +59,9 @@ export type SettingsForm = {
   chatQuickRepliesDispatch: string
   chatQuickRepliesCourier: string
   chatRetentionDays: string
+  // Review requests (spec 0038): the days a person has to answer, and the largest correction in cents.
+  reviewAnswerDays: string
+  reviewCorrectionMaxCents: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -126,6 +129,9 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'chatQuickRepliesDispatch', label: 'Dispatch quick replies', kind: 'lines' },
   { key: 'chatQuickRepliesCourier', label: 'Courier quick replies', kind: 'lines' },
   { key: 'chatRetentionDays', label: 'Chat messages kept for (days)', kind: 'number' },
+  // Review requests (spec 0038).
+  { key: 'reviewAnswerDays', label: 'Days to answer a review request', kind: 'number' },
+  { key: 'reviewCorrectionMaxCents', label: 'Largest review pay correction (cents)', kind: 'number' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -402,6 +408,8 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     chatQuickRepliesDispatch: Array.isArray(data.chatQuickRepliesDispatch) ? data.chatQuickRepliesDispatch.join('\n') : '',
     chatQuickRepliesCourier: Array.isArray(data.chatQuickRepliesCourier) ? data.chatQuickRepliesCourier.join('\n') : '',
     chatRetentionDays: text(data.chatRetentionDays),
+    reviewAnswerDays: text(data.reviewAnswerDays),
+    reviewCorrectionMaxCents: text(data.reviewCorrectionMaxCents),
   }
 }
 
@@ -458,6 +466,12 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('chatRetentionDays')) {
     parts.push('The daily job deletes chat messages under the new period from its next run.')
+  }
+  if (keys.has('reviewAnswerDays')) {
+    parts.push('New review requests get the new answer period; requests already sent keep their date.')
+  }
+  if (keys.has('reviewCorrectionMaxCents')) {
+    parts.push('The new limit applies to the next answer with a pay correction.')
   }
   const dispatchPhone = changes.find((change) => change.key === 'dispatchPhoneNumber')
   if (dispatchPhone) {
