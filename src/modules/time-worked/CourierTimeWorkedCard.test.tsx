@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CourierTimeWorkedCard } from './CourierTimeWorkedCard'
 import { useGetCourierTimeWorkedQuery } from '../../api/timeWorkedApi'
-import { athensToday } from '../dispatch-stop/dispatchStopDisplay'
+import { athensDateTime, athensToday } from '../dispatch-stop/dispatchStopDisplay'
 import { addDays } from './timeWorkedFormat'
 import type {
   CourierTimeWorkedDto,
@@ -1430,6 +1430,47 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
       // The line is never hidden: short break renders its own line in order
       expect(normalBreak.compareDocumentPosition(shortBreak) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('includes the date when a short break falls on another Athens day than the shift start', () => {
+      // Shift starts at 21:00 UTC (23:00 Athens) on 2026-11-19.
+      // Break is at 22:20 UTC (00:20 Athens) on 2026-11-20, lasting 30 seconds (under a minute).
+      // Because the break starts on the next Athens day, athensEnd includes the date.
+      const breakStartedAt = '2026-11-19T22:20:10.000Z'
+      const shift = makeShift('2026-11-19T21:00:00.000Z', {
+        endedAt: '2026-11-20T03:00:00.000Z',
+        breaks: [
+          {
+            startedAt: breakStartedAt,
+            endedAt: '2026-11-19T22:20:40.000Z',
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Expected format: "Break at Fri 20 Nov, 00:20, under a minute"
+      const expectedText = `Break at ${athensDateTime(breakStartedAt)}, under a minute`
+      expect(expectedText).toBe('Break at Fri 20 Nov, 00:20, under a minute')
+      expect(screen.getByText(expectedText)).toBeInTheDocument()
+
+      // Must not render as a range break ("Break ... to ...")
+      expect(screen.queryByText(/Break .* to /)).toBeNull()
     })
   })
 })
