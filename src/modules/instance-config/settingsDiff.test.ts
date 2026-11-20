@@ -1,5 +1,6 @@
 import {
   blockers,
+  boxUnitsOutOfOrder,
   EMPTY_FORM,
   feeAboveCeiling,
   formFromSettings,
@@ -1836,6 +1837,118 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
       const deserialized = InstanceConfigSettingsDtoFromJSON({ feePercentageCeiling: 25 })
       expect(deserialized.feePercentageCeiling).toBe(25)
+    })
+  })
+
+  describe('Box model settings (spec 0043, AC-2, AC-8)', () => {
+    const savedDetails = {
+      name: 'Volos Courier Co-op',
+      link: 'https://volos.courier.coop',
+      websocketLink: 'wss://volos.courier.coop/ws',
+      imageUrl: 'https://volos.courier.coop/logo.png',
+      region: null,
+    }
+
+    it('boxUnitsOutOfOrder catches Small above Medium and Medium above Large', () => {
+      expect(
+        boxUnitsOutOfOrder({ boxUnitsSmall: '60', boxUnitsMedium: '50', boxUnitsLarge: '100' })
+      ).toBe('Small (60 units) cannot take more room than Medium (50 units)')
+
+      expect(
+        boxUnitsOutOfOrder({ boxUnitsSmall: '30', boxUnitsMedium: '120', boxUnitsLarge: '100' })
+      ).toBe('Medium (120 units) cannot take more room than Large (100 units)')
+
+      expect(
+        boxUnitsOutOfOrder({ boxUnitsSmall: '30', boxUnitsMedium: '50', boxUnitsLarge: '100' })
+      ).toBeNull()
+
+      // Equal values are allowed
+      expect(
+        boxUnitsOutOfOrder({ boxUnitsSmall: '50', boxUnitsMedium: '50', boxUnitsLarge: '100' })
+      ).toBeNull()
+    })
+
+    it('blockers refuses Small above Medium and Medium above Large on the values the save would leave (one changed, the others saved)', () => {
+      // Small changed to 60, Medium saved is 50, Large saved is 100
+      const editedSmall: SettingsForm = {
+        ...baseSavedForm,
+        boxUnitsSmall: '60',
+      }
+      const changesSmall = pendingChanges(baseSavedForm, editedSmall)
+      expect(changesSmall).toHaveLength(1)
+      expect(changesSmall[0]?.key).toBe('boxUnitsSmall')
+      expect(blockers(changesSmall, editedSmall)).toContain(
+        'Small (60 units) cannot take more room than Medium (50 units)'
+      )
+
+      // Medium changed to 120, Small saved is 30, Large saved is 100
+      const editedMedium: SettingsForm = {
+        ...baseSavedForm,
+        boxUnitsMedium: '120',
+      }
+      const changesMedium = pendingChanges(baseSavedForm, editedMedium)
+      expect(changesMedium).toHaveLength(1)
+      expect(changesMedium[0]?.key).toBe('boxUnitsMedium')
+      expect(blockers(changesMedium, editedMedium)).toContain(
+        'Medium (120 units) cannot take more room than Large (100 units)'
+      )
+
+      // Large changed to 40, Small saved is 30, Medium saved is 50
+      const editedLarge: SettingsForm = {
+        ...baseSavedForm,
+        boxUnitsLarge: '40',
+      }
+      const changesLarge = pendingChanges(baseSavedForm, editedLarge)
+      expect(changesLarge).toHaveLength(1)
+      expect(changesLarge[0]?.key).toBe('boxUnitsLarge')
+      expect(blockers(changesLarge, editedLarge)).toContain(
+        'Medium (50 units) cannot take more room than Large (40 units)'
+      )
+    })
+
+    it('blockers says nothing about box order when none of the three changed', () => {
+      // Even if form hypothetically has Small > Medium, if none of the three changed,
+      // no box order blocker is emitted.
+      const changesNonBox = [{ key: 'quoteBaseFee' as const, label: 'Base fee', from: '€2.00', to: '€2.50' }]
+      const editedNonBox: SettingsForm = {
+        ...baseSavedForm,
+        quoteBaseFee: '250',
+        boxUnitsSmall: '80',
+        boxUnitsMedium: '50',
+        boxUnitsLarge: '100',
+      }
+      const res = blockers(changesNonBox as any, editedNonBox)
+      expect(res.some((msg) => msg.includes('cannot take more room'))).toBe(false)
+    })
+
+    it('savePayload sends the numbers as numbers and boxDefaultSize as text', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        boxUnitsSmall: '30',
+        boxUnitsMedium: '50',
+        boxUnitsLarge: '100',
+        boxDefaultSize: 'MEDIUM',
+      }
+      const changes = [
+        { key: 'boxUnitsSmall' as const, label: 'Box units a Small order takes', from: '25', to: '30' },
+        { key: 'boxUnitsMedium' as const, label: 'Box units a Medium order takes', from: '45', to: '50' },
+        { key: 'boxUnitsLarge' as const, label: 'Box units a Large order takes', from: '90', to: '100' },
+        { key: 'boxDefaultSize' as const, label: 'Size of an order sent with none', from: 'SMALL', to: 'MEDIUM' },
+      ]
+
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.boxUnitsSmall).toBe(30)
+      expect(typeof payload.boxUnitsSmall).toBe('number')
+
+      expect(payload.boxUnitsMedium).toBe(50)
+      expect(typeof payload.boxUnitsMedium).toBe('number')
+
+      expect(payload.boxUnitsLarge).toBe(100)
+      expect(typeof payload.boxUnitsLarge).toBe('number')
+
+      expect(payload.boxDefaultSize).toBe('MEDIUM')
+      expect(typeof payload.boxDefaultSize).toBe('string')
     })
   })
 })

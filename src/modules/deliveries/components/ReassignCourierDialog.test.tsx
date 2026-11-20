@@ -253,6 +253,7 @@ describe('ReassignCourierDialog component', () => {
         courierId: 'c2',
         payoutPolicy: 'HALF',
         message: 'moped broke down',
+        confirmOverCapacity: false,
       })
     })
 
@@ -285,5 +286,122 @@ describe('ReassignCourierDialog component', () => {
     expect(await screen.findByText('Delivery is already assigned to this courier')).toBeInTheDocument()
     // Dialog remains open for retry
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  describe('over capacity warning and confirm step (spec 0043, AC-6, AC-8)', () => {
+    it('on 409 BOX_OVER_CAPACITY: keeps dialog open, shows alert with units, and button reads "Reassign anyway"; pressing it sends confirmOverCapacity: true', async () => {
+      // First attempt fails with 409 BOX_OVER_CAPACITY
+      mockReassignDeliveryMutation.mockReturnValueOnce({
+        unwrap: () =>
+          Promise.reject({
+            code: 'BOX_OVER_CAPACITY',
+            heldUnits: 40,
+            deliveryUnits: 70,
+          }),
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+
+      // Select replacement rider c2 (Eleni)
+      fireEvent.click(screen.getByText(/Eleni Georgiou/))
+
+      const submitButton = screen.getByRole('button', { name: /reassign rider/i })
+      fireEvent.click(submitButton)
+
+      await waitFor(() => {
+        expect(mockReassignDeliveryMutation).toHaveBeenCalledWith({
+          deliveryId: 'd1',
+          courierId: 'c2',
+          payoutPolicy: 'HALF',
+          message: undefined,
+          confirmOverCapacity: false,
+        })
+      })
+
+      // Dialog stays open
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      // Alert is rendered with held, order and total units
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent("This would overfill the rider's box.")
+      expect(alert).toHaveTextContent(
+        'They already hold 40 of 100 box units, and this order takes 70: 110 in all.'
+      )
+
+      // Button now reads "Reassign anyway"
+      const confirmButton = screen.getByRole('button', { name: /reassign anyway/i })
+      expect(confirmButton).toBeInTheDocument()
+
+      // Second press succeeds with confirmOverCapacity: true
+      mockReassignDeliveryMutation.mockReturnValueOnce({
+        unwrap: () => Promise.resolve({ ...sampleDelivery, courierId: 'c2' }),
+      })
+      fireEvent.click(confirmButton)
+
+      await waitFor(() => {
+        expect(mockReassignDeliveryMutation).toHaveBeenLastCalledWith({
+          deliveryId: 'd1',
+          courierId: 'c2',
+          payoutPolicy: 'HALF',
+          message: undefined,
+          confirmOverCapacity: true,
+        })
+      })
+
+      // Dialog closes on success
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull()
+      })
+    })
+
+    it('choosing another rider clears the warning and the next press sends confirmOverCapacity: false', async () => {
+      mockReassignDeliveryMutation.mockReturnValueOnce({
+        unwrap: () =>
+          Promise.reject({
+            code: 'BOX_OVER_CAPACITY',
+            heldUnits: 40,
+            deliveryUnits: 70,
+          }),
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText(/Eleni Georgiou/))
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      // Warning alert is visible
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /reassign anyway/i })).toBeInTheDocument()
+
+      // Pick a different rider (c3, Yannis Dimitriou)
+      fireEvent.click(screen.getByText(/Yannis Dimitriou/))
+
+      // Warning alert disappears and button reverts to "Reassign rider"
+      expect(screen.queryByRole('alert')).toBeNull()
+      const submitButton = screen.getByRole('button', { name: /reassign rider/i })
+      expect(submitButton).toBeInTheDocument()
+
+      // Next press sends confirmOverCapacity: false for Yannis
+      mockReassignDeliveryMutation.mockReturnValueOnce({
+        unwrap: () => Promise.resolve({ ...sampleDelivery, courierId: 'c3' }),
+      })
+      fireEvent.click(submitButton)
+
+      await waitFor(() => {
+        expect(mockReassignDeliveryMutation).toHaveBeenLastCalledWith({
+          deliveryId: 'd1',
+          courierId: 'c3',
+          payoutPolicy: 'HALF',
+          message: undefined,
+          confirmOverCapacity: false,
+        })
+      })
+    })
   })
 })

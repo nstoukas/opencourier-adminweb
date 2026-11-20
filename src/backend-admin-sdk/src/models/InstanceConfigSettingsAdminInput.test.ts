@@ -1436,4 +1436,77 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.shiftDropNoticeHours).toBe(12)
     })
   })
+
+  describe('Box model settings (spec 0043, AC-2, AC-8)', () => {
+    it('InstanceConfigSettingsAdminInputToJSON preserves each of the four settings', () => {
+      // Load-bearing test guard: without these four fields in ToJSON, a save drops them silently
+      const input = {
+        boxUnitsSmall: 30,
+        boxUnitsMedium: 50,
+        boxUnitsLarge: 100,
+        boxDefaultSize: 'MEDIUM',
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.boxUnitsSmall).toBe(30)
+      expect(json.boxUnitsMedium).toBe(50)
+      expect(json.boxUnitsLarge).toBe(100)
+      expect(json.boxDefaultSize).toBe('MEDIUM')
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON reads each of the four settings and gives null when absent', () => {
+      const raw = {
+        boxUnitsSmall: 25,
+        boxUnitsMedium: 55,
+        boxUnitsLarge: 95,
+        boxDefaultSize: 'LARGE',
+      }
+      const dto = InstanceConfigSettingsDtoFromJSON(raw)
+      expect(dto.boxUnitsSmall).toBe(25)
+      expect(dto.boxUnitsMedium).toBe(55)
+      expect(dto.boxUnitsLarge).toBe(95)
+      expect(dto.boxDefaultSize).toBe('LARGE')
+
+      const missing = InstanceConfigSettingsDtoFromJSON({})
+      expect(missing.boxUnitsSmall).toBeNull()
+      expect(missing.boxUnitsMedium).toBeNull()
+      expect(missing.boxUnitsLarge).toBeNull()
+      expect(missing.boxDefaultSize).toBeNull()
+    })
+
+    it('InstanceConfigSettingsDtoToJSON serializes all four settings back', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        boxUnitsSmall: 30,
+        boxUnitsMedium: 50,
+        boxUnitsLarge: 100,
+        boxDefaultSize: 'MEDIUM',
+      })
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.boxUnitsSmall).toBe(30)
+      expect(json.boxUnitsMedium).toBe(50)
+      expect(json.boxUnitsLarge).toBe(100)
+      expect(json.boxDefaultSize).toBe('MEDIUM')
+    })
+
+    it('InstanceConfigSettingsAdminInput round-trips all four settings through FromJSON and ToJSON', () => {
+      const original = {
+        boxUnitsSmall: 20,
+        boxUnitsMedium: 40,
+        boxUnitsLarge: 80,
+        boxDefaultSize: 'SMALL',
+      }
+      const parsed = InstanceConfigSettingsAdminInputFromJSON(original)
+      expect(parsed.boxUnitsSmall).toBe(20)
+      expect(parsed.boxUnitsMedium).toBe(40)
+      expect(parsed.boxUnitsLarge).toBe(80)
+      expect(parsed.boxDefaultSize).toBe('SMALL')
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(parsed)
+      expect(serialized.boxUnitsSmall).toBe(20)
+      expect(serialized.boxUnitsMedium).toBe(40)
+      expect(serialized.boxUnitsLarge).toBe(80)
+      expect(serialized.boxDefaultSize).toBe('SMALL')
+    })
+  })
 })

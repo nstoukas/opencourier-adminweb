@@ -72,6 +72,33 @@ describe('DeliverySubmitEventAdminInput SDK serialization guards (spec 0015, AC-
     const model = DeliverySubmitEventAdminInputFromJSON(rawJson)
     expect(model.cancelledBy).toBeUndefined()
   })
+
+  it('preserves confirmOverCapacity in ToJSON and FromJSON (spec 0043, AC-6)', () => {
+    // Load-bearing test guard: confirmOverCapacity must survive serialization
+    // so an admin's override past a full box reaches the backend.
+    const inputWithConfirm: DeliverySubmitEventAdminInput = {
+      eventType: 'ACCEPTED' as any,
+      courierId: 'courier-1',
+      confirmOverCapacity: true,
+    }
+    const json = DeliverySubmitEventAdminInputToJSON(inputWithConfirm)
+    expect(json.confirmOverCapacity).toBe(true)
+
+    const inputFalse: DeliverySubmitEventAdminInput = {
+      eventType: 'ACCEPTED' as any,
+      courierId: 'courier-2',
+      confirmOverCapacity: false,
+    }
+    const jsonFalse = DeliverySubmitEventAdminInputToJSON(inputFalse)
+    expect(jsonFalse.confirmOverCapacity).toBe(false)
+
+    const fromJson = DeliverySubmitEventAdminInputFromJSON({
+      eventType: 'ACCEPTED',
+      courierId: 'courier-1',
+      confirmOverCapacity: true,
+    })
+    expect(fromJson.confirmOverCapacity).toBe(true)
+  })
 })
 
 function inputWithoutWithoutCancelledBy(input: any) {

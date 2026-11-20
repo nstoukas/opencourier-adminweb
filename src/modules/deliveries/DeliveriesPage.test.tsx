@@ -114,6 +114,7 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
     expect(screen.getByRole('columnheader', { name: 'Order' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Restaurant' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Deliver to' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Courier' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Price' })).toBeInTheDocument()
@@ -904,6 +905,62 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
       expect(select).toBeInTheDocument()
       expect(select.querySelectorAll('option')).toHaveLength(1)
       expect(select.querySelector('option')?.textContent).toBe('All restaurants')
+    })
+
+    it('renders Size column with formatted box size text and assumed suffix (spec 0043, AC-8)', () => {
+      const deliveryWithAssumedSize: DeliveryAdminDto = {
+        id: 'del-size-1',
+        orderReference: 'ORD-SIZE-1',
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        pickupBusinessName: 'Souvlaki Bar',
+        dropoffName: 'Giannis S.',
+        totalCost: 1550,
+        currencyCode: 'EUR',
+        createdAt: new Date('2026-10-26T10:00:00Z'),
+        boxSize: 'MEDIUM',
+        boxUnits: 50,
+        boxSizeAssumed: true,
+      } as any
+
+      const deliveryWithExplicitSize: DeliveryAdminDto = {
+        id: 'del-size-2',
+        orderReference: 'ORD-SIZE-2',
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        pickupBusinessName: 'Pizza Hot',
+        dropoffName: 'Maria K.',
+        totalCost: 2000,
+        currencyCode: 'EUR',
+        createdAt: new Date('2026-10-26T10:00:00Z'),
+        boxSize: 'LARGE',
+        boxUnits: 100,
+        boxSizeAssumed: false,
+      } as any
+
+      const deliveryWithNoSize: DeliveryAdminDto = {
+        id: 'del-size-3',
+        orderReference: 'ORD-SIZE-3',
+        status: EnumDeliveryStatus.ASSIGNING_COURIER,
+        pickupBusinessName: 'Burger Joint',
+        dropoffName: 'Nikos P.',
+        totalCost: 1200,
+        currencyCode: 'EUR',
+        createdAt: new Date('2026-10-26T10:00:00Z'),
+      } as any
+
+      mockUseGetDeliveriesQuery.mockReturnValue({
+        data: {
+          data: [deliveryWithAssumedSize, deliveryWithExplicitSize, deliveryWithNoSize],
+          pagination: { totalItems: 3, page: 1, perPage: 10, totalPages: 1 },
+        },
+        isLoading: false,
+      })
+
+      render(<OrdersPage />)
+
+      expect(screen.getByRole('columnheader', { name: 'Size' })).toBeInTheDocument()
+      expect(screen.getByText('Medium, 50 units, assumed')).toBeInTheDocument()
+      expect(screen.getByText('Large, 100 units')).toBeInTheDocument()
+      expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     })
   })
 })

@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import {
   PricingCard,
   MatchingCard,
+  BoxCard,
   OffersCard,
   RestaurantDelaysCard,
   RiderPayCard,
@@ -1355,6 +1356,96 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       const input = screen.getByLabelText(/Longest break inside a worked shift, in minutes/i)
       expect(input).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // BoxCard (spec 0043, AC-2, AC-8)
+  // ---------------------------------------------------------------------------
+  describe('BoxCard (spec 0043, AC-2, AC-8)', () => {
+    it('renders Box section heading and binds each of the four settings', () => {
+      const mockSet = jest.fn()
+      render(
+        <BoxCard
+          form={{
+            ...dummyForm,
+            boxUnitsSmall: '30',
+            boxUnitsMedium: '50',
+            boxUnitsLarge: '100',
+            boxDefaultSize: 'MEDIUM',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'Box' })).toBeInTheDocument()
+
+      const smallInput = screen.getByLabelText('Box units a Small order takes') as HTMLInputElement
+      expect(smallInput.value).toBe('30')
+      expect(smallInput).toHaveAttribute('type', 'number')
+      expect(smallInput).toHaveAttribute('min', '1')
+      expect(smallInput).toHaveAttribute('max', '100')
+      expect(smallInput).not.toBeDisabled()
+
+      const mediumInput = screen.getByLabelText('Box units a Medium order takes') as HTMLInputElement
+      expect(mediumInput.value).toBe('50')
+      expect(mediumInput).toHaveAttribute('type', 'number')
+      expect(mediumInput).toHaveAttribute('min', '1')
+      expect(mediumInput).toHaveAttribute('max', '100')
+      expect(mediumInput).not.toBeDisabled()
+
+      const largeInput = screen.getByLabelText('Box units a Large order takes') as HTMLInputElement
+      expect(largeInput.value).toBe('100')
+      expect(largeInput).toHaveAttribute('type', 'number')
+      expect(largeInput).toHaveAttribute('min', '1')
+      expect(largeInput).toHaveAttribute('max', '100')
+      expect(largeInput).not.toBeDisabled()
+
+      const defaultSelect = screen.getByLabelText('Size of an order sent with none') as HTMLSelectElement
+      expect(defaultSelect.value).toBe('MEDIUM')
+      expect(defaultSelect).not.toBeDisabled()
+
+      fireEvent.change(smallInput, { target: { value: '35' } })
+      expect(mockSet).toHaveBeenCalledWith('boxUnitsSmall', '35')
+
+      fireEvent.change(mediumInput, { target: { value: '55' } })
+      expect(mockSet).toHaveBeenCalledWith('boxUnitsMedium', '55')
+
+      fireEvent.change(largeInput, { target: { value: '95' } })
+      expect(mockSet).toHaveBeenCalledWith('boxUnitsLarge', '95')
+
+      fireEvent.change(defaultSelect, { target: { value: 'LARGE' } })
+      expect(mockSet).toHaveBeenCalledWith('boxDefaultSize', 'LARGE')
+    })
+
+    it('disables all four inputs before settings load (loaded = false)', () => {
+      render(
+        <BoxCard
+          form={{
+            ...dummyForm,
+            boxUnitsSmall: '30',
+            boxUnitsMedium: '50',
+            boxUnitsLarge: '100',
+            boxDefaultSize: 'MEDIUM',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Box units a Small order takes')).toBeDisabled()
+      expect(screen.getByLabelText('Box units a Medium order takes')).toBeDisabled()
+      expect(screen.getByLabelText('Box units a Large order takes')).toBeDisabled()
+      expect(screen.getByLabelText('Size of an order sent with none')).toBeDisabled()
+    })
+
+    it('defines SECTIONS entry with id "box" and title "Box"', () => {
+      const boxSection = SECTIONS.find((s) => s.id === 'box')
+      expect(boxSection).toBeDefined()
+      expect(boxSection?.title).toBe('Box')
     })
   })
 })

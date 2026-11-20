@@ -102,3 +102,67 @@ describe('DeliveryAdminDto waitCharges (spec 0033, AC-10)', () => {
     expect(again.waitCharges).toEqual(charges)
   })
 })
+
+// Spec 0043 (AC-1, AC-8): boxSize, boxUnits, and boxSizeAssumed on the delivery record.
+describe('DeliveryAdminDto box fields (spec 0043, AC-1, AC-8)', () => {
+  const baseJson = {
+    id: 'd-box-1',
+    pickupReadyAt: '2026-11-20T10:00:00.000Z',
+    pickupDeadlineAt: '2026-11-20T10:30:00.000Z',
+    dropoffReadyAt: '2026-11-20T10:15:00.000Z',
+    dropoffEta: null,
+    dropoffDeadlineAt: '2026-11-20T10:45:00.000Z',
+    createdAt: '2026-11-20T09:55:00.000Z',
+  }
+
+  it('DeliveryAdminDtoFromJSON reads boxSize, boxUnits, and boxSizeAssumed when sent', () => {
+    const dto = DeliveryAdminDtoFromJSON({
+      ...baseJson,
+      boxSize: 'MEDIUM',
+      boxUnits: 50,
+      boxSizeAssumed: true,
+    })
+
+    expect(dto.boxSize).toBe('MEDIUM')
+    expect(dto.boxUnits).toBe(50)
+    expect(dto.boxSizeAssumed).toBe(true)
+  })
+
+  it('DeliveryAdminDtoFromJSON leaves them undefined when absent from older backend', () => {
+    const dto = DeliveryAdminDtoFromJSON(baseJson)
+
+    expect(dto.boxSize).toBeUndefined()
+    expect(dto.boxUnits).toBeUndefined()
+    expect(dto.boxSizeAssumed).toBeUndefined()
+  })
+
+  it('DeliveryAdminDtoToJSON writes boxSize, boxUnits, and boxSizeAssumed', () => {
+    const dto = DeliveryAdminDtoFromJSON({
+      ...baseJson,
+      boxSize: 'SMALL',
+      boxUnits: 30,
+      boxSizeAssumed: false,
+    })
+
+    const json = DeliveryAdminDtoToJSON(dto)
+
+    expect(json.boxSize).toBe('SMALL')
+    expect(json.boxUnits).toBe(30)
+    expect(json.boxSizeAssumed).toBe(false)
+  })
+
+  it('round-trips box fields through ToJSON and FromJSON unchanged', () => {
+    const first = DeliveryAdminDtoFromJSON({
+      ...baseJson,
+      boxSize: 'LARGE',
+      boxUnits: 100,
+      boxSizeAssumed: false,
+    })
+
+    const second = DeliveryAdminDtoFromJSON(DeliveryAdminDtoToJSON(first))
+
+    expect(second.boxSize).toBe('LARGE')
+    expect(second.boxUnits).toBe(100)
+    expect(second.boxSizeAssumed).toBe(false)
+  })
+})

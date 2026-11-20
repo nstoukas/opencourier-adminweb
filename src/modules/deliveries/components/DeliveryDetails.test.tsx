@@ -1187,6 +1187,58 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       })
     })
 
+    // Spec 0043 (AC-8): Box size line in the Order facts card.
+    describe('Box size line (spec 0043, AC-8)', () => {
+      it('renders "Medium, 50 units" when size is explicit and units are set', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: {
+            ...sampleEurDelivery,
+            boxSize: 'MEDIUM',
+            boxUnits: 50,
+            boxSizeAssumed: false,
+          },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const orderCard = screen.getByText('Order', { selector: 'h3' }).closest('.rounded-lg')
+        const scope = within(orderCard as HTMLElement)
+        expect(scope.getByText('Box size').nextElementSibling?.textContent).toBe('Medium, 50 units')
+      })
+
+      it('renders "Medium, 50 units, assumed" when boxSizeAssumed is true', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: {
+            ...sampleEurDelivery,
+            boxSize: 'MEDIUM',
+            boxUnits: 50,
+            boxSizeAssumed: true,
+          },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const orderCard = screen.getByText('Order', { selector: 'h3' }).closest('.rounded-lg')
+        const scope = within(orderCard as HTMLElement)
+        expect(scope.getByText('Box size').nextElementSibling?.textContent).toBe('Medium, 50 units, assumed')
+      })
+
+      it('renders em dash when delivery has no boxSize', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: sampleEurDelivery,
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const orderCard = screen.getByText('Order', { selector: 'h3' }).closest('.rounded-lg')
+        const scope = within(orderCard as HTMLElement)
+        expect(scope.getByText('Box size').nextElementSibling?.textContent).toBe('—')
+      })
+    })
+
     it('renders every field in Order facts card and order items list', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 
