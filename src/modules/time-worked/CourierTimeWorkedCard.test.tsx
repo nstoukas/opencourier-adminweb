@@ -1239,4 +1239,197 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
       expect(screen.getByText('Time worked is recorded from Sun, 1 Nov 2026.')).toBeInTheDocument()
     })
   })
+
+  // --- Row 122: Break under a minute wording on the courier card ---
+  describe('row 122: break under a minute wording on the courier card', () => {
+    it('words a break under a minute as "Break at HH:MM, under a minute" in Athens time and never shows the same minute wording', () => {
+      // Break from 23:35:10 UTC to 23:35:40 UTC (30s) on 2026-11-19.
+      // In Athens time (UTC+2 in winter), this is 01:35:10 to 01:35:40 on 2026-11-20.
+      // UTC hour (23) and Athens hour (01) differ, testing timezone formatting under any TZ.
+      const shift = makeShift('2026-11-19T23:00:00.000Z', {
+        endedAt: '2026-11-20T03:00:00.000Z',
+        breaks: [
+          {
+            startedAt: '2026-11-19T23:35:10.000Z',
+            endedAt: '2026-11-19T23:35:40.000Z',
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-20')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Clause 1: reads "Break at HH:MM, under a minute" in Athens time (01:35)
+      expect(screen.getByText('Break at 01:35, under a minute')).toBeInTheDocument()
+
+      // Clause 3: fails if the same minute wording ("Break 01:35 to 01:35") comes back
+      expect(screen.queryByText('Break 01:35 to 01:35')).toBeNull()
+
+      // Proves Athens time was formatted, not UTC (23:35)
+      expect(screen.queryByText(/23:35/)).toBeNull()
+    })
+
+    it('pins the threshold from the lower side: a 59 second break reads "Break at HH:MM, under a minute" and NOT as a normal break', () => {
+      // 59 second break (59_000 ms, 01:35:00 to 01:35:59 Athens)
+      const shift = makeShift('2026-11-19T23:00:00.000Z', {
+        endedAt: '2026-11-20T03:00:00.000Z',
+        breaks: [
+          {
+            startedAt: '2026-11-19T23:35:00.000Z',
+            endedAt: '2026-11-19T23:35:59.000Z',
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-20')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // 59 seconds is under a minute -> words as short break
+      expect(screen.getByText('Break at 01:35, under a minute')).toBeInTheDocument()
+
+      // Fails if a 59 second break reads as a normal one
+      expect(screen.queryByText('Break 01:35 to 01:35')).toBeNull()
+    })
+
+    it('pins the threshold from the upper side: an exactly 60 second break reads as a normal break and NOT "under a minute"', () => {
+      // Exactly 60 second break (60_000 ms, 01:35:00 to 01:36:00 Athens)
+      const shift = makeShift('2026-11-19T23:00:00.000Z', {
+        endedAt: '2026-11-20T03:00:00.000Z',
+        breaks: [
+          {
+            startedAt: '2026-11-19T23:35:00.000Z',
+            endedAt: '2026-11-19T23:36:00.000Z',
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-20')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Clause 2: exactly 60 seconds reads as before: "Break HH:MM to HH:MM"
+      expect(screen.getByText('Break 01:35 to 01:36')).toBeInTheDocument()
+
+      // Fails if threshold moved to <= 60_000
+      expect(screen.queryByText(/under a minute/)).toBeNull()
+    })
+
+    it('renders longer breaks (over 60 seconds) as before: "Break HH:MM to HH:MM"', () => {
+      // 15 minute break (01:10 to 01:25 Athens)
+      const shift = makeShift('2026-11-19T23:00:00.000Z', {
+        endedAt: '2026-11-20T03:00:00.000Z',
+        breaks: [
+          {
+            startedAt: '2026-11-19T23:10:00.000Z',
+            endedAt: '2026-11-19T23:25:00.000Z',
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-20')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText('Break 01:10 to 01:25')).toBeInTheDocument()
+      expect(screen.queryByText(/under a minute/)).toBeNull()
+    })
+
+    it('never hides a short break: renders its own line alongside other breaks in the shift', () => {
+      // Shift with both a normal break and a short break under a minute
+      const shift = makeShift('2026-11-19T23:00:00.000Z', {
+        endedAt: '2026-11-20T03:00:00.000Z',
+        breaks: [
+          {
+            startedAt: '2026-11-19T23:10:00.000Z',
+            endedAt: '2026-11-19T23:25:00.000Z', // 15 min
+          },
+          {
+            startedAt: '2026-11-19T23:35:10.000Z',
+            endedAt: '2026-11-19T23:35:40.000Z', // 30 sec
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-20')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Both break lines must be present in the document
+      const normalBreak = screen.getByText('Break 01:10 to 01:25')
+      const shortBreak = screen.getByText('Break at 01:35, under a minute')
+
+      expect(normalBreak).toBeInTheDocument()
+      expect(shortBreak).toBeInTheDocument()
+
+      // The line is never hidden: short break renders its own line in order
+      expect(normalBreak.compareDocumentPosition(shortBreak) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+  })
 })

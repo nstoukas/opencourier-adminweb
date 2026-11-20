@@ -14,6 +14,7 @@ import {
   END_LABELS,
   formatKm,
   jobMinutes,
+  isUnderAMinute,
 } from './timeWorkedFormat'
 import type { JobEndLabel } from '../../backend-admin-sdk'
 
@@ -346,6 +347,86 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
           customNow
         )
       ).toBe(0)
+    })
+  })
+
+  describe('isUnderAMinute (row 122)', () => {
+    it('returns true for breaks shorter than 60 seconds (59 s or less)', () => {
+      // 0 ms duration (instantaneous pause)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:35:00.000Z',
+        })
+      ).toBe(true)
+
+      // 30 seconds (30_000 ms)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:10.000Z',
+          endedAt: '2026-11-19T23:35:40.000Z',
+        })
+      ).toBe(true)
+
+      // 45 seconds (45_000 ms, catches threshold moved to < 45_000)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:35:45.000Z',
+        })
+      ).toBe(true)
+
+      // 59 seconds (59_000 ms, pins the threshold from the lower side)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:35:59.000Z',
+        })
+      ).toBe(true)
+
+      // 59.999 seconds (59_999 ms)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:35:59.999Z',
+        })
+      ).toBe(true)
+    })
+
+    it('returns false for breaks of exactly 60 seconds (pins threshold strictly < 60_000, not <= 60_000)', () => {
+      // Exactly 60 seconds (60_000 ms)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:36:00.000Z',
+        })
+      ).toBe(false)
+    })
+
+    it('returns false for breaks longer than 60 seconds', () => {
+      // 60 seconds and 1 ms (60_001 ms)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:36:00.001Z',
+        })
+      ).toBe(false)
+
+      // 61 seconds (61_000 ms)
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:36:01.000Z',
+        })
+      ).toBe(false)
+
+      // 5 minutes
+      expect(
+        isUnderAMinute({
+          startedAt: '2026-11-19T23:35:00.000Z',
+          endedAt: '2026-11-19T23:40:00.000Z',
+        })
+      ).toBe(false)
     })
   })
 })
