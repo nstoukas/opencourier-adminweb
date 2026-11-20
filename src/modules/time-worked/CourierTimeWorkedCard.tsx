@@ -16,6 +16,7 @@ import {
   formatDay,
   formatDuration,
   formatKm,
+  isUnderAMinute,
   jobMinutes,
 } from './timeWorkedFormat'
 
@@ -103,7 +104,9 @@ function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
       ) : null}
       {shift.breaks.map((b) => (
         <p key={b.startedAt} className="font-medium text-muted-foreground">
-          Break {at(b.startedAt)} to {at(b.endedAt)}
+          {isUnderAMinute(b)
+            ? `Break at ${at(b.startedAt)}, under a minute`
+            : `Break ${at(b.startedAt)} to ${at(b.endedAt)}`}
         </p>
       ))}
       <details className="mt-2">

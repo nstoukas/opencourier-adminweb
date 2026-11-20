@@ -140,3 +140,9 @@ export function formatKm(km: number): string {
 export function jobMinutes(job: { acceptedAt: string; endedAt: string | null }, now: number = Date.now()): number {
   return Math.max(0, Math.round(((job.endedAt ? Date.parse(job.endedAt) : now) - Date.parse(job.acceptedAt)) / 60_000))
 }
+
+// A break shorter than a minute would read "Break 01:35 to 01:35", so the card gives it its own words.
+// It is never hidden: the record is there to be checked (row 122, the rule the rider app uses, row 120).
+export function isUnderAMinute(b: { startedAt: string; endedAt: string }): boolean {
+  return Date.parse(b.endedAt) - Date.parse(b.startedAt) < 60_000
+}
