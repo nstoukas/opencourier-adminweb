@@ -27,6 +27,7 @@ export type SettingsForm = {
   quoteBaseFee: string
   quoteRatePerDistanceUnit: string
   feePercentageAmount: string
+  feePercentageCeiling: string
   maxAssignmentDistance: string
   maxDriftDistance: string
   arrivalRadiusMetres: string
@@ -89,6 +90,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'quoteBaseFee', label: 'Base fee', kind: 'cents' },
   { key: 'quoteRatePerDistanceUnit', label: 'Rate per km', kind: 'cents' },
   { key: 'feePercentageAmount', label: 'Co-op fee (%)', kind: 'number' },
+  { key: 'feePercentageCeiling', label: 'Co-op fee ceiling (%)', kind: 'number' },
   { key: 'currency', label: 'Currency', kind: 'select' },
   { key: 'distanceUnit', label: 'Distance unit', kind: 'select' },
   { key: 'quoteCalculationType', label: 'Quote calculation', kind: 'select' },
@@ -307,7 +309,24 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
       }
     }
   }
+  // Spec 0041 (AC-8): the fee may not end above the ceiling. Checked when either changed, with the
+  // values the save would leave in effect; the backend checks the same and has the last word.
+  if (changed.has('feePercentageAmount') || changed.has('feePercentageCeiling')) {
+    const fee = feeAboveCeiling(edited)
+    if (fee) found.push(`Co-op fee (%) is ${fee.fee}, above the co-op's ceiling of ${fee.ceiling}`)
+  }
   return found
+}
+
+// The fee and the ceiling when both are numbers and the fee is above the ceiling, else null.
+export function feeAboveCeiling(form: Pick<SettingsForm, 'feePercentageAmount' | 'feePercentageCeiling'>) {
+  const fee = form.feePercentageAmount.trim()
+  const ceiling = form.feePercentageCeiling.trim()
+  if (fee === '' || ceiling === '') return null
+  const feeNumber = Number(fee)
+  const ceilingNumber = Number(ceiling)
+  if (!Number.isFinite(feeNumber) || !Number.isFinite(ceilingNumber) || feeNumber <= ceilingNumber) return null
+  return { fee: feeNumber, ceiling: ceilingNumber }
 }
 
 // The four public page links the backend keeps beside the URL (today's computedURLs).
@@ -381,6 +400,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     quoteBaseFee: text(data.quoteBaseFee),
     quoteRatePerDistanceUnit: text(data.quoteRatePerDistanceUnit),
     feePercentageAmount: text(data.feePercentageAmount),
+    feePercentageCeiling: text(data.feePercentageCeiling),
     maxAssignmentDistance: text(data.maxAssignmentDistance),
     maxDriftDistance: text(data.maxDriftDistance),
     arrivalRadiusMetres: text(data.arrivalRadiusMetres),

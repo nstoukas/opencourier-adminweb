@@ -257,6 +257,10 @@ export interface InstanceConfigSettingsDto {
    */
   shiftBreakMinutes?: number | null;
   /**
+   * The highest co-op fee % a save accepts, 0 to 100 (spec 0041). Hand edited (row 53).
+   */
+  feePercentageCeiling?: number | null;
+  /**
    * The co-op's dispatch line riders call from the job screen; null when none is set.
    * Hand edited (row 72).
    * @type {string}
@@ -474,6 +478,7 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     shiftsEnabled: !exists(json, "shiftsEnabled") ? null : json["shiftsEnabled"],
     shiftDropNoticeHours: !exists(json, "shiftDropNoticeHours") ? null : json["shiftDropNoticeHours"],
     shiftBreakMinutes: !exists(json, "shiftBreakMinutes") ? null : json["shiftBreakMinutes"],
+    feePercentageCeiling: !exists(json, "feePercentageCeiling") ? null : json["feePercentageCeiling"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? null
       : json["dispatchPhoneNumber"],
@@ -546,6 +551,8 @@ export function InstanceConfigSettingsDtoToJSON(
     shiftsEnabled: value.shiftsEnabled,
     shiftDropNoticeHours: value.shiftDropNoticeHours,
     shiftBreakMinutes: value.shiftBreakMinutes,
+    // Without this line a save would drop the fee ceiling before it left the browser (row 53).
+    feePercentageCeiling: value.feePercentageCeiling,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,

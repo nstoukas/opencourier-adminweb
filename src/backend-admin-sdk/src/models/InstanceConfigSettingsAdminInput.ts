@@ -257,6 +257,10 @@ export interface InstanceConfigSettingsAdminInput {
    */
   shiftBreakMinutes?: number;
   /**
+   * The highest co-op fee % a save accepts, 0 to 100 (spec 0041). Hand edited (row 53).
+   */
+  feePercentageCeiling?: number;
+  /**
    * The co-op's dispatch line riders call from the job screen, as typed: the backend removes
    * spaces, dashes, dots and brackets and refuses anything else that is not digits with an
    * optional leading +. An empty text clears it. Hand edited (row 72).
@@ -500,6 +504,7 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     shiftsEnabled: !exists(json, "shiftsEnabled") ? undefined : json["shiftsEnabled"],
     shiftDropNoticeHours: !exists(json, "shiftDropNoticeHours") ? undefined : json["shiftDropNoticeHours"],
     shiftBreakMinutes: !exists(json, "shiftBreakMinutes") ? undefined : json["shiftBreakMinutes"],
+    feePercentageCeiling: !exists(json, "feePercentageCeiling") ? undefined : json["feePercentageCeiling"],
     dispatchPhoneNumber: !exists(json, "dispatchPhoneNumber")
       ? undefined
       : json["dispatchPhoneNumber"],
@@ -580,6 +585,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     shiftsEnabled: value.shiftsEnabled,
     shiftDropNoticeHours: value.shiftDropNoticeHours,
     shiftBreakMinutes: value.shiftBreakMinutes,
+    // Without this line a save would drop the fee ceiling before it left the browser (row 53).
+    feePercentageCeiling: value.feePercentageCeiling,
     // Without this line a save would drop the dispatch number before it left the browser.
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,

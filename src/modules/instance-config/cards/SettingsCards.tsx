@@ -32,6 +32,7 @@ import { describeQuoteRate, parseQuoteRateInput } from '@/utils/quoteRate'
 import { PricingExample } from '../PricingExample'
 import {
   CENTS_ERROR,
+  feeAboveCeiling,
   isValidURL,
   labelOf,
   sanitizeURL,
@@ -193,6 +194,9 @@ const unitWord = (distanceUnit: string) => (distanceUnit === 'MILES' ? 'mile' : 
 export function PricingCard({ form, set, options, loaded }: CardProps) {
   const baseFee = parseQuoteRateInput(form.quoteBaseFee)
   const rate = parseQuoteRateInput(form.quoteRatePerDistanceUnit)
+  // Spec 0041 (AC-8): said beside the fee, as well as in the save bar's list.
+  const above = feeAboveCeiling(form)
+  const feeError = loaded && above ? `Above the co-op's ceiling of ${above.ceiling} %.` : undefined
   return (
     <SettingsSection
       id="pricing"
@@ -201,7 +205,7 @@ export function PricingCard({ form, set, options, loaded }: CardProps) {
     >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(16rem,22rem)]">
         <FieldGroup>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <NumberField
               id="quoteBaseFee"
               label={`${labelOf('quoteBaseFee')} (cents)`}
@@ -228,8 +232,25 @@ export function PricingCard({ form, set, options, loaded }: CardProps) {
               value={form.feePercentageAmount}
               min={0}
               disabled={!loaded}
-              description="On top of the rider's pay."
+              description={
+                form.feePercentageCeiling.trim() === ''
+                  ? "On top of the rider's pay."
+                  : `On top of the rider's pay. At most ${form.feePercentageCeiling.trim()} %, the co-op's ceiling.`
+              }
+              error={feeError}
               onChange={(value) => set('feePercentageAmount', value)}
+            />
+            {/* Spec 0041: the ceiling stops a typo (100 for 10) from raising every customer's price.
+                Raising it is a second, deliberate edit when the assembly votes a higher fee. */}
+            <NumberField
+              id="feePercentageCeiling"
+              label={labelOf('feePercentageCeiling')}
+              value={form.feePercentageCeiling}
+              min={0}
+              max={100}
+              disabled={!loaded}
+              description="The highest fee % a save accepts. Whole numbers, 0 to 100."
+              onChange={(value) => set('feePercentageCeiling', value)}
             />
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
