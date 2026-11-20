@@ -71,6 +71,108 @@ describe('SettingsCards components (row 87 review fixes)', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // PricingCard: feePercentageCeiling & fee error (spec 0041, AC-8)
+  // ---------------------------------------------------------------------------
+  describe('PricingCard feePercentageCeiling (spec 0041, AC-8)', () => {
+    it('renders field labelled "Co-op fee ceiling (%)" next to fee, with loaded value, min 0, max 100, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '10', feePercentageCeiling: '25' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Co-op fee ceiling (%)') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.id).toBe('feePercentageCeiling')
+      expect(input.value).toBe('25')
+      expect(input).toHaveAttribute('type', 'number')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '100')
+      expect(input).not.toBeDisabled()
+
+      expect(
+        screen.getByText('The highest fee % a save accepts. Whole numbers, 0 to 100.')
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '30' } })
+      expect(mockSet).toHaveBeenCalledWith('feePercentageCeiling', '30')
+    })
+
+    it('fee description says "At most 25 %, the co-op\'s ceiling." when ceiling is 25', () => {
+      render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '10', feePercentageCeiling: '25' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(
+        screen.getByText("On top of the rider's pay. At most 25 %, the co-op's ceiling.")
+      ).toBeInTheDocument()
+    })
+
+    it('fee description falls back to base text when ceiling is empty', () => {
+      render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '10', feePercentageCeiling: '   ' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByText("On top of the rider's pay.")).toBeInTheDocument()
+      expect(screen.queryByText(/the co-op's ceiling/i)).toBeNull()
+    })
+
+    it('shows error "Above the co-op\'s ceiling of 25 %." when fee is 100 and ceiling is 25', () => {
+      render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '100', feePercentageCeiling: '25' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByText("Above the co-op's ceiling of 25 %.")).toBeInTheDocument()
+    })
+
+    it('shows no error when fee is equal to ceiling (25 % / 25 %)', () => {
+      render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '25', feePercentageCeiling: '25' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.queryByText(/Above the co-op's ceiling/i)).toBeNull()
+    })
+
+    it('disables feePercentageCeiling input before settings load (loaded = false)', () => {
+      render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageCeiling: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = screen.getByLabelText('Co-op fee ceiling (%)') as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // Fix 6: Select with value="" renders disabled "Not set" option
   // ---------------------------------------------------------------------------
   describe('OptionSelect "Not set" option when value is empty (fix 6)', () => {

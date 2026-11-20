@@ -2,6 +2,7 @@
 import fs from 'fs'
 import path from 'path'
 import { InstanceConfigSettingsAdminInputToJSON } from './InstanceConfigSettingsAdminInput'
+import { SETTINGS } from '../../../modules/instance-config/settingsDiff'
 
 // Locate the backend input class definition
 const backendFilePath = path.resolve(
@@ -119,6 +120,13 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
   // Extract all opening tags of input-like form elements across the page source and cards
   const inputTags = extractInputTags(commentStrippedPageSource)
 
+  it('covers feePercentageCeiling in SETTINGS (spec 0041, row 53)', () => {
+    const setting = SETTINGS.find((s) => s.key === 'feePercentageCeiling')
+    expect(setting).toBeDefined()
+    expect(setting?.kind).toBe('number')
+    expect(setting?.label).toBe('Co-op fee ceiling (%)')
+  })
+
   // Check that each non-excluded backend setting is bound to an input value, select, editor component in an input tag
   it.each(settingKeys)('ensures page source renders input or editor for setting key: %s', (key) => {
     if (DELIBERATE_NON_FIELD_SETTINGS.includes(key)) {
@@ -136,5 +144,19 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
 
     const hasInputBinding = inputTags.some((tag) => bindingRegex.test(tag))
     expect(hasInputBinding).toBe(true)
+  })
+
+  // Check that every setting key (except deliberate non-SETTINGS fields) is defined in SETTINGS
+  it.each(settingKeys)('ensures SETTINGS defines setting key: %s', (key) => {
+    const NON_SETTINGS_KEYS = [
+      ...DELIBERATE_NON_FIELD_SETTINGS,
+      'reassignmentPayoutPolicies',
+      'reassignmentPayoutDefaultPolicy',
+    ]
+    if (NON_SETTINGS_KEYS.includes(key)) {
+      return
+    }
+    const setting = SETTINGS.find((s) => s.key === key)
+    expect(setting).toBeDefined()
   })
 })

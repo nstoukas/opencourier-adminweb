@@ -553,6 +553,54 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const serialized = InstanceConfigSettingsAdminInputToJSON(model)
       expect(serialized.cancellationPayoutPolicy).toBe('SEVENTY_PERCENT')
     })
+
+    it('preserves feePercentageCeiling in ToJSON serialization, including 0 (spec 0041, AC-1)', () => {
+      // Load-bearing test guard: without feePercentageCeiling in ToJSON, the SDK silently drops
+      // it and the save reports success for a setting never sent to the backend.
+      const input = {
+        feePercentageCeiling: 25,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.feePercentageCeiling).toBe(25)
+
+      // 0 is valid (0 to 100) and must be preserved (not dropped as falsy)
+      const inputZero = {
+        feePercentageCeiling: 0,
+      }
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.feePercentageCeiling).toBe(0)
+    })
+
+    it('round-trips feePercentageCeiling through FromJSON and ToJSON (spec 0041, AC-1)', () => {
+      const originalJson = {
+        feePercentageCeiling: 30,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.feePercentageCeiling).toBe(30)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.feePercentageCeiling).toBe(30)
+
+      // Round-trip with 0
+      const zeroModel = InstanceConfigSettingsAdminInputFromJSON({
+        feePercentageCeiling: 0,
+      })
+      expect(zeroModel.feePercentageCeiling).toBe(0)
+
+      const zeroSerialized = InstanceConfigSettingsAdminInputToJSON(zeroModel)
+      expect(zeroSerialized.feePercentageCeiling).toBe(0)
+    })
+
+    it('handles undefined feePercentageCeiling in FromJSON and ToJSON (spec 0041, AC-1)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.feePercentageCeiling).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.feePercentageCeiling).toBeUndefined()
+    })
   })
 
   describe('InstanceConfigSettingsDto (response deserialization guard - AC-5)', () => {
@@ -1004,6 +1052,49 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.cancellationPayoutPolicy).toBe('FULL_COMPENSATION')
+    })
+
+    it('deserializes feePercentageCeiling when present, including 0 (spec 0041, AC-1)', () => {
+      const json = {
+        details: {},
+        feePercentageCeiling: 25,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.feePercentageCeiling).toBe(25)
+
+      const jsonZero = {
+        details: {},
+        feePercentageCeiling: 0,
+      }
+      const dtoZero = InstanceConfigSettingsDtoFromJSON(jsonZero)
+      expect(dtoZero.feePercentageCeiling).toBe(0)
+    })
+
+    it('deserializes feePercentageCeiling as null when absent in backend response (spec 0041, AC-1)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.feePercentageCeiling).toBeNull()
+    })
+
+    it('serializes DTO carrying feePercentageCeiling back to JSON (spec 0041, AC-1)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        feePercentageCeiling: 30,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.feePercentageCeiling).toBe(30)
+
+      const dtoZero = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        feePercentageCeiling: 0,
+      })
+      const jsonZero = InstanceConfigSettingsDtoToJSON(dtoZero)
+      expect(jsonZero.feePercentageCeiling).toBe(0)
     })
   })
 

@@ -1,6 +1,7 @@
 import {
   blockers,
   EMPTY_FORM,
+  feeAboveCeiling,
   formFromSettings,
   labelOf,
   normalizeRegion,
@@ -53,6 +54,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     quoteBaseFee: '200',
     quoteRatePerDistanceUnit: '150',
     feePercentageAmount: '10',
+    feePercentageCeiling: '25',
     maxAssignmentDistance: '20',
     maxDriftDistance: '5',
     arrivalRadiusMetres: '50',
@@ -1669,6 +1671,133 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const dtoWithout = {}
       const deserialized2 = InstanceConfigSettingsDtoFromJSON(dtoWithout)
       expect(deserialized2.shiftBreakMinutes).toBeNull()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Fee ceiling setting (spec 0041, row 53, AC-1, AC-8)
+  // ---------------------------------------------------------------------------
+  describe('feePercentageCeiling setting (spec 0041, row 53, AC-1, AC-8)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('declares feePercentageCeiling in SETTINGS as a number with correct label', () => {
+      const setting = SETTINGS.find((s) => s.key === 'feePercentageCeiling')
+      expect(setting).toBeDefined()
+      expect(setting?.kind).toBe('number')
+      expect(setting?.label).toBe('Co-op fee ceiling (%)')
+      expect(labelOf('feePercentageCeiling')).toBe('Co-op fee ceiling (%)')
+    })
+
+    it('formFromSettings turns 25 into "25", and handles 0, null, missing as empty string', () => {
+      expect(formFromSettings({ feePercentageCeiling: 25 }).feePercentageCeiling).toBe('25')
+      expect(formFromSettings({ feePercentageCeiling: 0 }).feePercentageCeiling).toBe('0')
+      expect(formFromSettings({ feePercentageCeiling: null }).feePercentageCeiling).toBe('')
+      expect(formFromSettings({}).feePercentageCeiling).toBe('')
+      expect(EMPTY_FORM.feePercentageCeiling).toBe('')
+    })
+
+    it('pendingChanges detects edits to feePercentageCeiling', () => {
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageCeiling: '30' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('feePercentageCeiling')
+      expect(changes[0]?.from).toBe('25')
+      expect(changes[0]?.to).toBe('30')
+      expect(changes[0]?.label).toBe('Co-op fee ceiling (%)')
+    })
+
+    it('savePayload sends feePercentageCeiling as number 25 when changed', () => {
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageCeiling: '25' }
+      const savedDifferent: SettingsForm = { ...baseSavedForm, feePercentageCeiling: '20' }
+      const changes = pendingChanges(savedDifferent, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+      expect(payload).toEqual({ feePercentageCeiling: 25 })
+      expect(typeof payload.feePercentageCeiling).toBe('number')
+      expect(payload).not.toHaveProperty('details')
+
+      // Also verify 0 sends as number 0
+      const editedZero: SettingsForm = { ...baseSavedForm, feePercentageCeiling: '0', feePercentageAmount: '0' }
+      const changesZero = pendingChanges(baseSavedForm, editedZero)
+      const payloadZero = savePayload(changesZero, editedZero, savedDetails)
+      expect(payloadZero.feePercentageCeiling).toBe(0)
+      expect(payloadZero.feePercentageAmount).toBe(0)
+    })
+
+    it('blockers blocks save when feePercentageCeiling is emptied', () => {
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageCeiling: '' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(blockers(changes, edited)).toContain('Co-op fee ceiling (%) is empty')
+    })
+
+    it('feeAboveCeiling returns null for valid fee/ceiling pairs and empty fields, and returns numbers when above', () => {
+      // Fee below ceiling (10 / 25)
+      expect(feeAboveCeiling({ feePercentageAmount: '10', feePercentageCeiling: '25' })).toBeNull()
+      // Fee equal to ceiling (25 / 25)
+      expect(feeAboveCeiling({ feePercentageAmount: '25', feePercentageCeiling: '25' })).toBeNull()
+      // Fee 0 with any ceiling
+      expect(feeAboveCeiling({ feePercentageAmount: '0', feePercentageCeiling: '25' })).toBeNull()
+      expect(feeAboveCeiling({ feePercentageAmount: '0', feePercentageCeiling: '0' })).toBeNull()
+      // Empty fee
+      expect(feeAboveCeiling({ feePercentageAmount: '', feePercentageCeiling: '25' })).toBeNull()
+      // Empty ceiling
+      expect(feeAboveCeiling({ feePercentageAmount: '10', feePercentageCeiling: '' })).toBeNull()
+      // Fee above ceiling (100 / 25)
+      expect(feeAboveCeiling({ feePercentageAmount: '100', feePercentageCeiling: '25' })).toEqual({
+        fee: 100,
+        ceiling: 25,
+      })
+    })
+
+    it('blockers holds error when fee is changed above ceiling', () => {
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageAmount: '100', feePercentageCeiling: '25' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(blockers(changes, edited)).toContain(
+        "Co-op fee (%) is 100, above the co-op's ceiling of 25"
+      )
+    })
+
+    it('blockers holds error when only ceiling is changed below current fee', () => {
+      // Base saved fee is 10; lowering ceiling to 5 creates a blocker
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageAmount: '10', feePercentageCeiling: '5' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(blockers(changes, edited)).toContain(
+        "Co-op fee (%) is 10, above the co-op's ceiling of 5"
+      )
+    })
+
+    it('blockers gives no ceiling blocker when fee is equal to ceiling', () => {
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageAmount: '25', feePercentageCeiling: '25' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const res = blockers(changes, edited)
+      expect(res.some((msg) => msg.includes("above the co-op's ceiling"))).toBe(false)
+    })
+
+    it('blockers gives no ceiling blocker when a field is empty or neither changed', () => {
+      // Empty fee
+      const editedEmptyFee: SettingsForm = { ...baseSavedForm, feePercentageAmount: '' }
+      const changesEmptyFee = pendingChanges(baseSavedForm, editedEmptyFee)
+      const resEmptyFee = blockers(changesEmptyFee, editedEmptyFee)
+      expect(resEmptyFee.some((msg) => msg.includes("above the co-op's ceiling"))).toBe(false)
+
+      // Empty ceiling
+      const editedEmptyCeiling: SettingsForm = { ...baseSavedForm, feePercentageCeiling: '' }
+      const changesEmptyCeiling = pendingChanges(baseSavedForm, editedEmptyCeiling)
+      const resEmptyCeiling = blockers(changesEmptyCeiling, editedEmptyCeiling)
+      expect(resEmptyCeiling.some((msg) => msg.includes("above the co-op's ceiling"))).toBe(false)
+
+      // Neither fee nor ceiling changed, even if edited values hypothetically had fee > ceiling
+      const nonFeeChanges = [{ key: 'quoteBaseFee' as const, label: 'Base fee', from: '€2.00', to: '€2.50' }]
+      const editedNonFee: SettingsForm = { ...baseSavedForm, feePercentageAmount: '100', feePercentageCeiling: '25' }
+      const resNonFee = blockers(nonFeeChanges as any, editedNonFee)
+      expect(resNonFee.some((msg) => msg.includes("above the co-op's ceiling"))).toBe(false)
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON and InstanceConfigSettingsDtoFromJSON carry feePercentageCeiling (spec 0041, AC-1)', () => {
+      const serialized = InstanceConfigSettingsAdminInputToJSON({ feePercentageCeiling: 25 } as any)
+      expect(serialized.feePercentageCeiling).toBe(25)
+
+      const deserialized = InstanceConfigSettingsDtoFromJSON({ feePercentageCeiling: 25 })
+      expect(deserialized.feePercentageCeiling).toBe(25)
     })
   })
 })
