@@ -1752,7 +1752,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const edited: SettingsForm = { ...baseSavedForm, feePercentageAmount: '100', feePercentageCeiling: '25' }
       const changes = pendingChanges(baseSavedForm, edited)
       expect(blockers(changes, edited)).toContain(
-        "Co-op fee (%) is 100, above the co-op's ceiling of 25"
+        "Co-op fee (%) is 100, above the co-op's ceiling of 25 %"
       )
     })
 
@@ -1761,7 +1761,41 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const edited: SettingsForm = { ...baseSavedForm, feePercentageAmount: '10', feePercentageCeiling: '5' }
       const changes = pendingChanges(baseSavedForm, edited)
       expect(blockers(changes, edited)).toContain(
-        "Co-op fee (%) is 10, above the co-op's ceiling of 5"
+        "Co-op fee (%) is 10, above the co-op's ceiling of 5 %"
+      )
+    })
+
+    it('feeAboveCeiling returns null for non-numeric text and handles fractions (spec 0041, AC-8)', () => {
+      // Non-numeric text returns null ({ fee: 'abc', ceiling: '25' } -> null)
+      expect(feeAboveCeiling({ feePercentageAmount: 'abc', feePercentageCeiling: '25' })).toBeNull()
+      expect(feeAboveCeiling({ feePercentageAmount: '25', feePercentageCeiling: 'abc' })).toBeNull()
+
+      // Fractions ('25.5' against '25' -> { fee: 25.5, ceiling: 25 })
+      expect(feeAboveCeiling({ feePercentageAmount: '25.5', feePercentageCeiling: '25' })).toEqual({
+        fee: 25.5,
+        ceiling: 25,
+      })
+
+      // Fractions ('25' against '25.5' -> null)
+      expect(feeAboveCeiling({ feePercentageAmount: '25', feePercentageCeiling: '25.5' })).toBeNull()
+    })
+
+    it('blockers holds error when fee is a fraction above ceiling', () => {
+      const edited: SettingsForm = { ...baseSavedForm, feePercentageAmount: '25.5', feePercentageCeiling: '25' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(blockers(changes, edited)).toContain(
+        "Co-op fee (%) is 25.5, above the co-op's ceiling of 25 %"
+      )
+    })
+
+    it('blockers([]) holds no ceiling sentence when stored fee 30 exceeds ceiling 25 and nothing changed; blocker appears once fee changed (decision 53.3)', () => {
+      const stored: SettingsForm = { ...baseSavedForm, feePercentageAmount: '30', feePercentageCeiling: '25' }
+      expect(blockers([], stored).some((msg) => msg.includes("above the co-op's ceiling"))).toBe(false)
+
+      const edited: SettingsForm = { ...stored, feePercentageAmount: '35' }
+      const changes = pendingChanges(stored, edited)
+      expect(blockers(changes, edited)).toContain(
+        "Co-op fee (%) is 35, above the co-op's ceiling of 25 %"
       )
     })
 

@@ -13,7 +13,7 @@ import {
   PUBLIC_PAGES,
   SECTIONS,
 } from './SettingsCards'
-import { EMPTY_FORM, type SettingsForm } from '../settingsDiff'
+import { EMPTY_FORM, blockers, pendingChanges, type SettingsForm } from '../settingsDiff'
 
 describe('SettingsCards components (row 87 review fixes)', () => {
   const dummyForm: SettingsForm = {
@@ -129,6 +129,82 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       expect(screen.getByText("On top of the rider's pay.")).toBeInTheDocument()
       expect(screen.queryByText(/the co-op's ceiling/i)).toBeNull()
+    })
+
+    it('fee description falls back to base text without "At most" for invalid ceilings (150, -5, 25.5, abc) and formats valid whole numbers (05 -> 5 %, 100 -> 100 %)', () => {
+      // Ceilings '150', '-5', '25.5' and 'abc' all give "On top of the rider's pay." with no "At most"
+      for (const ceiling of ['150', '-5', '25.5', 'abc']) {
+        const { unmount } = render(
+          <PricingCard
+            form={{ ...dummyForm, feePercentageAmount: '10', feePercentageCeiling: ceiling }}
+            set={jest.fn()}
+            options={dummyOptions}
+            loaded={true}
+          />
+        )
+        expect(screen.getByText("On top of the rider's pay.")).toBeInTheDocument()
+        expect(screen.queryByText(/At most/i)).toBeNull()
+        unmount()
+      }
+
+      // '05' gives "At most 5 %"
+      const { unmount: unmount05 } = render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '10', feePercentageCeiling: '05' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(
+        screen.getByText("On top of the rider's pay. At most 5 %, the co-op's ceiling.")
+      ).toBeInTheDocument()
+      unmount05()
+
+      // '100' gives "At most 100 %"
+      const { unmount: unmount100 } = render(
+        <PricingCard
+          form={{ ...dummyForm, feePercentageAmount: '10', feePercentageCeiling: '100' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(
+        screen.getByText("On top of the rider's pay. At most 100 %, the co-op's ceiling.")
+      ).toBeInTheDocument()
+      unmount100()
+    })
+
+    it('shows inline error "Above the co-op\'s ceiling of 25 %." for stored fee 30 and ceiling 25 when nothing changed while blockers([]) holds no ceiling sentence, and blocker appears once fee changed (split from Fable review, decision 53.3)', () => {
+      const storedForm: SettingsForm = {
+        ...dummyForm,
+        feePercentageAmount: '30',
+        feePercentageCeiling: '25',
+      }
+      render(
+        <PricingCard
+          form={storedForm}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      // Fee field shows its inline error even though nothing was changed
+      expect(screen.getByText("Above the co-op's ceiling of 25 %.")).toBeInTheDocument()
+
+      // Save is not blocked by an unchanged pair (decision 53.3): blockers([]) holds no ceiling sentence
+      const noChangesBlockers = blockers([], storedForm)
+      expect(noChangesBlockers.some((msg) => msg.includes("above the co-op's ceiling"))).toBe(false)
+
+      // Once the fee is changed, the blocker appears
+      const changedForm: SettingsForm = { ...storedForm, feePercentageAmount: '35' }
+      const changes = pendingChanges(storedForm, changedForm)
+      const changedBlockers = blockers(changes, changedForm)
+      expect(changedBlockers).toContain(
+        "Co-op fee (%) is 35, above the co-op's ceiling of 25 %"
+      )
     })
 
     it('shows error "Above the co-op\'s ceiling of 25 %." when fee is 100 and ceiling is 25', () => {
