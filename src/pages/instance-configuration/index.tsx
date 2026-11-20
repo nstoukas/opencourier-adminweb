@@ -72,6 +72,8 @@ const OPTION_LABELS: Partial<Record<SettingKey, Record<string, string>>> = {
   deliveryDurationCalculationType: DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN,
   courierCompensationCalculationType: COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
   defaultDietaryRestrictions: COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
+  // Spec 0043 (review): the bar reads "Medium → Large", not the codes.
+  boxDefaultSize: { SMALL: "Small", MEDIUM: "Medium", LARGE: "Large" },
 };
 
 const optionLabel = (key: SettingKey, option: string): string =>

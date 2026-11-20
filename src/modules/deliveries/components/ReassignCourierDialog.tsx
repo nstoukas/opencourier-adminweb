@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { BoxOverCapacity, BoxOverCapacityWarning, boxOverCapacityOf } from './BoxOverCapacityWarning'
+import {
+  BOX_OVER_CAPACITY_WARNING_ID,
+  BoxOverCapacity,
+  BoxOverCapacityWarning,
+  boxOverCapacityOf,
+  overCapacityConfirmed,
+} from './BoxOverCapacityWarning'
 import {
   Button,
   Dialog,
@@ -58,6 +64,10 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
   const [message, setMessage] = useState<string>('')
   // Spec 0043 (AC-6): set when the backend said the new rider's box would overfill; the next tap confirms.
   const [overCapacity, setOverCapacity] = useState<BoxOverCapacity | null>(null)
+  // The admin's tick under the warning; only with it does the next press confirm (review fix).
+  const [confirmChecked, setConfirmChecked] = useState(false)
+  // The warning shown is about the rider now chosen; then the button waits for the tick.
+  const warningForChosen = overCapacity !== null && overCapacity.courierId === newCourierId
 
   const { toast } = useToast()
   const [reassignDelivery, { isLoading }] = useReassignDeliveryMutation()
@@ -78,6 +88,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
       setNewCourierId('')
       setMessage('')
       setOverCapacity(null)
+      setConfirmChecked(false)
       const options = listPayoutPolicies(
         config?.reassignmentPayoutPolicies,
         config?.reassignmentPayoutDefaultPolicy,
@@ -124,7 +135,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
         courierId: newCourierId,
         payoutPolicy: selectedPolicy,
         message: message.trim() || undefined,
-        confirmOverCapacity: overCapacity !== null,
+        confirmOverCapacity: overCapacityConfirmed(overCapacity, newCourierId, confirmChecked),
       }).unwrap()
 
       const amountText = formattedAmount
@@ -134,9 +145,11 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
 
       setOpen(false)
     } catch (err: any) {
-      const over = boxOverCapacityOf(err)
-      if (over && overCapacity === null) {
+      // The rider choice is locked while the request runs, so this answer is about `newCourierId`.
+      const over = boxOverCapacityOf(err, newCourierId)
+      if (over) {
         setOverCapacity(over)
+        setConfirmChecked(false)
         return
       }
       toast({
@@ -172,12 +185,14 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
             <div className="space-y-1">
               <Label>New rider</Label>
               <Select
-                disabled={couriersLoading}
+                // Locked while a request runs, so an answer always belongs to the rider on screen.
+                disabled={couriersLoading || isLoading}
                 value={newCourierId}
                 onValueChange={(value) => {
                   setNewCourierId(value)
                   // Another rider: their box is asked about afresh.
                   setOverCapacity(null)
+                  setConfirmChecked(false)
                 }}
               >
                 <SelectTrigger>
@@ -235,7 +250,11 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
             </div>
           </div>
 
-          <BoxOverCapacityWarning value={overCapacity} />
+          <BoxOverCapacityWarning
+            value={warningForChosen ? overCapacity : null}
+            checked={confirmChecked}
+            onCheckedChange={setConfirmChecked}
+          />
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
@@ -243,12 +262,13 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
             </Button>
             <Button
               type="button"
-              variant={overCapacity ? 'destructive' : 'default'}
-              disabled={isLoading || !newCourierId || !preview.ok}
+              variant={warningForChosen ? 'destructive' : 'default'}
+              disabled={isLoading || !newCourierId || !preview.ok || (warningForChosen && !confirmChecked)}
+              aria-describedby={warningForChosen ? BOX_OVER_CAPACITY_WARNING_ID : undefined}
               onClick={handleReassign}
             >
               {isLoading ? <Spinner className="mr-2" /> : null}
-              {overCapacity ? 'Reassign anyway' : 'Reassign rider'}
+              {warningForChosen ? 'Reassign anyway' : 'Reassign rider'}
             </Button>
           </DialogFooter>
         </DialogContent>

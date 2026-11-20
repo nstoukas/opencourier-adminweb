@@ -21,7 +21,13 @@ import {
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { DeliveryAdminDtoStatusEnum } from '../../../backend-admin-sdk'
 import { useState } from 'react'
-import { BoxOverCapacity, BoxOverCapacityWarning, boxOverCapacityOf } from './BoxOverCapacityWarning'
+import {
+  BOX_OVER_CAPACITY_WARNING_ID,
+  BoxOverCapacity,
+  BoxOverCapacityWarning,
+  boxOverCapacityOf,
+  overCapacityConfirmed,
+} from './BoxOverCapacityWarning'
 
 // Only the fields these read, so the Dispatch board can pass its row without fetching the delivery
 // (spec 0034, AC-4). `Pick` makes a type from a few fields of another type.
@@ -38,6 +44,8 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
   const [courierId, setCourierId] = useState<string>()
   // Spec 0043 (AC-6): set when the backend said this rider's box would overfill; the next tap confirms.
   const [overCapacity, setOverCapacity] = useState<BoxOverCapacity | null>(null)
+  // The admin's tick under the warning; only with it does the next press confirm (review fix).
+  const [confirmChecked, setConfirmChecked] = useState(false)
   const { toast } = useToast()
   const [assignCourier, { isLoading }] = useAssignDeliveryToCourierMutation()
   const { data: couriers = [], isLoading: couriersLoading } = useGetAllCouriersQuery(undefined, {
@@ -45,6 +53,16 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
   })
 
   const canAssign = isDeliveryAwaitingCourierAssignment(delivery)
+  // The warning shown is about the rider now chosen; then the button waits for the tick.
+  const warningForChosen = overCapacity !== null && overCapacity.courierId === courierId
+
+  // Every way the dialog closes clears the choice and any warning, so reopening never confirms.
+  const close = () => {
+    setOpen(false)
+    setCourierId(undefined)
+    setOverCapacity(null)
+    setConfirmChecked(false)
+  }
 
   const handleAssign = async () => {
     if (!courierId) {
@@ -52,15 +70,19 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
       return
     }
     try {
-      await assignCourier({ deliveryId: delivery.id, courierId, confirmOverCapacity: overCapacity !== null }).unwrap()
+      await assignCourier({
+        deliveryId: delivery.id,
+        courierId,
+        confirmOverCapacity: overCapacityConfirmed(overCapacity, courierId, confirmChecked),
+      }).unwrap()
       toast({ title: 'Courier assigned' })
-      setOpen(false)
-      setCourierId(undefined)
-      setOverCapacity(null)
+      close()
     } catch (error) {
-      const over = boxOverCapacityOf(error)
-      if (over && overCapacity === null) {
+      // The rider choice is locked while the request runs, so this answer is about `courierId`.
+      const over = boxOverCapacityOf(error, courierId)
+      if (over) {
         setOverCapacity(over)
+        setConfirmChecked(false)
         return
       }
       toast({
@@ -80,11 +102,8 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          setOpen(next)
-          if (!next) {
-            setCourierId(undefined)
-            setOverCapacity(null)
-          }
+          if (next) setOpen(true)
+          else close()
         }}
       >
         <DialogTrigger asChild>
@@ -103,12 +122,14 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
           <div className="grid gap-2 py-2">
             <Label>Courier</Label>
             <Select
-              disabled={couriersLoading}
+              // Locked while a request runs, so an answer always belongs to the rider on screen.
+              disabled={couriersLoading || isLoading}
               value={courierId ?? ''}
               onValueChange={(v) => {
                 setCourierId(v)
                 // Another rider: their box is asked about afresh.
                 setOverCapacity(null)
+                setConfirmChecked(false)
               }}
             >
               <SelectTrigger>
@@ -124,19 +145,24 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
               </SelectContent>
             </Select>
           </div>
-          <BoxOverCapacityWarning value={overCapacity} />
+          <BoxOverCapacityWarning
+            value={warningForChosen ? overCapacity : null}
+            checked={confirmChecked}
+            onCheckedChange={setConfirmChecked}
+          />
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" onClick={close}>
               Cancel
             </Button>
             <Button
               type="button"
-              variant={overCapacity ? 'destructive' : 'default'}
-              disabled={isLoading || !courierId}
+              variant={warningForChosen ? 'destructive' : 'default'}
+              disabled={isLoading || !courierId || (warningForChosen && !confirmChecked)}
+              aria-describedby={warningForChosen ? BOX_OVER_CAPACITY_WARNING_ID : undefined}
               onClick={() => void handleAssign()}
             >
               {isLoading ? <Spinner className="mr-2" /> : null}
-              {overCapacity ? 'Assign anyway' : 'Assign courier'}
+              {warningForChosen ? 'Assign anyway' : 'Assign courier'}
             </Button>
           </DialogFooter>
         </DialogContent>
