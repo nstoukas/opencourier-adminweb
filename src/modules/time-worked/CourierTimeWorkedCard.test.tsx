@@ -4,855 +4,976 @@ import { CourierTimeWorkedCard } from './CourierTimeWorkedCard'
 import { useGetCourierTimeWorkedQuery } from '../../api/timeWorkedApi'
 import { athensToday } from '../dispatch-stop/dispatchStopDisplay'
 import { addDays } from './timeWorkedFormat'
+import type {
+  CourierTimeWorkedDto,
+  EarningsFiguresDto,
+  EarningsWeekDto,
+  JobEndLabel,
+  WorkedDayDto,
+  WorkedJobDto,
+  WorkedShiftDto,
+} from '../../backend-admin-sdk'
 
 jest.mock('../../api/timeWorkedApi', () => ({
   useGetCourierTimeWorkedQuery: jest.fn(),
 }))
 
-describe('CourierTimeWorkedCard (spec 0040, AC-8, AC-11, AC-15)', () => {
+describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, AC-16)', () => {
   const mockUseGetCourierTimeWorkedQuery = useGetCourierTimeWorkedQuery as jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
-  it('calls getCourierTimeWorked with rider id, last 7 Athens days and pollingInterval by default', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [],
-        shifts: [],
-      },
-      isLoading: false,
-      isFetching: false,
+  function makeFigures(overrides: Partial<EarningsFiguresDto> = {}): EarningsFiguresDto {
+    return {
+      workSeconds: 7200, // 2 h 00 min
+      jobSeconds: 3600, // 1 h 00 min
+      paidWaitSeconds: 600, // 10 min
+      unpaidSeconds: 3000, // 50 min
+      moneyCents: 3500, // €35.00
+      unlinkedMoneyCents: 500, // €5.00
+      noJobMoneyCents: 0,
+      centsPerHour: 1500, // €15.00
+      activeCentsPerHour: 2000, // €20.00
+      paidKm: 10.5,
+      centsPerPaidKm: 333, // €3.33
+      medianPickupWaitSeconds: 120, // 2 min
+      pickupWaitCount: 2,
+      dropOffCount: 3,
+      ...overrides,
+    }
+  }
+
+  function makeDay(date: string, overrides: Partial<WorkedDayDto> = {}): WorkedDayDto {
+    return {
+      date,
+      ...makeFigures(),
+      ...overrides,
+    }
+  }
+
+  function makeWeek(weekStart: string, overrides: Partial<EarningsWeekDto> = {}): EarningsWeekDto {
+    return {
+      weekStart,
+      soFar: false,
+      cutAtReach: false,
+      ...makeFigures(),
+      ...overrides,
+    }
+  }
+
+  function makeJob(deliveryId: string, overrides: Partial<WorkedJobDto> = {}): WorkedJobDto {
+    return {
+      deliveryId,
+      pickupName: 'Acropolis Grill',
+      acceptedAt: '2026-11-19T10:00:00.000Z', // 12:00 Athens
+      endedAt: '2026-11-19T10:25:00.000Z', // 12:25 Athens (25 min)
+      deliveryMoneyCents: 800,
+      paidWaitSeconds: 0,
+      compensations: [],
+      paidKm: 2.5,
+      dropoffArea: 'Syntagma',
+      pickupWaitSeconds: 90,
+      cancelledAfterPickup: false,
+      endLabel: null,
+      ...overrides,
+    }
+  }
+
+  function makeShift(startedAt: string, overrides: Partial<WorkedShiftDto> = {}): WorkedShiftDto {
+    return {
+      startedAt,
+      startedBeforeRange: false,
+      endedAt: '2026-11-19T12:00:00.000Z',
+      onBreakSince: null,
+      workSeconds: 7200,
+      jobSeconds: 3600,
+      paidWaitSeconds: 600,
+      unpaidSeconds: 3000,
+      breaks: [],
+      moneyCents: 3500,
+      lateMoneyCents: 0,
+      centsPerHour: 1500,
+      currencyCode: 'EUR',
+      statusChanges: [],
+      jobs: [],
+      ...overrides,
+    }
+  }
+
+  // --- AC-15, AC-1: Weeks & Days Figures ---
+  describe('AC-15, AC-1: Figures for each week and each day', () => {
+    it('shows week figures, drop offs, work time, rates, typical wait with count, and (so far) tag', () => {
+      const week: EarningsWeekDto = makeWeek('2026-11-16', {
+        soFar: true,
+        moneyCents: 4200,
+        dropOffCount: 4,
+        workSeconds: 10800, // 3 h 00 min
+        centsPerHour: 1400, // €14.00
+        activeCentsPerHour: 1800, // €18.00
+        centsPerPaidKm: 350, // €3.50
+        medianPickupWaitSeconds: 180, // 3 min
+        pickupWaitCount: 5,
+        jobSeconds: 7200,
+        paidWaitSeconds: 1200,
+        unpaidSeconds: 2400,
+        noJobMoneyCents: 200,
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-16')],
+          weeks: [week],
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Week header with (so far)
+      expect(screen.getByText(/Week Mon, 16 Nov 2026 to Sun, 22 Nov 2026 \(so far\)/)).toBeInTheDocument()
+
+      // Money, drop offs, work time
+      expect(screen.getByText(/€42.00 · 4 drop offs · 3 h 00 min worked/)).toBeInTheDocument()
+
+      // All 4 rates + wait
+      expect(
+        screen.getByText(
+          /€14.00 per hour worked · €18.00 per hour on a job · €3.50 per paid km · typical pickup wait 3 min \(5 waits\)/
+        )
+      ).toBeInTheDocument()
+
+      // Split
+      expect(screen.getByText('Jobs 2 h 00 min · Paid waiting 20 min · Unpaid 40 min')).toBeInTheDocument()
+
+      // Money not linked to a job
+      expect(screen.getByText('€2.00 paid that is not linked to a job')).toBeInTheDocument()
     })
 
-    const today = athensToday()
-    const defaultFrom = addDays(today, -6)
+    it('shows weeks newest first and omits (so far) on a completed week', () => {
+      const olderWeek = makeWeek('2026-11-09', { soFar: false })
+      const newerWeek = makeWeek('2026-11-16', { soFar: false })
 
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-09',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-16')],
+          weeks: [olderWeek, newerWeek], // API returns ascending
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
 
-    expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
-      {
-        courierId: 'courier-c1',
-        from: defaultFrom,
-        to: today,
-      },
-      { skip: false, pollingInterval: 0 }
-    )
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      const headerNewer = screen.getByText('Week Mon, 16 Nov 2026 to Sun, 22 Nov 2026')
+      const headerOlder = screen.getByText('Week Mon, 9 Nov 2026 to Sun, 15 Nov 2026')
+      expect(headerNewer).toBeInTheDocument()
+      expect(headerOlder).toBeInTheDocument()
+      expect(screen.queryByText(/\(so far\)/)).toBeNull()
+
+      // Newest first order
+      expect(headerNewer.compareDocumentPosition(headerOlder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('shows day figures for days with work or money, singular drop off and wait, and hides 0 noJobMoney', () => {
+      const activeDay = makeDay('2026-11-19', {
+        moneyCents: 1000,
+        dropOffCount: 1, // singular drop off
+        workSeconds: 3600,
+        centsPerHour: 1000,
+        activeCentsPerHour: 1200,
+        centsPerPaidKm: 250,
+        medianPickupWaitSeconds: 60, // 1 min
+        pickupWaitCount: 1, // singular wait
+        noJobMoneyCents: 0, // 0 -> line must NOT appear
+      })
+      const emptyDay = makeDay('2026-11-18', {
+        workSeconds: 0,
+        moneyCents: 0,
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-18',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [emptyDay, activeDay],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Active day is shown
+      expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
+      expect(screen.getByText(/€10.00 · 1 drop off · 1 h 00 min worked/)).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /€10.00 per hour worked · €12.00 per hour on a job · €2.50 per paid km · typical pickup wait 1 min \(1 wait\)/
+        )
+      ).toBeInTheDocument()
+
+      // Empty day is skipped
+      expect(screen.queryByText('Wed, 18 Nov 2026')).toBeNull()
+
+      // noJobMoneyCents is 0, line must not show
+      expect(screen.queryByText(/paid that is not linked to a job/)).toBeNull()
+    })
+
+    it('renders em dash "—" for each null rate and null median wait', () => {
+      const dayWithNulls = makeDay('2026-11-19', {
+        centsPerHour: null,
+        activeCentsPerHour: null,
+        centsPerPaidKm: null,
+        medianPickupWaitSeconds: null,
+        pickupWaitCount: 0,
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [dayWithNulls],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(
+        screen.getByText(/— per hour worked · — per hour on a job · — per paid km · typical pickup wait —/)
+      ).toBeInTheDocument()
+    })
   })
 
-  it('renders day blocks, shifts with split, break in Athens time, and started before these days', () => {
-    // 2026-11-19T13:00:00Z is 15:00 in Europe/Athens (UTC+2)
-    // 2026-11-19T13:20:00Z is 15:20 in Europe/Athens (UTC+2)
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 7200, // 2 h 00 min
-            jobSeconds: 3600, // 1 h 00 min
-            paidWaitSeconds: 600, // 10 min
-            unpaidSeconds: 3000, // 50 min
-            moneyCents: 3500, // €35.00
-            unlinkedMoneyCents: 500, // €5.00
-            centsPerHour: 1500, // €15.00
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-19T12:00:00.000Z', // 14:00 Athens
-            startedBeforeRange: true,
-            endedAt: '2026-11-19T15:00:00.000Z', // 17:00 Athens
-            onBreakSince: null,
-            workSeconds: 7200,
-            jobSeconds: 3600,
-            paidWaitSeconds: 600,
-            unpaidSeconds: 3000,
-            breaks: [
-              {
-                startedAt: '2026-11-19T13:00:00.000Z', // 15:00 Athens
-                endedAt: '2026-11-19T13:20:00.000Z', // 15:20 Athens
-              },
-            ],
-            moneyCents: 3500,
-            lateMoneyCents: 500,
-            centsPerHour: 1500,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
+  // --- AC-15, AC-8: Day's Job Rows ---
+  describe('AC-15, AC-8: Day job rows', () => {
+    it('lists jobs accepted that Athens day in accept time order, each linking to /deliveries/<id>', () => {
+      // Job 1 at 10:10 UTC (12:10 Athens) inside shift
+      const job1 = makeJob('del-1', {
+        pickupName: 'Taverna Nikos',
+        dropoffArea: 'Syntagma',
+        acceptedAt: '2026-11-19T10:10:00.000Z',
+        endedAt: '2026-11-19T10:30:00.000Z', // 20 min
+        paidKm: 3.2,
+        deliveryMoneyCents: 500,
+        compensations: [{ id: 'c1', reason: 'WAITING', amountCents: 150, createdAt: '2026-11-19T10:40:00Z', addedLater: false }],
+        endLabel: null, // delivered
+      })
+
+      // Job 2 at 10:40 UTC (12:40 Athens) in no shift
+      const job2 = makeJob('del-2', {
+        pickupName: 'Acropolis Grill',
+        dropoffArea: 'Koukaki',
+        acceptedAt: '2026-11-19T10:40:00.000Z',
+        endedAt: '2026-11-19T11:05:00.000Z', // 25 min
+        paidKm: 1.8,
+        deliveryMoneyCents: 400,
+        compensations: [],
+        endLabel: 'CANCELLED_AFTER_PICKUP',
+      })
+
+      const shift = makeShift('2026-11-19T10:00:00.000Z', {
+        jobs: [job1],
+      })
+      const day = makeDay('2026-11-19')
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [day],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [job2],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText('Jobs accepted this day')).toBeInTheDocument()
+
+      // Job 1 (delivered, deliveryMoney 500 + comp 150 = 650 -> €6.50)
+      const link1 = screen.getByRole('link', { name: 'Taverna Nikos → Syntagma' })
+      expect(link1).toHaveAttribute('href', '/deliveries/del-1')
+      expect(screen.getByText('12:10')).toBeInTheDocument()
+      expect(screen.getByText(/3.2 km · 20 min/)).toBeInTheDocument()
+      expect(screen.getByText('€6.50')).toBeInTheDocument()
+
+      // Job 2 (not in a recorded shift, cancelled after pickup)
+      const link2 = screen.getByRole('link', { name: 'Acropolis Grill → Koukaki' })
+      expect(link2).toHaveAttribute('href', '/deliveries/del-2')
+      expect(screen.getByText('12:40')).toBeInTheDocument()
+      expect(screen.getByText(/1.8 km · 25 min · Cancelled after pickup · not in a recorded shift/)).toBeInTheDocument()
+      expect(screen.getByText('€4.00')).toBeInTheDocument()
+
+      // Order: job1 before job2
+      expect(link1.compareDocumentPosition(link2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
+    it('renders "—" for missing dropoffArea and missing paidKm', () => {
+      const job = makeJob('del-nulls', {
+        pickupName: 'Athens Pita',
+        dropoffArea: null,
+        paidKm: null,
+        acceptedAt: '2026-11-19T10:00:00.000Z',
+        endedAt: '2026-11-19T10:15:00.000Z',
+      })
 
-    // Day block
-    expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
-    expect(screen.getByText(/2 h 00 min worked/)).toBeInTheDocument()
-    expect(screen.getByText(/€5.00 paid for work outside a recorded shift/)).toBeInTheDocument()
+      const day = makeDay('2026-11-19')
 
-    // Shift details
-    expect(screen.getByText('Started before these days')).toBeInTheDocument()
-    expect(screen.getByText(/€5.00 of it added later/)).toBeInTheDocument()
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [day],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [job],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
 
-    // Break in Athens time: 13:00 UTC -> 15:00 Athens, 13:20 UTC -> 15:20 Athens
-    expect(screen.getByText('Break 15:00 to 15:20')).toBeInTheDocument()
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
-    // Shift and day splits
-    expect(screen.getAllByText('Jobs 1 h 00 min · Paid waiting 10 min · Unpaid 50 min')).toHaveLength(2)
-  })
-
-  it('renders records behind the shift: status changes with admin label, and jobs with compensations (AC-8, AC-15)', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            moneyCents: 1200,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 1200,
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-19T10:00:00.000Z',
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T11:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            breaks: [],
-            moneyCents: 1200,
-            lateMoneyCents: 0,
-            centsPerHour: 1200,
-            currencyCode: 'EUR',
-            statusChanges: [
-              {
-                at: '2026-11-19T10:00:00.000Z',
-                fromStatus: 'OFFLINE',
-                toStatus: 'ONLINE',
-                cause: 'ADMIN',
-                byAdmin: true,
-                adminLabel: 'coordinator@volos.coop',
-              },
-              {
-                at: '2026-11-19T11:00:00.000Z',
-                fromStatus: 'ONLINE',
-                toStatus: 'OFFLINE',
-                cause: 'RIDER',
-                byAdmin: false,
-                adminLabel: null,
-              },
-            ],
-            jobs: [
-              {
-                deliveryId: 'del-987',
-                pickupName: 'Volos Bakery',
-                acceptedAt: '2026-11-19T10:10:00.000Z',
-                endedAt: '2026-11-19T10:40:00.000Z',
-                endEventType: 'DROPPED_OFF',
-                droppedOff: true,
-                deliveryMoneyCents: 1000,
-                paidWaitSeconds: 0,
-                compensations: [
-                  {
-                    id: 'comp-1',
-                    reason: 'WAITING',
-                    amountCents: 200,
-                    createdAt: '2026-11-19T12:00:00.000Z',
-                    addedLater: true,
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
+      const link = screen.getByRole('link', { name: 'Athens Pita → —' })
+      expect(link).toHaveAttribute('href', '/deliveries/del-nulls')
+      expect(screen.getByText(/— · 15 min/)).toBeInTheDocument()
     })
 
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
+    it('displays the correct end label for every JobEndLabel', () => {
+      const labels: { label: JobEndLabel; text: string }[] = [
+        { label: 'CANCELLED_AFTER_PICKUP', text: 'Cancelled after pickup' },
+        { label: 'CANCELLED', text: 'Cancelled' },
+        { label: 'REMOVED', text: 'Removed' },
+        { label: 'HANDED_BACK', text: 'Handed back' },
+        { label: 'REASSIGNED', text: 'Reassigned' },
+        { label: 'FAILED', text: 'Failed' },
+        { label: 'ENDED', text: 'Ended' },
+        { label: 'IN_PROGRESS', text: 'In progress' },
+      ]
 
-    // Summary element
-    expect(screen.getByText('Records behind this shift')).toBeInTheDocument()
-
-    // Status change with admin label in brackets
-    expect(
-      screen.getByText((content) =>
-        content.includes('Offline to Online, by an admin (coordinator@volos.coop)')
+      const jobs = labels.map(({ label }, idx) =>
+        makeJob(`del-label-${idx}`, {
+          pickupName: `Place ${idx}`,
+          acceptedAt: `2026-11-19T${String(10 + Math.floor(idx / 60)).padStart(2, '0')}:${String(idx % 60).padStart(2, '0')}:00.000Z`,
+          endLabel: label,
+        })
       )
-    ).toBeInTheDocument()
 
-    // Status change by rider
-    expect(
-      screen.getByText((content) =>
-        content.includes('Online to Offline, by the rider')
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: jobs,
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      for (const { text } of labels) {
+        expect(screen.getByText(new RegExp(`· ${text} · not in a recorded shift`))).toBeInTheDocument()
+      }
+    })
+
+    it('does not show "Jobs accepted this day" heading when day has 0 jobs', () => {
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.queryByText('Jobs accepted this day')).toBeNull()
+    })
+  })
+
+  // --- AC-15: Range with no reach limit ---
+  describe('AC-15: Range with no reach limit', () => {
+    it('requests chosen old range beyond 2 calendar months and renders its figures and rows', () => {
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-05-01',
+          to: '2026-05-15',
+          recordedFrom: '2026-01-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [
+            makeDay('2026-05-10', {
+              moneyCents: 5000,
+              workSeconds: 7200,
+            }),
+          ],
+          weeks: [makeWeek('2026-05-04')],
+          shifts: [],
+          jobsInNoShift: [
+            makeJob('del-old-1', {
+              pickupName: 'Old Town Souvlaki',
+              acceptedAt: '2026-05-10T11:00:00.000Z',
+            }),
+          ],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Change form to dates older than 2 months (May 2026, when today is Nov 2026)
+      const fromInput = screen.getByLabelText('From')
+      const toInput = screen.getByLabelText('To')
+      const showButton = screen.getByRole('button', { name: 'Show' })
+
+      fireEvent.change(fromInput, { target: { value: '2026-05-01' } })
+      fireEvent.change(toInput, { target: { value: '2026-05-15' } })
+      fireEvent.click(showButton)
+
+      // Query called with older dates with no reach limit
+      expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
+        { courierId: 'courier-c1', from: '2026-05-01', to: '2026-05-15' },
+        { skip: false, pollingInterval: 0 }
       )
-    ).toBeInTheDocument()
 
-    // Job details
-    expect(screen.getByText(/Volos Bakery/)).toBeInTheDocument()
-    expect(screen.getByText('del-987')).toBeInTheDocument()
-    expect(screen.getByText(/Delivery pay €10.00/)).toBeInTheDocument()
-    expect(screen.getByText(/Waiting €2.00/)).toBeInTheDocument()
-    expect(screen.getByText(/added/)).toBeInTheDocument()
+      // Old figures and rows are rendered
+      expect(screen.getByText('Sun, 10 May 2026')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Old Town Souvlaki → Syntagma' })).toBeInTheDocument()
+    })
   })
 
-  it('refuses a 32 day range in DayRangeForm and does not call the query', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: { recordedFrom: null, currencyCode: 'EUR', days: [], shifts: [] },
-      isLoading: false,
+  // --- AC-16: No comparison, no averages, no colour/threshold styling ---
+  describe('AC-16: No comparison across riders and no colour/threshold on figures', () => {
+    it('shows no average across riders, no comparison, and plain uncolored figures regardless of values', () => {
+      // Test with low figures on one day and high figures on another
+      const lowDay = makeDay('2026-11-18', {
+        moneyCents: 500,
+        centsPerHour: 200,
+        activeCentsPerHour: 250,
+        centsPerPaidKm: 50,
+        medianPickupWaitSeconds: 1200, // 20 min wait
+      })
+      const highDay = makeDay('2026-11-19', {
+        moneyCents: 8000,
+        centsPerHour: 4000,
+        activeCentsPerHour: 5000,
+        centsPerPaidKm: 600,
+        medianPickupWaitSeconds: 60, // 1 min wait
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-18',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [lowDay, highDay],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      const { container } = render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // 1. No mention of average, ranking, peer, fleet or other riders
+      expect(screen.queryByText(/average/i)).toBeNull()
+      expect(screen.queryByText(/fleet/i)).toBeNull()
+      expect(screen.queryByText(/peer/i)).toBeNull()
+      expect(screen.queryByText(/rank/i)).toBeNull()
+      expect(screen.queryByText(/compare/i)).toBeNull()
+
+      // 2. No value-based color classes on figure paragraphs or elements
+      const allTextElements = container.querySelectorAll('p, span, h3, h4, li')
+      for (const el of Array.from(allTextElements)) {
+        const cls = el.className
+        // No green / red / amber threshold color classes
+        expect(cls).not.toMatch(/\btext-(green|red|emerald|amber|rose|lime)-/)
+        expect(cls).not.toMatch(/\bbg-(green|red|emerald|amber|rose|lime)-/)
+        expect(cls).not.toMatch(/\b(badge|badge-success|badge-danger|badge-warning)\b/)
+      }
     })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-    mockUseGetCourierTimeWorkedQuery.mockClear()
-
-    const fromInput = screen.getByLabelText('From')
-    const toInput = screen.getByLabelText('To')
-    const showButton = screen.getByRole('button', { name: 'Show' })
-
-    // 2026-01-01 to 2026-02-01 = 32 days
-    fireEvent.change(fromInput, { target: { value: '2026-01-01' } })
-    fireEvent.change(toInput, { target: { value: '2026-02-01' } })
-    fireEvent.click(showButton)
-
-    expect(screen.getByRole('alert')).toHaveTextContent('A range may cover at most 31 days.')
-    expect(mockUseGetCourierTimeWorkedQuery).not.toHaveBeenCalled()
   })
 
-  // 1. The day line shows day.moneyCents minus day.unlinkedMoneyCents
-  it('shows day.moneyCents minus day.unlinkedMoneyCents on the day line (€30.00 for 3500 minus 500)', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 7200,
-            jobSeconds: 3600,
-            paidWaitSeconds: 600,
-            unpaidSeconds: 3000,
-            moneyCents: 3500,
-            unlinkedMoneyCents: 500,
-            centsPerHour: 1500,
-          },
-        ],
-        shifts: [],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
+  // --- Preserved spec 0040 AC-15 assertions ---
+  describe('Preserved spec 0040 AC-15 assertions (shifts, breaks, status changes, form, polling, states)', () => {
+    it('calls getCourierTimeWorked with rider id, last 7 Athens days and pollingInterval by default', () => {
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
 
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
+      const today = athensToday()
+      const defaultFrom = addDays(today, -6)
 
-    expect(screen.getByText(/2 h 00 min worked · €30.00 · €15.00 per hour/)).toBeInTheDocument()
-    expect(screen.queryByText('€35.00')).toBeNull()
-  })
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
-  // 2. A shift is placed under the Athens day it started on
-  it('places a shift under the Athens day it started on (2026-11-18T22:30:00Z sits under Thu 19 Nov)', () => {
-    // 2026-11-18T22:30:00Z is 2026-11-19 00:30 in Athens (UTC+2 in Nov).
-    // Slicing UTC string gives '2026-11-18', which is NOT in days, so it would wrongfully fall into 'earlier'.
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            moneyCents: 1500,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 1500,
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-18T22:30:00.000Z',
-            startedBeforeRange: false,
-            endedAt: '2026-11-18T23:30:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            breaks: [],
-            moneyCents: 1500,
-            lateMoneyCents: 0,
-            centsPerHour: 1500,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-
-    // The shift starts at 00:30 Athens on Thu 19 Nov
-    expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
-    expect(screen.getByText(/Thu 19 Nov, 00:30 to 01:30/)).toBeInTheDocument()
-    // It must NOT appear in "Began before these days"
-    expect(screen.queryByText('Began before these days')).toBeNull()
-  })
-
-  // 3. A shift that began before the first day block is under "Began before these days"
-  it('renders shifts that began before the first day block under "Began before these days", newest first', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 3600,
-            jobSeconds: 3600,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 0,
-            moneyCents: 1500,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 1500,
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-19T10:00:00.000Z',
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T11:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 3600,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 0,
-            breaks: [],
-            moneyCents: 1500,
-            lateMoneyCents: 0,
-            centsPerHour: 1500,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-          // Earlier shift 1: 17 Nov
-          {
-            startedAt: '2026-11-17T10:00:00.000Z',
-            startedBeforeRange: true,
-            endedAt: '2026-11-17T12:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 7200,
-            jobSeconds: 7200,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 0,
-            breaks: [],
-            moneyCents: 2500,
-            lateMoneyCents: 0,
-            centsPerHour: 1250,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-          // Earlier shift 2: 18 Nov (newer than 17 Nov)
-          {
-            startedAt: '2026-11-18T10:00:00.000Z',
-            startedBeforeRange: true,
-            endedAt: '2026-11-18T12:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 7200,
-            jobSeconds: 7200,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 0,
-            breaks: [],
-            moneyCents: 3000,
-            lateMoneyCents: 0,
-            centsPerHour: 1500,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-
-    const earlierHeading = screen.getByText('Began before these days')
-    expect(earlierHeading).toBeInTheDocument()
-
-    // Assert newest first: 18 Nov before 17 Nov
-    const shift18 = screen.getByText(/Wed 18 Nov, 12:00 to 14:00/)
-    const shift17 = screen.getByText(/Tue 17 Nov, 12:00 to 14:00/)
-    expect(shift18.compareDocumentPosition(shift17) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  // 4. Order: two days and two shifts come newest first
-  it('renders two days and two shifts in newest first order', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          // Older day first in API response
-          {
-            date: '2026-11-18',
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            moneyCents: 1000,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 1000,
-          },
-          // Newer day second in API response
-          {
-            date: '2026-11-19',
-            workSeconds: 7200,
-            jobSeconds: 3600,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 3600,
-            moneyCents: 2000,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 1000,
-          },
-        ],
-        shifts: [
-          // Older shift on 19 Nov
-          {
-            startedAt: '2026-11-19T08:00:00.000Z', // 10:00 Athens
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T09:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            breaks: [],
-            moneyCents: 1000,
-            lateMoneyCents: 0,
-            centsPerHour: 1000,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-          // Newer shift on 19 Nov
-          {
-            startedAt: '2026-11-19T14:00:00.000Z', // 16:00 Athens
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T15:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            breaks: [],
-            moneyCents: 1000,
-            lateMoneyCents: 0,
-            centsPerHour: 1000,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-
-    // Check days order: Thu 19 Nov comes before Wed 18 Nov
-    const day19 = screen.getByText('Thu, 19 Nov 2026')
-    const day18 = screen.getByText('Wed, 18 Nov 2026')
-    expect(day19.compareDocumentPosition(day18) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    // Check shifts order under 19 Nov: 16:00 comes before 10:00
-    const shiftNewer = screen.getByText(/Thu 19 Nov, 16:00 to 17:00/)
-    const shiftOlder = screen.getByText(/Thu 19 Nov, 10:00 to 11:00/)
-    expect(shiftNewer.compareDocumentPosition(shiftOlder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  // 5. States: loading, error, empty, recordedFrom null, open shift, break, held job vs ended job, centsPerHour null, CUT_OFF admin label, unknown values
-  it('renders loading state', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: undefined,
-      isLoading: true,
-      isFetching: false,
-    })
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
-  })
-
-  it('renders error state when query fails', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: undefined,
-      isLoading: false,
-      isError: true,
-    })
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-    const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Could not load the time worked.')
-  })
-
-  it('renders "No time worked in these days." when no days and no shifts exist', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [],
-        shifts: [],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-    expect(screen.getByText('No time worked in these days.')).toBeInTheDocument()
-  })
-
-  it('renders "today" when recordedFrom is null', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: null,
-        currencyCode: 'EUR',
-        days: [],
-        shifts: [],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-    expect(screen.getByText('Time worked is recorded from today.')).toBeInTheDocument()
-  })
-
-  it('renders open shift, break since, held job with "Not delivered yet", and null centsPerHour as em dash', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 1800,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 0,
-            moneyCents: 0,
-            unlinkedMoneyCents: 0,
-            centsPerHour: null,
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-19T10:00:00.000Z', // 12:00 Athens
-            startedBeforeRange: false,
-            endedAt: null, // open shift
-            onBreakSince: '2026-11-19T10:20:00.000Z', // 12:20 Athens
-            workSeconds: 1800,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 0,
-            breaks: [],
-            moneyCents: 0,
-            lateMoneyCents: 0,
-            centsPerHour: null, // null centsPerHour
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [
-              {
-                deliveryId: 'del-held-1',
-                pickupName: 'Acropolis Grill',
-                acceptedAt: '2026-11-19T10:05:00.000Z',
-                endedAt: null, // job still held
-                endEventType: null,
-                droppedOff: false,
-                deliveryMoneyCents: 0,
-                paidWaitSeconds: 0,
-                compensations: [],
-              },
-            ],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-
-    // Open shift
-    expect(screen.getByText(/still open/)).toBeInTheDocument()
-    // Break since
-    expect(screen.getByText(/\(on a break since 12:20\)/)).toBeInTheDocument()
-    // centsPerHour: null shows "—"
-    expect(screen.getAllByText(/— per hour/)).toHaveLength(2)
-    // Held job
-    expect(screen.getByText(/still held/)).toBeInTheDocument()
-    expect(screen.getByText(/Not delivered yet/)).toBeInTheDocument()
-    expect(screen.queryByText(/Not delivered by this rider/)).toBeNull()
-  })
-
-  it('renders "Not delivered by this rider" for ended job not dropped off', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            moneyCents: 0,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 0,
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-19T10:00:00.000Z',
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T11:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            breaks: [],
-            moneyCents: 0,
-            lateMoneyCents: 0,
-            centsPerHour: 0,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [
-              {
-                deliveryId: 'del-ended-canceled',
-                pickupName: 'Acropolis Grill',
-                acceptedAt: '2026-11-19T10:05:00.000Z',
-                endedAt: '2026-11-19T10:25:00.000Z',
-                endEventType: 'CANCELED',
-                droppedOff: false,
-                deliveryMoneyCents: 0,
-                paidWaitSeconds: 0,
-                compensations: [],
-              },
-            ],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-
-    expect(screen.getByText(/Not delivered by this rider/)).toBeInTheDocument()
-    expect(screen.queryByText(/Not delivered yet/)).toBeNull()
-  })
-
-  it('renders admin label on CUT_OFF change, and falls back to code for unknown status or cause', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            moneyCents: 1000,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 1000,
-          },
-        ],
-        shifts: [
-          {
-            startedAt: '2026-11-19T10:00:00.000Z',
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T11:00:00.000Z',
-            onBreakSince: null,
-            workSeconds: 3600,
-            jobSeconds: 1800,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 1800,
-            breaks: [],
-            moneyCents: 1000,
-            lateMoneyCents: 0,
-            centsPerHour: 1000,
-            currencyCode: 'EUR',
-            statusChanges: [
-              {
-                at: '2026-11-19T10:30:00.000Z',
-                fromStatus: 'ONLINE',
-                toStatus: 'OFFLINE',
-                cause: 'CUT_OFF',
-                byAdmin: true,
-                adminLabel: 'admin@example.com',
-              },
-              {
-                at: '2026-11-19T10:45:00.000Z',
-                fromStatus: 'MY_FUTURE_STATUS' as any,
-                toStatus: 'ONLINE',
-                cause: 'MY_FUTURE_CAUSE' as any,
-                byAdmin: false,
-                adminLabel: null,
-              },
-            ],
-            jobs: [],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-    })
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
-
-    // CUT_OFF with admin label
-    expect(
-      screen.getByText((content) =>
-        content.includes('Online to Offline, by a password change (admin@example.com)')
+      expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
+        {
+          courierId: 'courier-c1',
+          from: defaultFrom,
+          to: today,
+        },
+        { skip: false, pollingInterval: 0 }
       )
-    ).toBeInTheDocument()
+    })
 
-    // Unknown status and cause show their codes directly
-    expect(
-      screen.getByText((content) =>
-        content.includes('MY_FUTURE_STATUS to Online, MY_FUTURE_CAUSE')
+    it('renders shifts with split, break in Athens time, started before these days, and late money', () => {
+      const shift = makeShift('2026-11-19T12:00:00.000Z', {
+        startedBeforeRange: true,
+        endedAt: '2026-11-19T15:00:00.000Z', // 17:00 Athens
+        breaks: [
+          {
+            startedAt: '2026-11-19T13:00:00.000Z', // 15:00 Athens
+            endedAt: '2026-11-19T13:20:00.000Z', // 15:20 Athens
+          },
+        ],
+        lateMoneyCents: 500,
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
+      expect(screen.getByText('Started before these days')).toBeInTheDocument()
+      expect(screen.getByText(/€5.00 of it added later/)).toBeInTheDocument()
+      expect(screen.getByText('Break 15:00 to 15:20')).toBeInTheDocument()
+    })
+
+    it('renders records behind the shift: status changes with admin label, and rider status change', () => {
+      const shift = makeShift('2026-11-19T10:00:00.000Z', {
+        statusChanges: [
+          {
+            at: '2026-11-19T10:00:00.000Z',
+            fromStatus: 'OFFLINE',
+            toStatus: 'ONLINE',
+            cause: 'ADMIN',
+            byAdmin: true,
+            adminLabel: 'coordinator@volos.coop',
+          },
+          {
+            at: '2026-11-19T11:00:00.000Z',
+            fromStatus: 'ONLINE',
+            toStatus: 'OFFLINE',
+            cause: 'RIDER',
+            byAdmin: false,
+            adminLabel: null,
+          },
+        ],
+        jobs: [], // Jobs no longer listed inside shift records
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText('Records behind this shift')).toBeInTheDocument()
+      expect(
+        screen.getByText((content) =>
+          content.includes('Offline to Online, by an admin (coordinator@volos.coop)')
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText((content) =>
+          content.includes('Online to Offline, by the rider')
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('renders admin label on CUT_OFF change, and falls back to code for unknown status or cause', () => {
+      const shift = makeShift('2026-11-19T10:00:00.000Z', {
+        statusChanges: [
+          {
+            at: '2026-11-19T10:30:00.000Z',
+            fromStatus: 'ONLINE',
+            toStatus: 'OFFLINE',
+            cause: 'CUT_OFF',
+            byAdmin: true,
+            adminLabel: 'admin@example.com',
+          },
+          {
+            at: '2026-11-19T10:45:00.000Z',
+            fromStatus: 'MY_FUTURE_STATUS' as any,
+            toStatus: 'ONLINE',
+            cause: 'MY_FUTURE_CAUSE' as any,
+            byAdmin: false,
+            adminLabel: null,
+          },
+        ],
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(
+        screen.getByText((content) =>
+          content.includes('Online to Offline, by a password change (admin@example.com)')
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText((content) =>
+          content.includes('MY_FUTURE_STATUS to Online, MY_FUTURE_CAUSE')
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('refuses a 32 day range in DayRangeForm and does not call the query', () => {
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: { recordedFrom: null, currencyCode: 'EUR', days: [], shifts: [] },
+        isLoading: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+      mockUseGetCourierTimeWorkedQuery.mockClear()
+
+      const fromInput = screen.getByLabelText('From')
+      const toInput = screen.getByLabelText('To')
+      const showButton = screen.getByRole('button', { name: 'Show' })
+
+      // 2026-01-01 to 2026-02-01 = 32 days
+      fireEvent.change(fromInput, { target: { value: '2026-01-01' } })
+      fireEvent.change(toInput, { target: { value: '2026-02-01' } })
+      fireEvent.click(showButton)
+
+      expect(screen.getByRole('alert')).toHaveTextContent('A range may cover at most 31 days.')
+      expect(mockUseGetCourierTimeWorkedQuery).not.toHaveBeenCalled()
+    })
+
+    it('places a shift under the Athens day it started on (2026-11-18T22:30:00Z sits under Thu 19 Nov)', () => {
+      const shift = makeShift('2026-11-18T22:30:00.000Z', {
+        endedAt: '2026-11-18T23:30:00.000Z',
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-14',
+          to: '2026-11-20',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
+      expect(screen.getByText(/Thu 19 Nov, 00:30 to 01:30/)).toBeInTheDocument()
+      expect(screen.queryByText('Began before these days')).toBeNull()
+    })
+
+    it('renders shifts that began before the first day block under "Began before these days", newest first', () => {
+      const shift19 = makeShift('2026-11-19T10:00:00.000Z', { endedAt: '2026-11-19T11:00:00.000Z' })
+      const shift17 = makeShift('2026-11-17T10:00:00.000Z', {
+        startedBeforeRange: true,
+        endedAt: '2026-11-17T12:00:00.000Z',
+      })
+      const shift18 = makeShift('2026-11-18T10:00:00.000Z', {
+        startedBeforeRange: true,
+        endedAt: '2026-11-18T12:00:00.000Z',
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [shift19, shift17, shift18],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText('Began before these days')).toBeInTheDocument()
+      const text18 = screen.getByText(/Wed 18 Nov, 12:00 to 14:00/)
+      const text17 = screen.getByText(/Tue 17 Nov, 12:00 to 14:00/)
+      expect(text18.compareDocumentPosition(text17) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('renders two days and two shifts in newest first order', () => {
+      const day18 = makeDay('2026-11-18')
+      const day19 = makeDay('2026-11-19')
+
+      const shiftOlder = makeShift('2026-11-19T08:00:00.000Z', { endedAt: '2026-11-19T09:00:00.000Z' }) // 10:00 Athens
+      const shiftNewer = makeShift('2026-11-19T14:00:00.000Z', { endedAt: '2026-11-19T15:00:00.000Z' }) // 16:00 Athens
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-18',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [day18, day19],
+          weeks: [],
+          shifts: [shiftOlder, shiftNewer],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      const d19 = screen.getByText('Thu, 19 Nov 2026')
+      const d18 = screen.getByText('Wed, 18 Nov 2026')
+      expect(d19.compareDocumentPosition(d18) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+      const sNewer = screen.getByText(/Thu 19 Nov, 16:00 to 17:00/)
+      const sOlder = screen.getByText(/Thu 19 Nov, 10:00 to 11:00/)
+      expect(sNewer.compareDocumentPosition(sOlder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('renders open shift and break since', () => {
+      const openShift = makeShift('2026-11-19T10:00:00.000Z', {
+        endedAt: null,
+        onBreakSince: '2026-11-19T10:20:00.000Z',
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [openShift],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText(/still open/)).toBeInTheDocument()
+      expect(screen.getByText(/\(on a break since 12:20\)/)).toBeInTheDocument()
+    })
+
+    it('shows end date when shift ends past midnight and time only for same day', () => {
+      const crossDayShift = makeShift('2026-11-19T20:00:00.000Z', {
+        endedAt: '2026-11-21T07:00:00.000Z', // Sat 21 Nov 09:00 Athens
+      })
+      const sameDayShift = makeShift('2026-11-19T10:00:00.000Z', {
+        endedAt: '2026-11-19T12:00:00.000Z', // Thu 19 Nov 14:00 Athens
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [crossDayShift, sameDayShift],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      expect(screen.getByText(/Thu 19 Nov, 22:00 to Sat 21 Nov, 09:00/)).toBeInTheDocument()
+      expect(screen.getByText(/Thu 19 Nov, 12:00 to 14:00/)).toBeInTheDocument()
+    })
+
+    it('polls with pollingInterval when range includes today, and sets pollingInterval 0 when range ends before today', () => {
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: { recordedFrom: null, currencyCode: 'EUR', days: [], weeks: [], shifts: [], jobsInNoShift: [] },
+        isLoading: false,
+      })
+
+      const today = athensToday()
+      const defaultFrom = addDays(today, -6)
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" pollingInterval={30000} />)
+
+      expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
+        { courierId: 'courier-c1', from: defaultFrom, to: today },
+        { skip: false, pollingInterval: 30000 }
       )
-    ).toBeInTheDocument()
-  })
 
-  // 6. Dates past midnight: shift from Thu 19 Nov 22:00 Athens to Sat 21 Nov 09:00 Athens shows end with date, same day shows time only
-  it('shows end date when shift ends past midnight (different Athens day) and time only for same day', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: {
-        recordedFrom: '2026-11-01T00:00:00Z',
-        currencyCode: 'EUR',
-        days: [
-          {
-            date: '2026-11-19',
-            workSeconds: 126000,
-            jobSeconds: 0,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 126000,
-            moneyCents: 0,
-            unlinkedMoneyCents: 0,
-            centsPerHour: 0,
-          },
-        ],
-        shifts: [
-          // Shift ending on a different Athens day
-          {
-            startedAt: '2026-11-19T20:00:00.000Z', // Thu 19 Nov 22:00 Athens
-            startedBeforeRange: false,
-            endedAt: '2026-11-21T07:00:00.000Z', // Sat 21 Nov 09:00 Athens
-            onBreakSince: null,
-            workSeconds: 126000,
-            jobSeconds: 0,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 126000,
-            breaks: [],
-            moneyCents: 0,
-            lateMoneyCents: 0,
-            centsPerHour: 0,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-          // Shift ending on the same Athens day
-          {
-            startedAt: '2026-11-19T10:00:00.000Z', // Thu 19 Nov 12:00 Athens
-            startedBeforeRange: false,
-            endedAt: '2026-11-19T12:00:00.000Z', // Thu 19 Nov 14:00 Athens
-            onBreakSince: null,
-            workSeconds: 7200,
-            jobSeconds: 0,
-            paidWaitSeconds: 0,
-            unpaidSeconds: 7200,
-            breaks: [],
-            moneyCents: 0,
-            lateMoneyCents: 0,
-            centsPerHour: 0,
-            currencyCode: 'EUR',
-            statusChanges: [],
-            jobs: [],
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
+      mockUseGetCourierTimeWorkedQuery.mockClear()
+
+      const yesterday = addDays(today, -1)
+      const pastFrom = addDays(today, -7)
+
+      const fromInput = screen.getByLabelText('From')
+      const toInput = screen.getByLabelText('To')
+      const showButton = screen.getByRole('button', { name: 'Show' })
+
+      fireEvent.change(fromInput, { target: { value: pastFrom } })
+      fireEvent.change(toInput, { target: { value: yesterday } })
+      fireEvent.click(showButton)
+
+      expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
+        { courierId: 'courier-c1', from: pastFrom, to: yesterday },
+        { skip: false, pollingInterval: 0 }
+      )
     })
 
-    render(<CourierTimeWorkedCard courierId="courier-c1" />)
+    it('renders loading, error, empty, and recordedFrom states', () => {
+      // Loading
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: undefined,
+        isLoading: true,
+        isFetching: false,
+      })
+      const { rerender } = render(<CourierTimeWorkedCard courierId="courier-c1" />)
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
 
-    // Cross-day shift: shows end with its date "Sat 21 Nov, 09:00"
-    expect(screen.getByText(/Thu 19 Nov, 22:00 to Sat 21 Nov, 09:00/)).toBeInTheDocument()
+      // Error
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: undefined,
+        isLoading: false,
+        isError: true,
+      })
+      rerender(<CourierTimeWorkedCard courierId="courier-c1" />)
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not load the time worked.')
 
-    // Same day shift: shows time only "14:00"
-    expect(screen.getByText(/Thu 19 Nov, 12:00 to 14:00/)).toBeInTheDocument()
-  })
+      // Empty with null recordedFrom
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          recordedFrom: null,
+          currencyCode: 'EUR',
+          days: [],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+      rerender(<CourierTimeWorkedCard courierId="courier-c1" />)
+      expect(screen.getByText('No time worked in these days.')).toBeInTheDocument()
+      expect(screen.getByText('Time worked is recorded from today.')).toBeInTheDocument()
 
-  // 7. Polling (decision 36.49)
-  it('polls with pollingInterval when range includes today, and sets pollingInterval 0 when range ends before today (decision 36.49)', () => {
-    mockUseGetCourierTimeWorkedQuery.mockReturnValue({
-      currentData: { recordedFrom: null, currencyCode: 'EUR', days: [], shifts: [] },
-      isLoading: false,
+      // Empty with set recordedFrom
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [],
+        },
+        isLoading: false,
+        isFetching: false,
+      })
+      rerender(<CourierTimeWorkedCard courierId="courier-c1" />)
+      expect(screen.getByText('Time worked is recorded from Sun, 1 Nov 2026.')).toBeInTheDocument()
     })
-
-    const today = athensToday()
-    const defaultFrom = addDays(today, -6)
-
-    render(<CourierTimeWorkedCard courierId="courier-c1" pollingInterval={30000} />)
-
-    // Default range ends on today -> pollingInterval 30000
-    expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
-      { courierId: 'courier-c1', from: defaultFrom, to: today },
-      { skip: false, pollingInterval: 30000 }
-    )
-
-    mockUseGetCourierTimeWorkedQuery.mockClear()
-
-    // Change range to end yesterday (before today)
-    const yesterday = addDays(today, -1)
-    const pastFrom = addDays(today, -7)
-
-    const fromInput = screen.getByLabelText('From')
-    const toInput = screen.getByLabelText('To')
-    const showButton = screen.getByRole('button', { name: 'Show' })
-
-    fireEvent.change(fromInput, { target: { value: pastFrom } })
-    fireEvent.change(toInput, { target: { value: yesterday } })
-    fireEvent.click(showButton)
-
-    // Range ending before today -> pollingInterval: 0
-    expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
-      { courierId: 'courier-c1', from: pastFrom, to: yesterday },
-      { skip: false, pollingInterval: 0 }
-    )
   })
 })

@@ -11,11 +11,13 @@ import {
   RIDER_MAX_DAYS,
   STATUS_LABELS,
   CAUSE_LABELS,
-  JOB_END_LABELS,
-  COMPENSATION_LABELS,
+  END_LABELS,
+  formatKm,
+  jobMinutes,
 } from './timeWorkedFormat'
+import type { JobEndLabel } from '../../backend-admin-sdk'
 
-describe('timeWorkedFormat (spec 0040, AC-14, AC-15, AC-18)', () => {
+describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)', () => {
   describe('isDay', () => {
     it('accepts valid calendar dates in YYYY-MM-DD format', () => {
       expect(isDay('2026-11-20')).toBe(true)
@@ -201,7 +203,7 @@ describe('timeWorkedFormat (spec 0040, AC-14, AC-15, AC-18)', () => {
     })
   })
 
-  describe('domain labels', () => {
+  describe('domain labels (spec 0040 AC-15; spec 0042 AC-8)', () => {
     it('maps all status codes to human labels', () => {
       expect(STATUS_LABELS.ONLINE).toBe('Online')
       expect(STATUS_LABELS.OFFLINE).toBe('Offline')
@@ -216,11 +218,97 @@ describe('timeWorkedFormat (spec 0040, AC-14, AC-15, AC-18)', () => {
       expect(CAUSE_LABELS.SYSTEM_START).toBe('when recording began')
     })
 
-    it('maps job end event types and compensations', () => {
-      expect(JOB_END_LABELS.DROPPED_OFF).toBe('delivered')
-      expect(JOB_END_LABELS.CANCELED).toBe('cancelled')
-      expect(COMPENSATION_LABELS.WAITING).toBe('Waiting')
-      expect(COMPENSATION_LABELS.CANCELLATION).toBe('Cancelled job')
+    it('maps every JobEndLabel to human text in END_LABELS (spec 0042 AC-8)', () => {
+      const expected: Record<JobEndLabel, string> = {
+        CANCELLED_AFTER_PICKUP: 'Cancelled after pickup',
+        CANCELLED: 'Cancelled',
+        REMOVED: 'Removed',
+        HANDED_BACK: 'Handed back',
+        REASSIGNED: 'Reassigned',
+        FAILED: 'Failed',
+        ENDED: 'Ended',
+        IN_PROGRESS: 'In progress',
+      }
+      const keys = Object.keys(expected) as JobEndLabel[]
+      expect(Object.keys(END_LABELS)).toHaveLength(keys.length)
+      for (const key of keys) {
+        expect(END_LABELS[key]).toBe(expected[key])
+        expect(typeof END_LABELS[key]).toBe('string')
+        expect(END_LABELS[key].length).toBeGreaterThan(0)
+      }
+    })
+  })
+
+  describe('formatKm (spec 0042 AC-1, AC-3)', () => {
+    it('formats km to exactly one decimal with "km" suffix', () => {
+      expect(formatKm(0)).toBe('0.0 km')
+      expect(formatKm(1)).toBe('1.0 km')
+      expect(formatKm(1.2)).toBe('1.2 km')
+      expect(formatKm(1.24)).toBe('1.2 km')
+      expect(formatKm(1.25)).toBe('1.3 km')
+      expect(formatKm(2.482)).toBe('2.5 km')
+      expect(formatKm(10.04)).toBe('10.0 km')
+      expect(formatKm(10.06)).toBe('10.1 km')
+    })
+  })
+
+  describe('jobMinutes (spec 0042 AC-1, AC-8)', () => {
+    it('rounds accept to endedAt to whole minutes as the server rounds them', () => {
+      // Exactly 20 minutes (1200 seconds)
+      expect(
+        jobMinutes({
+          acceptedAt: '2026-11-20T10:00:00.000Z',
+          endedAt: '2026-11-20T10:20:00.000Z',
+        })
+      ).toBe(20)
+
+      // 20 min 29 sec -> 20 min (rounds down)
+      expect(
+        jobMinutes({
+          acceptedAt: '2026-11-20T10:00:00.000Z',
+          endedAt: '2026-11-20T10:20:29.000Z',
+        })
+      ).toBe(20)
+
+      // 20 min 30 sec -> 21 min (rounds half up)
+      expect(
+        jobMinutes({
+          acceptedAt: '2026-11-20T10:00:00.000Z',
+          endedAt: '2026-11-20T10:20:30.000Z',
+        })
+      ).toBe(21)
+
+      // Under 30 seconds -> 0 min
+      expect(
+        jobMinutes({
+          acceptedAt: '2026-11-20T10:00:00.000Z',
+          endedAt: '2026-11-20T10:00:25.000Z',
+        })
+      ).toBe(0)
+
+      // 45 seconds -> 1 min
+      expect(
+        jobMinutes({
+          acceptedAt: '2026-11-20T10:00:00.000Z',
+          endedAt: '2026-11-20T10:00:45.000Z',
+        })
+      ).toBe(1)
+    })
+
+    it('runs to now when job is still held (endedAt is null)', () => {
+      const acceptedAt = '2026-11-20T10:00:00.000Z'
+      const customNow = Date.parse('2026-11-20T10:14:40.000Z') // 14 min 40 s -> 15 min
+
+      // Passed explicit now
+      expect(jobMinutes({ acceptedAt, endedAt: null }, customNow)).toBe(15)
+
+      // Using default now via Date.now spy
+      const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-20T10:45:00.000Z'))
+      try {
+        expect(jobMinutes({ acceptedAt, endedAt: null })).toBe(45)
+      } finally {
+        dateNowSpy.mockRestore()
+      }
     })
   })
 })
