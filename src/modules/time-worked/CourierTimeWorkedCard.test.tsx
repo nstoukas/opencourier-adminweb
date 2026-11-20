@@ -69,6 +69,8 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
       pickupName: 'Acropolis Grill',
       acceptedAt: '2026-11-19T10:00:00.000Z', // 12:00 Athens
       endedAt: '2026-11-19T10:25:00.000Z', // 12:25 Athens (25 min)
+      endEventType: 'DROPPED_OFF',
+      droppedOff: true,
       deliveryMoneyCents: 800,
       paidWaitSeconds: 0,
       compensations: [],
@@ -490,31 +492,81 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
   // --- AC-16: No comparison, no averages, no colour/threshold styling ---
   describe('AC-16: No comparison across riders and no colour/threshold on figures', () => {
-    it('shows no average across riders, no comparison, and plain uncolored figures regardless of values', () => {
-      // Test with low figures on one day and high figures on another
-      const lowDay = makeDay('2026-11-18', {
-        moneyCents: 500,
-        centsPerHour: 200,
-        activeCentsPerHour: 250,
-        centsPerPaidKm: 50,
-        medianPickupWaitSeconds: 1200, // 20 min wait
-      })
-      const highDay = makeDay('2026-11-19', {
-        moneyCents: 8000,
-        centsPerHour: 4000,
-        activeCentsPerHour: 5000,
-        centsPerPaidKm: 600,
-        medianPickupWaitSeconds: 60, // 1 min wait
-      })
-
+    it('shows no average across riders, fleet comparison, or peer ranking', () => {
       mockUseGetCourierTimeWorkedQuery.mockReturnValue({
         currentData: {
           from: '2026-11-18',
           to: '2026-11-19',
           recordedFrom: '2026-11-01T00:00:00Z',
           currencyCode: 'EUR',
+          days: [makeDay('2026-11-18'), makeDay('2026-11-19')],
+          weeks: [makeWeek('2026-11-16')],
+          shifts: [],
+          jobsInNoShift: [],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // 1. No mention of average, ranking, peer, fleet or other riders
+      expect(screen.queryByText(/average/i)).toBeNull()
+      expect(screen.queryByText(/fleet/i)).toBeNull()
+      expect(screen.queryByText(/peer/i)).toBeNull()
+      expect(screen.queryByText(/rank/i)).toBeNull()
+      expect(screen.queryByText(/compare/i)).toBeNull()
+    })
+
+    it('renders a week and a day with low and high figures with plain text only: no colour/threshold/mark classes, no aria-invalid or data-state, and identical class lists across figures', () => {
+      // Week and day with low figures: centsPerHour 500 (€5.00/h), long pickup wait (1200 s / 20 min)
+      const lowWeek = makeWeek('2026-11-09', {
+        moneyCents: 1500,
+        workSeconds: 10800,
+        centsPerHour: 500,
+        activeCentsPerHour: 600,
+        centsPerPaidKm: 100,
+        medianPickupWaitSeconds: 1200,
+        pickupWaitCount: 5,
+      })
+      const lowDay = makeDay('2026-11-18', {
+        moneyCents: 1500,
+        workSeconds: 10800,
+        centsPerHour: 500,
+        activeCentsPerHour: 600,
+        centsPerPaidKm: 100,
+        medianPickupWaitSeconds: 1200,
+        pickupWaitCount: 5,
+      })
+
+      // Week and day with high figures: centsPerHour 5000 (€50.00/h), short pickup wait (60 s / 1 min)
+      const highWeek = makeWeek('2026-11-16', {
+        moneyCents: 15000,
+        workSeconds: 10800,
+        centsPerHour: 5000,
+        activeCentsPerHour: 6000,
+        centsPerPaidKm: 600,
+        medianPickupWaitSeconds: 60,
+        pickupWaitCount: 1,
+      })
+      const highDay = makeDay('2026-11-19', {
+        moneyCents: 15000,
+        workSeconds: 10800,
+        centsPerHour: 5000,
+        activeCentsPerHour: 6000,
+        centsPerPaidKm: 600,
+        medianPickupWaitSeconds: 60,
+        pickupWaitCount: 1,
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-09',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
           days: [lowDay, highDay],
-          weeks: [],
+          weeks: [lowWeek, highWeek],
           shifts: [],
           jobsInNoShift: [],
         } as CourierTimeWorkedDto,
@@ -524,21 +576,60 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
       const { container } = render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
-      // 1. No mention of average, ranking, peer, fleet or other riders
-      expect(screen.queryByText(/average/i)).toBeNull()
-      expect(screen.queryByText(/fleet/i)).toBeNull()
-      expect(screen.queryByText(/peer/i)).toBeNull()
-      expect(screen.queryByText(/rank/i)).toBeNull()
-      expect(screen.queryByText(/compare/i)).toBeNull()
+      // 1. Elements around two different figures have identical class lists and attributes
+      const lowRateElements = screen.getAllByText(/€5\.00 per hour worked/)
+      const highRateElements = screen.getAllByText(/€50\.00 per hour worked/)
+      expect(lowRateElements).toHaveLength(2) // lowWeek, lowDay
+      expect(highRateElements).toHaveLength(2) // highWeek, highDay
 
-      // 2. No value-based color classes on figure paragraphs or elements
-      const allTextElements = container.querySelectorAll('p, span, h3, h4, li')
-      for (const el of Array.from(allTextElements)) {
-        const cls = el.className
-        // No green / red / amber threshold color classes
-        expect(cls).not.toMatch(/\btext-(green|red|emerald|amber|rose|lime)-/)
-        expect(cls).not.toMatch(/\bbg-(green|red|emerald|amber|rose|lime)-/)
-        expect(cls).not.toMatch(/\b(badge|badge-success|badge-danger|badge-warning)\b/)
+      const lowWeekRates = lowRateElements[0] as HTMLElement
+      const lowDayRates = lowRateElements[1] as HTMLElement
+      const highWeekRates = highRateElements[0] as HTMLElement
+      const highDayRates = highRateElements[1] as HTMLElement
+
+      // Elements around figures must have identical class lists
+      expect(Array.from(lowWeekRates.classList).sort()).toEqual(Array.from(highWeekRates.classList).sort())
+      expect(Array.from(lowDayRates.classList).sort()).toEqual(Array.from(highDayRates.classList).sort())
+      expect(Array.from(lowDayRates.classList).sort()).toEqual(Array.from(lowWeekRates.classList).sort())
+
+      // Elements around figures must have identical attributes (no aria-invalid or data-state set by value)
+      expect(lowWeekRates.getAttribute('class')).toBe(highWeekRates.getAttribute('class'))
+      expect(lowDayRates.getAttribute('class')).toBe(highDayRates.getAttribute('class'))
+      expect(lowWeekRates.getAttribute('aria-invalid')).toBe(highWeekRates.getAttribute('aria-invalid'))
+      expect(lowDayRates.getAttribute('aria-invalid')).toBe(highDayRates.getAttribute('aria-invalid'))
+      expect(lowWeekRates.getAttribute('data-state')).toBe(highWeekRates.getAttribute('data-state'))
+      expect(lowDayRates.getAttribute('data-state')).toBe(highDayRates.getAttribute('data-state'))
+
+      // Also verify period totals paragraphs around figures match class lists
+      const lowTotalsElements = screen.getAllByText(/€15\.00 · 3 drop offs · 3 h 00 min worked/)
+      const highTotalsElements = screen.getAllByText(/€150\.00 · 3 drop offs · 3 h 00 min worked/)
+      expect(lowTotalsElements).toHaveLength(2)
+      expect(highTotalsElements).toHaveLength(2)
+      const lowTotal0 = lowTotalsElements[0] as HTMLElement
+      const lowTotal1 = lowTotalsElements[1] as HTMLElement
+      const highTotal0 = highTotalsElements[0] as HTMLElement
+      const highTotal1 = highTotalsElements[1] as HTMLElement
+      expect(Array.from(lowTotal0.classList).sort()).toEqual(Array.from(highTotal0.classList).sort())
+      expect(Array.from(lowTotal1.classList).sort()).toEqual(Array.from(highTotal1.classList).sort())
+
+      // 2. Fails if any element of the card carries a colour, threshold or mark class:
+      // (text-destructive, text-red-*, text-green-*, text-amber-*, text-warning, text-success,
+      // bg-red-*, bg-green-*, any class containing "destructive", "danger", "warning" or "success")
+      // or an attribute such as aria-invalid or data-state set by a figure's value.
+      const FORBIDDEN_CLASS_PATTERN =
+        /^(text-(destructive|warning|success|red(-.*)?|green(-.*)?|amber(-.*)?)|bg-(red(-.*)?|green(-.*)?))$/i
+      const FORBIDDEN_SUBSTRING_PATTERN = /destructive|danger|warning|success/i
+
+      const allElements = Array.from(container.querySelectorAll('*'))
+      for (const el of allElements) {
+        const classAttr = el.getAttribute('class') || ''
+        const tokens = classAttr.split(/\s+/).filter(Boolean)
+        for (const token of tokens) {
+          expect(token).not.toMatch(FORBIDDEN_CLASS_PATTERN)
+          expect(token).not.toMatch(FORBIDDEN_SUBSTRING_PATTERN)
+        }
+        expect(el.getAttribute('aria-invalid')).toBeNull()
+        expect(el.getAttribute('data-state')).toBeNull()
       }
     })
   })
