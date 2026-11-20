@@ -40,6 +40,53 @@ export interface WorkedJobDto {
     deliveryMoneyCents: number;
     paidWaitSeconds: number;
     compensations: WorkedCompensationDto[];
+    // Spec 0042 (AC-8, AC-12): restaurant to customer km from the quote, the drop off area (a street or
+    // a town, never a door), arrival to pickup in seconds, and how the job ended (null: delivered).
+    paidKm: number | null;
+    dropoffArea: string | null;
+    pickupWaitSeconds: number | null;
+    cancelledAfterPickup: boolean;
+    endLabel: JobEndLabel | null;
+}
+
+// Spec 0042 (AC-8): how a job ended when not in this rider's drop off.
+export type JobEndLabel =
+    | 'CANCELLED_AFTER_PICKUP'
+    | 'CANCELLED'
+    | 'REMOVED'
+    | 'HANDED_BACK'
+    | 'REASSIGNED'
+    | 'FAILED'
+    | 'ENDED'
+    | 'IN_PROGRESS';
+
+// Spec 0042 (AC-1): the figures of one day or one week, worked out on the server.
+export interface EarningsFiguresDto {
+    workSeconds: number;
+    jobSeconds: number;
+    paidWaitSeconds: number;
+    unpaidSeconds: number;
+    // Includes unlinkedMoneyCents; every rate leaves it out.
+    moneyCents: number;
+    unlinkedMoneyCents: number;
+    // The part of unlinkedMoneyCents linked to no job at all.
+    noJobMoneyCents: number;
+    centsPerHour: number | null;
+    activeCentsPerHour: number | null;
+    paidKm: number;
+    centsPerPaidKm: number | null;
+    medianPickupWaitSeconds: number | null;
+    pickupWaitCount: number;
+    dropOffCount: number;
+}
+
+export interface EarningsWeekDto extends EarningsFiguresDto {
+    // The Monday, YYYY-MM-DD.
+    weekStart: string;
+    // The week holds today.
+    soFar: boolean;
+    // Always false for an admin: admins have no reach limit.
+    cutAtReach: boolean;
 }
 
 export interface WorkedShiftDto {
@@ -60,24 +107,25 @@ export interface WorkedShiftDto {
     jobs: WorkedJobDto[];
 }
 
-export interface WorkedDayDto {
+// A day carries the same figures as a week (spec 0042).
+export interface WorkedDayDto extends EarningsFiguresDto {
     date: string;
-    workSeconds: number;
-    jobSeconds: number;
-    paidWaitSeconds: number;
-    unpaidSeconds: number;
-    // Includes unlinkedMoneyCents; centsPerHour leaves it out.
-    moneyCents: number;
-    centsPerHour: number | null;
-    unlinkedMoneyCents: number;
 }
 
 export interface CourierTimeWorkedDto {
+    // Spec 0042: the days asked for, as the server read them.
+    from: string;
+    to: string;
     // When recording began for the instance; null while nothing is recorded.
     recordedFrom: string | null;
     currencyCode: string;
     days: WorkedDayDto[];
+    // Spec 0042: every Monday to Sunday week that overlaps the range, with its own figures.
+    weeks: EarningsWeekDto[];
+    // Shifts overlapping the range, each with only the jobs accepted inside it.
     shifts: WorkedShiftDto[];
+    // Spec 0042: jobs in the range that sit in no recorded shift.
+    jobsInNoShift: WorkedJobDto[];
 }
 
 // One period of the co-op totals. Never a rider id (AC-16).

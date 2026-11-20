@@ -1,4 +1,4 @@
-import type { TimeWorkedChangeCause, TimeWorkedCourierStatus } from '../../backend-admin-sdk'
+import type { JobEndLabel, TimeWorkedChangeCause, TimeWorkedCourierStatus } from '../../backend-admin-sdk'
 import { athensToday } from '../dispatch-stop/dispatchStopDisplay'
 
 // Spec 0040: plain helpers for the Time worked page and a rider's Time worked card. Days are
@@ -118,27 +118,24 @@ export const CAUSE_LABELS: Record<TimeWorkedChangeCause, string> = {
   SYSTEM_START: 'when recording began',
 }
 
-// The words for each kind of extra pay, as the delivery page names them.
-export const COMPENSATION_LABELS: Record<string, string> = {
-  CANCELLATION: 'Cancelled job',
-  REASSIGNMENT: 'Reassigned job',
-  WAITING: 'Waiting',
-  REMOVAL: 'Removal from an order',
-  RETURN_TRIP: 'Return trip',
-  REVIEW: 'Review correction',
+// Spec 0042 (AC-8): how a job ended when not in this rider's drop off, the rider app's words.
+export const END_LABELS: Record<JobEndLabel, string> = {
+  CANCELLED_AFTER_PICKUP: 'Cancelled after pickup',
+  CANCELLED: 'Cancelled',
+  REMOVED: 'Removed',
+  HANDED_BACK: 'Handed back',
+  REASSIGNED: 'Reassigned',
+  FAILED: 'Failed',
+  ENDED: 'Ended',
+  IN_PROGRESS: 'In progress',
 }
 
-// How a job ended, in words.
-export const JOB_END_LABELS: Record<string, string> = {
-  DROPPED_OFF: 'delivered',
-  CANCELED: 'cancelled',
-  FAILED: 'failed',
-  REASSIGNED: 'reassigned',
-  RETURNED_TO_WAITING: 'returned to waiting',
-  HANDED_BACK: 'handed back',
-  WAIT_UNDISPATCHED: 'left after waiting',
-  REMOVAL_APPROVED: 'removed',
-  ACCEPTED: 'taken by another rider',
-  FOOD_RETURNED: 'food returned',
-  FOOD_NOT_RETURNED: 'food not returned',
+// "1.2 km", one decimal (spec 0042 AC-1).
+export function formatKm(km: number): string {
+  return `${(Math.round(km * 10) / 10).toFixed(1)} km`
+}
+
+// Accept to the job's end (or now, while held), in whole minutes, rounded as the server rounds them.
+export function jobMinutes(job: { acceptedAt: string; endedAt: string | null }, now: number = Date.now()): number {
+  return Math.round(((job.endedAt ? Date.parse(job.endedAt) : now) - Date.parse(job.acceptedAt)) / 60_000)
 }

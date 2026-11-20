@@ -1,20 +1,22 @@
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
 import { useGetCourierTimeWorkedQuery } from '@/api/timeWorkedApi'
-import type { WorkedDayDto, WorkedShiftDto } from '@/backend-admin-sdk'
-import { athensDateTime, athensEnd, athensToday } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import type { EarningsFiguresDto, WorkedDayDto, WorkedJobDto, WorkedShiftDto } from '@/backend-admin-sdk'
+import { athensDateTime, athensEnd, athensTime, athensToday } from '@/modules/dispatch-stop/dispatchStopDisplay'
 import { formatMoney } from '@/utils/formatMoney'
 import { DayRangeForm } from './DayRangeForm'
 import {
   CAUSE_LABELS,
-  COMPENSATION_LABELS,
   DayRange,
-  JOB_END_LABELS,
+  END_LABELS,
   RIDER_MAX_DAYS,
   STATUS_LABELS,
   addDays,
   formatDay,
   formatDuration,
+  formatKm,
+  jobMinutes,
 } from './timeWorkedFormat'
 
 const dayTitle = (day: string) => formatDay(day)
@@ -28,6 +30,54 @@ function Split({ job, wait, unpaid }: { job: number; wait: number; unpaid: numbe
     <p className="text-muted-foreground">
       Jobs {formatDuration(job)} · Paid waiting {formatDuration(wait)} · Unpaid {formatDuration(unpaid)}
     </p>
+  )
+}
+
+// Spec 0042 (AC-1, AC-15): the four figures of a day or a week, as the rider's Earnings screen shows
+// them. Plain text: no colour, threshold or mark, and never a figure from another rider (AC-16).
+function Figures({ figures, currencyCode }: { figures: EarningsFiguresDto; currencyCode: string }) {
+  const money = (cents: number | null) => (cents === null ? '—' : formatMoney(cents, currencyCode) ?? '—')
+  const wait =
+    figures.medianPickupWaitSeconds === null
+      ? '—'
+      : `${Math.round(figures.medianPickupWaitSeconds / 60)} min (${figures.pickupWaitCount} ${
+          figures.pickupWaitCount === 1 ? 'wait' : 'waits'
+        })`
+  return (
+    <>
+      <p>
+        {money(figures.moneyCents)} · {figures.dropOffCount} {figures.dropOffCount === 1 ? 'drop off' : 'drop offs'} ·{' '}
+        {formatDuration(figures.workSeconds)} worked
+      </p>
+      <p>
+        {money(figures.centsPerHour)} per hour worked · {money(figures.activeCentsPerHour)} per hour on a job ·{' '}
+        {money(figures.centsPerPaidKm)} per paid km · typical pickup wait {wait}
+      </p>
+      <Split job={figures.jobSeconds} wait={figures.paidWaitSeconds} unpaid={figures.unpaidSeconds} />
+      {figures.noJobMoneyCents > 0 ? (
+        <p className="text-muted-foreground">{money(figures.noJobMoneyCents)} paid that is not linked to a job</p>
+      ) : null}
+    </>
+  )
+}
+
+// Spec 0042 (AC-8, AC-15): one job as the rider's list shows it, linked to the delivery's own admin page
+// for its pay breakdown and events.
+function JobRow({ job, currencyCode, inNoShift }: { job: WorkedJobDto; currencyCode: string; inNoShift: boolean }) {
+  const money = job.compensations.reduce((sum, c) => sum + c.amountCents, job.deliveryMoneyCents)
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2">
+      <span className="font-medium tabular-nums">{athensTime(job.acceptedAt)}</span>
+      <Link href={`/deliveries/${job.deliveryId}`} className="underline underline-offset-2">
+        {job.pickupName} → {job.dropoffArea ?? '—'}
+      </Link>
+      <span className="text-muted-foreground">
+        {job.paidKm === null ? '—' : formatKm(job.paidKm)} · {jobMinutes(job)} min
+        {job.endLabel ? ` · ${END_LABELS[job.endLabel]}` : ''}
+        {inNoShift ? ' · not in a recorded shift' : ''}
+      </span>
+      <span className="ml-auto tabular-nums">{formatMoney(money, currencyCode) ?? '—'}</span>
+    </li>
   )
 }
 
@@ -66,53 +116,40 @@ function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
             </li>
           ))}
         </ul>
-        {shift.jobs.length > 0 ? (
-          <>
-            <h4 className="mt-2 font-medium">Jobs</h4>
-            <ul>
-              {shift.jobs.map((job) => (
-                <li key={`${job.deliveryId}-${job.acceptedAt}`} className="mt-1">
-                  {at(job.acceptedAt)} to{' '}
-                  {job.endedAt
-                    ? `${athensEnd(job.acceptedAt, job.endedAt)}, ${JOB_END_LABELS[job.endEventType ?? ''] ?? 'ended'}`
-                    : 'still held'}{' '}
-                  · {job.pickupName} · <span className="font-mono text-xs">{job.deliveryId}</span>
-                  <br />
-                  {/* A job still held has no delivery pay yet; only an ended job was "not delivered" (review). */}
-                  {job.droppedOff
-                    ? `Delivery pay ${money(job.deliveryMoneyCents)}`
-                    : job.endedAt
-                    ? 'Not delivered by this rider'
-                    : 'Not delivered yet'}
-                  {job.compensations.map((c) => (
-                    <React.Fragment key={c.id}>
-                      <br />
-                      {COMPENSATION_LABELS[c.reason] ?? c.reason} {money(c.amountCents)}
-                      {c.addedLater ? `, added ${athensDateTime(c.createdAt)}` : ''}
-                    </React.Fragment>
-                  ))}
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null}
       </details>
     </li>
   )
 }
 
-function DayItem({ day, shifts, currencyCode }: { day: WorkedDayDto; shifts: WorkedShiftDto[]; currencyCode: string }) {
-  const money = (cents: number | null) => (cents === null ? '—' : formatMoney(cents, currencyCode) ?? '—')
+function DayItem({
+  day,
+  shifts,
+  jobs,
+  currencyCode,
+}: {
+  day: WorkedDayDto
+  shifts: WorkedShiftDto[]
+  jobs: { job: WorkedJobDto; inNoShift: boolean }[]
+  currencyCode: string
+}) {
   return (
     <li className="border-t border-border pt-3">
       <h3 className="font-semibold">{dayTitle(day.date)}</h3>
-      <p>
-        {formatDuration(day.workSeconds)} worked · {money(day.moneyCents - day.unlinkedMoneyCents)} ·{' '}
-        {money(day.centsPerHour)} per hour
-      </p>
-      <Split job={day.jobSeconds} wait={day.paidWaitSeconds} unpaid={day.unpaidSeconds} />
-      {day.unlinkedMoneyCents > 0 ? (
-        <p className="text-muted-foreground">{money(day.unlinkedMoneyCents)} paid for work outside a recorded shift</p>
+      <Figures figures={day} currencyCode={currencyCode} />
+      {jobs.length > 0 ? (
+        <>
+          <h4 className="mt-2 font-medium">Jobs accepted this day</h4>
+          <ul className="flex flex-col gap-1">
+            {jobs.map(({ job, inNoShift }) => (
+              <JobRow
+                key={`${job.deliveryId}-${job.acceptedAt}`}
+                job={job}
+                currencyCode={currencyCode}
+                inNoShift={inNoShift}
+              />
+            ))}
+          </ul>
+        </>
       ) : null}
       {shifts.length > 0 ? (
         <ul className="mt-2 flex flex-col gap-2">
@@ -126,7 +163,8 @@ function DayItem({ day, shifts, currencyCode }: { day: WorkedDayDto; shifts: Wor
 }
 
 // Spec 0040, AC-15: this rider's time worked, the same days, shifts and records the rider sees in the
-// app, plus which admin made an admin caused change. It is here to answer the rider's questions and
+// app, plus which admin made an admin caused change. Spec 0042 (AC-15) adds the Earnings figures for
+// each week and day and each day's job rows, with no reach limit. It is here to answer the rider's questions and
 // review requests (36.3, 36.8); nothing on this page compares it with another rider (AC-16).
 // `pollingInterval` is the rider page's own (0 while the tab is hidden). The card polls with it only
 // while its range includes today, since an open shift is the only thing that moves and each read costs
@@ -160,6 +198,13 @@ export function CourierTimeWorkedCard({
   const earlier = (data?.shifts ?? [])
     .filter((shift) => !shownDays.some((day) => day.date === athensToday(new Date(shift.startedAt))))
     .reverse()
+  // Spec 0042 (AC-8): a day's job rows are the jobs accepted that Athens day, in or out of a shift.
+  const allJobs = [
+    ...(data?.shifts ?? []).flatMap((shift) => shift.jobs.map((job) => ({ job, inNoShift: false }))),
+    ...(data?.jobsInNoShift ?? []).map((job) => ({ job, inNoShift: true })),
+  ].sort((a, b) => (a.job.acceptedAt < b.job.acceptedAt ? -1 : 1))
+  const jobsOn = (date: string) => allJobs.filter(({ job }) => athensToday(new Date(job.acceptedAt)) === date)
+  const weeks = [...(data?.weeks ?? [])].reverse()
 
   return (
     <Card>
@@ -187,8 +232,23 @@ export function CourierTimeWorkedCard({
               <p className="text-muted-foreground">No time worked in these days.</p>
             ) : (
               <ul className="flex flex-col gap-3">
+                {weeks.map((week) => (
+                  <li key={week.weekStart} className="pt-1">
+                    <h3 className="font-semibold">
+                      Week {formatDay(week.weekStart)} to {formatDay(addDays(week.weekStart, 6))}
+                      {week.soFar ? ' (so far)' : ''}
+                    </h3>
+                    <Figures figures={week} currencyCode={data.currencyCode} />
+                  </li>
+                ))}
                 {shownDays.map((day) => (
-                  <DayItem key={day.date} day={day} shifts={shiftsOn(day.date)} currencyCode={data.currencyCode} />
+                  <DayItem
+                    key={day.date}
+                    day={day}
+                    shifts={shiftsOn(day.date)}
+                    jobs={jobsOn(day.date)}
+                    currencyCode={data.currencyCode}
+                  />
                 ))}
                 {earlier.length > 0 ? (
                   <li className="border-t border-border pt-3">
