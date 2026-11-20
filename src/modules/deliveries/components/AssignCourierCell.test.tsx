@@ -11,8 +11,8 @@ import { Toaster } from '../../../admin-web-components'
 
 // Mock Radix Select primitive using React Context so SelectItems update state in JSDOM tests
 jest.mock('@radix-ui/react-select', () => {
-  const React = require('react') as typeof import('react')
-  const SelectContext = React.createContext<{ onValueChange?: (v: string) => void }>({})
+  const MockReact = require('react') as typeof import('react')
+  const SelectContext = MockReact.createContext<{ onValueChange?: (v: string) => void }>({})
   return {
     Root: ({ children, onValueChange }: any) => (
       <SelectContext.Provider value={{ onValueChange }}>
@@ -26,7 +26,7 @@ jest.mock('@radix-ui/react-select', () => {
     Content: ({ children }: any) => <div>{children}</div>,
     Viewport: ({ children }: any) => <div>{children}</div>,
     Item: ({ children, value, ...props }: any) => {
-      const { onValueChange } = React.useContext(SelectContext)
+      const { onValueChange } = MockReact.useContext(SelectContext)
       return (
         <div
           role="option"

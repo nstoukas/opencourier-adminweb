@@ -2,7 +2,7 @@ import { BackendAdminSdk } from './backend-admin-sdk'
 import { ApiError } from './errors'
 
 describe('BackendAdminSdk error conversion (spec 0043, AC-6)', () => {
-  const sdk = new BackendAdminSdk('test-token')
+  const sdk = new BackendAdminSdk({ accessToken: 'test-token' })
 
   it('converts 409 BOX_OVER_CAPACITY body with heldUnits and deliveryUnits to ApiError with both numbers', () => {
     const errorBody = {
@@ -13,7 +13,7 @@ describe('BackendAdminSdk error conversion (spec 0043, AC-6)', () => {
       deliveryUnits: 60,
     }
 
-    const converted = sdk.convertApiError(errorBody)
+    const converted = (sdk as any).convertApiError(errorBody)
 
     expect(converted).toBeInstanceOf(ApiError)
     const apiError = converted as ApiError
@@ -30,7 +30,7 @@ describe('BackendAdminSdk error conversion (spec 0043, AC-6)', () => {
       statusCode: 400,
     }
 
-    const converted400 = sdk.convertApiError(regularError) as ApiError
+    const converted400 = (sdk as any).convertApiError(regularError) as ApiError
     expect(converted400).toBeInstanceOf(ApiError)
     expect(converted400.heldUnits).toBeUndefined()
     expect(converted400.deliveryUnits).toBeUndefined()
@@ -43,7 +43,7 @@ describe('BackendAdminSdk error conversion (spec 0043, AC-6)', () => {
       deliveryUnits: null,
     }
 
-    const convertedMalformed = sdk.convertApiError(nonNumberUnitsError) as ApiError
+    const convertedMalformed = (sdk as any).convertApiError(nonNumberUnitsError) as ApiError
     expect(convertedMalformed).toBeInstanceOf(ApiError)
     expect(convertedMalformed.heldUnits).toBeUndefined()
     expect(convertedMalformed.deliveryUnits).toBeUndefined()

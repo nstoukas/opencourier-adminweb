@@ -77,6 +77,7 @@ describe('DeliverySubmitEventAdminInput SDK serialization guards (spec 0015, AC-
     // Load-bearing test guard: confirmOverCapacity must survive serialization
     // so an admin's override past a full box reaches the backend.
     const inputWithConfirm: DeliverySubmitEventAdminInput = {
+      deliveryId: 'del-1',
       eventType: 'ACCEPTED' as any,
       courierId: 'courier-1',
       confirmOverCapacity: true,
@@ -85,6 +86,7 @@ describe('DeliverySubmitEventAdminInput SDK serialization guards (spec 0015, AC-
     expect(json.confirmOverCapacity).toBe(true)
 
     const inputFalse: DeliverySubmitEventAdminInput = {
+      deliveryId: 'del-1',
       eventType: 'ACCEPTED' as any,
       courierId: 'courier-2',
       confirmOverCapacity: false,

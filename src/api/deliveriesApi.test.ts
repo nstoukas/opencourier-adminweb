@@ -9,6 +9,8 @@ import {
   useCreateDeliveryProductReportMutation,
   useResolveProductReportMutation,
   useMarkDeliveryIssueHandledMutation,
+  useAssignDeliveryToCourierMutation,
+  useReassignDeliveryMutation,
 } from './deliveriesApi'
 import { prepareAdminSdk } from '.'
 import { Tags } from './utils/tags'
@@ -60,6 +62,7 @@ describe('deliveriesApi endpoints', () => {
   let mockCreateDeliveryProductReport: jest.Mock
   let mockResolveProductReport: jest.Mock
   let mockMarkDeliveryIssueHandled: jest.Mock
+  let mockReassignDelivery: jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -72,6 +75,7 @@ describe('deliveriesApi endpoints', () => {
     mockCreateDeliveryProductReport = jest.fn()
     mockResolveProductReport = jest.fn()
     mockMarkDeliveryIssueHandled = jest.fn()
+    mockReassignDelivery = jest.fn()
     mockPrepareAdminSdk.mockReturnValue({
       deliveries: () => ({
         getDeliveryIssues: mockGetDeliveryIssues,
@@ -83,6 +87,7 @@ describe('deliveriesApi endpoints', () => {
         createDeliveryProductReport: mockCreateDeliveryProductReport,
         resolveProductReport: mockResolveProductReport,
         markDeliveryIssueHandled: mockMarkDeliveryIssueHandled,
+        reassignDelivery: mockReassignDelivery,
       }),
     })
   })
@@ -522,6 +527,226 @@ describe('deliveriesApi endpoints', () => {
       expect(mockGetDeliveryIssues).toHaveBeenCalledTimes(2)
 
       sub.unsubscribe()
+    })
+  })
+
+  describe('assignDeliveryToCourier endpoint (spec 0043, AC-6, AC-8)', () => {
+    it('exports useAssignDeliveryToCourierMutation hook function', () => {
+      expect(typeof useAssignDeliveryToCourierMutation).toBe('function')
+    })
+
+    it('defines assignDeliveryToCourier endpoint on deliveriesApi', () => {
+      expect(deliveriesApi.endpoints.assignDeliveryToCourier).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.assignDeliveryToCourier.initiate).toBe('function')
+    })
+
+    it('calls submitOrderEvent with deliverySubmitEventAdminInput.confirmOverCapacity true when given true', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockDelivery: DeliveryAdminDto = {
+        id: 'del-201',
+        status: 'ACCEPTED',
+        currencyCode: 'EUR',
+      } as any
+
+      mockSubmitOrderEvent.mockResolvedValueOnce(mockDelivery)
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.assignDeliveryToCourier.initiate({
+          deliveryId: 'del-201',
+          courierId: 'c-101',
+          confirmOverCapacity: true,
+        })
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockSubmitOrderEvent).toHaveBeenCalledWith({
+        id: 'del-201',
+        deliverySubmitEventAdminInput: {
+          deliveryId: 'del-201',
+          eventType: EnumDeliveryEventType.ACCEPTED,
+          courierId: 'c-101',
+          confirmOverCapacity: true,
+        },
+      })
+      expect('data' in result ? result.data : undefined).toEqual(mockDelivery)
+    })
+
+    it('calls submitOrderEvent with deliverySubmitEventAdminInput.confirmOverCapacity false or absent when not given', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockDelivery: DeliveryAdminDto = {
+        id: 'del-202',
+        status: 'ACCEPTED',
+        currencyCode: 'EUR',
+      } as any
+
+      // Explicitly false
+      mockSubmitOrderEvent.mockResolvedValueOnce(mockDelivery)
+      await store.dispatch(
+        deliveriesApi.endpoints.assignDeliveryToCourier.initiate({
+          deliveryId: 'del-202',
+          courierId: 'c-102',
+          confirmOverCapacity: false,
+        })
+      )
+
+      expect(mockSubmitOrderEvent).toHaveBeenLastCalledWith({
+        id: 'del-202',
+        deliverySubmitEventAdminInput: {
+          deliveryId: 'del-202',
+          eventType: EnumDeliveryEventType.ACCEPTED,
+          courierId: 'c-102',
+          confirmOverCapacity: false,
+        },
+      })
+
+      // Omitted / absent
+      mockSubmitOrderEvent.mockResolvedValueOnce(mockDelivery)
+      await store.dispatch(
+        deliveriesApi.endpoints.assignDeliveryToCourier.initiate({
+          deliveryId: 'del-202',
+          courierId: 'c-102',
+        })
+      )
+
+      expect(mockSubmitOrderEvent).toHaveBeenLastCalledWith({
+        id: 'del-202',
+        deliverySubmitEventAdminInput: {
+          deliveryId: 'del-202',
+          eventType: EnumDeliveryEventType.ACCEPTED,
+          courierId: 'c-102',
+          confirmOverCapacity: undefined,
+        },
+      })
+    })
+
+    it('handles SDK rejection (e.g. 409 BOX_OVER_CAPACITY): sets error and leaves data undefined', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const apiError = new ApiError('BOX_OVER_CAPACITY' as any, 'Assignment would exceed courier box capacity', 409)
+      mockSubmitOrderEvent.mockRejectedValueOnce(apiError)
+
+      const result: any = await store.dispatch(
+        deliveriesApi.endpoints.assignDeliveryToCourier.initiate({
+          deliveryId: 'del-203',
+          courierId: 'c-103',
+          confirmOverCapacity: false,
+        })
+      )
+
+      expect(result.error).toBeDefined()
+      expect(result.error).toEqual(apiError)
+      expect(result.data).toBeUndefined()
+    })
+  })
+
+  describe('reassignDelivery endpoint (spec 0043, AC-6, AC-8)', () => {
+    it('exports useReassignDeliveryMutation hook function', () => {
+      expect(typeof useReassignDeliveryMutation).toBe('function')
+    })
+
+    it('defines reassignDelivery endpoint on deliveriesApi', () => {
+      expect(deliveriesApi.endpoints.reassignDelivery).toBeDefined()
+      expect(typeof deliveriesApi.endpoints.reassignDelivery.initiate).toBe('function')
+    })
+
+    it('calls reassignDelivery with deliveryReassignAdminInput.confirmOverCapacity true when given true', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockDelivery: DeliveryAdminDto = {
+        id: 'del-301',
+        status: 'ACCEPTED',
+        currencyCode: 'EUR',
+      } as any
+
+      mockReassignDelivery.mockResolvedValueOnce(mockDelivery)
+
+      const payload = {
+        deliveryId: 'del-301',
+        courierId: 'c-201',
+        payoutPolicy: 'HALF',
+        message: 'Reassigned due to full box override',
+        confirmOverCapacity: true,
+      }
+
+      const result = await store.dispatch(
+        deliveriesApi.endpoints.reassignDelivery.initiate(payload)
+      )
+
+      expect(mockPrepareAdminSdk).toHaveBeenCalledWith('valid-admin-token')
+      expect(mockReassignDelivery).toHaveBeenCalledWith({
+        id: 'del-301',
+        deliveryReassignAdminInput: {
+          courierId: 'c-201',
+          payoutPolicy: 'HALF',
+          message: 'Reassigned due to full box override',
+          confirmOverCapacity: true,
+        },
+      })
+      expect('data' in result ? result.data : undefined).toEqual(mockDelivery)
+    })
+
+    it('calls reassignDelivery with deliveryReassignAdminInput.confirmOverCapacity false or absent when not given', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const mockDelivery: DeliveryAdminDto = {
+        id: 'del-302',
+        status: 'ACCEPTED',
+        currencyCode: 'EUR',
+      } as any
+
+      // Explicitly false
+      mockReassignDelivery.mockResolvedValueOnce(mockDelivery)
+      await store.dispatch(
+        deliveriesApi.endpoints.reassignDelivery.initiate({
+          deliveryId: 'del-302',
+          courierId: 'c-202',
+          confirmOverCapacity: false,
+        })
+      )
+
+      expect(mockReassignDelivery).toHaveBeenLastCalledWith({
+        id: 'del-302',
+        deliveryReassignAdminInput: {
+          courierId: 'c-202',
+          payoutPolicy: undefined,
+          message: undefined,
+          confirmOverCapacity: false,
+        },
+      })
+
+      // Omitted / absent
+      mockReassignDelivery.mockResolvedValueOnce(mockDelivery)
+      await store.dispatch(
+        deliveriesApi.endpoints.reassignDelivery.initiate({
+          deliveryId: 'del-302',
+          courierId: 'c-202',
+        })
+      )
+
+      expect(mockReassignDelivery).toHaveBeenLastCalledWith({
+        id: 'del-302',
+        deliveryReassignAdminInput: {
+          courierId: 'c-202',
+          payoutPolicy: undefined,
+          message: undefined,
+          confirmOverCapacity: undefined,
+        },
+      })
+    })
+
+    it('handles SDK rejection (e.g. 409 BOX_OVER_CAPACITY): sets error and leaves data undefined', async () => {
+      const store = setupTestStore('valid-admin-token')
+      const apiError = new ApiError('BOX_OVER_CAPACITY' as any, 'Reassignment would exceed courier box capacity', 409)
+      mockReassignDelivery.mockRejectedValueOnce(apiError)
+
+      const result: any = await store.dispatch(
+        deliveriesApi.endpoints.reassignDelivery.initiate({
+          deliveryId: 'del-303',
+          courierId: 'c-203',
+          confirmOverCapacity: false,
+        })
+      )
+
+      expect(result.error).toBeDefined()
+      expect(result.error).toEqual(apiError)
+      expect(result.data).toBeUndefined()
     })
   })
 })
