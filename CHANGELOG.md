@@ -68,6 +68,8 @@ Scope row 90 (the Dispatch board, spec 0034) was built on the branch `feat/dispa
 Scope row 23 (restaurant delay pay and leaving a late order, spec 0033) was built on the branch `feat/wait-pay` and merged in on 9 November, behind `waitPayEnabled`, off by default. A "Restaurant delays" section on the Co-op settings page holds the Delay pay switch, the free minutes, the pay per minute and the minutes before a rider can leave. The delivery page lists what the restaurant was charged for waits ("Restaurant delay charges"), the issue list has "Marked ready but not ready", and the private event type copy gains `WAIT_UNDISPATCHED` and `COURIER_PAID_FOR_WAIT`.
 
 
+Scope row 36 (paid and unpaid time per shift, spec 0040) was built on the branch `feat/time-worked` and merged in on 20 November. A new Co-op → Time worked page shows the co-op's hours by day or by Monday week over a chosen range (at most 92 days, kept in the URL): riders who worked, time worked, jobs, paid waiting, unpaid time and its share, money, money outside a recorded shift and € per hour. It has no sort, no link and no field naming a rider, and a week cut by the range says which part it covers. A rider's page gains a Time worked card with the same days, shifts, breaks and records the rider sees, plus the admin who made an admin caused change; it refreshes with the page while its range includes today, and shows dates on times past midnight. Instance configuration gains a Time worked card for `shiftBreakMinutes`. Commits `c5fc3ac` to `df67553`; decisions 36.44 and 36.49.
+
 ## Added
 
 On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
