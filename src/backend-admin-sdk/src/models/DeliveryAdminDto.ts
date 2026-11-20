@@ -74,6 +74,13 @@ export interface DeliveryAdminDto {
      */
     pickupDeadlineAt: Date;
     /**
+     * Spec 0043: the size, the box units it took at creation (of a rider's 100), and whether no size
+     * was sent (the default was used). Optional: an older backend sends none. Hand edited (row 9).
+     */
+    boxSize?: string;
+    boxUnits?: number;
+    boxSizeAssumed?: boolean;
+    /**
      * 
      * @type {string}
      * @memberof DeliveryAdminDto
@@ -526,6 +533,9 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'pickupLocationId': json['pickupLocationId'],
         'pickupReadyAt': (new Date(json['pickupReadyAt'])),
         'pickupDeadlineAt': (new Date(json['pickupDeadlineAt'])),
+        'boxSize': !exists(json, 'boxSize') ? undefined : json['boxSize'],
+        'boxUnits': !exists(json, 'boxUnits') ? undefined : json['boxUnits'],
+        'boxSizeAssumed': !exists(json, 'boxSizeAssumed') ? undefined : json['boxSizeAssumed'],
         'dropoffName': json['dropoffName'],
         'dropoffPhoneNumber': json['dropoffPhoneNumber'],
         'dropoffBusinessName': json['dropoffBusinessName'],
@@ -608,6 +618,9 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'pickupLocationId': value.pickupLocationId,
         'pickupReadyAt': (value.pickupReadyAt.toISOString()),
         'pickupDeadlineAt': (value.pickupDeadlineAt.toISOString()),
+        'boxSize': value.boxSize,
+        'boxUnits': value.boxUnits,
+        'boxSizeAssumed': value.boxSizeAssumed,
         'dropoffName': value.dropoffName,
         'dropoffPhoneNumber': value.dropoffPhoneNumber,
         'dropoffBusinessName': value.dropoffBusinessName,

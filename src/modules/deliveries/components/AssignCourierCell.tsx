@@ -21,6 +21,7 @@ import {
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { DeliveryAdminDtoStatusEnum } from '../../../backend-admin-sdk'
 import { useState } from 'react'
+import { BoxOverCapacity, BoxOverCapacityWarning, boxOverCapacityOf } from './BoxOverCapacityWarning'
 
 // Only the fields these read, so the Dispatch board can pass its row without fetching the delivery
 // (spec 0034, AC-4). `Pick` makes a type from a few fields of another type.
@@ -35,6 +36,8 @@ export function isDeliveryAwaitingCourierAssignment(delivery: AssignableDelivery
 export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }) {
   const [open, setOpen] = useState(false)
   const [courierId, setCourierId] = useState<string>()
+  // Spec 0043 (AC-6): set when the backend said this rider's box would overfill; the next tap confirms.
+  const [overCapacity, setOverCapacity] = useState<BoxOverCapacity | null>(null)
   const { toast } = useToast()
   const [assignCourier, { isLoading }] = useAssignDeliveryToCourierMutation()
   const { data: couriers = [], isLoading: couriersLoading } = useGetAllCouriersQuery(undefined, {
@@ -49,11 +52,17 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
       return
     }
     try {
-      await assignCourier({ deliveryId: delivery.id, courierId }).unwrap()
+      await assignCourier({ deliveryId: delivery.id, courierId, confirmOverCapacity: overCapacity !== null }).unwrap()
       toast({ title: 'Courier assigned' })
       setOpen(false)
       setCourierId(undefined)
-    } catch {
+      setOverCapacity(null)
+    } catch (error) {
+      const over = boxOverCapacityOf(error)
+      if (over && overCapacity === null) {
+        setOverCapacity(over)
+        return
+      }
       toast({
         title: 'Assignment failed',
         description: 'Ensure the API accepts courierId on admin submit-event (opencourier-backend).',
@@ -72,7 +81,10 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
         open={open}
         onOpenChange={(next) => {
           setOpen(next)
-          if (!next) setCourierId(undefined)
+          if (!next) {
+            setCourierId(undefined)
+            setOverCapacity(null)
+          }
         }}
       >
         <DialogTrigger asChild>
@@ -93,7 +105,11 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
             <Select
               disabled={couriersLoading}
               value={courierId ?? ''}
-              onValueChange={(v) => setCourierId(v)}
+              onValueChange={(v) => {
+                setCourierId(v)
+                // Another rider: their box is asked about afresh.
+                setOverCapacity(null)
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder={couriersLoading ? 'Loading…' : 'Select courier'} />
@@ -108,13 +124,19 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
               </SelectContent>
             </Select>
           </div>
+          <BoxOverCapacityWarning value={overCapacity} />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={isLoading || !courierId} onClick={() => void handleAssign()}>
+            <Button
+              type="button"
+              variant={overCapacity ? 'destructive' : 'default'}
+              disabled={isLoading || !courierId}
+              onClick={() => void handleAssign()}
+            >
               {isLoading ? <Spinner className="mr-2" /> : null}
-              Assign courier
+              {overCapacity ? 'Assign anyway' : 'Assign courier'}
             </Button>
           </DialogFooter>
         </DialogContent>

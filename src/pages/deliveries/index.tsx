@@ -1,4 +1,5 @@
 import { useGetCouriersQuery } from '@/api/couriersApi'
+import { boxSizeText } from '@/utils/boxSize'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { PageHeader } from '@/components/layouts/PageHeader'
@@ -131,6 +132,12 @@ const OrdersPage: NextPage = () => {
         id: 'restaurant',
         header: 'Restaurant',
         cell: ({ row }) => <span className="text-sm">{row.original.pickupBusinessName || '—'}</span>,
+      },
+      {
+        // Spec 0043 (AC-8): the box size and its units, "assumed" when the restaurant sent none.
+        id: 'boxSize',
+        header: 'Size',
+        cell: ({ row }) => <span className="text-sm">{boxSizeText(row.original) ?? '—'}</span>,
       },
       {
         id: 'deliverTo',

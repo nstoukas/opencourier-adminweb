@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { BoxOverCapacity, BoxOverCapacityWarning, boxOverCapacityOf } from './BoxOverCapacityWarning'
 import {
   Button,
   Dialog,
@@ -55,6 +56,8 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
   const [newCourierId, setNewCourierId] = useState<string>('')
   const [selectedPolicy, setSelectedPolicy] = useState<string>('')
   const [message, setMessage] = useState<string>('')
+  // Spec 0043 (AC-6): set when the backend said the new rider's box would overfill; the next tap confirms.
+  const [overCapacity, setOverCapacity] = useState<BoxOverCapacity | null>(null)
 
   const { toast } = useToast()
   const [reassignDelivery, { isLoading }] = useReassignDeliveryMutation()
@@ -74,6 +77,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
     if (open) {
       setNewCourierId('')
       setMessage('')
+      setOverCapacity(null)
       const options = listPayoutPolicies(
         config?.reassignmentPayoutPolicies,
         config?.reassignmentPayoutDefaultPolicy,
@@ -120,6 +124,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
         courierId: newCourierId,
         payoutPolicy: selectedPolicy,
         message: message.trim() || undefined,
+        confirmOverCapacity: overCapacity !== null,
       }).unwrap()
 
       const amountText = formattedAmount
@@ -129,6 +134,11 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
 
       setOpen(false)
     } catch (err: any) {
+      const over = boxOverCapacityOf(err)
+      if (over && overCapacity === null) {
+        setOverCapacity(over)
+        return
+      }
       toast({
         title: 'Reassignment failed',
         description: err?.message || 'An error occurred during rider reassignment.',
@@ -164,7 +174,11 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
               <Select
                 disabled={couriersLoading}
                 value={newCourierId}
-                onValueChange={setNewCourierId}
+                onValueChange={(value) => {
+                  setNewCourierId(value)
+                  // Another rider: their box is asked about afresh.
+                  setOverCapacity(null)
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={couriersLoading ? 'Loading riders…' : 'Select replacement rider'} />
@@ -221,17 +235,20 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
             </div>
           </div>
 
+          <BoxOverCapacityWarning value={overCapacity} />
+
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button
               type="button"
+              variant={overCapacity ? 'destructive' : 'default'}
               disabled={isLoading || !newCourierId || !preview.ok}
               onClick={handleReassign}
             >
               {isLoading ? <Spinner className="mr-2" /> : null}
-              Reassign rider
+              {overCapacity ? 'Reassign anyway' : 'Reassign rider'}
             </Button>
           </DialogFooter>
         </DialogContent>

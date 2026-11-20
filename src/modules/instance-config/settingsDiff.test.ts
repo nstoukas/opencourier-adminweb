@@ -86,6 +86,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     chatRetentionDays: '90',
     reviewAnswerDays: '14',
     reviewCorrectionMaxCents: '5000',
+    boxUnitsSmall: '30',
+    boxUnitsMedium: '50',
+    boxUnitsLarge: '100',
+    boxDefaultSize: 'MEDIUM',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {

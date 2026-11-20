@@ -27,6 +27,7 @@ import {
   ShiftsCard,
   ReviewRequestsCard,
   TimeWorkedCard,
+  BoxCard,
   SECTIONS,
   ServiceAreaCard,
   PUBLIC_PAGES,
@@ -296,6 +297,7 @@ const InstanceConfigurationPage: NextPage = () => {
           <div className="flex flex-col gap-6">
             <PricingCard {...cardProps} />
             <MatchingCard {...cardProps} />
+            <BoxCard {...cardProps} />
             <OffersCard {...cardProps} />
             <RiderPayCard
               {...cardProps}

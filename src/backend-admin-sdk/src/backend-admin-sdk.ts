@@ -149,7 +149,12 @@ export class BackendAdminSdk {
     if (this.isApiError(errorObject)) {
       // A bill's 409 names the charges another bill already covers (spec 0036, AC-6).
       const alreadyBilled = Array.isArray(errorObject.alreadyBilled) ? errorObject.alreadyBilled : undefined
-      return new ApiError(errorObject.code, errorObject.message, errorObject.statusCode, alreadyBilled)
+      // An assignment past a full box names both numbers for the confirm dialog (spec 0043, AC-6).
+      const boxUnits =
+        typeof errorObject.heldUnits === 'number' && typeof errorObject.deliveryUnits === 'number'
+          ? { heldUnits: errorObject.heldUnits, deliveryUnits: errorObject.deliveryUnits }
+          : undefined
+      return new ApiError(errorObject.code, errorObject.message, errorObject.statusCode, alreadyBilled, boxUnits)
     }
     return new Error(errorObject)
   }

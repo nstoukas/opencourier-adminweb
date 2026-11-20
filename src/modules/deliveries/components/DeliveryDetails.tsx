@@ -1,4 +1,5 @@
 import React from 'react'
+import { boxSizeText } from '@/utils/boxSize'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { useNow } from '@/hooks/useNow'
@@ -343,6 +344,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               <DetailList
                 items={[
                   { label: 'Order reference', value: delivery.orderReference },
+                  // Spec 0043 (AC-8): "Medium, 50 units", with "assumed" when no size was sent.
+                  { label: 'Box size', value: boxSizeText(delivery) },
                   { label: 'Customer', value: delivery.customerName },
                   { label: 'Customer phone', value: delivery.customerPhoneNumber },
                   { label: 'Order total', value: formatMoney(delivery.orderTotalValue, delivery.currencyCode) },

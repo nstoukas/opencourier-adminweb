@@ -60,6 +60,8 @@ export const ApiExceptionCodeEnum = {
     QuoteHasExpired: 'QUOTE_HAS_EXPIRED',
     DeliveryLocationDoesntMatchQuote: 'DELIVERY_LOCATION_DOESNT_MATCH_QUOTE',
     DeliveryExists: 'DELIVERY_EXISTS',
+    // Spec 0043: an admin assignment past a full box, not yet confirmed. Hand edited (row 9).
+    BoxOverCapacity: 'BOX_OVER_CAPACITY',
     DeliveryAlreadyMatched: 'DELIVERY_ALREADY_MATCHED',
     DeliveryCantBeAccepted: 'DELIVERY_CANT_BE_ACCEPTED',
     DeliveryCantBeRejected: 'DELIVERY_CANT_BE_REJECTED',

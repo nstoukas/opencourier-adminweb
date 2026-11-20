@@ -27,6 +27,12 @@ export interface DeliveryReassignAdminInput {
      */
     courierId: string;
     /**
+     * Spec 0043 (AC-6): confirms giving the order to a rider it would put past a full box. Without it
+     * such an assignment answers 409 BOX_OVER_CAPACITY with heldUnits and deliveryUnits. Hand edited (row 9).
+     * @type {boolean}
+     */
+    confirmOverCapacity?: boolean;
+    /**
      * A key from the votable Config menu (`reassignmentPayoutPolicies`). Omit to let the backend apply the configured default. Never a free-text amount.
      * @type {string}
      * @memberof DeliveryReassignAdminInput
@@ -60,6 +66,7 @@ export function DeliveryReassignAdminInputFromJSONTyped(json: any, ignoreDiscrim
     }
     return {
         'courierId': json['courierId'],
+        'confirmOverCapacity': !exists(json, 'confirmOverCapacity') ? undefined : json['confirmOverCapacity'],
         'payoutPolicy': !exists(json, 'payoutPolicy') ? undefined : json['payoutPolicy'],
         'message': !exists(json, 'message') ? undefined : json['message'],
     };
@@ -74,6 +81,7 @@ export function DeliveryReassignAdminInputToJSON(value?: DeliveryReassignAdminIn
     }
     return {
         'courierId': value.courierId,
+        'confirmOverCapacity': value.confirmOverCapacity,
         'payoutPolicy': value.payoutPolicy,
         'message': value.message,
     };

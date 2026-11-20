@@ -67,6 +67,7 @@ export type CardProps = {
 export const SECTIONS = [
   { id: 'pricing', title: 'Pricing' },
   { id: 'matching', title: 'Matching' },
+  { id: 'box', title: 'Box' },
   { id: 'offers', title: 'Offers' },
   { id: 'rider-pay', title: 'Rider pay' },
   { id: 'removal-reasons', title: 'Removal reasons' },
@@ -396,6 +397,70 @@ export function MatchingCard({ form, set, options, loaded }: CardProps) {
             onChange={(value) => set('deliveryDurationCalculationType', value)}
           />
         </div>
+      </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Spec 0043 (AC-2, AC-8): how much of a rider's box (always 100 units) each order size takes, and the
+// size an order sent with none counts as. Placeholders until the field study (row 7) sets them.
+const BOX_SIZE_LABELS: Record<string, string> = { SMALL: 'Small', MEDIUM: 'Medium', LARGE: 'Large' }
+
+export function BoxCard({ form, set, loaded }: CardProps) {
+  // The same rule under each size: whole units of the rider's 100, never more than the next size up.
+  const unitsHint = (size: string) => `Whole units, 1 to 100, of the rider's 100. ${size} may not take more than the next size up.`
+  return (
+    <SettingsSection
+      id="box"
+      title="Box"
+      description="A rider's box holds 100 units. The matcher never gives a rider more than a full box; an admin can, only after confirming. A change applies to orders made from now on."
+    >
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <NumberField
+            id="boxUnitsSmall"
+            label={labelOf('boxUnitsSmall')}
+            value={form.boxUnitsSmall}
+            min={1}
+            max={100}
+            disabled={!loaded}
+            description={unitsHint('Small')}
+            onChange={(value) => set('boxUnitsSmall', value)}
+          />
+          <NumberField
+            id="boxUnitsMedium"
+            label={labelOf('boxUnitsMedium')}
+            value={form.boxUnitsMedium}
+            min={1}
+            max={100}
+            disabled={!loaded}
+            description={unitsHint('Medium')}
+            onChange={(value) => set('boxUnitsMedium', value)}
+          />
+          <NumberField
+            id="boxUnitsLarge"
+            label={labelOf('boxUnitsLarge')}
+            value={form.boxUnitsLarge}
+            min={1}
+            max={100}
+            disabled={!loaded}
+            description="Whole units, 1 to 100, of the rider's 100. Usually the whole box."
+            onChange={(value) => set('boxUnitsLarge', value)}
+          />
+        </div>
+        <OptionSelect
+          id="boxDefaultSize"
+          label={labelOf('boxDefaultSize')}
+          value={form.boxDefaultSize}
+          options={['SMALL', 'MEDIUM', 'LARGE']}
+          labels={BOX_SIZE_LABELS}
+          disabled={!loaded}
+          onChange={(value) => set('boxDefaultSize', value)}
+        />
+        <FieldDescription>
+          An order from a restaurant&apos;s own system may come with no size. It counts as this size, and its record
+          says the size was assumed.
+        </FieldDescription>
       </FieldGroup>
     </SettingsSection>
   )

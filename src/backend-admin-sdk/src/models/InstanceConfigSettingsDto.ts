@@ -238,6 +238,14 @@ export interface InstanceConfigSettingsDto {
    */
   returnTripPayPercent?: number | null;
   /**
+   * Spec 0043: the box units a Small, Medium and Large order takes (1 to 100 of a rider's 100), and the
+   * size an order sent with none counts as. Hand edited (row 9).
+   */
+  boxUnitsSmall?: number | null;
+  boxUnitsMedium?: number | null;
+  boxUnitsLarge?: number | null;
+  boxDefaultSize?: string | null;
+  /**
    * Metres from the restaurant or the customer that the rider's app counts as arrived; 0 switches
    * detection off (spec 0021). Hand edited (row 19).
    * @type {number}
@@ -472,6 +480,10 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     returnTripPayPercent: !exists(json, "returnTripPayPercent")
       ? null
       : json["returnTripPayPercent"],
+    boxUnitsSmall: !exists(json, "boxUnitsSmall") ? null : json["boxUnitsSmall"],
+    boxUnitsMedium: !exists(json, "boxUnitsMedium") ? null : json["boxUnitsMedium"],
+    boxUnitsLarge: !exists(json, "boxUnitsLarge") ? null : json["boxUnitsLarge"],
+    boxDefaultSize: !exists(json, "boxDefaultSize") ? null : json["boxDefaultSize"],
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? null
       : json["arrivalRadiusMetres"],
@@ -546,6 +558,11 @@ export function InstanceConfigSettingsDtoToJSON(
     sosLocationRetentionDays: value.sosLocationRetentionDays,
     handBackSeconds: value.handBackSeconds,
     returnTripPayPercent: value.returnTripPayPercent,
+    // Spec 0043: without these a save would drop the box settings silently.
+    boxUnitsSmall: value.boxUnitsSmall,
+    boxUnitsMedium: value.boxUnitsMedium,
+    boxUnitsLarge: value.boxUnitsLarge,
+    boxDefaultSize: value.boxDefaultSize,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,

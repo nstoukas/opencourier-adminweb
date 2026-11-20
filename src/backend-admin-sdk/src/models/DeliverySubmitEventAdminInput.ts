@@ -44,6 +44,12 @@ export interface DeliverySubmitEventAdminInput {
      */
     courierId?: string | null;
     /**
+     * Spec 0043 (AC-6): confirms giving the order to a rider it would put past a full box. Without it
+     * such an assignment answers 409 BOX_OVER_CAPACITY with heldUnits and deliveryUnits. Hand edited (row 9).
+     * @type {boolean}
+     */
+    confirmOverCapacity?: boolean;
+    /**
      * Only with eventType CANCELED (spec 0015): who asked for the cancellation, RESTAURANT,
      * CUSTOMER or COOP (the backend's default). The backend refuses it with any other event type.
      * Hand edited.
@@ -100,6 +106,7 @@ export function DeliverySubmitEventAdminInputFromJSONTyped(json: any, ignoreDisc
         'eventType': json['eventType'],
         'prepareTimeEstimate': !exists(json, 'prepareTimeEstimate') ? undefined : json['prepareTimeEstimate'],
         'courierId': !exists(json, 'courierId') ? undefined : json['courierId'],
+        'confirmOverCapacity': !exists(json, 'confirmOverCapacity') ? undefined : json['confirmOverCapacity'],
         'cancelledBy': !exists(json, 'cancelledBy') ? undefined : json['cancelledBy'],
     };
 }
@@ -117,6 +124,7 @@ export function DeliverySubmitEventAdminInputToJSON(value?: DeliverySubmitEventA
         'eventType': value.eventType,
         'prepareTimeEstimate': value.prepareTimeEstimate,
         'courierId': value.courierId,
+        'confirmOverCapacity': value.confirmOverCapacity,
         // Without this line the admin's choice of who cancelled would never leave the browser.
         'cancelledBy': value.cancelledBy,
     };

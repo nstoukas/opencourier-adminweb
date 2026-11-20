@@ -65,6 +65,12 @@ export type SettingsForm = {
   // Review requests (spec 0038): the days a person has to answer, and the largest correction in cents.
   reviewAnswerDays: string
   reviewCorrectionMaxCents: string
+  // Box model (spec 0043): the box units each size takes, out of a rider's 100, and the size an
+  // order sent with none counts as.
+  boxUnitsSmall: string
+  boxUnitsMedium: string
+  boxUnitsLarge: string
+  boxDefaultSize: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -137,6 +143,11 @@ export const SETTINGS: SettingDefinition[] = [
   // Review requests (spec 0038).
   { key: 'reviewAnswerDays', label: 'Days to answer a review request', kind: 'number' },
   { key: 'reviewCorrectionMaxCents', label: 'Largest review pay correction (cents)', kind: 'number' },
+  // Box model (spec 0043, AC-2, AC-8).
+  { key: 'boxUnitsSmall', label: 'Box units a Small order takes', kind: 'number' },
+  { key: 'boxUnitsMedium', label: 'Box units a Medium order takes', kind: 'number' },
+  { key: 'boxUnitsLarge', label: 'Box units a Large order takes', kind: 'number' },
+  { key: 'boxDefaultSize', label: 'Size of an order sent with none', kind: 'select' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -315,7 +326,31 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
     const fee = feeAboveCeiling(edited)
     if (fee) found.push(`${labelOf('feePercentageAmount')} is ${fee.fee}, above the co-op's ceiling of ${fee.ceiling} %`)
   }
+  // Spec 0043 (AC-2): Small may not take more room than Medium, nor Medium more than Large, with the
+  // values the save would leave in effect. The backend checks the same and has the last word.
+  if (changed.has('boxUnitsSmall') || changed.has('boxUnitsMedium') || changed.has('boxUnitsLarge')) {
+    const order = boxUnitsOutOfOrder(edited)
+    if (order) found.push(order)
+  }
   return found
+}
+
+// Spec 0043: the sentence when the three sizes' units are out of order, else null. Empty or non
+// number boxes are left to the "is empty" check and the backend.
+export function boxUnitsOutOfOrder(
+  form: Pick<SettingsForm, 'boxUnitsSmall' | 'boxUnitsMedium' | 'boxUnitsLarge'>,
+): string | null {
+  const small = Number(form.boxUnitsSmall.trim())
+  const medium = Number(form.boxUnitsMedium.trim())
+  const large = Number(form.boxUnitsLarge.trim())
+  const known = (text: string, value: number) => text.trim() !== '' && Number.isFinite(value)
+  if (known(form.boxUnitsSmall, small) && known(form.boxUnitsMedium, medium) && small > medium) {
+    return `Small (${small} units) cannot take more room than Medium (${medium} units)`
+  }
+  if (known(form.boxUnitsMedium, medium) && known(form.boxUnitsLarge, large) && medium > large) {
+    return `Medium (${medium} units) cannot take more room than Large (${large} units)`
+  }
+  return null
 }
 
 // The fee and the ceiling when both are numbers and the fee is above the ceiling, else null.
@@ -434,6 +469,10 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     chatRetentionDays: text(data.chatRetentionDays),
     reviewAnswerDays: text(data.reviewAnswerDays),
     reviewCorrectionMaxCents: text(data.reviewCorrectionMaxCents),
+    boxUnitsSmall: text(data.boxUnitsSmall),
+    boxUnitsMedium: text(data.boxUnitsMedium),
+    boxUnitsLarge: text(data.boxUnitsLarge),
+    boxDefaultSize: data.boxDefaultSize ?? '',
   }
 }
 
@@ -493,6 +532,12 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('chatRetentionDays')) {
     parts.push('The daily job deletes chat messages under the new period from its next run.')
+  }
+  if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {
+    parts.push('New box units apply to orders made from now on; an order already made keeps its units.')
+  }
+  if (keys.has('boxDefaultSize')) {
+    parts.push('The default size applies to orders sent without a size from now on.')
   }
   if (keys.has('reviewAnswerDays')) {
     parts.push('New review requests get the new answer period; requests already sent keep their date.')

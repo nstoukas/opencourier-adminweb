@@ -52,7 +52,13 @@ export enum EnumDeliveryEventType {
   // with no status, never in STATE_MACHINE or the admin menus.
   REVIEW_REQUESTED = 'REVIEW_REQUESTED',
   REVIEW_ANSWERED = 'REVIEW_ANSWERED',
-  COURIER_PAID_FOR_REVIEW = 'COURIER_PAID_FOR_REVIEW'
+  COURIER_PAID_FOR_REVIEW = 'COURIER_PAID_FOR_REVIEW',
+  // Spec 0043: no box size sent (the default used), the restaurant changed it, and an admin confirmed
+  // putting a rider past a full box. Recorded by the backend with no status change, never in
+  // STATE_MACHINE or the admin menus.
+  BOX_SIZE_ASSUMED = 'BOX_SIZE_ASSUMED',
+  BOX_SIZE_CHANGED = 'BOX_SIZE_CHANGED',
+  BOX_OVER_CAPACITY_CONFIRMED = 'BOX_OVER_CAPACITY_CONFIRMED'
 }
 
 export enum EnumEventActor {

@@ -185,9 +185,10 @@ export const deliveriesApi = baseApi.injectEndpoints({
     /** Manual assign: admin ACCEPTED with courierId (opencourier-backend POST /api/admin/v1/deliveries/:id/submit-event). */
     assignDeliveryToCourier: build.mutation<
       DeliveryAdminDto,
-      { deliveryId: string; courierId: string }
+      // confirmOverCapacity: the admin confirmed putting the rider past a full box (spec 0043, AC-6).
+      { deliveryId: string; courierId: string; confirmOverCapacity?: boolean }
     >({
-      queryFn: async ({ deliveryId, courierId }, api) => {
+      queryFn: async ({ deliveryId, courierId, confirmOverCapacity }, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
           const sdk = prepareAdminSdk(accessToken || '')
@@ -197,6 +198,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
               deliveryId,
               eventType: EnumDeliveryEventType.ACCEPTED,
               courierId,
+              confirmOverCapacity,
             },
           })
           return { data }
@@ -213,9 +215,15 @@ export const deliveriesApi = baseApi.injectEndpoints({
      *  NOT the same as submit-event: submit-event would move the status and pay nobody. */
     reassignDelivery: build.mutation<
       DeliveryAdminDto,
-      { deliveryId: string; courierId: string; payoutPolicy?: string; message?: string }
+      {
+        deliveryId: string
+        courierId: string
+        payoutPolicy?: string
+        message?: string
+        confirmOverCapacity?: boolean
+      }
     >({
-      queryFn: async ({ deliveryId, courierId, payoutPolicy, message }, api) => {
+      queryFn: async ({ deliveryId, courierId, payoutPolicy, message, confirmOverCapacity }, api) => {
         try {
           const { accessToken } = (api.getState() as AppState).auth
           const sdk = prepareAdminSdk(accessToken || '')
@@ -225,6 +233,7 @@ export const deliveriesApi = baseApi.injectEndpoints({
               courierId,
               payoutPolicy,
               message,
+              confirmOverCapacity,
             },
           })
           return { data }

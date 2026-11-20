@@ -238,6 +238,14 @@ export interface InstanceConfigSettingsAdminInput {
    */
   returnTripPayPercent?: number;
   /**
+   * Spec 0043: the box units a Small, Medium and Large order takes (1 to 100 of a rider's 100), and the
+   * size an order sent with none counts as. Hand edited (row 9).
+   */
+  boxUnitsSmall?: number;
+  boxUnitsMedium?: number;
+  boxUnitsLarge?: number;
+  boxDefaultSize?: string;
+  /**
    * Metres from a stop that the rider's app counts as arrived; 0 switches detection off, else 20 to
    * 300 (spec 0021). Hand edited (row 19).
    * @type {number}
@@ -498,6 +506,10 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     returnTripPayPercent: !exists(json, "returnTripPayPercent")
       ? undefined
       : json["returnTripPayPercent"],
+    boxUnitsSmall: !exists(json, "boxUnitsSmall") ? undefined : json["boxUnitsSmall"],
+    boxUnitsMedium: !exists(json, "boxUnitsMedium") ? undefined : json["boxUnitsMedium"],
+    boxUnitsLarge: !exists(json, "boxUnitsLarge") ? undefined : json["boxUnitsLarge"],
+    boxDefaultSize: !exists(json, "boxDefaultSize") ? undefined : json["boxDefaultSize"],
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? undefined
       : json["arrivalRadiusMetres"],
@@ -580,6 +592,11 @@ export function InstanceConfigSettingsAdminInputToJSON(
     handBackSeconds: value.handBackSeconds,
     // Without this line a save would drop the return trip share before it left the browser (spec 0035).
     returnTripPayPercent: value.returnTripPayPercent,
+    // Spec 0043: without these a save would drop the box settings silently.
+    boxUnitsSmall: value.boxUnitsSmall,
+    boxUnitsMedium: value.boxUnitsMedium,
+    boxUnitsLarge: value.boxUnitsLarge,
+    boxDefaultSize: value.boxDefaultSize,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,
