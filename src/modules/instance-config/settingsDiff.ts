@@ -313,7 +313,7 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
   // values the save would leave in effect; the backend checks the same and has the last word.
   if (changed.has('feePercentageAmount') || changed.has('feePercentageCeiling')) {
     const fee = feeAboveCeiling(edited)
-    if (fee) found.push(`Co-op fee (%) is ${fee.fee}, above the co-op's ceiling of ${fee.ceiling}`)
+    if (fee) found.push(`${labelOf('feePercentageAmount')} is ${fee.fee}, above the co-op's ceiling of ${fee.ceiling}`)
   }
   return found
 }

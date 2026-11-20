@@ -551,7 +551,6 @@ export function InstanceConfigSettingsDtoToJSON(
     shiftsEnabled: value.shiftsEnabled,
     shiftDropNoticeHours: value.shiftDropNoticeHours,
     shiftBreakMinutes: value.shiftBreakMinutes,
-    // Without this line a save would drop the fee ceiling before it left the browser (row 53).
     feePercentageCeiling: value.feePercentageCeiling,
     dispatchPhoneNumber: value.dispatchPhoneNumber,
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
