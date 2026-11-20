@@ -70,6 +70,8 @@ Scope row 23 (restaurant delay pay and leaving a late order, spec 0033) was buil
 
 Scope row 36 (paid and unpaid time per shift, spec 0040) was built on the branch `feat/time-worked` and merged in on 20 November. A new Co-op → Time worked page shows the co-op's hours by day or by Monday week over a chosen range (at most 92 days, kept in the URL): riders who worked, time worked, jobs, paid waiting, unpaid time and its share, money, money outside a recorded shift and € per hour. It has no sort, no link and no field naming a rider, and a week cut by the range says which part it covers. A rider's page gains a Time worked card with the same days, shifts, breaks and records the rider sees, plus the admin who made an admin caused change; it refreshes with the page while its range includes today, and shows dates on times past midnight. Instance configuration gains a Time worked card for `shiftBreakMinutes`. Commits `c5fc3ac` to `df67553`; decisions 36.44 and 36.49.
 
+Scope row 53 (an upper limit on the co-op fee %, spec 0041, GA) was built on the branch `feat/fee-ceiling` and merged in on 20 November. Instance configuration's Pricing card gains a Co-op fee ceiling (%) field beside the fee (a co-op setting, default 25, whole numbers 0 to 100); the fee's hint says "At most 25 %, the co-op's ceiling.", the fee field shows an error while it is above the ceiling, and Save stays off with "Co-op fee (%) is 100, above the co-op's ceiling of 25 %" until the fee or the ceiling changes. The backend refuses the same save and has the last word. Commits `a1f2320` to `3266b81`; decisions 53.1 to 53.3.
+
 ## Added
 
 On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
