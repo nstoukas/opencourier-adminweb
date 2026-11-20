@@ -235,7 +235,7 @@ export function PricingCard({ form, set, options, loaded }: CardProps) {
               description={
                 // Only a ceiling the backend would accept (a whole number, 0 to 100) is named here (review).
                 /^\d+$/.test(form.feePercentageCeiling.trim()) && Number(form.feePercentageCeiling.trim()) <= 100
-                  ? `On top of the rider's pay. At most ${form.feePercentageCeiling.trim()} %, the co-op's ceiling.`
+                  ? `On top of the rider's pay. At most ${Number(form.feePercentageCeiling.trim())} %, the co-op's ceiling.`
                   : "On top of the rider's pay."
               }
               error={feeError}
