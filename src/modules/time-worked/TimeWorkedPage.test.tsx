@@ -256,4 +256,64 @@ describe('TimeWorkedPage (spec 0040, AC-14, AC-16)', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('The first day must be on or before the last day. Showing the last 28 days instead.')
   })
+
+  it('shows part week note under a cut week row and none under a whole week row (decision 36.49)', () => {
+    // Range from Sat 2026-11-07 to Fri 2026-11-20
+    mockRouter.query = { from: '2026-11-07', to: '2026-11-20', by: 'week' }
+    mockUseGetTimeWorkedTotalsQuery.mockReturnValue({
+      currentData: {
+        currencyCode: 'EUR',
+        rows: [
+          // Period 2026-11-02 (Monday): Sunday is 2026-11-08. Range starts on Saturday 2026-11-07.
+          // Cut at the start: Sat 7 Nov to Sun 8 Nov.
+          {
+            period: '2026-11-02',
+            riderCount: 4,
+            workSeconds: 14400,
+            jobSeconds: 7200,
+            paidWaitSeconds: 0,
+            unpaidSeconds: 7200,
+            moneyCents: 5000,
+            unlinkedMoneyCents: 0,
+            centsPerHour: 1250,
+          },
+          // Period 2026-11-09 (Monday): Sunday is 2026-11-15. Fully inside 2026-11-07 to 2026-11-20.
+          {
+            period: '2026-11-09',
+            riderCount: 8,
+            workSeconds: 28800,
+            jobSeconds: 14400,
+            paidWaitSeconds: 0,
+            unpaidSeconds: 14400,
+            moneyCents: 10000,
+            unlinkedMoneyCents: 0,
+            centsPerHour: 1250,
+          },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+    })
+
+    render(<TimeWorkedPage />)
+
+    // Part week note appears under the cut week
+    expect(screen.getByText('part of the week: Sat 7 Nov to Sun 8 Nov')).toBeInTheDocument()
+
+    // Only one part week note in document (the full week has none)
+    expect(screen.getAllByText(/part of the week/)).toHaveLength(1)
+  })
+
+  it('renders error state showing "Could not load the time worked."', () => {
+    mockUseGetTimeWorkedTotalsQuery.mockReturnValue({
+      currentData: undefined,
+      isLoading: false,
+      isError: true,
+    })
+
+    render(<TimeWorkedPage />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the time worked.')
+  })
 })

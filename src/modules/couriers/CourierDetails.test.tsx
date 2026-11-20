@@ -730,6 +730,19 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
     })
   })
 
+  describe('Time worked card (spec 0040, AC-15, decision 36.49)', () => {
+    it("asks for this rider's time worked and passes pollingInterval to the card", () => {
+      mockUsePageVisible.mockReturnValue(true)
+      render(<CourierDetails courierId="c1" />)
+
+      expect(screen.getByText('Time worked')).toBeInTheDocument()
+      expect(mockUseGetCourierTimeWorkedQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ courierId: 'c1' }),
+        expect.objectContaining({ skip: false, pollingInterval: 30000 })
+      )
+    })
+  })
+
   describe('Route wrapper (src/pages/couriers/[courierId].tsx)', () => {
     it('extracts courierId from router.query and renders CourierDetails', () => {
       render(<ViewCourierPage />)

@@ -3,6 +3,8 @@ import {
   addDays,
   daysInRange,
   rangeFromQuery,
+  formatDay,
+  weekPart,
   formatDuration,
   formatShare,
   TOTALS_MAX_DAYS,
@@ -159,6 +161,43 @@ describe('timeWorkedFormat (spec 0040, AC-14, AC-15, AC-18)', () => {
     it('returns em dash "—" with no work (whole === 0)', () => {
       expect(formatShare(0, 0)).toBe('—')
       expect(formatShare(10, 0)).toBe('—')
+    })
+  })
+
+  describe('formatDay', () => {
+    it('formats day with weekday by default, matching previous dayTitle text', () => {
+      expect(formatDay('2026-11-19')).toBe('Thu, 19 Nov 2026')
+      expect(formatDay('2026-11-19', true)).toBe('Thu, 19 Nov 2026')
+    })
+
+    it('formats day without weekday for weeks, matching previous periodLabel text', () => {
+      expect(formatDay('2026-11-19', false)).toBe('19 Nov 2026')
+    })
+  })
+
+  describe('weekPart (decision 36.49)', () => {
+    it('returns part of the week naming Sat 24 Oct to Sun 25 Oct when cut at start', () => {
+      expect(weekPart('2026-10-19', { from: '2026-10-24', to: '2026-11-20' })).toBe(
+        'part of the week: Sat 24 Oct to Sun 25 Oct'
+      )
+    })
+
+    it('returns null when the week is fully inside the range', () => {
+      // 2026-10-26 (Mon) to 2026-11-01 (Sun) fully inside 2026-10-24 to 2026-11-20
+      expect(weekPart('2026-10-26', { from: '2026-10-24', to: '2026-11-20' })).toBeNull()
+    })
+
+    it('names both days when cut at both ends', () => {
+      // 2026-10-19 Monday week, range from Tue 20 Oct to Fri 23 Oct
+      expect(weekPart('2026-10-19', { from: '2026-10-20', to: '2026-10-23' })).toBe(
+        'part of the week: Tue 20 Oct to Fri 23 Oct'
+      )
+    })
+
+    it('names single day when cut to one day only', () => {
+      expect(weekPart('2026-10-19', { from: '2026-10-25', to: '2026-11-20' })).toBe(
+        'part of the week: Sun 25 Oct only'
+      )
     })
   })
 
