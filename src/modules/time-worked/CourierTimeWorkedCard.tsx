@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
 import { useGetCourierTimeWorkedQuery } from '@/api/timeWorkedApi'
@@ -24,6 +24,8 @@ const dayTitle = (day: string) => formatDay(day)
 // A label for a value the copy does not know yet (a new backend status or cause) falls back to the code.
 const statusLabel = (status: string) => (STATUS_LABELS as Record<string, string>)[status] ?? status
 const causeLabel = (cause: string) => (CAUSE_LABELS as Record<string, string>)[cause] ?? cause
+// A label the server added before this copy knew it shows as its code, never "undefined".
+const endLabel = (label: string) => (END_LABELS as Record<string, string>)[label] ?? label
 
 function Split({ job, wait, unpaid }: { job: number; wait: number; unpaid: number }) {
   return (
@@ -73,7 +75,7 @@ function JobRow({ job, currencyCode, inNoShift }: { job: WorkedJobDto; currencyC
       </Link>
       <span className="text-muted-foreground">
         {job.paidKm === null ? '—' : formatKm(job.paidKm)} · {jobMinutes(job)} min
-        {job.endLabel ? ` · ${END_LABELS[job.endLabel]}` : ''}
+        {job.endLabel ? ` · ${endLabel(job.endLabel)}` : ''}
         {inNoShift ? ' · not in a recorded shift' : ''}
       </span>
       <span className="ml-auto tabular-nums">{formatMoney(money, currencyCode) ?? '—'}</span>
@@ -190,7 +192,31 @@ export function CourierTimeWorkedCard({
   )
   const data = query.currentData
 
-  const shownDays = (data?.days ?? []).filter((day) => day.workSeconds > 0 || day.moneyCents > 0).reverse()
+  // Spec 0042 (AC-8): a day's job rows are the jobs accepted that Athens day, in or out of a shift,
+  // ordered by accept time. Grouped once per answer (useMemo keeps the result until `data` changes), so
+  // a 31 day range does not work out every job's Athens day again for each day on every render.
+  const jobsByDay = useMemo(() => {
+    const byDay: Record<string, { job: WorkedJobDto; inNoShift: boolean }[] | undefined> = {}
+    const all = [
+      ...(data?.shifts ?? []).flatMap((shift) => shift.jobs.map((job) => ({ job, inNoShift: false }))),
+      ...(data?.jobsInNoShift ?? []).map((job) => ({ job, inNoShift: true })),
+    ]
+    for (const entry of all) {
+      const day = athensToday(new Date(entry.job.acceptedAt))
+      ;(byDay[day] ??= []).push(entry)
+    }
+    for (const entries of Object.values(byDay)) {
+      entries?.sort((a, b) => a.job.acceptedAt.localeCompare(b.job.acceptedAt))
+    }
+    return byDay
+  }, [data])
+  const jobsOn = (date: string) => jobsByDay[date] ?? []
+
+  // A day shows when it has work, money, or a job accepted on it (a job that earned nothing still gets
+  // its row, AC-8).
+  const shownDays = (data?.days ?? [])
+    .filter((day) => day.workSeconds > 0 || day.moneyCents > 0 || jobsOn(day.date).length > 0)
+    .reverse()
   // A shift is listed under the Athens day it started on; one that began before the first day shown is
   // the oldest, so it goes last, under its own heading.
   const shiftsOn = (date: string) =>
@@ -198,12 +224,6 @@ export function CourierTimeWorkedCard({
   const earlier = (data?.shifts ?? [])
     .filter((shift) => !shownDays.some((day) => day.date === athensToday(new Date(shift.startedAt))))
     .reverse()
-  // Spec 0042 (AC-8): a day's job rows are the jobs accepted that Athens day, in or out of a shift.
-  const allJobs = [
-    ...(data?.shifts ?? []).flatMap((shift) => shift.jobs.map((job) => ({ job, inNoShift: false }))),
-    ...(data?.jobsInNoShift ?? []).map((job) => ({ job, inNoShift: true })),
-  ].sort((a, b) => (a.job.acceptedAt < b.job.acceptedAt ? -1 : 1))
-  const jobsOn = (date: string) => allJobs.filter(({ job }) => athensToday(new Date(job.acceptedAt)) === date)
   const weeks = [...(data?.weeks ?? [])].reverse()
 
   return (

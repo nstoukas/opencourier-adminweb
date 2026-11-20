@@ -136,6 +136,7 @@ export function formatKm(km: number): string {
 }
 
 // Accept to the job's end (or now, while held), in whole minutes, rounded as the server rounds them.
+// Never below 0: a job still held, read on a browser whose clock runs behind the server's.
 export function jobMinutes(job: { acceptedAt: string; endedAt: string | null }, now: number = Date.now()): number {
-  return Math.round(((job.endedAt ? Date.parse(job.endedAt) : now) - Date.parse(job.acceptedAt)) / 60_000)
+  return Math.max(0, Math.round(((job.endedAt ? Date.parse(job.endedAt) : now) - Date.parse(job.acceptedAt)) / 60_000))
 }
