@@ -437,6 +437,178 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
       expect(screen.queryByText('Jobs accepted this day')).toBeNull()
     })
+
+    it('places a job accepted at 22:30 UTC under the NEXT Athens day heading, not the UTC day (AC-2, AC-8, review minor 5)', () => {
+      // 22:30 UTC on 2026-11-18 is 00:30 Athens on 2026-11-19
+      const midnightJob = makeJob('del-midnight', {
+        pickupName: 'Midnight Souvlaki',
+        dropoffArea: 'Syntagma',
+        acceptedAt: '2026-11-18T22:30:00.000Z',
+      })
+      const day18 = makeDay('2026-11-18')
+      const day19 = makeDay('2026-11-19')
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-18',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [day18, day19],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [midnightJob],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      const thuHeading = screen.getByText('Thu, 19 Nov 2026')
+      const wedHeading = screen.getByText('Wed, 18 Nov 2026')
+      const jobLink = screen.getByRole('link', { name: 'Midnight Souvlaki → Syntagma' })
+
+      // Job accept time in Athens time is 00:30
+      expect(screen.getByText('00:30')).toBeInTheDocument()
+
+      // Days are rendered newest first (Thu 19 Nov before Wed 18 Nov).
+      // The job belongs to Athens day 19 Nov, so it must appear after Thu heading and before Wed heading.
+      expect(thuHeading.compareDocumentPosition(jobLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(jobLink.compareDocumentPosition(wedHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('orders rows by accept time across shift jobs and jobs in no shift (AC-8, review minor 6)', () => {
+      // Shift job accepted at 10:40 UTC (12:40 Athens)
+      const shiftJob = makeJob('del-shift-later', {
+        pickupName: 'Shift Taverna',
+        dropoffArea: 'Syntagma',
+        acceptedAt: '2026-11-19T10:40:00.000Z',
+      })
+      // No-shift job accepted earlier at 10:10 UTC (12:10 Athens)
+      const noShiftJob = makeJob('del-noshift-earlier', {
+        pickupName: 'No Shift Souvlaki',
+        dropoffArea: 'Koukaki',
+        acceptedAt: '2026-11-19T10:10:00.000Z',
+      })
+      const shift = makeShift('2026-11-19T10:00:00.000Z', {
+        jobs: [shiftJob],
+      })
+      const day = makeDay('2026-11-19')
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [day],
+          weeks: [],
+          shifts: [shift],
+          jobsInNoShift: [noShiftJob],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      const shiftLink = screen.getByRole('link', { name: 'Shift Taverna → Syntagma' })
+      const noShiftLink = screen.getByRole('link', { name: 'No Shift Souvlaki → Koukaki' })
+
+      // No-shift job (10:10) must appear before shift job (10:40)
+      expect(noShiftLink.compareDocumentPosition(shiftLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('shows day heading and job row for €0 job in no shift on a day with no work or money, and does not say "No time worked in these days" (AC-8, review minor 1)', () => {
+      // Day with no work and no money (all figures 0 or null)
+      const zeroDay = makeDay('2026-11-19', {
+        workSeconds: 0,
+        jobSeconds: 0,
+        paidWaitSeconds: 0,
+        unpaidSeconds: 0,
+        moneyCents: 0,
+        unlinkedMoneyCents: 0,
+        noJobMoneyCents: 0,
+        centsPerHour: null,
+        activeCentsPerHour: null,
+        paidKm: 0,
+        centsPerPaidKm: null,
+        medianPickupWaitSeconds: null,
+        pickupWaitCount: 0,
+        dropOffCount: 0,
+      })
+
+      // Job in jobsInNoShift that earned nothing (€0 delivery money, no compensations)
+      const zeroJob = makeJob('del-zero-money', {
+        pickupName: 'Cancelled Bistro',
+        dropoffArea: 'Syntagma',
+        acceptedAt: '2026-11-19T10:00:00.000Z',
+        endedAt: '2026-11-19T10:15:00.000Z',
+        deliveryMoneyCents: 0,
+        compensations: [],
+        endLabel: 'CANCELLED',
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [zeroDay],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [zeroJob],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // When the €0 job is the only thing in the range, the card must NOT say "No time worked in these days."
+      expect(screen.queryByText('No time worked in these days.')).toBeNull()
+
+      // The day heading must be displayed
+      expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
+
+      // The job row must be displayed, showing €0.00
+      const link = screen.getByRole('link', { name: 'Cancelled Bistro → Syntagma' })
+      expect(link).toHaveAttribute('href', '/deliveries/del-zero-money')
+      expect(screen.getByText('€0.00')).toBeInTheDocument()
+      expect(screen.getByText(/Cancelled · not in a recorded shift/)).toBeInTheDocument()
+    })
+
+    it('shows raw code for unknown endLabel and never displays "undefined" (review minor 2)', () => {
+      // Backend added a new label before adminweb SDK knows it
+      const jobWithUnknownLabel = makeJob('del-unknown-label', {
+        pickupName: 'New Restaurant',
+        dropoffArea: 'Syntagma',
+        endLabel: 'SOMETHING_NEW' as JobEndLabel,
+      })
+
+      mockUseGetCourierTimeWorkedQuery.mockReturnValue({
+        currentData: {
+          from: '2026-11-19',
+          to: '2026-11-19',
+          recordedFrom: '2026-11-01T00:00:00Z',
+          currencyCode: 'EUR',
+          days: [makeDay('2026-11-19')],
+          weeks: [],
+          shifts: [],
+          jobsInNoShift: [jobWithUnknownLabel],
+        } as CourierTimeWorkedDto,
+        isLoading: false,
+        isFetching: false,
+      })
+
+      render(<CourierTimeWorkedCard courierId="courier-c1" />)
+
+      // Displays " · SOMETHING_NEW" and NEVER "undefined"
+      expect(screen.getByText(/· SOMETHING_NEW/)).toBeInTheDocument()
+      expect(screen.queryByText(/undefined/)).toBeNull()
+    })
   })
 
   // --- AC-15: Range with no reach limit ---

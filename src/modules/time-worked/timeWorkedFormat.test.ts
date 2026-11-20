@@ -310,5 +310,42 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
         dateNowSpy.mockRestore()
       }
     })
+
+    it('never returns a negative number when in progress job acceptedAt is after now (review nit)', () => {
+      const customNow = Date.parse('2026-11-20T10:00:00.000Z')
+
+      // Client clock is 5 minutes behind server clock
+      expect(
+        jobMinutes(
+          {
+            acceptedAt: '2026-11-20T10:05:00.000Z',
+            endedAt: null,
+          },
+          customNow
+        )
+      ).toBe(0)
+
+      // Client clock is 1 minute behind server clock
+      expect(
+        jobMinutes(
+          {
+            acceptedAt: '2026-11-20T10:01:00.000Z',
+            endedAt: null,
+          },
+          customNow
+        )
+      ).toBe(0)
+
+      // Client clock is 20 seconds behind server clock
+      expect(
+        jobMinutes(
+          {
+            acceptedAt: '2026-11-20T10:00:20.000Z',
+            endedAt: null,
+          },
+          customNow
+        )
+      ).toBe(0)
+    })
   })
 })
