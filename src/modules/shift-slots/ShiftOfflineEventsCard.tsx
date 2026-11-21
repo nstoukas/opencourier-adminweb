@@ -5,7 +5,8 @@ import { useFollowUpShiftOfflineEventMutation, useGetShiftOfflineEventsQuery } f
 import { usePageVisible } from '@/hooks/usePageVisible'
 
 // Spec 0049 (AC-6, cross check 3): who went Offline during a booked shift, so a representative can check in
-// with them in person. Open items first by time, newest first; a followed up one stays for 7 days. Never
+// with them in person. Newest first by the Offline time, open and followed up together; a followed up one
+// stays for 7 days. Never
 // grouped, counted, searched or sorted by rider (value 5): the rider learns nothing here costs them.
 export function ShiftOfflineEventsCard() {
   const visible = usePageVisible()
