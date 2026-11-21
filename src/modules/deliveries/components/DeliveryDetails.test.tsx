@@ -1310,7 +1310,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(screen.getByText(/Fairness \(co-op weights\)/)).toBeInTheDocument()
       expect(screen.getByText(/Road time 4 min 05 s/)).toBeInTheDocument()
       expect(screen.getByText(/Pay per hour today €8.40 per hour/)).toBeInTheDocument()
-      expect(screen.getByText(/Waiting since the last job 15 min 00 s/)).toBeInTheDocument()
+      expect(screen.getByText(/Waiting since the last job, or since going Online 15 min 00 s/)).toBeInTheDocument()
       expect(screen.getByText(/Score 0.123, lowest of 5 compared \(8 in range\)/)).toBeInTheDocument()
     })
 

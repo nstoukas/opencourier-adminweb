@@ -1489,7 +1489,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(earningsInput).toHaveAttribute('max', '100')
       expect(earningsInput).not.toBeDisabled()
 
-      const waitingInput = screen.getByLabelText('Weight of waiting since the last job') as HTMLInputElement
+      const waitingInput = screen.getByLabelText('Weight of waiting since the last job or going Online') as HTMLInputElement
       expect(waitingInput.value).toBe('20')
       expect(waitingInput).toHaveAttribute('type', 'number')
       expect(waitingInput).toHaveAttribute('min', '0')
@@ -1545,7 +1545,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       expect(screen.getByLabelText('Weight of road time to the restaurant')).toBeDisabled()
       expect(screen.getByLabelText("Weight of the rider's pay per hour today")).toBeDisabled()
-      expect(screen.getByLabelText('Weight of waiting since the last job')).toBeDisabled()
+      expect(screen.getByLabelText('Weight of waiting since the last job or going Online')).toBeDisabled()
       expect(screen.getByLabelText('Nearest riders compared for each offer')).toBeDisabled()
       expect(screen.getByLabelText('Minutes online before own pay per hour counts')).toBeDisabled()
     })

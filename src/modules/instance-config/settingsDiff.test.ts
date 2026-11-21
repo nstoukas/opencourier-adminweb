@@ -427,6 +427,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     })
 
     describe('fairness weights blockers (spec 0044, AC-5)', () => {
+      const allZeroFairnessMessage = `${labelOf('fairnessWeightRoadTime')}, ${labelOf('fairnessWeightEarnings')} and ${labelOf('fairnessWeightWaiting')} cannot all be 0`
+
       it('refuses all three weights at 0 on the values the save would leave (one changed, the others saved at 0)', () => {
         // Saved state has roadTime: 0, earnings: 0, waiting: 20
         const savedWithTwoZeros: SettingsForm = {
@@ -437,7 +439,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         }
         // User changes only fairnessWeightWaiting from '20' to '0'
         const changes = [
-          { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job', from: '20', to: '0' },
+          { key: 'fairnessWeightWaiting', label: labelOf('fairnessWeightWaiting'), from: '20', to: '0' },
         ]
         const edited: SettingsForm = {
           ...savedWithTwoZeros,
@@ -445,14 +447,14 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         }
 
         const blocked = blockers(changes as any, edited)
-        expect(blocked).toContain('The three fairness weights cannot all be 0')
+        expect(blocked).toContain(allZeroFairnessMessage)
       })
 
       it('refuses all three weights at 0 when all three are changed to 0', () => {
         const changes = [
-          { key: 'fairnessWeightRoadTime', label: 'Weight of road time to the restaurant', from: '50', to: '0' },
-          { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", from: '30', to: '0' },
-          { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job', from: '20', to: '0' },
+          { key: 'fairnessWeightRoadTime', label: labelOf('fairnessWeightRoadTime'), from: '50', to: '0' },
+          { key: 'fairnessWeightEarnings', label: labelOf('fairnessWeightEarnings'), from: '30', to: '0' },
+          { key: 'fairnessWeightWaiting', label: labelOf('fairnessWeightWaiting'), from: '20', to: '0' },
         ]
         const edited: SettingsForm = {
           ...baseSavedForm,
@@ -462,12 +464,35 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         }
 
         const blocked = blockers(changes as any, edited)
-        expect(blocked).toContain('The three fairness weights cannot all be 0')
+        expect(blocked).toContain(allZeroFairnessMessage)
+      })
+
+      it('names the three settings by their labels in the all zero blocker message', () => {
+        const changes = [
+          { key: 'fairnessWeightRoadTime', label: labelOf('fairnessWeightRoadTime'), from: '50', to: '0' },
+          { key: 'fairnessWeightEarnings', label: labelOf('fairnessWeightEarnings'), from: '30', to: '0' },
+          { key: 'fairnessWeightWaiting', label: labelOf('fairnessWeightWaiting'), from: '20', to: '0' },
+        ]
+        const edited: SettingsForm = {
+          ...baseSavedForm,
+          fairnessWeightRoadTime: '0',
+          fairnessWeightEarnings: '0',
+          fairnessWeightWaiting: '0',
+        }
+
+        const blocked = blockers(changes as any, edited)
+        expect(blocked).toContain(allZeroFairnessMessage)
+        expect(allZeroFairnessMessage).toContain('Weight of road time to the restaurant')
+        expect(allZeroFairnessMessage).toContain("Weight of the rider's pay per hour today")
+        expect(allZeroFairnessMessage).toContain('Weight of waiting since the last job or going Online')
+        expect(allZeroFairnessMessage).toBe(
+          'Weight of road time to the restaurant, Weight of the rider\'s pay per hour today and Weight of waiting since the last job or going Online cannot all be 0'
+        )
       })
 
       it('allows one weight at 0 (and two above 0)', () => {
         const changes = [
-          { key: 'fairnessWeightRoadTime', label: 'Weight of road time to the restaurant', from: '50', to: '0' },
+          { key: 'fairnessWeightRoadTime', label: labelOf('fairnessWeightRoadTime'), from: '50', to: '0' },
         ]
         const edited: SettingsForm = {
           ...baseSavedForm,
@@ -477,12 +502,12 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         }
 
         const blocked = blockers(changes as any, edited)
-        expect(blocked).not.toContain('The three fairness weights cannot all be 0')
+        expect(blocked).not.toContain(allZeroFairnessMessage)
       })
 
       it('allows two weights at 0 (and one above 0)', () => {
         const changes = [
-          { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", from: '30', to: '0' },
+          { key: 'fairnessWeightEarnings', label: labelOf('fairnessWeightEarnings'), from: '30', to: '0' },
         ]
         const edited: SettingsForm = {
           ...baseSavedForm,
@@ -492,7 +517,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         }
 
         const blocked = blockers(changes as any, edited)
-        expect(blocked).not.toContain('The three fairness weights cannot all be 0')
+        expect(blocked).not.toContain(allZeroFairnessMessage)
       })
 
       it('says nothing when none of the three fairness weights changed even if all three in edited are 0', () => {
@@ -509,7 +534,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         }
 
         const blocked = blockers(changes as any, editedWithZeroWeights)
-        expect(blocked).not.toContain('The three fairness weights cannot all be 0')
+        expect(blocked).not.toContain(allZeroFairnessMessage)
       })
     })
   })
