@@ -76,4 +76,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   STATIC, ADMIN); a new strategy or key needs a line in `reasonLines`, or the card shows only its heading. The candidates
   table is admin only and per offer: never a count or a list of a rider across offers (the value 5 guard).
 
+- Offline during a booked shift (spec 0049): `ShiftOfflineEventsCard` on the Shift slots page lists the server's order and
+  nothing else: no count, badge, grouping, search or sort by rider. The value 5 guard does not cover it; the card's own
+  test does, so keep that test when changing the card.
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
