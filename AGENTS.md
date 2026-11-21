@@ -68,4 +68,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 
 - Charges (`src/modules/charges/`, spec 0036): a month is the Athens calendar month (`src/utils/athensMonth.ts`, `Intl`, never dayjs's timezone plugin, which only `_app.tsx` loads), read from `router.query` and skipped until `router.isReady`, never before `FIRST_MONTH` (1970-01). Totals in more than one currency are shown side by side (`chargeTotals.ts`), never summed. No figure there may read as the customer's delivery fee: only `DELIVERY_FEE_NOTE` may say "fee" (a text scan test fails otherwise). The Greek statement page is `lang="el"` with its one admin control marked `lang="en"`. A 409 on Mark as billed carries `alreadyBilled` ids, which the hand edited SDK keeps (`src/backend-admin-sdk/src/errors.ts`).
 
+- An assignment past a full box (spec 0043) answers 409 `BOX_OVER_CAPACITY` with `heldUnits` and `deliveryUnits` (kept on `ApiError`).
+  `BoxOverCapacityWarning` ties the warning to the rider it was about, the rider select is locked while a request runs, and the
+  confirm needs the tick box (`overCapacityConfirmed`); a new admin path that assigns a rider uses the same three pieces.
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
