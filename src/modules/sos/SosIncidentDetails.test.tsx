@@ -268,4 +268,59 @@ describe('SosIncidentDetails (spec 0022, AC-9, AC-10)', () => {
       ).toBe(false)
     })
   })
+
+  // Row 123: The admin SOS screen shows the rider's emergency contact while the incident is open
+  describe('emergency contact box (row 123)', () => {
+    it("while an SOS is ACTIVE, renders the rider's emergency contact box with the incident's courier id (clauses 1 & 3)", () => {
+      mockUseGetSosIncidentQuery.mockReturnValue({
+        data: activeIncident,
+        currentData: activeIncident,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<SosIncidentDetails incidentId="sos-detail-1" />)
+
+      const box = screen.getByTestId('sos-emergency-contact')
+      expect(box).toBeInTheDocument()
+      expect(box).toHaveAttribute('data-courier-id', activeIncident.courier.id)
+    })
+
+    it("while an SOS is AWAITING_CLOSE, renders the rider's emergency contact box with the incident's courier id", () => {
+      const awaitingIncident: SosIncidentDetailAdminDto = {
+        ...activeIncident,
+        state: 'AWAITING_CLOSE',
+      }
+      mockUseGetSosIncidentQuery.mockReturnValue({
+        data: awaitingIncident,
+        currentData: awaitingIncident,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<SosIncidentDetails incidentId="sos-detail-1" />)
+
+      const box = screen.getByTestId('sos-emergency-contact')
+      expect(box).toBeInTheDocument()
+      expect(box).toHaveAttribute('data-courier-id', awaitingIncident.courier.id)
+    })
+
+    it('when an SOS is CLOSED, the emergency contact box is absent', () => {
+      const closedIncident: SosIncidentDetailAdminDto = {
+        ...activeIncident,
+        state: 'CLOSED',
+        closedAt: '2026-11-03T10:10:00.000Z',
+      }
+      mockUseGetSosIncidentQuery.mockReturnValue({
+        data: closedIncident,
+        currentData: closedIncident,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<SosIncidentDetails incidentId="sos-detail-1" />)
+
+      expect(screen.queryByTestId('sos-emergency-contact')).not.toBeInTheDocument()
+    })
+  })
 })
