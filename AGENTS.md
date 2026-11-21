@@ -72,4 +72,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   `BoxOverCapacityWarning` ties the warning to the rider it was about, the rider select is locked while a request runs, and the
   confirm needs the tick box (`overCapacityConfirmed`); a new admin path that assigns a rider uses the same three pieces.
 
+- Offer reasons (spec 0044): `OfferReasonsCard` words each strategy's `values` (FAIRNESS, NEAREST_COURIER, COURIER_SENIORITY,
+  STATIC, ADMIN); a new strategy or key needs a line in `reasonLines`, or the card shows only its heading. The candidates
+  table is admin only and per offer: never a count or a list of a rider across offers (the value 5 guard).
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
