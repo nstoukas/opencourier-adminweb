@@ -1,5 +1,6 @@
 import { useGetCouriersQuery } from '@/api/couriersApi'
 import { boxSizeText } from '@/utils/boxSize'
+import { legText } from '@/utils/legs'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { DefaultLayout } from '@/components/layouts/DefaultLayout'
 import { PageHeader } from '@/components/layouts/PageHeader'
@@ -115,6 +116,8 @@ const OrdersPage: NextPage = () => {
           return (
             <div className="flex flex-col">
               <span className="text-sm font-medium">{d.orderReference || '—'}</span>
+              {/* Spec 0046 (AC-6): one leg of an order sent as several deliveries. */}
+              {legText(d) ? <span className="text-xs font-medium">{legText(d)}</span> : null}
               {/* The last characters of the id, enough to tell deliveries apart; the full id on hover. */}
               <span className="font-mono text-xs text-muted-foreground" title={d.id}>
                 {shortId(d.id)}

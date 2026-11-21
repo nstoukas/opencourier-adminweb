@@ -1,5 +1,7 @@
 import React from 'react'
 import { boxSizeText } from '@/utils/boxSize'
+import { legText } from '@/utils/legs'
+import { OrderLegsCard } from '@/modules/deliveries/components/OrderLegsCard'
 import { OfferReasonsCard } from '@/modules/deliveries/components/OfferReasonsCard'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
@@ -345,6 +347,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               <DetailList
                 items={[
                   { label: 'Order reference', value: delivery.orderReference },
+                  // Spec 0046 (AC-6): which leg of a multi leg order this is.
+                  { label: 'Leg', value: legText(delivery) },
                   // Spec 0043 (AC-8): "Medium, 50 units", with "assumed" when no size was sent.
                   { label: 'Box size', value: boxSizeText(delivery) },
                   { label: 'Customer', value: delivery.customerName },
@@ -361,6 +365,15 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               <OrderItemsSection items={delivery.orderItems} />
             </CardContent>
           </Card>
+          {/* Spec 0046 (AC-6, cross check 5): the order's other legs and any never sent. */}
+          {delivery.legCount && delivery.orderLegs?.length ? (
+            <OrderLegsCard
+              deliveryId={delivery.id}
+              legCount={delivery.legCount}
+              legs={delivery.orderLegs}
+              missingLegNumbers={delivery.missingLegNumbers ?? []}
+            />
+          ) : null}
           <PriceBreakdownCard delivery={delivery} />
           {/* Spec 0044 (AC-8): why each offer went to its rider. */}
           <OfferReasonsCard reasons={delivery.offerReasons} courierNameById={courierNameById} />

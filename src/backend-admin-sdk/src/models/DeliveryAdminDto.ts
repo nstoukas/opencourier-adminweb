@@ -13,6 +13,14 @@
  */
 
 import { exists, mapValues } from '../runtime';
+// Spec 0046 (AC-6): one leg of a multi leg order as the delivery page lists it. Hand edited (row 10).
+export interface OrderLegAdmin {
+    id: string;
+    legNumber: number;
+    status: string;
+    courierId: string | null;
+    courierName: string | null;
+}
 // Spec 0044 (AC-6, AC-8): one offer's reason as the admin answer sends it. Hand edited (rows 12 and 13).
 export interface OfferReasonAdmin {
     id: string;
@@ -436,6 +444,15 @@ export interface DeliveryAdminDto {
      * carries them. `candidates` holds other riders' figures (admin only). Hand edited (rows 12 and 13).
      */
     offerReasons?: OfferReasonAdmin[];
+    /**
+     * Spec 0046 (AC-6, cross check 5): "leg 1 of 2" of an order sent as several deliveries (both null for a
+     * single delivery), every leg of the order with its status and rider, and the leg numbers never sent.
+     * Only the get by id answer carries the legs. Optional: an older backend sends none. Hand edited (row 10).
+     */
+    legNumber?: number | null;
+    legCount?: number | null;
+    orderLegs?: OrderLegAdmin[];
+    missingLegNumbers?: number[];
 }
 
 
@@ -620,6 +637,10 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'partnerCharge': !exists(json, 'partnerCharge') ? null : json['partnerCharge'],
         'waitCharges': !exists(json, 'waitCharges') ? [] : json['waitCharges'],
         'offerReasons': !exists(json, 'offerReasons') ? [] : json['offerReasons'],
+        'legNumber': !exists(json, 'legNumber') ? null : json['legNumber'],
+        'legCount': !exists(json, 'legCount') ? null : json['legCount'],
+        'orderLegs': !exists(json, 'orderLegs') ? [] : json['orderLegs'],
+        'missingLegNumbers': !exists(json, 'missingLegNumbers') ? [] : json['missingLegNumbers'],
     };
 }
 
@@ -706,6 +727,10 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'partnerCharge': value.partnerCharge,
         'waitCharges': value.waitCharges,
         'offerReasons': value.offerReasons,
+        'legNumber': value.legNumber,
+        'legCount': value.legCount,
+        'orderLegs': value.orderLegs,
+        'missingLegNumbers': value.missingLegNumbers,
     };
 }
 
