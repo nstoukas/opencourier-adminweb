@@ -82,6 +82,8 @@ Scope rows 12 and 13 (the fairness matcher and its weights, spec 0044, GA) were 
 
 Scope row 79 (shift priority in dispatch, spec 0049, GA) was built on the branch `feat/shift-priority` and merged in on 21 November. Instance configuration's Fairness card gains "Weight of being on a booked shift" (0 to 100, starts at 0, only while Shifts is on, outside the "cannot all be 0" rule). A delivery's offer reasons show the shift weight, "On a booked shift" and an On a shift column for offers made while Shifts was on. The Shift slots page gains "Offline during a booked shift": items newest first with the rider, shift, time and cause, a Followed up button (a 409 says another admin did it first), and who followed up for 7 days; no count, grouping, search or sort by rider (`d71de5d`, `6368566`; tests by a Fable subagent while agy was out of quota, `a07fe63`). Owes a cross family review (`/crosscheck review`) once agy is back.
 
+Scope row 108 (rider account upkeep, spec 0051, Beta) was built on the branch `feat/rider-account-upkeep` and merged in on 21 November. A rider's page gains an Account card: active or deactivated, the login email, the emergency contact, Edit details, Deactivate (a reason, a confirm naming the effects) or Reactivate, and the account history with the admin who acted. The couriers list labels deactivated riders and has a Deactivated tab; the assign and reassign pickers leave them out. Hand edited SDK: `CourierAccountApi`, `deactivatedAt`, email and emergency contact on the update input (`5a1bb83`, `43cf61a`; tests by a Fable subagent while agy was out of quota, `6ac04a8`, `1b7e172`).
+
 ## Added
 
 On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
