@@ -13,6 +13,23 @@
  */
 
 import { exists, mapValues } from '../runtime';
+// Spec 0044 (AC-6, AC-8): one offer's reason as the admin answer sends it. Hand edited (rows 12 and 13).
+export interface OfferReasonAdmin {
+    id: string;
+    deliveryEventId: string;
+    courierId: string;
+    // FAIRNESS, NEAREST_COURIER, COURIER_SENIORITY, STATIC or ADMIN.
+    strategy: string;
+    weights: Record<string, number> | null;
+    values: Record<string, unknown>;
+    score: number | null;
+    candidateCount: number;
+    ridersInRange: number;
+    candidates: Record<string, unknown>[] | null;
+    kind: string;
+    createdAt: string;
+}
+
 /**
  * 
  * @export
@@ -414,6 +431,11 @@ export interface DeliveryAdminDto {
     partnerCharge?: { amount: number; currencyCode: string; createdAt: string } | null;
     /** Spec 0033: what the restaurant was charged for keeping riders waiting (cents). Hand edited. */
     waitCharges?: { amount: number; currencyCode: string; createdAt: string }[];
+    /**
+     * Spec 0044 (AC-8): why each offer went to its rider, oldest first. Only the get by id answer
+     * carries them. `candidates` holds other riders' figures (admin only). Hand edited (rows 12 and 13).
+     */
+    offerReasons?: OfferReasonAdmin[];
 }
 
 
@@ -597,6 +619,7 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'foodOutcomeAt': !exists(json, 'foodOutcomeAt') ? null : new Date(json['foodOutcomeAt']),
         'partnerCharge': !exists(json, 'partnerCharge') ? null : json['partnerCharge'],
         'waitCharges': !exists(json, 'waitCharges') ? [] : json['waitCharges'],
+        'offerReasons': !exists(json, 'offerReasons') ? [] : json['offerReasons'],
     };
 }
 
@@ -682,6 +705,7 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'foodOutcomeAt': value.foodOutcomeAt == null ? null : value.foodOutcomeAt.toISOString(),
         'partnerCharge': value.partnerCharge,
         'waitCharges': value.waitCharges,
+        'offerReasons': value.offerReasons,
     };
 }
 

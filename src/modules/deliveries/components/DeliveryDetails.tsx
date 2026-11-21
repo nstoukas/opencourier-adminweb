@@ -1,5 +1,6 @@
 import React from 'react'
 import { boxSizeText } from '@/utils/boxSize'
+import { OfferReasonsCard } from '@/modules/deliveries/components/OfferReasonsCard'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { useNow } from '@/hooks/useNow'
@@ -361,6 +362,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             </CardContent>
           </Card>
           <PriceBreakdownCard delivery={delivery} />
+          {/* Spec 0044 (AC-8): why each offer went to its rider. */}
+          <OfferReasonsCard reasons={delivery.offerReasons} courierNameById={courierNameById} />
           <Card>
             <CardContent className="pt-2">
               <Accordion type="single" collapsible>

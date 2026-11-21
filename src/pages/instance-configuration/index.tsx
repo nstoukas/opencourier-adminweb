@@ -28,6 +28,7 @@ import {
   ReviewRequestsCard,
   TimeWorkedCard,
   BoxCard,
+  FairnessCard,
   SECTIONS,
   ServiceAreaCard,
   PUBLIC_PAGES,
@@ -300,6 +301,7 @@ const InstanceConfigurationPage: NextPage = () => {
             <PricingCard {...cardProps} />
             <MatchingCard {...cardProps} />
             <BoxCard {...cardProps} />
+            <FairnessCard {...cardProps} />
             <OffersCard {...cardProps} />
             <RiderPayCard
               {...cardProps}

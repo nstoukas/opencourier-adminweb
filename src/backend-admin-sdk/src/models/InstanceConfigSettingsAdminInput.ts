@@ -246,6 +246,15 @@ export interface InstanceConfigSettingsAdminInput {
   boxUnitsLarge?: number;
   boxDefaultSize?: string;
   /**
+   * Spec 0044: the fairness matcher's weights (0 to 100, not all three 0), riders compared (1 to 50) and
+   * minimum minutes online today (0 to 240). Hand edited (rows 12 and 13).
+   */
+  fairnessWeightRoadTime?: number;
+  fairnessWeightEarnings?: number;
+  fairnessWeightWaiting?: number;
+  fairnessCandidateLimit?: number;
+  fairnessMinOnlineMinutes?: number;
+  /**
    * Metres from a stop that the rider's app counts as arrived; 0 switches detection off, else 20 to
    * 300 (spec 0021). Hand edited (row 19).
    * @type {number}
@@ -299,6 +308,8 @@ export const InstanceConfigSettingsAdminInputCourierMatcherTypeEnum = {
   NearestCourier: "NEAREST_COURIER",
   CourierSeniority: "COURIER_SENIORITY",
   Static: "STATIC",
+  // Spec 0044. Hand edited (rows 12 and 13).
+  Fairness: "FAIRNESS",
 } as const;
 export type InstanceConfigSettingsAdminInputCourierMatcherTypeEnum =
   (typeof InstanceConfigSettingsAdminInputCourierMatcherTypeEnum)[keyof typeof InstanceConfigSettingsAdminInputCourierMatcherTypeEnum];
@@ -510,6 +521,11 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     boxUnitsMedium: !exists(json, "boxUnitsMedium") ? undefined : json["boxUnitsMedium"],
     boxUnitsLarge: !exists(json, "boxUnitsLarge") ? undefined : json["boxUnitsLarge"],
     boxDefaultSize: !exists(json, "boxDefaultSize") ? undefined : json["boxDefaultSize"],
+    fairnessWeightRoadTime: !exists(json, "fairnessWeightRoadTime") ? undefined : json["fairnessWeightRoadTime"],
+    fairnessWeightEarnings: !exists(json, "fairnessWeightEarnings") ? undefined : json["fairnessWeightEarnings"],
+    fairnessWeightWaiting: !exists(json, "fairnessWeightWaiting") ? undefined : json["fairnessWeightWaiting"],
+    fairnessCandidateLimit: !exists(json, "fairnessCandidateLimit") ? undefined : json["fairnessCandidateLimit"],
+    fairnessMinOnlineMinutes: !exists(json, "fairnessMinOnlineMinutes") ? undefined : json["fairnessMinOnlineMinutes"],
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
       ? undefined
       : json["arrivalRadiusMetres"],
@@ -597,6 +613,12 @@ export function InstanceConfigSettingsAdminInputToJSON(
     boxUnitsMedium: value.boxUnitsMedium,
     boxUnitsLarge: value.boxUnitsLarge,
     boxDefaultSize: value.boxDefaultSize,
+    // Spec 0044: without these a save would drop the fairness settings silently.
+    fairnessWeightRoadTime: value.fairnessWeightRoadTime,
+    fairnessWeightEarnings: value.fairnessWeightEarnings,
+    fairnessWeightWaiting: value.fairnessWeightWaiting,
+    fairnessCandidateLimit: value.fairnessCandidateLimit,
+    fairnessMinOnlineMinutes: value.fairnessMinOnlineMinutes,
     arrivalRadiusMetres: value.arrivalRadiusMetres,
     // Without these lines a save would drop the Shifts settings before they left the browser (row 77).
     shiftsEnabled: value.shiftsEnabled,

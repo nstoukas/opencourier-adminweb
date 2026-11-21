@@ -91,6 +91,11 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     boxUnitsMedium: '50',
     boxUnitsLarge: '100',
     boxDefaultSize: 'MEDIUM',
+    fairnessWeightRoadTime: '50',
+    fairnessWeightEarnings: '30',
+    fairnessWeightWaiting: '20',
+    fairnessCandidateLimit: '10',
+    fairnessMinOnlineMinutes: '30',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {

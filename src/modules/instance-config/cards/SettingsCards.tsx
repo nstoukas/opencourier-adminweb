@@ -68,6 +68,7 @@ export const SECTIONS = [
   { id: 'pricing', title: 'Pricing' },
   { id: 'matching', title: 'Matching' },
   { id: 'box', title: 'Box' },
+  { id: 'fairness', title: 'Fairness' },
   { id: 'offers', title: 'Offers' },
   { id: 'rider-pay', title: 'Rider pay' },
   { id: 'removal-reasons', title: 'Removal reasons' },
@@ -303,6 +304,11 @@ export const MATCHER_COPY: Record<string, { title: string; description: string }
   NEAREST_COURIER: { title: 'Nearest free courier', description: 'The closest rider who is free.' },
   COURIER_SENIORITY: { title: 'Most senior courier', description: 'Members who joined first are offered first.' },
   STATIC: { title: 'Fixed courier', description: 'The admin assigns each delivery by hand (the override).' },
+  // Spec 0044: the co-op's weighted matcher; its weights are in the Fairness card.
+  FAIRNESS: {
+    title: 'Fairness',
+    description: 'Among the nearest free riders, road time, pay per hour today and waiting, weighed as set in the Fairness card.',
+  },
 }
 
 export function MatchingCard({ form, set, options, loaded }: CardProps) {
@@ -461,6 +467,75 @@ export function BoxCard({ form, set, loaded }: CardProps) {
           An order from a restaurant&apos;s own system may come with no size. It counts as this size, and its record
           says the size was assumed.
         </FieldDescription>
+      </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Spec 0044 (AC-5): the fairness matcher's weights and its two limits. Only the weights' ratio matters;
+// they are the co-op's, and a change applies to the next offer.
+export function FairnessCard({ form, set, loaded }: CardProps) {
+  return (
+    <SettingsSection
+      id="fairness"
+      title="Fairness"
+      description="Used when Who gets the offer first is Fairness. Among the nearest free riders, each offer goes to the lowest score: road time to the restaurant, what the co-op paid the rider per hour today (tips never count) and how long they have waited since their last job, each weighed as set here. A change applies to the next offer."
+    >
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <NumberField
+            id="fairnessWeightRoadTime"
+            label={labelOf('fairnessWeightRoadTime')}
+            value={form.fairnessWeightRoadTime}
+            min={0}
+            max={100}
+            disabled={!loaded}
+            description="0 to 100. Higher sends offers more to whoever is closest by road."
+            onChange={(value) => set('fairnessWeightRoadTime', value)}
+          />
+          <NumberField
+            id="fairnessWeightEarnings"
+            label={labelOf('fairnessWeightEarnings')}
+            value={form.fairnessWeightEarnings}
+            min={0}
+            max={100}
+            disabled={!loaded}
+            description="0 to 100. Higher sends offers more to whoever has earned least per hour today."
+            onChange={(value) => set('fairnessWeightEarnings', value)}
+          />
+          <NumberField
+            id="fairnessWeightWaiting"
+            label={labelOf('fairnessWeightWaiting')}
+            value={form.fairnessWeightWaiting}
+            min={0}
+            max={100}
+            disabled={!loaded}
+            description="0 to 100. Higher sends offers more to whoever has waited longest. The three cannot all be 0."
+            onChange={(value) => set('fairnessWeightWaiting', value)}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <NumberField
+            id="fairnessCandidateLimit"
+            label={labelOf('fairnessCandidateLimit')}
+            value={form.fairnessCandidateLimit}
+            min={1}
+            max={50}
+            disabled={!loaded}
+            description="1 to 50. Only these nearest free riders are compared for each offer."
+            onChange={(value) => set('fairnessCandidateLimit', value)}
+          />
+          <NumberField
+            id="fairnessMinOnlineMinutes"
+            label={labelOf('fairnessMinOnlineMinutes')}
+            value={form.fairnessMinOnlineMinutes}
+            min={0}
+            max={240}
+            disabled={!loaded}
+            description="0 to 240. Until a rider has been online this long today, their pay per hour counts as the co-op's average."
+            onChange={(value) => set('fairnessMinOnlineMinutes', value)}
+          />
+        </div>
       </FieldGroup>
     </SettingsSection>
   )

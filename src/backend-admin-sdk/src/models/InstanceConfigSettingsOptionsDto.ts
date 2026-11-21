@@ -76,7 +76,9 @@ export interface InstanceConfigSettingsOptionsDto {
 export const InstanceConfigSettingsOptionsDtoCourierMatcherTypeEnum = {
     NearestCourier: 'NEAREST_COURIER',
     CourierSeniority: 'COURIER_SENIORITY',
-    Static: 'STATIC'
+    Static: 'STATIC',
+    // Spec 0044. Hand edited (rows 12 and 13).
+    Fairness: 'FAIRNESS'
 } as const;
 export type InstanceConfigSettingsOptionsDtoCourierMatcherTypeEnum = typeof InstanceConfigSettingsOptionsDtoCourierMatcherTypeEnum[keyof typeof InstanceConfigSettingsOptionsDtoCourierMatcherTypeEnum];
 

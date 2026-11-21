@@ -71,6 +71,12 @@ export type SettingsForm = {
   boxUnitsMedium: string
   boxUnitsLarge: string
   boxDefaultSize: string
+  // Fairness matcher (spec 0044): the three weights, riders compared, minimum minutes online today.
+  fairnessWeightRoadTime: string
+  fairnessWeightEarnings: string
+  fairnessWeightWaiting: string
+  fairnessCandidateLimit: string
+  fairnessMinOnlineMinutes: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -148,6 +154,12 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'boxUnitsMedium', label: 'Box units a Medium order takes', kind: 'number' },
   { key: 'boxUnitsLarge', label: 'Box units a Large order takes', kind: 'number' },
   { key: 'boxDefaultSize', label: 'Size of an order sent with none', kind: 'select' },
+  // Fairness matcher (spec 0044, AC-5).
+  { key: 'fairnessWeightRoadTime', label: "Weight of road time to the restaurant", kind: 'number' },
+  { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", kind: 'number' },
+  { key: 'fairnessWeightWaiting', label: "Weight of waiting since the last job", kind: 'number' },
+  { key: 'fairnessCandidateLimit', label: "Nearest riders compared for each offer", kind: 'number' },
+  { key: 'fairnessMinOnlineMinutes', label: "Minutes online before own pay per hour counts", kind: 'number' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -332,6 +344,14 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
     const order = boxUnitsOutOfOrder(edited)
     if (order) found.push(order)
   }
+  // Spec 0044 (AC-5): the three fairness weights cannot all be 0, on the values the save would leave.
+  // The backend checks the same and has the last word.
+  if (changed.has('fairnessWeightRoadTime') || changed.has('fairnessWeightEarnings') || changed.has('fairnessWeightWaiting')) {
+    const allZero = [edited.fairnessWeightRoadTime, edited.fairnessWeightEarnings, edited.fairnessWeightWaiting].every(
+      (value) => value.trim() !== '' && Number(value.trim()) === 0
+    )
+    if (allZero) found.push('The three fairness weights cannot all be 0')
+  }
   return found
 }
 
@@ -473,6 +493,11 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     boxUnitsMedium: text(data.boxUnitsMedium),
     boxUnitsLarge: text(data.boxUnitsLarge),
     boxDefaultSize: data.boxDefaultSize ?? '',
+    fairnessWeightRoadTime: text(data.fairnessWeightRoadTime),
+    fairnessWeightEarnings: text(data.fairnessWeightEarnings),
+    fairnessWeightWaiting: text(data.fairnessWeightWaiting),
+    fairnessCandidateLimit: text(data.fairnessCandidateLimit),
+    fairnessMinOnlineMinutes: text(data.fairnessMinOnlineMinutes),
   }
 }
 
@@ -535,6 +560,15 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {
     parts.push('New box units apply to orders made from now on; an order already made keeps its units.')
+  }
+  if (
+    keys.has('fairnessWeightRoadTime') ||
+    keys.has('fairnessWeightEarnings') ||
+    keys.has('fairnessWeightWaiting') ||
+    keys.has('fairnessCandidateLimit') ||
+    keys.has('fairnessMinOnlineMinutes')
+  ) {
+    parts.push('The fairness settings apply from the next offer.')
   }
   if (keys.has('boxDefaultSize')) {
     parts.push('The default size applies to orders sent without a size from now on.')
