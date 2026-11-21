@@ -536,6 +536,19 @@ export function FairnessCard({ form, set, loaded }: CardProps) {
             onChange={(value) => set('fairnessMinOnlineMinutes', value)}
           />
         </div>
+        {/* Spec 0049 (AC-1): the fourth weight, which applies only while Shifts is on. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <NumberField
+            id="fairnessWeightShift"
+            label={labelOf('fairnessWeightShift')}
+            value={form.fairnessWeightShift}
+            min={0}
+            max={100}
+            disabled={!loaded}
+            description="0 to 100, starts at 0. Only while Shifts is on: a rider on a booked shift right now is offered sooner. It is a fixed yes or no, so it moves a score by the same amount every time. It does not count toward the three above."
+            onChange={(value) => set('fairnessWeightShift', value)}
+          />
+        </div>
       </FieldGroup>
     </SettingsSection>
   )

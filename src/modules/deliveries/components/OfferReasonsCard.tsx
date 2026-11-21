@@ -65,6 +65,10 @@ export function reasonLines(reason: OfferReasonAdmin): string[] {
                 : ""
             }`,
         `Waiting since the last job, or since going Online ${durationText(v.waitingSeconds)}`,
+        // Spec 0049 (AC-3): recorded only while Shifts was on.
+        ...(typeof v.onShift === "boolean"
+          ? [v.onShift ? "On a booked shift" : "Not on a booked shift"]
+          : []),
         `Score ${scoreText(reason.score)}, lowest of ${
           reason.candidateCount
         } compared (${reason.ridersInRange} in range)`,
@@ -97,6 +101,11 @@ export function reasonLines(reason: OfferReasonAdmin): string[] {
     default:
       return [];
   }
+}
+
+// Spec 0049: the On a shift column shows only for offers made while Shifts was on.
+function hasShiftColumn(reason: OfferReasonAdmin): boolean {
+  return (reason.candidates ?? []).some((candidate) => typeof candidate.onShift === "boolean");
 }
 
 export function OfferReasonsCard({
@@ -140,6 +149,10 @@ export function OfferReasonsCard({
                   Weights: road time {reason.weights.roadTime ?? 0}, pay per
                   hour {reason.weights.earnings ?? 0}, waiting{" "}
                   {reason.weights.waiting ?? 0}
+                  {/* Spec 0049: present only while Shifts was on. */}
+                  {reason.weights.shift !== undefined
+                    ? `, booked shift ${reason.weights.shift}`
+                    : ""}
                 </p>
               ) : null}
               <ul className="list-disc pl-5">
@@ -167,6 +180,11 @@ export function OfferReasonsCard({
                         <th scope="col" className="py-1 pr-3">
                           Waiting
                         </th>
+                        {hasShiftColumn(reason) ? (
+                          <th scope="col" className="py-1 pr-3">
+                            On a shift
+                          </th>
+                        ) : null}
                         <th scope="col" className="py-1">
                           Score
                         </th>
@@ -200,6 +218,11 @@ export function OfferReasonsCard({
                           <td className="py-1 pr-3">
                             {durationText(candidate.waitingSeconds)}
                           </td>
+                          {hasShiftColumn(reason) ? (
+                            <td className="py-1 pr-3">
+                              {candidate.onShift === true ? "Yes" : "No"}
+                            </td>
+                          ) : null}
                           <td className="py-1">{scoreText(candidate.score)}</td>
                         </tr>
                       ))}

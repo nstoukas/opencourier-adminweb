@@ -94,6 +94,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     fairnessWeightRoadTime: '50',
     fairnessWeightEarnings: '30',
     fairnessWeightWaiting: '20',
+    fairnessWeightShift: '0',
     fairnessCandidateLimit: '10',
     fairnessMinOnlineMinutes: '30',
   }

@@ -252,6 +252,8 @@ export interface InstanceConfigSettingsAdminInput {
   fairnessWeightRoadTime?: number;
   fairnessWeightEarnings?: number;
   fairnessWeightWaiting?: number;
+  // Spec 0049: the weight of being on a booked shift.
+  fairnessWeightShift?: number;
   fairnessCandidateLimit?: number;
   fairnessMinOnlineMinutes?: number;
   /**
@@ -524,6 +526,7 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     fairnessWeightRoadTime: !exists(json, "fairnessWeightRoadTime") ? undefined : json["fairnessWeightRoadTime"],
     fairnessWeightEarnings: !exists(json, "fairnessWeightEarnings") ? undefined : json["fairnessWeightEarnings"],
     fairnessWeightWaiting: !exists(json, "fairnessWeightWaiting") ? undefined : json["fairnessWeightWaiting"],
+    fairnessWeightShift: !exists(json, "fairnessWeightShift") ? undefined : json["fairnessWeightShift"],
     fairnessCandidateLimit: !exists(json, "fairnessCandidateLimit") ? undefined : json["fairnessCandidateLimit"],
     fairnessMinOnlineMinutes: !exists(json, "fairnessMinOnlineMinutes") ? undefined : json["fairnessMinOnlineMinutes"],
     arrivalRadiusMetres: !exists(json, "arrivalRadiusMetres")
@@ -617,6 +620,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     fairnessWeightRoadTime: value.fairnessWeightRoadTime,
     fairnessWeightEarnings: value.fairnessWeightEarnings,
     fairnessWeightWaiting: value.fairnessWeightWaiting,
+    fairnessWeightShift: value.fairnessWeightShift,
     fairnessCandidateLimit: value.fairnessCandidateLimit,
     fairnessMinOnlineMinutes: value.fairnessMinOnlineMinutes,
     arrivalRadiusMetres: value.arrivalRadiusMetres,

@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/layouts/PageHeader'
 import { RemoveShiftSlotDialog } from './RemoveShiftSlotDialog'
 import { ShiftSlotDialog } from './ShiftSlotDialog'
 import { ShiftSlotHistoryDialog } from './ShiftSlotHistoryDialog'
+import { ShiftOfflineEventsCard } from './ShiftOfflineEventsCard'
 import { WEEKDAYS, minutesToClock } from './shiftSlotDisplay'
 
 // Which dialog over a slot is open, besides Add and Edit.
@@ -164,6 +165,9 @@ export function ShiftSlotsPage() {
           ))}
         </div>
       )}
+
+      {/* Spec 0049 (AC-6): Offline during a booked shift, to follow up in person. */}
+      <ShiftOfflineEventsCard />
 
       <ShiftSlotDialog
         open={editorOpen}

@@ -75,6 +75,7 @@ export type SettingsForm = {
   fairnessWeightRoadTime: string
   fairnessWeightEarnings: string
   fairnessWeightWaiting: string
+  fairnessWeightShift: string
   fairnessCandidateLimit: string
   fairnessMinOnlineMinutes: string
 }
@@ -158,6 +159,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'fairnessWeightRoadTime', label: "Weight of road time to the restaurant", kind: 'number' },
   { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", kind: 'number' },
   { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job or going Online', kind: 'number' },
+  { key: 'fairnessWeightShift', label: 'Weight of being on a booked shift', kind: 'number' },
   { key: 'fairnessCandidateLimit', label: "Nearest riders compared for each offer", kind: 'number' },
   { key: 'fairnessMinOnlineMinutes', label: "Minutes online before own pay per hour counts", kind: 'number' },
 ]
@@ -500,6 +502,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     fairnessWeightRoadTime: text(data.fairnessWeightRoadTime),
     fairnessWeightEarnings: text(data.fairnessWeightEarnings),
     fairnessWeightWaiting: text(data.fairnessWeightWaiting),
+    fairnessWeightShift: text(data.fairnessWeightShift),
     fairnessCandidateLimit: text(data.fairnessCandidateLimit),
     fairnessMinOnlineMinutes: text(data.fairnessMinOnlineMinutes),
   }
@@ -569,6 +572,7 @@ export function successMessage(changes: PendingChange[]): string {
     keys.has('fairnessWeightRoadTime') ||
     keys.has('fairnessWeightEarnings') ||
     keys.has('fairnessWeightWaiting') ||
+    keys.has('fairnessWeightShift') ||
     keys.has('fairnessCandidateLimit') ||
     keys.has('fairnessMinOnlineMinutes')
   ) {
