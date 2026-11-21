@@ -547,6 +547,24 @@ describe('CourierAccountCard (spec 0051, AC-6)', () => {
       for (const line of lines) expect(line).toHaveTextContent(/2026/)
     })
 
+    it('spec 0050: a statement download is in the history, with the month, the format and the admin who did it', () => {
+      withChanges([
+        change({
+          id: 's1',
+          kind: 'STATEMENT_DOWNLOADED',
+          field: 'statement',
+          newValue: '2026-10 PDF',
+          actorEmail: 'babis.admin@coop.gr',
+        }),
+      ])
+
+      renderCard()
+
+      const line = screen.getByRole('listitem')
+      expect(line).toHaveTextContent('Statement downloaded: 2026-10 PDF by babis.admin@coop.gr')
+      expect(line).toHaveTextContent(/2026/)
+    })
+
     it("the rider's own action never reads as an admin's, even if an email came with it", () => {
       withChanges([change({ kind: 'PASSWORD_CHANGED', actorIsRider: true, actorEmail: 'someone@coop.gr' })])
 
@@ -605,6 +623,24 @@ describe('CourierAccountCard (spec 0051, AC-6)', () => {
         'vehiclePlate: A → B'
       )
       expect(accountChangeText(change({ kind: 'SOMETHING_NEW' }))).toBe('SOMETHING_NEW')
+    })
+
+    // Spec 0050 (cross check 14): an admin downloaded the rider's monthly statement.
+    it('a statement download reads "Statement downloaded:" with the month and the format', () => {
+      expect(
+        accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-10 PDF' }))
+      ).toBe('Statement downloaded: 2026-10 PDF')
+      expect(
+        accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-09 CSV' }))
+      ).toBe('Statement downloaded: 2026-09 CSV')
+    })
+
+    it('a statement download never reads as an edited detail or as a bare kind name', () => {
+      const line = accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-10 PDF' }))
+
+      expect(line).not.toContain('→')
+      expect(line).not.toContain('empty')
+      expect(line).not.toContain('STATEMENT_DOWNLOADED')
     })
 
     it('a password change never shows a value', () => {

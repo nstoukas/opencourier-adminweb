@@ -71,6 +71,24 @@ jest.mock('../../api/courierAccountApi', () => ({
   useEditCourierDetailsMutation: () => [jest.fn(), { isLoading: false }],
 }))
 
+// Spec 0050 (AC-9): the page now carries the Statements card, which reads the rider's months and the past
+// admin downloads.
+const mockUseGetCourierStatementsQuery = jest.fn()
+jest.mock('../../api/statementApi', () => ({
+  useGetCourierStatementsQuery: (args: any) => mockUseGetCourierStatementsQuery(args),
+  downloadStatement: jest.fn(),
+  refreshCourierStatements: jest.fn(() => ({ type: 'test/refreshCourierStatements' })),
+}))
+jest.mock('react-redux', () => ({
+  ...jest.requireActual('react-redux'),
+  useDispatch: () => jest.fn(),
+}))
+jest.mock('../../hooks/useAppSelector', () => ({
+  __esModule: true,
+  default: (selector: (state: unknown) => unknown) => selector({ auth: { accessToken: 'admin-token' } }),
+  useAppSelector: (selector: (state: unknown) => unknown) => selector({ auth: { accessToken: 'admin-token' } }),
+}))
+
 describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () => {
   const baseCourier: CourierAdminDto = {
     id: 'c1',
@@ -95,6 +113,11 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       isError: false,
     })
     mockUseGetCourierAccountChangesQuery.mockReturnValue({ data: [], isError: false })
+    mockUseGetCourierStatementsQuery.mockReturnValue({
+      data: { months: ['2026-10', '2026-09'], downloads: [] },
+      isError: false,
+      isLoading: false,
+    })
     mockUseGetCourierTimeWorkedQuery.mockReturnValue({
       currentData: undefined,
       isLoading: false,
@@ -721,6 +744,29 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
       expect(screen.queryByRole('heading', { name: 'Account' })).not.toBeInTheDocument()
       expect(mockUseGetCourierAccountQuery).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Statements card (spec 0050, AC-9)', () => {
+    it("the rider's page shows Statements, reading this rider's months and past downloads", () => {
+      render(<CourierDetails courierId="c1" />)
+
+      expect(screen.getByText('Statements')).toBeInTheDocument()
+      expect(mockUseGetCourierStatementsQuery).toHaveBeenCalledWith({ id: 'c1' })
+      const months = screen.getByLabelText('Month') as HTMLSelectElement
+      expect(Array.from(months.options).map((option) => option.value)).toEqual(['2026-10', '2026-09'])
+      expect(screen.getByRole('button', { name: 'PDF' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
+      expect(screen.getByText('Downloaded by admins')).toBeInTheDocument()
+    })
+
+    it('the page still shows the rider when the statements cannot be loaded', () => {
+      mockUseGetCourierStatementsQuery.mockReturnValue({ data: undefined, isError: true, isLoading: false })
+
+      render(<CourierDetails courierId="c1" />)
+
+      expect(screen.getByText('Could not load the statements.')).toBeInTheDocument()
+      expect(screen.getAllByText(/Nikos/).length).toBeGreaterThan(0)
     })
   })
 
