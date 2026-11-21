@@ -58,7 +58,15 @@ export enum EnumDeliveryEventType {
   // STATE_MACHINE or the admin menus.
   BOX_SIZE_ASSUMED = 'BOX_SIZE_ASSUMED',
   BOX_SIZE_CHANGED = 'BOX_SIZE_CHANGED',
-  BOX_OVER_CAPACITY_CONFIRMED = 'BOX_OVER_CAPACITY_CONFIRMED'
+  BOX_OVER_CAPACITY_CONFIRMED = 'BOX_OVER_CAPACITY_CONFIRMED',
+  // Split at pickup (spec 0047): the rider's request, the admin's answer, the close (left or void) and
+  // the restaurant's charge per new leg. Recorded by the backend, never in STATE_MACHINE or the admin menus.
+  SPLIT_REQUESTED = 'SPLIT_REQUESTED',
+  SPLIT_CONFIRMED = 'SPLIT_CONFIRMED',
+  SPLIT_REFUSED = 'SPLIT_REFUSED',
+  SPLIT_CLOSED = 'SPLIT_CLOSED',
+  PARTNER_CHARGED_FOR_SPLIT = 'PARTNER_CHARGED_FOR_SPLIT',
+  PARTNER_SPLIT_CHARGE_VOIDED = 'PARTNER_SPLIT_CHARGE_VOIDED'
 }
 
 export enum EnumEventActor {

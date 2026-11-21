@@ -9,7 +9,8 @@
 
 import * as runtime from '../runtime';
 
-export type PartnerChargeReason = 'CANCELLATION' | 'WAITING' | 'REMOVAL';
+// SPLIT_LEG (spec 0047): a box the rider could not take, charged as the extra rider's full pay.
+export type PartnerChargeReason = 'CANCELLATION' | 'WAITING' | 'REMOVAL' | 'SPLIT_LEG';
 
 // One charge as the statement shows it. Nothing about the customer.
 export interface PartnerChargeLineDto {
@@ -21,6 +22,9 @@ export interface PartnerChargeLineDto {
     reason: PartnerChargeReason;
     waitMinutes: number | null;
     removalLabel: string | null;
+    // Spec 0047 (cross check 3): a WAITING line for the wait while dispatch split the order.
+    // Optional: a server from before row 11 does not send it.
+    splitWait?: boolean;
     amount: number;
     currencyCode: string;
     deliveryId: string;

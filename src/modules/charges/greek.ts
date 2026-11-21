@@ -37,16 +37,22 @@ export function greekMonthTitle(month: string): string {
   return `${GREEK_MONTHS[Number(month.slice(5, 7)) - 1] ?? month.slice(5, 7)} ${month.slice(0, 4)}`
 }
 
-export function greekReason(line: Pick<PartnerChargeLineDto, 'reason' | 'waitMinutes' | 'removalLabel'>): string {
+export function greekReason(
+  line: Pick<PartnerChargeLineDto, 'reason' | 'waitMinutes' | 'removalLabel' | 'splitWait'>
+): string {
   switch (line.reason) {
     case 'CANCELLATION':
       return 'Ακύρωση αφού διανομέας είχε αποδεχτεί την παραγγελία'
     case 'WAITING':
+      // Spec 0047: the wait at pickup while dispatch split the order.
+      if (line.splitWait) return 'Αναμονή όσο η διανομή χώριζε την παραγγελία'
       return line.waitMinutes != null
         ? `Αναμονή διανομέα, ${line.waitMinutes} ${line.waitMinutes === 1 ? 'λεπτό' : 'λεπτά'} μετά την ώρα που είχε συμφωνηθεί`
         : 'Αναμονή διανομέα μετά την ώρα που είχε συμφωνηθεί'
     case 'REMOVAL':
       return `Απομάκρυνση διανομέα από την παραγγελία: ${line.removalLabel ?? ''}`.trimEnd()
+    case 'SPLIT_LEG':
+      return 'Επιπλέον διανομέας: η παραγγελία δεν χωρούσε στο μέγεθος που δηλώθηκε'
     default:
       return String(line.reason)
   }
