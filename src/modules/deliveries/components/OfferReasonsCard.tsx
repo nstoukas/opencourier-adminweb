@@ -64,7 +64,7 @@ export function reasonLines(reason: OfferReasonAdmin): string[] {
                 ? " (the co-op average, under the minimum time online)"
                 : ""
             }`,
-        `Waiting since the last job ${durationText(v.waitingSeconds)}`,
+        `Waiting since the last job, or since going Online ${durationText(v.waitingSeconds)}`,
         `Score ${scoreText(reason.score)}, lowest of ${
           reason.candidateCount
         } compared (${reason.ridersInRange} in range)`,
@@ -72,9 +72,12 @@ export function reasonLines(reason: OfferReasonAdmin): string[] {
     case "NEAREST_COURIER":
       return [
         `${number(v.straightMetres) ?? "—"} m in a straight line`,
-        ...(v.roadSeconds !== undefined
-          ? [`Road time ${durationText(v.roadSeconds)}`]
-          : []),
+        // Review fix: null means the router did not answer for this rider; say so rather than a dash.
+        ...(v.roadSeconds === undefined
+          ? []
+          : v.roadSeconds === null
+            ? ["No road time (the router did not answer)"]
+            : [`Road time ${durationText(v.roadSeconds)}`]),
       ];
     case "COURIER_SENIORITY":
       return [
@@ -83,7 +86,14 @@ export function reasonLines(reason: OfferReasonAdmin): string[] {
         )}`,
       ];
     case "ADMIN":
-      return ["Set by an admin"];
+      // Review fix: the admin's user id, the one thing this reason records beyond the heading.
+      return [
+        typeof v.adminUserId === "string"
+          ? `Admin user ${v.adminUserId.slice(-6)}`
+          : "No admin recorded",
+      ];
+    case "STATIC":
+      return ["The fixed courier set for testing"];
     default:
       return [];
   }
@@ -117,7 +127,7 @@ export function OfferReasonsCard({
           list.map((reason) => (
             <section
               key={reason.id}
-              aria-label={`Offer to ${name(reason.courierId)}`}
+              aria-label={`Offer to ${name(reason.courierId)}, ${formatOptionalDate(reason.createdAt)}`}
               className="space-y-2"
             >
               <p className="font-medium">
@@ -168,15 +178,15 @@ export function OfferReasonsCard({
                           key={String(candidate.courierId)}
                           className="border-b border-border last:border-b-0"
                         >
-                          <td className="py-1 pr-3">
+                          <th scope="row" className="py-1 pr-3 font-normal">
                             {name(candidate.courierId)}
                             {candidate.courierId === reason.courierId
                               ? " (offered)"
                               : ""}
-                          </td>
+                          </th>
                           <td className="py-1 pr-3">
                             {durationText(candidate.roadSeconds)}
-                            {candidate.roadEstimated ? " (est.)" : ""}
+                            {candidate.roadEstimated ? " (estimated)" : ""}
                           </td>
                           <td className="py-1 pr-3">
                             {candidate.earningsEqual
@@ -184,7 +194,7 @@ export function OfferReasonsCard({
                               : perHourText(candidate.centsPerHour)}
                             {candidate.earningsAssumed &&
                             !candidate.earningsEqual
-                              ? " (avg.)"
+                              ? " (co-op average)"
                               : ""}
                           </td>
                           <td className="py-1 pr-3">

@@ -157,7 +157,7 @@ export const SETTINGS: SettingDefinition[] = [
   // Fairness matcher (spec 0044, AC-5).
   { key: 'fairnessWeightRoadTime', label: "Weight of road time to the restaurant", kind: 'number' },
   { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", kind: 'number' },
-  { key: 'fairnessWeightWaiting', label: "Weight of waiting since the last job", kind: 'number' },
+  { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job or going Online', kind: 'number' },
   { key: 'fairnessCandidateLimit', label: "Nearest riders compared for each offer", kind: 'number' },
   { key: 'fairnessMinOnlineMinutes', label: "Minutes online before own pay per hour counts", kind: 'number' },
 ]
@@ -350,7 +350,11 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
     const allZero = [edited.fairnessWeightRoadTime, edited.fairnessWeightEarnings, edited.fairnessWeightWaiting].every(
       (value) => value.trim() !== '' && Number(value.trim()) === 0
     )
-    if (allZero) found.push('The three fairness weights cannot all be 0')
+    if (allZero) {
+      found.push(
+        `${labelOf('fairnessWeightRoadTime')}, ${labelOf('fairnessWeightEarnings')} and ${labelOf('fairnessWeightWaiting')} cannot all be 0`
+      )
+    }
   }
   return found
 }
