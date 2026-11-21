@@ -96,5 +96,31 @@ describe('split charges on the statement (spec 0047)', () => {
       expect(fields[3]).toBe('"Αναμονή όσο η διανομή χώριζε την παραγγελία"')
       expect(fields[5]).toBe('0,70')
     })
+
+    // Row 11 review: the minutes column is "minutes past the agreed ready time". A split wait is not that,
+    // so its field is empty; an ordinary wait keeps its minutes.
+    it("a split wait's minutes column is empty", () => {
+      const fields = firstRow(csvLine({ reason: 'WAITING', splitWait: true, waitMinutes: 7, amount: 70 }))
+
+      expect(fields[4]).toBe('')
+      // The row keeps its shape: the amount is still the sixth field.
+      expect(fields[5]).toBe('0,70')
+    })
+
+    it("an ordinary wait's minutes column keeps the minutes the server sent", () => {
+      expect(firstRow(csvLine({ reason: 'WAITING', splitWait: false, waitMinutes: 7, amount: 70 }))[4]).toBe('7')
+      // A line from an older server has no splitWait field: an ordinary wait.
+      expect(firstRow(csvLine({ reason: 'WAITING', waitMinutes: 12, amount: 120 }))[4]).toBe('12')
+    })
+
+    it('the two kinds of wait on one statement: only the ordinary one has minutes', () => {
+      const rows = buildChargesCsv([
+        csvLine({ id: 'charge-1', reason: 'WAITING', splitWait: true, waitMinutes: 7, amount: 70 }),
+        csvLine({ id: 'charge-2', reason: 'WAITING', splitWait: false, waitMinutes: 9, amount: 90 }),
+      ]).split('\r\n')
+
+      expect(rows[1].split(';')[4]).toBe('')
+      expect(rows[2].split(';')[4]).toBe('9')
+    })
   })
 })

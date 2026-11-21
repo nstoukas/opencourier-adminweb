@@ -112,6 +112,43 @@ describe('SplitRequestsPage (spec 0047, AC-4, AC-9)', () => {
       expect(row().getByText('6 min')).toBeInTheDocument()
     })
 
+    // Row 11 review: the row says when the rider may leave the order unsplit, on Athens' clock.
+    it('shows when the rider may leave, in Athens time, as the server sent it', () => {
+      // 12:10 UTC on 21 November is 14:10 in Athens (winter time, UTC+2).
+      showQueue([request({ leaveFrom: '2026-11-21T12:10:00.000Z' })])
+      render(<SplitRequestsPage />)
+
+      expect(row().getByText('May leave at 14:10')).toBeInTheDocument()
+      // Beside the wait so far, not instead of it.
+      expect(row().getByText('6 min')).toBeInTheDocument()
+    })
+
+    it('shows the leave time in summer time too (UTC+3)', () => {
+      showQueue([request({ createdAt: '2026-07-01T09:00:00.000Z', leaveFrom: '2026-07-01T09:07:00.000Z' })])
+      render(<SplitRequestsPage />)
+
+      expect(row().getByText('May leave at 12:07')).toBeInTheDocument()
+    })
+
+    it("shows each row's own leave time", () => {
+      showQueue([
+        request({ leaveFrom: '2026-11-21T12:10:00.000Z' }),
+        request({ id: 'split-2', leaveFrom: '2026-11-21T12:25:00.000Z' }),
+      ])
+      render(<SplitRequestsPage />)
+
+      expect(row('split-1').getByText('May leave at 14:10')).toBeInTheDocument()
+      expect(row('split-2').getByText('May leave at 14:25')).toBeInTheDocument()
+    })
+
+    it('shows no leave time, and no guess of its own, when an older server sends none', () => {
+      showQueue([request()])
+      render(<SplitRequestsPage />)
+
+      expect(row().queryByText(/May leave/)).toBeNull()
+      expect(row().getByText('6 min')).toBeInTheDocument()
+    })
+
     it('links to the delivery', () => {
       showQueue([request()])
       render(<SplitRequestsPage />)

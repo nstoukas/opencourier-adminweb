@@ -79,12 +79,28 @@ describe('SplitRequestsBadge (spec 0047, AC-4, cross check 14)', () => {
       )
     })
 
-    it('stops asking while the page is in the background', () => {
+    // Row 11 review: the sound exists for an admin on another tab, so the count is asked there too.
+    it('keeps asking every 15 seconds while the page is in the background', () => {
       mockPageVisible = false
       withCount(1)
       render(<SplitRequestsBadge />)
 
-      expect(mockUseGetSplitRequestCountQuery).toHaveBeenCalledWith(undefined, expect.objectContaining({ pollingInterval: 0 }))
+      expect(mockUseGetSplitRequestCountQuery).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ pollingInterval: SPLIT_COUNT_POLL_MS })
+      )
+      expect(mockUseGetSplitRequestCountQuery).not.toHaveBeenCalledWith(undefined, expect.objectContaining({ pollingInterval: 0 }))
+    })
+
+    it('plays the sound for a request that arrives while the page is in the background', () => {
+      mockPageVisible = false
+      withCount(0)
+      const { rerender } = render(<SplitRequestsBadge />)
+
+      withCount(1)
+      rerender(<SplitRequestsBadge />)
+
+      expect(mockPlayChatSound).toHaveBeenCalledTimes(1)
     })
   })
 
