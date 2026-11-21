@@ -13,6 +13,7 @@ import { courierName, deliverySettingLabel, memberSince } from './courierDisplay
 import { RotateCourierPasswordDialog } from './RotateCourierPasswordDialog'
 import { MessageButton } from '@/modules/chat/MessageButton'
 import { CourierTimeWorkedCard } from '@/modules/time-worked/CourierTimeWorkedCard'
+import { CourierAccountCard } from './CourierAccountCard'
 
 // How many deliveries each card asks for (spec 0012). A rider carries one or two at a time.
 const DELIVERIES_PER_CARD = 10
@@ -190,6 +191,8 @@ export function CourierDetails({ courierId }: { courierId: string }) {
               />
             </CardContent>
           </Card>
+          {/* Spec 0051 (AC-6): deactivate or reactivate, edit every detail, and the account history. */}
+          <CourierAccountCard courier={courier} name={name} />
         </div>
       </div>
       <div className="mt-6">

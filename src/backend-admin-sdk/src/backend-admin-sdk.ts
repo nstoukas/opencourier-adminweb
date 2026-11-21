@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, ShiftOfflineEventApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
+import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -81,6 +81,11 @@ export class BackendAdminSdk {
   // The co-op's weekly shift slots (spec 0026).
   shiftSlots(): ShiftSlotApi {
     return this.getOrCreateApi(ShiftSlotApi)
+  }
+
+  // Rider account upkeep (spec 0051).
+  courierAccount(): CourierAccountApi {
+    return this.getOrCreateApi(CourierAccountApi)
   }
 
   // Offline during a booked shift, to follow up in person (spec 0049).

@@ -43,6 +43,10 @@ export interface CourierUpdateAdminInput {
      * @memberof CourierUpdateAdminInput
      */
     phoneNumber?: string;
+    // Hand edited (spec 0051, AC-4): the login email and the emergency contact.
+    email?: string;
+    emergencyContactName?: string | null;
+    emergencyContactPhone?: string | null;
     /**
      * 
      * @type {string}
@@ -150,6 +154,9 @@ export function CourierUpdateAdminInputToJSON(value?: CourierUpdateAdminInput | 
         'lastName': value.lastName,
         'node_uri': value.node_uri,
         'phoneNumber': value.phoneNumber,
+        'email': value.email,
+        'emergencyContactName': value.emergencyContactName,
+        'emergencyContactPhone': value.emergencyContactPhone,
         'status': value.status,
         'deliverySetting': value.deliverySetting,
         'stripeAccountId': value.stripeAccountId,

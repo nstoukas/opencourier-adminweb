@@ -42,7 +42,8 @@ export interface CourierApiGetManyCouriersRequest {
     page?: number;
     perPage?: number;
     // Which riders (row 97): 'all', 'working' (Online or Last call) or 'offline'.
-    status?: 'all' | 'working' | 'offline';
+    // Spec 0051: 'deactivated' lists the deactivated riders.
+    status?: 'all' | 'working' | 'offline' | 'deactivated';
     // First name, last name or phone; every word must match (row 97).
     search?: string;
 }

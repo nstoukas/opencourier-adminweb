@@ -73,6 +73,8 @@ export interface CourierAdminDto {
      * @memberof CourierAdminDto
      */
     createdAt: Date;
+    // Hand edited (spec 0051): set while the rider's account is deactivated.
+    deactivatedAt?: Date | null;
 }
 
 
@@ -135,6 +137,7 @@ export function CourierAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: boo
         'deliverySetting': json['deliverySetting'],
         'userId': json['userId'],
         'createdAt': (new Date(json['createdAt'])),
+        'deactivatedAt': json['deactivatedAt'] ? new Date(json['deactivatedAt']) : null,
     };
 }
 

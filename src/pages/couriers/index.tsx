@@ -43,7 +43,15 @@ const CouriersPage: NextPage = () => {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <StatusBadge kind="courier" status={row.original.status} />,
+        // Spec 0051 (AC-6, cross check 14): a deactivated rider is labelled, never hidden.
+        cell: ({ row }) =>
+          row.original.deactivatedAt ? (
+            <span className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs font-medium">
+              Deactivated
+            </span>
+          ) : (
+            <StatusBadge kind="courier" status={row.original.status} />
+          ),
       },
       {
         id: 'offers',

@@ -17,6 +17,8 @@ export const COURIER_LIST_STATUSES: { value: CourierListStatus; label: string }[
   { value: 'all', label: 'All' },
   { value: 'working', label: 'Working now' },
   { value: 'offline', label: 'Offline' },
+  // Spec 0051 (AC-6): riders whose account is deactivated.
+  { value: 'deactivated', label: 'Deactivated' },
 ]
 
 // How long after the last key the search is sent, so typing a name sends one request, not one per
