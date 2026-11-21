@@ -88,5 +88,9 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 
 - Multi leg orders (spec 0046): `legText` (`src/utils/legs.ts`) words "Leg 1 of 2"; `OrderLegsCard` shows the order's legs and
   the ones never created from the get by id answer only (`orderLegs`, `missingLegNumbers`, hand edited SDK).
+- Split requests (spec 0047, `src/modules/split-requests/`): the sidebar count polls every 15 s even in a background tab (its
+  sound is for an admin on another tab), and plays only when the count rises. A charge's wording is `reasonText` and `greekReason`
+  (`src/modules/charges/`), used by the pages, the Greek statement and the CSV: `SPLIT_LEG` and a WAITING line with `splitWait`
+  have their own sentences, and a new charge reason needs a case in both.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
