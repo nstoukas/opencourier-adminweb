@@ -962,5 +962,46 @@ describe('Deliveries list page (OrdersPage) (spec 0011, AC-1)', () => {
       expect(screen.getByText('Large, 100 units')).toBeInTheDocument()
       expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     })
+
+    // Spec 0046 (row 10, AC-6): "Leg 1 of 2" on a leg in the list. Tests by a Fable subagent (decision R.25).
+    it('shows "Leg 1 of 2" under the reference of a leg, and nothing on a single delivery (spec 0046, AC-6)', () => {
+      const row = (id: string, extra: Record<string, unknown>): DeliveryAdminDto =>
+        ({
+          id,
+          orderReference: 'ORD-LEGS-1',
+          status: EnumDeliveryStatus.ASSIGNING_COURIER,
+          pickupBusinessName: 'Souvlaki Bar',
+          dropoffName: 'Giannis S.',
+          totalCost: 356,
+          currencyCode: 'EUR',
+          createdAt: new Date('2026-10-26T10:00:00Z'),
+          ...extra,
+        }) as any
+
+      mockUseGetDeliveriesQuery.mockReturnValue({
+        data: {
+          data: [
+            row('del-leg-aaaaa1', { legNumber: 1, legCount: 2 }),
+            row('del-leg-bbbbb2', { legNumber: 2, legCount: 2 }),
+            row('del-single-ccc3', { orderReference: 'ORD-SINGLE', legNumber: null, legCount: null }),
+            row('del-older-dddd4', { orderReference: 'ORD-OLDER' }),
+          ],
+          pagination: { totalItems: 4, page: 1, perPage: 10, totalPages: 1 },
+        },
+        isLoading: false,
+      })
+
+      render(<OrdersPage />)
+
+      const rowOf = (id: string) => screen.getByTitle(id).closest('tr') as HTMLElement
+      expect(rowOf('del-leg-aaaaa1')).toHaveTextContent('Leg 1 of 2')
+      expect(rowOf('del-leg-bbbbb2')).toHaveTextContent('Leg 2 of 2')
+      // The legs share the reference; the short id beside it still tells them apart.
+      expect(rowOf('del-leg-aaaaa1')).toHaveTextContent('ORD-LEGS-1')
+      expect(rowOf('del-leg-bbbbb2')).toHaveTextContent('ORD-LEGS-1')
+      expect(rowOf('del-single-ccc3')).not.toHaveTextContent(/Leg \d/)
+      expect(rowOf('del-older-dddd4')).not.toHaveTextContent(/Leg \d/)
+      expect(screen.getAllByText(/^Leg \d of \d$/)).toHaveLength(2)
+    })
   })
 })

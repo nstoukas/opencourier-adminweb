@@ -1239,6 +1239,82 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       })
     })
 
+    // Spec 0046 (row 10, AC-6, cross check 5): the leg label and the order's legs on the delivery page.
+    // Tests by a Fable subagent standing in for agy (decision R.25).
+    describe('Multi leg orders (spec 0046, AC-6)', () => {
+      const orderCardScope = () =>
+        within(screen.getByText('Order', { selector: 'h3' }).closest('.rounded-lg') as HTMLElement)
+      const legOne = { id: 'd100', legNumber: 1, status: 'DISPATCHED', courierId: 'c1', courierName: 'Ana Papadopoulou' }
+      const legTwo = { id: 'd200-leg-222222', legNumber: 2, status: 'ASSIGNING_COURIER', courierId: null, courierName: null }
+
+      it('the Order card says "Leg 1 of 2" on a leg', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, legNumber: 1, legCount: 2, orderLegs: [legOne, legTwo], missingLegNumbers: [] },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        expect(orderCardScope().getByText('Leg').nextElementSibling?.textContent).toBe('Leg 1 of 2')
+      })
+
+      it('lists the sibling legs with their status and rider, linking to the other leg', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, legNumber: 1, legCount: 2, orderLegs: [legOne, legTwo], missingLegNumbers: [] },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        const card = within(screen.getByTestId('order-legs'))
+        expect(card.getByText('Order in 2 legs')).toBeInTheDocument()
+        const rows = card.getAllByRole('listitem')
+        expect(rows).toHaveLength(2)
+        expect(rows[0]).toHaveTextContent('Leg 1 of 2')
+        expect(rows[0]).toHaveTextContent('Ana Papadopoulou')
+        expect(rows[0]).toHaveTextContent('This delivery')
+        expect(rows[0].querySelector('[data-status="DISPATCHED"]')).not.toBeNull()
+        expect(rows[1]).toHaveTextContent('Leg 2 of 2')
+        expect(rows[1]).toHaveTextContent('No rider yet')
+        expect(rows[1].querySelector('[data-status="ASSIGNING_COURIER"]')).not.toBeNull()
+        expect(within(rows[1]).getByRole('link')).toHaveAttribute('href', '/deliveries/d200-leg-222222')
+        expect(card.queryByText(/never sent/)).not.toBeInTheDocument()
+      })
+
+      it('cross check 5: a 3 leg order with only leg 1 says legs 2 and 3 were never sent', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, legNumber: 1, legCount: 3, orderLegs: [legOne], missingLegNumbers: [2, 3] },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        expect(
+          within(screen.getByTestId('order-legs')).getByText('Leg 2 of 3, Leg 3 of 3 were never sent by the restaurant.')
+        ).toBeInTheDocument()
+      })
+
+      it('a single delivery shows "—" for Leg and no legs card', () => {
+        mockUseGetDeliveryQuery.mockReturnValue({
+          data: { ...sampleEurDelivery, legNumber: null, legCount: null, orderLegs: [], missingLegNumbers: [] },
+          isLoading: false,
+        })
+
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        expect(orderCardScope().getByText('Leg').nextElementSibling?.textContent).toBe('—')
+        expect(screen.queryByTestId('order-legs')).not.toBeInTheDocument()
+      })
+
+      it('an older backend that sends no leg fields shows no legs card and does not break the page', () => {
+        // sampleEurDelivery has none of the four fields.
+        render(<DeliveryDetails deliveryId="d100" />)
+
+        expect(screen.queryByTestId('order-legs')).not.toBeInTheDocument()
+        expect(orderCardScope().getByText('Order reference').nextElementSibling?.textContent).toBe('ORD-EUR-1')
+      })
+    })
+
     it('renders every field in Order facts card and order items list', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 
