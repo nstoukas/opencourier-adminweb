@@ -22,6 +22,15 @@ jest.mock('../../api/shiftSlotApi', () => ({
   useRemoveShiftSlotMutation: () => [mockRemoveSlot, { isLoading: false }],
 }))
 
+// Spec 0049: the page also holds the "Offline during a booked shift" card, which has its own tests
+// (ShiftOfflineEventsCard.test.tsx). Here its list is loaded and empty, so every "Loading…" and every
+// list on the page is the slots'.
+const mockUseGetShiftOfflineEventsQuery = jest.fn()
+jest.mock('../../api/shiftOfflineEventApi', () => ({
+  useGetShiftOfflineEventsQuery: (...args: unknown[]) => mockUseGetShiftOfflineEventsQuery(...args),
+  useFollowUpShiftOfflineEventMutation: () => [jest.fn(), { isLoading: false }],
+}))
+
 jest.mock('../../api/configApi', () => ({
   useGetInstanceConfigQuery: (arg: unknown) => mockUseGetInstanceConfigQuery(arg),
 }))
@@ -71,11 +80,43 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     )
     mockUseGetShiftSlotChangesQuery.mockReturnValue({ data: [], isLoading: false, isError: false })
     mockUseGetInstanceConfigQuery.mockReturnValue({ data: { shiftsEnabled: true } })
+    mockUseGetShiftOfflineEventsQuery.mockReturnValue({ data: [], isLoading: false, isError: false })
   })
 
   const dayCards = () => screen.getAllByRole('list').map((list) => list.parentElement?.parentElement as HTMLElement)
   const dayTitles = () =>
     dayCards().map((card) => within(card).getByText(/day$/).textContent)
+
+  // Spec 0049 (AC-6): "Adminweb's Shifts page gains 'Offline during a booked shift'".
+  it('holds the "Offline during a booked shift" card, below the slots', () => {
+    mockUseGetShiftOfflineEventsQuery.mockReturnValue({
+      data: [
+        {
+          id: 'event-1',
+          courierId: 'rider-1',
+          courierName: 'Maria Papadopoulou',
+          offlineAt: '2026-11-20T19:10:00.000Z',
+          offlineTime: '21:10',
+          shiftDate: '2026-11-20',
+          shiftText: 'Fri 20 Nov, 20:00 to 24:00',
+          cause: 'RIDER',
+          causeText: 'The rider switched to Offline',
+          followedUpAt: null,
+          followedUpByEmail: null,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    })
+    renderPage()
+    const title = screen.getByText('Offline during a booked shift')
+    expect(title).toBeInTheDocument()
+    expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Mark followed up: Maria Papadopoulou/ })).toBeInTheDocument()
+    // Below the slots: the last day card comes before it in the page.
+    const sunday = screen.getByText('Sunday')
+    expect(sunday.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 
   it('has one h1, "Shift slots", and an Add slot button', () => {
     renderPage()
@@ -134,8 +175,18 @@ describe('ShiftSlotsPage (spec 0026, AC-6)', () => {
     it('says it is loading', () => {
       mockUseGetShiftSlotsQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false })
       renderPage()
+      // The Offline card below is loaded (see the mock above), so this is the slots list's own line.
       expect(screen.getByText('Loading…')).toBeInTheDocument()
       expect(screen.queryByText('No shift slots yet.')).toBeNull()
+    })
+
+    it('the slots list does not say it is loading just because the Offline card is', () => {
+      mockUseGetShiftOfflineEventsQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+      renderPage()
+      // One "Loading…", inside the Offline card; the slots are listed.
+      const loading = screen.getAllByText('Loading…')
+      expect(loading).toHaveLength(1)
+      expect(dayTitles()).toEqual(['Monday', 'Friday', 'Sunday'])
     })
 
     it('says so in words when the slots cannot load, never "No shift slots yet."', () => {
