@@ -18,6 +18,7 @@ import {
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { shortId } from '@/utils/shortId'
+import { athensTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
 import { SPLIT_COUNT_POLL_MS } from './SplitRequestsBadge'
 
 const SIZE_WORDS: Record<string, string> = { SMALL: 'Small', MEDIUM: 'Medium', LARGE: 'Large' }
@@ -160,7 +161,13 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
           </fieldset>
         ) : null}
       </TableCell>
-      <TableCell>{request.waitedMinutes} min</TableCell>
+      <TableCell>
+        {request.waitedMinutes} min
+        {/* Row 11 review: when the rider may leave the order unsplit, in Athens time. */}
+        {request.leaveFrom ? (
+          <span className="block text-xs text-muted-foreground">May leave at {athensTime(request.leaveFrom)}</span>
+        ) : null}
+      </TableCell>
       <TableCell className="space-y-2">
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={sendConfirm}>

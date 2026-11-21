@@ -29,7 +29,8 @@ export function buildChargesCsv(lines: CsvChargeLine[]): string {
       csvText(athensIsoMinute(line.happenedAt)),
       csvText(orderLabel(line)),
       csvText(greekReason(line)),
-      line.reason === 'WAITING' && line.waitMinutes != null ? String(line.waitMinutes) : '',
+      // The column is minutes past the agreed ready time; a split wait is not that (row 11 tests), so empty.
+      line.reason === 'WAITING' && !line.splitWait && line.waitMinutes != null ? String(line.waitMinutes) : '',
       formatGreekNumber(line.amount),
       csvText(line.currencyCode),
       csvText(line.billId ? GREEK.yes : GREEK.no),

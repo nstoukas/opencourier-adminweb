@@ -27,6 +27,8 @@ export interface SplitRequestAdminDto {
     proposedLegs: SplitLegAdmin[];
     createdAt: string;
     waitedMinutes: number;
+    // Row 11 review: when the rider may leave without an answer. Optional: an older server does not send it.
+    leaveFrom?: string;
 }
 
 const basePath = '/api/admin/v1/split-requests';

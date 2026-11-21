@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { useGetSplitRequestCountQuery } from '@/api/splitRequestApi'
-import { usePageVisible } from '@/hooks/usePageVisible'
 import { playChatSound } from '@/modules/chat/chatSound'
 
 // A rider waits at the restaurant, paid by the minute, until someone answers: asked every 15 s.
@@ -10,9 +9,10 @@ export const SPLIT_COUNT_POLL_MS = 15_000
 // chat's quiet sound when it goes up, so a rider flagging an order is not missed for ten minutes. One count
 // for the whole co-op, never per rider (binding value 5).
 export function SplitRequestsBadge() {
-  const pageVisible = usePageVisible()
+  // Row 11 review: asked whether or not the tab is in front, or the sound never plays in exactly the case it
+  // exists for (an admin on another tab). A hidden tab may slow this to once a minute, well inside the limit.
   const { data, isError } = useGetSplitRequestCountQuery(undefined, {
-    pollingInterval: pageVisible ? SPLIT_COUNT_POLL_MS : 0,
+    pollingInterval: SPLIT_COUNT_POLL_MS,
   })
   const open = data?.open ?? 0
   // The count last seen, so the sound plays only when it rises (not on the first load).
