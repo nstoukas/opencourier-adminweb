@@ -86,4 +86,7 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 - Monthly statements (spec 0050): `CourierStatementsCard` downloads the rider's PDF or CSV as a blob through the hand edited
   `StatementApi` (`src/api/statementApi.ts`); every download is recorded and shown to the rider, so fetch the file only on the admin's click.
 
+- Multi leg orders (spec 0046): `legText` (`src/utils/legs.ts`) words "Leg 1 of 2"; `OrderLegsCard` shows the order's legs and
+  the ones never created from the get by id answer only (`orderLegs`, `missingLegNumbers`, hand edited SDK).
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
