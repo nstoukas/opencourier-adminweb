@@ -159,6 +159,74 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
     expect(row5).toHaveTextContent('BATCHED_ONLY')
   })
 
+  // Spec 0051 (AC-6, cross check 14): a deactivated rider is listed by default, with a label in place of
+  // their Online or Offline status; an active rider keeps the status badge.
+  describe('Deactivated label (spec 0051, AC-6)', () => {
+    const rider = (overrides: Partial<CourierAdminDto>): CourierAdminDto =>
+      ({
+        id: 'c1',
+        firstName: 'Nikos',
+        lastName: 'Pappas',
+        phoneNumber: '+306912345678',
+        status: EnumCourierStatus.OFFLINE,
+        deliverySetting: 'MANUAL',
+        createdAt: new Date('2026-07-15T10:00:00.000Z'),
+        deactivatedAt: null,
+        ...overrides,
+      } as CourierAdminDto)
+
+    const renderRows = (couriers: CourierAdminDto[]) => {
+      mockUseGetCouriersQuery.mockReturnValue({
+        data: { data: couriers, pagination: { totalItems: couriers.length, page: 1, perPage: 10, totalPages: 1 } },
+        isLoading: false,
+      })
+      render(<CouriersPage />)
+      return screen.getAllByRole('row').slice(1) as HTMLElement[]
+    }
+
+    it('shows "Deactivated" on a deactivated rider and the status on the others, on the default All tab', () => {
+      const [left, active, older] = renderRows([
+        rider({ id: 'c1', firstName: 'Lefteris', deactivatedAt: new Date('2026-11-21T10:00:00.000Z') }),
+        rider({ id: 'c2', firstName: 'Maria', status: EnumCourierStatus.ONLINE }),
+        // An older backend sends no deactivatedAt at all.
+        rider({ id: 'c3', firstName: 'Eleni', deactivatedAt: undefined }),
+      ])
+
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
+      expect(left).toHaveTextContent('Lefteris Pappas')
+      expect(left).toHaveTextContent('Deactivated')
+      expect(left).not.toHaveTextContent('Offline')
+
+      expect(active).toHaveTextContent('Online')
+      expect(active).not.toHaveTextContent('Deactivated')
+      expect(older).toHaveTextContent('Offline')
+      expect(older).not.toHaveTextContent('Deactivated')
+    })
+
+    it('a deactivated rider can still be opened from the list', () => {
+      const [left] = renderRows([rider({ id: 'c-left', deactivatedAt: new Date('2026-11-21T10:00:00.000Z') })])
+
+      fireEvent.click(left as HTMLElement)
+
+      expect(mockGoToCourierDetails).toHaveBeenCalledWith('c-left')
+    })
+
+    it('never shows the emergency contact or the login email in the list (cross check 12)', () => {
+      const [row] = renderRows([
+        {
+          ...rider({ deactivatedAt: new Date('2026-11-21T10:00:00.000Z') }),
+          email: 'nikos@coop.gr',
+          emergencyContactName: 'Maria Pappa',
+          emergencyContactPhone: '+306922222222',
+        } as CourierAdminDto,
+      ])
+
+      expect(row).not.toHaveTextContent('Maria Pappa')
+      expect(row).not.toHaveTextContent('+306922222222')
+      expect(row).not.toHaveTextContent('nikos@coop.gr')
+    })
+  })
+
   it('navigates to courier details when clicking Open button without firing row click twice', () => {
     const courier: CourierAdminDto = {
       id: 'c-open-test',
@@ -297,6 +365,8 @@ describe('Couriers list page (CouriersPage) (spec 0012, AC-1)', () => {
     it.each([
       { label: 'Working now', expectedStatus: 'working' },
       { label: 'Offline', expectedStatus: 'offline' },
+      // Spec 0051 (AC-6): the Deactivated tab asks only for deactivated riders.
+      { label: 'Deactivated', expectedStatus: 'deactivated' },
       { label: 'All', expectedStatus: 'all' },
     ])('choosing $label calls query with status "$expectedStatus" and page 1', ({ label, expectedStatus }) => {
       render(<CouriersPage />)

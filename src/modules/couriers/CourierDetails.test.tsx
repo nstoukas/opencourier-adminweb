@@ -60,6 +60,17 @@ jest.mock('../../api/timeWorkedApi', () => ({
   useGetCourierTimeWorkedQuery: (args: any, options: any) => mockUseGetCourierTimeWorkedQuery(args, options),
 }))
 
+// Spec 0051 (AC-6): the page now carries the Account card, which reads the rider's account and its history.
+const mockUseGetCourierAccountQuery = jest.fn()
+const mockUseGetCourierAccountChangesQuery = jest.fn()
+jest.mock('../../api/courierAccountApi', () => ({
+  useGetCourierAccountQuery: (args: any) => mockUseGetCourierAccountQuery(args),
+  useGetCourierAccountChangesQuery: (args: any) => mockUseGetCourierAccountChangesQuery(args),
+  useDeactivateCourierMutation: () => [jest.fn(), { isLoading: false }],
+  useReactivateCourierMutation: () => [jest.fn(), { isLoading: false }],
+  useEditCourierDetailsMutation: () => [jest.fn(), { isLoading: false }],
+}))
+
 describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () => {
   const baseCourier: CourierAdminDto = {
     id: 'c1',
@@ -79,6 +90,11 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
 
     mockUsePageVisible.mockReturnValue(true)
     mockUseRotateCourierPasswordMutation.mockReturnValue([jest.fn(), { isLoading: false }])
+    mockUseGetCourierAccountQuery.mockReturnValue({
+      data: { email: 'nikos@coop.gr', deactivatedAt: null, emergencyContactName: null, emergencyContactPhone: null },
+      isError: false,
+    })
+    mockUseGetCourierAccountChangesQuery.mockReturnValue({ data: [], isError: false })
     mockUseGetCourierTimeWorkedQuery.mockReturnValue({
       currentData: undefined,
       isLoading: false,
@@ -645,7 +661,7 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
   })
 
   describe('AC-6: Value 5 & co-op invariants', () => {
-    it('renders no rider counts, totals of pay, location, or email', () => {
+    it('renders no rider counts, totals of pay or location, and no email but the login email (spec 0051, AC-6)', () => {
       const { container } = render(<CourierDetails courierId="c1" />)
       const content = container.textContent ?? ''
 
@@ -655,8 +671,56 @@ describe('Courier details page (CourierDetails) (spec 0012, AC-2 to AC-6)', () =
       expect(content).not.toMatch(/total\s*(pay|earned|compensation)/i)
       // No location coordinates or online tracking
       expect(content).not.toMatch(/location|latitude|longitude|coords/i)
-      // No email address
-      expect(content).not.toMatch(/@|email/i)
+      // Spec 0051 (AC-6): the page now shows the rider's login email, once, in the Account card. No other
+      // email address is on the page.
+      expect(content).toContain('Login email')
+      expect(content).toContain('nikos@coop.gr')
+      expect(content.split('@')).toHaveLength(2)
+      expect(content.match(/email/gi)).toEqual(['email'])
+    })
+  })
+
+  describe('Account card (spec 0051, AC-6)', () => {
+    it("shows the Account card for this rider: their login email, Deactivate, Edit details and the account history", () => {
+      render(<CourierDetails courierId="c1" />)
+
+      expect(screen.getByRole('heading', { name: 'Account' })).toBeInTheDocument()
+      expect(mockUseGetCourierAccountQuery).toHaveBeenCalledWith({ id: 'c1' })
+      expect(mockUseGetCourierAccountChangesQuery).toHaveBeenCalledWith({ id: 'c1' })
+      expect(screen.getByText('nikos@coop.gr')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Edit details' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Account history' })).toBeInTheDocument()
+    })
+
+    it("the Deactivate confirm names the rider by the page's full name", () => {
+      render(<CourierDetails courierId="c1" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }))
+
+      expect(within(screen.getByRole('dialog')).getByRole('heading', { name: 'Deactivate Nikos Pappas' })).toBeInTheDocument()
+    })
+
+    it('a deactivated rider gets Reactivate there, never Deactivate', () => {
+      mockUseGetCourierQuery.mockReturnValue({
+        currentData: { ...baseCourier, status: EnumCourierStatus.OFFLINE, deactivatedAt: new Date('2026-11-21T10:00:00.000Z') },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<CourierDetails courierId="c1" />)
+
+      expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+    })
+
+    it('shows no Account card while the rider is loading or could not be loaded', () => {
+      mockUseGetCourierQuery.mockReturnValue({ currentData: undefined, isLoading: true, isError: false })
+
+      render(<CourierDetails courierId="c1" />)
+
+      expect(screen.queryByRole('heading', { name: 'Account' })).not.toBeInTheDocument()
+      expect(mockUseGetCourierAccountQuery).not.toHaveBeenCalled()
     })
   })
 

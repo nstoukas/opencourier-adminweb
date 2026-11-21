@@ -59,7 +59,8 @@ describe('CourierApi.getManyCouriers and getManyCouriersRaw (row 97: status filt
     expect((calledInit.headers as Record<string, string>)['Authorization']).toBe('Bearer test-token')
   })
 
-  it.each(['all', 'working', 'offline'] as const)(
+  // Spec 0051 (AC-6): 'deactivated' lists the riders whose account is deactivated.
+  it.each(['all', 'working', 'offline', 'deactivated'] as const)(
     'puts status="%s" in the query string when given',
     async (status) => {
       mockFetch.mockResolvedValueOnce(

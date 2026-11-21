@@ -18,7 +18,7 @@ describe('CouriersListFilters (row 97: filter and search controls)', () => {
     jest.useRealTimers()
   })
 
-  it('renders a button group named "Show couriers" with the three status options', () => {
+  it('renders a button group named "Show couriers" with the four status options (spec 0051 adds Deactivated)', () => {
     render(
       <CouriersListFilters
         status="all"
@@ -31,12 +31,15 @@ describe('CouriersListFilters (row 97: filter and search controls)', () => {
     const group = screen.getByRole('group', { name: 'Show couriers' })
     expect(group).toBeInTheDocument()
 
-    // Exactly three buttons: All, Working now, Offline
+    // Exactly four buttons: All, Working now, Offline, Deactivated (spec 0051, AC-6)
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(3)
+    expect(buttons).toHaveLength(4)
     expect(buttons[0]).toHaveTextContent('All')
     expect(buttons[1]).toHaveTextContent('Working now')
     expect(buttons[2]).toHaveTextContent('Offline')
+    expect(buttons[3]).toHaveTextContent('Deactivated')
+    // All stays the tab the list opens on: deactivated riders are listed there too, with a label.
+    expect(COURIER_LIST_STATUSES.map((option) => option.value)).toEqual(['all', 'working', 'offline', 'deactivated'])
   })
 
   it.each(COURIER_LIST_STATUSES)(
@@ -55,9 +58,9 @@ describe('CouriersListFilters (row 97: filter and search controls)', () => {
       expect(pressedButtons).toHaveLength(1)
       expect(pressedButtons[0]).toHaveTextContent(label)
 
-      // The other two buttons must have aria-pressed="false"
+      // The other three buttons must have aria-pressed="false"
       const unpressedButtons = screen.getAllByRole('button', { pressed: false })
-      expect(unpressedButtons).toHaveLength(2)
+      expect(unpressedButtons).toHaveLength(3)
 
       for (const option of COURIER_LIST_STATUSES) {
         const btn = screen.getByRole('button', { name: option.label })
@@ -70,6 +73,7 @@ describe('CouriersListFilters (row 97: filter and search controls)', () => {
     { label: 'All', expected: 'all' as CourierListStatus },
     { label: 'Working now', expected: 'working' as CourierListStatus },
     { label: 'Offline', expected: 'offline' as CourierListStatus },
+    { label: 'Deactivated', expected: 'deactivated' as CourierListStatus },
   ])('clicking "$label" calls onStatusChange with "$expected"', ({ label, expected }) => {
     const onStatusChange = jest.fn()
     render(
