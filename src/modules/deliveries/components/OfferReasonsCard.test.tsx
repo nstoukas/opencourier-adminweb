@@ -1,0 +1,460 @@
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import {
+  OfferReasonsCard,
+  durationText,
+  perHourText,
+  reasonLines,
+} from "./OfferReasonsCard";
+import type { OfferReasonAdmin } from "../../../backend-admin-sdk/src/models/DeliveryAdminDto";
+
+describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () => {
+  describe("durationText", () => {
+    it("formats seconds under one minute as seconds only", () => {
+      expect(durationText(0)).toBe("0 s");
+      expect(durationText(45)).toBe("45 s");
+      expect(durationText(59)).toBe("59 s");
+    });
+
+    it("formats times between 1 minute and 59 minutes as minutes and seconds with padding", () => {
+      expect(durationText(60)).toBe("1 min 00 s");
+      expect(durationText(245)).toBe("4 min 05 s");
+      expect(durationText(3599)).toBe("59 min 59 s");
+    });
+
+    it("formats times of one hour or more in hours and minutes", () => {
+      expect(durationText(3600)).toBe("1 h 00 min");
+      // 26 hours, 28 minutes = 26 * 3600 + 28 * 60 = 93600 + 1680 = 95280 seconds
+      expect(durationText(95280)).toBe("26 h 28 min");
+      expect(durationText(7260)).toBe("2 h 01 min");
+    });
+
+    it("returns an em-dash for null, undefined, or non-finite numbers", () => {
+      expect(durationText(null)).toBe("—");
+      expect(durationText(undefined)).toBe("—");
+      expect(durationText(NaN)).toBe("—");
+      expect(durationText(Infinity)).toBe("—");
+      expect(durationText("not a number")).toBe("—");
+    });
+  });
+
+  describe("perHourText", () => {
+    it("formats cents into euros per hour with two decimal places", () => {
+      expect(perHourText(840)).toBe("€8.40 per hour");
+      expect(perHourText(0)).toBe("€0.00 per hour");
+      expect(perHourText(1250)).toBe("€12.50 per hour");
+    });
+
+    it("returns an em-dash for null, undefined, or non-finite numbers", () => {
+      expect(perHourText(null)).toBe("—");
+      expect(perHourText(undefined)).toBe("—");
+      expect(perHourText(NaN)).toBe("—");
+      expect(perHourText("abc")).toBe("—");
+    });
+  });
+
+  describe("reasonLines", () => {
+    const baseFairnessReason: OfferReasonAdmin = {
+      id: "reason-1",
+      deliveryEventId: "evt-1",
+      courierId: "c-1",
+      strategy: "FAIRNESS",
+      weights: { roadTime: 50, earnings: 30, waiting: 20 },
+      values: {
+        roadSeconds: 245,
+        roadEstimated: false,
+        centsPerHour: 840,
+        earningsAssumed: false,
+        earningsEqual: false,
+        waitingSeconds: 900,
+      },
+      score: 0.123,
+      candidateCount: 5,
+      ridersInRange: 8,
+      candidates: [],
+      kind: "SINGLE",
+      createdAt: "2026-11-20T10:00:00.000Z",
+    };
+
+    it("produces standard 4 lines for a FAIRNESS reason", () => {
+      const lines = reasonLines(baseFairnessReason);
+      expect(lines).toHaveLength(4);
+      expect(lines[0]).toBe("Road time 4 min 05 s");
+      expect(lines[1]).toBe("Pay per hour today €8.40 per hour");
+      expect(lines[2]).toBe("Waiting since the last job 15 min 00 s");
+      expect(lines[3]).toBe("Score 0.123, lowest of 5 compared (8 in range)");
+    });
+
+    it("notes estimated road time when roadEstimated is true", () => {
+      const reason: OfferReasonAdmin = {
+        ...baseFairnessReason,
+        values: {
+          ...baseFairnessReason.values,
+          roadEstimated: true,
+        },
+      };
+      const lines = reasonLines(reason);
+      expect(lines[0]).toBe(
+        "Road time 4 min 05 s (estimated, the router did not answer)"
+      );
+    });
+
+    it("notes assumed earnings (co-op average) when earningsAssumed is true", () => {
+      const reason: OfferReasonAdmin = {
+        ...baseFairnessReason,
+        values: {
+          ...baseFairnessReason.values,
+          earningsAssumed: true,
+        },
+      };
+      const lines = reasonLines(reason);
+      expect(lines[1]).toBe(
+        "Pay per hour today €8.40 per hour (the co-op average, under the minimum time online)"
+      );
+    });
+
+    it("notes counted equal when earningsEqual is true", () => {
+      const reason: OfferReasonAdmin = {
+        ...baseFairnessReason,
+        values: {
+          ...baseFairnessReason.values,
+          earningsEqual: true,
+        },
+      };
+      const lines = reasonLines(reason);
+      expect(lines[1]).toBe(
+        "Pay per hour today: counted equal for everyone (nobody had the minimum time online)"
+      );
+    });
+
+    it("produces straight line and road time for NEAREST_COURIER", () => {
+      const nearestReason: OfferReasonAdmin = {
+        id: "reason-2",
+        deliveryEventId: "evt-2",
+        courierId: "c-1",
+        strategy: "NEAREST_COURIER",
+        weights: null,
+        values: {
+          straightMetres: 450,
+          roadSeconds: 150,
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      const lines = reasonLines(nearestReason);
+      expect(lines).toEqual([
+        "450 m in a straight line",
+        "Road time 2 min 30 s",
+      ]);
+    });
+
+    it("produces straight line only for NEAREST_COURIER when roadSeconds is omitted", () => {
+      const nearestWithoutRoad: OfferReasonAdmin = {
+        id: "reason-2b",
+        deliveryEventId: "evt-2b",
+        courierId: "c-1",
+        strategy: "NEAREST_COURIER",
+        weights: null,
+        values: {
+          straightMetres: 600,
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      const lines = reasonLines(nearestWithoutRoad);
+      expect(lines).toEqual(["600 m in a straight line"]);
+    });
+
+    it("produces member since date for COURIER_SENIORITY", () => {
+      const seniorityReason: OfferReasonAdmin = {
+        id: "reason-3",
+        deliveryEventId: "evt-3",
+        courierId: "c-1",
+        strategy: "COURIER_SENIORITY",
+        weights: null,
+        values: {
+          memberSince: "2025-06-15T00:00:00.000Z",
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      const lines = reasonLines(seniorityReason);
+      expect(lines[0]).toMatch(/Member since /);
+    });
+
+    it('produces "Set by an admin" for ADMIN', () => {
+      const adminReason: OfferReasonAdmin = {
+        id: "reason-4",
+        deliveryEventId: "evt-4",
+        courierId: "c-1",
+        strategy: "ADMIN",
+        weights: null,
+        values: {
+          adminUserId: "usr-admin-1",
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      const lines = reasonLines(adminReason);
+      expect(lines).toEqual(["Set by an admin"]);
+    });
+
+    it("produces empty array for an unknown strategy", () => {
+      const unknownReason: OfferReasonAdmin = {
+        id: "reason-unknown",
+        deliveryEventId: "evt-u",
+        courierId: "c-1",
+        strategy: "SOMETHING_ELSE",
+        weights: null,
+        values: {},
+        score: null,
+        candidateCount: 0,
+        ridersInRange: 0,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      expect(reasonLines(unknownReason)).toEqual([]);
+    });
+  });
+
+  describe("OfferReasonsCard component rendering", () => {
+    const courierNames = new Map<string, string>([
+      ["c-101", "Dimitris V."],
+      ["c-102", "Eleni K."],
+    ]);
+
+    it("renders empty sentence when reasons is undefined or empty", () => {
+      const { rerender } = render(
+        <OfferReasonsCard reasons={undefined} courierNameById={courierNames} />
+      );
+      expect(
+        screen.getByText("Why each offer went to its rider")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("No offer has a recorded reason yet.")
+      ).toBeInTheDocument();
+
+      rerender(
+        <OfferReasonsCard reasons={[]} courierNameById={courierNames} />
+      );
+      expect(
+        screen.getByText("No offer has a recorded reason yet.")
+      ).toBeInTheDocument();
+    });
+
+    it("renders FAIRNESS offer reason with matcher words, weights, values, and candidate table with offered rider marked", () => {
+      const fairnessReason: OfferReasonAdmin = {
+        id: "reason-f1",
+        deliveryEventId: "evt-f1",
+        courierId: "c-101",
+        strategy: "FAIRNESS",
+        weights: { roadTime: 50, earnings: 30, waiting: 20 },
+        values: {
+          roadSeconds: 245,
+          roadEstimated: true,
+          centsPerHour: 840,
+          earningsAssumed: true,
+          earningsEqual: false,
+          waitingSeconds: 900,
+        },
+        score: 0.123,
+        candidateCount: 2,
+        ridersInRange: 3,
+        candidates: [
+          {
+            courierId: "c-101",
+            roadSeconds: 245,
+            roadEstimated: true,
+            centsPerHour: 840,
+            earningsAssumed: true,
+            earningsEqual: false,
+            waitingSeconds: 900,
+            score: 0.123,
+          },
+          {
+            courierId: "c-102",
+            roadSeconds: 300,
+            roadEstimated: false,
+            centsPerHour: 1100,
+            earningsAssumed: false,
+            earningsEqual: false,
+            waitingSeconds: 600,
+            score: 0.245,
+          },
+        ],
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[fairnessReason]}
+          courierNameById={courierNames}
+        />
+      );
+
+      // Strategy words and courier name in header
+      expect(
+        screen.getByText(/Dimitris V\. · Fairness \(co-op weights\)/)
+      ).toBeInTheDocument();
+
+      // Weights line
+      expect(
+        screen.getByText("Weights: road time 50, pay per hour 30, waiting 20")
+      ).toBeInTheDocument();
+
+      // Values in list items
+      expect(
+        screen.getByText(
+          "Road time 4 min 05 s (estimated, the router did not answer)"
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Pay per hour today €8.40 per hour (the co-op average, under the minimum time online)"
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Waiting since the last job 15 min 00 s")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Score 0.123, lowest of 2 compared (3 in range)")
+      ).toBeInTheDocument();
+
+      // Candidates table
+      const table = screen.getByRole("table");
+      expect(table).toBeInTheDocument();
+      expect(
+        screen.getByText("Riders compared for this offer, lowest score first")
+      ).toBeInTheDocument();
+
+      // Offered candidate marked
+      expect(screen.getByText("Dimitris V. (offered)")).toBeInTheDocument();
+      expect(screen.getByText("Eleni K.")).toBeInTheDocument();
+
+      // Estimated flag on candidate table
+      expect(screen.getByText("4 min 05 s (est.)")).toBeInTheDocument();
+      expect(screen.getByText("€8.40 per hour (avg.)")).toBeInTheDocument();
+      expect(screen.getByText("€11.00 per hour")).toBeInTheDocument();
+    });
+
+    it('renders candidate table with "equal" when candidate earningsEqual is true', () => {
+      const equalReason: OfferReasonAdmin = {
+        id: "reason-eq",
+        deliveryEventId: "evt-eq",
+        courierId: "c-101",
+        strategy: "FAIRNESS",
+        weights: { roadTime: 50, earnings: 30, waiting: 20 },
+        values: {
+          roadSeconds: 120,
+          roadEstimated: false,
+          centsPerHour: 0,
+          earningsAssumed: false,
+          earningsEqual: true,
+          waitingSeconds: 300,
+        },
+        score: 0.1,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: [
+          {
+            courierId: "c-101",
+            roadSeconds: 120,
+            roadEstimated: false,
+            centsPerHour: 0,
+            earningsAssumed: false,
+            earningsEqual: true,
+            waitingSeconds: 300,
+            score: 0.1,
+          },
+        ],
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[equalReason]}
+          courierNameById={courierNames}
+        />
+      );
+      expect(screen.getByText("equal")).toBeInTheDocument();
+    });
+
+    it('renders ADMIN reason with "Chosen by an admin" and no candidate table', () => {
+      const adminReason: OfferReasonAdmin = {
+        id: "reason-adm",
+        deliveryEventId: "evt-adm",
+        courierId: "c-101",
+        strategy: "ADMIN",
+        weights: null,
+        values: { adminUserId: "usr-admin-1" },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T11:00:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[adminReason]}
+          courierNameById={courierNames}
+        />
+      );
+
+      expect(screen.getByText(/Chosen by an admin/)).toBeInTheDocument();
+      expect(screen.getByText("Set by an admin")).toBeInTheDocument();
+      expect(screen.queryByRole("table")).toBeNull();
+    });
+
+    it("renders NEAREST reason with metres and road time", () => {
+      const nearestReason: OfferReasonAdmin = {
+        id: "reason-nr",
+        deliveryEventId: "evt-nr",
+        courierId: "c-102",
+        strategy: "NEAREST_COURIER",
+        weights: null,
+        values: {
+          straightMetres: 350,
+          roadSeconds: 180,
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T11:30:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[nearestReason]}
+          courierNameById={courierNames}
+        />
+      );
+
+      expect(screen.getByText(/Nearest free courier/)).toBeInTheDocument();
+      expect(screen.getByText("350 m in a straight line")).toBeInTheDocument();
+      expect(screen.getByText("Road time 3 min 00 s")).toBeInTheDocument();
+    });
+  });
+});

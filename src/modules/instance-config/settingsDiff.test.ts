@@ -425,6 +425,93 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(detailBlockers).toContain('URL is empty')
       expect(detailBlockers).toContain('Service area is not drawn')
     })
+
+    describe('fairness weights blockers (spec 0044, AC-5)', () => {
+      it('refuses all three weights at 0 on the values the save would leave (one changed, the others saved at 0)', () => {
+        // Saved state has roadTime: 0, earnings: 0, waiting: 20
+        const savedWithTwoZeros: SettingsForm = {
+          ...baseSavedForm,
+          fairnessWeightRoadTime: '0',
+          fairnessWeightEarnings: '0',
+          fairnessWeightWaiting: '20',
+        }
+        // User changes only fairnessWeightWaiting from '20' to '0'
+        const changes = [
+          { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job', from: '20', to: '0' },
+        ]
+        const edited: SettingsForm = {
+          ...savedWithTwoZeros,
+          fairnessWeightWaiting: '0',
+        }
+
+        const blocked = blockers(changes as any, edited)
+        expect(blocked).toContain('The three fairness weights cannot all be 0')
+      })
+
+      it('refuses all three weights at 0 when all three are changed to 0', () => {
+        const changes = [
+          { key: 'fairnessWeightRoadTime', label: 'Weight of road time to the restaurant', from: '50', to: '0' },
+          { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", from: '30', to: '0' },
+          { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job', from: '20', to: '0' },
+        ]
+        const edited: SettingsForm = {
+          ...baseSavedForm,
+          fairnessWeightRoadTime: '0',
+          fairnessWeightEarnings: '0',
+          fairnessWeightWaiting: '0',
+        }
+
+        const blocked = blockers(changes as any, edited)
+        expect(blocked).toContain('The three fairness weights cannot all be 0')
+      })
+
+      it('allows one weight at 0 (and two above 0)', () => {
+        const changes = [
+          { key: 'fairnessWeightRoadTime', label: 'Weight of road time to the restaurant', from: '50', to: '0' },
+        ]
+        const edited: SettingsForm = {
+          ...baseSavedForm,
+          fairnessWeightRoadTime: '0',
+          fairnessWeightEarnings: '30',
+          fairnessWeightWaiting: '20',
+        }
+
+        const blocked = blockers(changes as any, edited)
+        expect(blocked).not.toContain('The three fairness weights cannot all be 0')
+      })
+
+      it('allows two weights at 0 (and one above 0)', () => {
+        const changes = [
+          { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", from: '30', to: '0' },
+        ]
+        const edited: SettingsForm = {
+          ...baseSavedForm,
+          fairnessWeightRoadTime: '0',
+          fairnessWeightEarnings: '0',
+          fairnessWeightWaiting: '20',
+        }
+
+        const blocked = blockers(changes as any, edited)
+        expect(blocked).not.toContain('The three fairness weights cannot all be 0')
+      })
+
+      it('says nothing when none of the three fairness weights changed even if all three in edited are 0', () => {
+        // Only quoteBaseFee changed, fairness weights are not in changes list
+        const changes = [
+          { key: 'quoteBaseFee', label: 'Base fee', from: '€2.00', to: '€2.50' },
+        ]
+        const editedWithZeroWeights: SettingsForm = {
+          ...baseSavedForm,
+          quoteBaseFee: '250',
+          fairnessWeightRoadTime: '0',
+          fairnessWeightEarnings: '0',
+          fairnessWeightWaiting: '0',
+        }
+
+        const blocked = blockers(changes as any, editedWithZeroWeights)
+        expect(blocked).not.toContain('The three fairness weights cannot all be 0')
+      })
+    })
   })
 
   describe('savePayload (spec AC-4, AC-12)', () => {
@@ -529,6 +616,33 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         sosLocationRetentionDays: 14,
         dispatchPhoneNumber: '+30 24210 99999',
         cancellationPayoutPolicy: 'HALF_COMPENSATION',
+      })
+      expect(payload).not.toHaveProperty('details')
+    })
+
+    it('sends fairness settings as numbers and preserves 0 as number 0 (spec 0044, AC-5)', () => {
+      const changes = [
+        { key: 'fairnessWeightRoadTime', label: 'Weight of road time to the restaurant', from: '50', to: '0' },
+        { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", from: '30', to: '70' },
+        { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job', from: '20', to: '30' },
+        { key: 'fairnessCandidateLimit', label: 'Nearest riders compared for each offer', from: '10', to: '15' },
+        { key: 'fairnessMinOnlineMinutes', label: 'Minutes online before own pay per hour counts', from: '30', to: '45' },
+      ]
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        fairnessWeightRoadTime: '0',
+        fairnessWeightEarnings: '70',
+        fairnessWeightWaiting: '30',
+        fairnessCandidateLimit: '15',
+        fairnessMinOnlineMinutes: '45',
+      }
+      const payload = savePayload(changes as any, edited, savedDetails)
+      expect(payload).toEqual({
+        fairnessWeightRoadTime: 0,
+        fairnessWeightEarnings: 70,
+        fairnessWeightWaiting: 30,
+        fairnessCandidateLimit: 15,
+        fairnessMinOnlineMinutes: 45,
       })
       expect(payload).not.toHaveProperty('details')
     })

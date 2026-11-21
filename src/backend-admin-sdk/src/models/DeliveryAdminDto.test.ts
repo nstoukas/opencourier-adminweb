@@ -103,6 +103,75 @@ describe('DeliveryAdminDto waitCharges (spec 0033, AC-10)', () => {
   })
 })
 
+// Spec 0044 (AC-6, AC-8): why each offer went to its rider.
+describe('DeliveryAdminDto offerReasons (spec 0044, AC-6, AC-8)', () => {
+  const baseJson = {
+    id: 'd-100',
+    pickupReadyAt: '2026-11-20T10:00:00.000Z',
+    pickupDeadlineAt: '2026-11-20T10:30:00.000Z',
+    dropoffReadyAt: '2026-11-20T10:15:00.000Z',
+    dropoffEta: null,
+    dropoffDeadlineAt: '2026-11-20T10:45:00.000Z',
+    createdAt: '2026-11-20T09:55:00.000Z',
+    dropoffNotes: 'Floor: 2',
+  }
+
+  const sampleOfferReasons = [
+    {
+      id: 'reason-1',
+      deliveryEventId: 'evt-1',
+      courierId: 'c-1',
+      strategy: 'FAIRNESS',
+      weights: { roadTime: 50, earnings: 30, waiting: 20 },
+      values: {
+        roadSeconds: 120,
+        roadEstimated: false,
+        centsPerHour: 800,
+        earningsAssumed: false,
+        earningsEqual: false,
+        waitingSeconds: 300,
+      },
+      score: 0.15,
+      candidateCount: 5,
+      ridersInRange: 8,
+      candidates: [
+        { courierId: 'c-1', roadSeconds: 120, centsPerHour: 800, waitingSeconds: 300, score: 0.15 },
+        { courierId: 'c-2', roadSeconds: 180, centsPerHour: 900, waitingSeconds: 200, score: 0.25 },
+      ],
+      kind: 'SINGLE',
+      createdAt: '2026-11-20T10:00:00.000Z',
+    },
+  ]
+
+  it('DeliveryAdminDtoFromJSON reads offerReasons when the API sends them', () => {
+    const dto = DeliveryAdminDtoFromJSON({ ...baseJson, offerReasons: sampleOfferReasons })
+
+    expect(dto.offerReasons).toEqual(sampleOfferReasons)
+  })
+
+  it('DeliveryAdminDtoFromJSON reads an absent offerReasons field as an empty list (never undefined or null)', () => {
+    const dto = DeliveryAdminDtoFromJSON(baseJson)
+
+    expect(dto.offerReasons).toEqual([])
+  })
+
+  it('DeliveryAdminDtoToJSON writes offerReasons', () => {
+    const dto = DeliveryAdminDtoFromJSON({ ...baseJson, offerReasons: sampleOfferReasons })
+
+    const json = DeliveryAdminDtoToJSON(dto)
+
+    expect(json.offerReasons).toEqual(sampleOfferReasons)
+  })
+
+  it('round trips offerReasons through ToJSON and FromJSON unchanged', () => {
+    const first = DeliveryAdminDtoFromJSON({ ...baseJson, offerReasons: sampleOfferReasons })
+
+    const again = DeliveryAdminDtoFromJSON(DeliveryAdminDtoToJSON(first))
+
+    expect(again.offerReasons).toEqual(sampleOfferReasons)
+  })
+})
+
 // Spec 0043 (AC-1, AC-8): boxSize, boxUnits, and boxSizeAssumed on the delivery record.
 describe('DeliveryAdminDto box fields (spec 0043, AC-1, AC-8)', () => {
   const baseJson = {

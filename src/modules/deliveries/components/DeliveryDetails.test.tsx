@@ -1264,6 +1264,56 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(scope.getByText(/Greek Salad × 2 \(Large\)/)).toBeInTheDocument()
     })
 
+    it('renders OfferReasonsCard from the delivery offerReasons (spec 0044, AC-8)', () => {
+      const deliveryWithReasons: DeliveryAdminDto = {
+        ...sampleEurDelivery,
+        offerReasons: [
+          {
+            id: 'reason-fairness-1',
+            deliveryEventId: 'evt-offered-1',
+            courierId: 'c1',
+            strategy: 'FAIRNESS',
+            weights: { roadTime: 50, earnings: 30, waiting: 20 },
+            values: {
+              roadSeconds: 245,
+              roadEstimated: false,
+              centsPerHour: 840,
+              earningsAssumed: false,
+              earningsEqual: false,
+              waitingSeconds: 900,
+            },
+            score: 0.123,
+            candidateCount: 5,
+            ridersInRange: 8,
+            candidates: [
+              {
+                courierId: 'c1',
+                roadSeconds: 245,
+                centsPerHour: 840,
+                waitingSeconds: 900,
+                score: 0.123,
+              },
+            ],
+            kind: 'SINGLE',
+            createdAt: '2026-11-20T10:00:00.000Z',
+          },
+        ],
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: deliveryWithReasons,
+        isLoading: false,
+      })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+
+      expect(screen.getByText('Why each offer went to its rider')).toBeInTheDocument()
+      expect(screen.getByText(/Fairness \(co-op weights\)/)).toBeInTheDocument()
+      expect(screen.getByText(/Road time 4 min 05 s/)).toBeInTheDocument()
+      expect(screen.getByText(/Pay per hour today €8.40 per hour/)).toBeInTheDocument()
+      expect(screen.getByText(/Waiting since the last job 15 min 00 s/)).toBeInTheDocument()
+      expect(screen.getByText(/Score 0.123, lowest of 5 compared \(8 in range\)/)).toBeInTheDocument()
+    })
+
     it('renders all IDs in Technical details accordion once opened', () => {
       render(<DeliveryDetails deliveryId="d100" />)
 

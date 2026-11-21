@@ -4,6 +4,7 @@ import {
   PricingCard,
   MatchingCard,
   BoxCard,
+  FairnessCard,
   OffersCard,
   RestaurantDelaysCard,
   RiderPayCard,
@@ -13,6 +14,7 @@ import {
   TimeWorkedCard,
   PUBLIC_PAGES,
   SECTIONS,
+  MATCHER_COPY,
 } from './SettingsCards'
 import { EMPTY_FORM, blockers, pendingChanges, type SettingsForm } from '../settingsDiff'
 
@@ -1446,6 +1448,144 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       const boxSection = SECTIONS.find((s) => s.id === 'box')
       expect(boxSection).toBeDefined()
       expect(boxSection?.title).toBe('Box')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // FairnessCard (spec 0044, AC-5)
+  // ---------------------------------------------------------------------------
+  describe('FairnessCard (spec 0044, AC-5)', () => {
+    it('renders Fairness section heading and binds each of the five settings', () => {
+      const mockSet = jest.fn()
+      render(
+        <FairnessCard
+          form={{
+            ...dummyForm,
+            fairnessWeightRoadTime: '50',
+            fairnessWeightEarnings: '30',
+            fairnessWeightWaiting: '20',
+            fairnessCandidateLimit: '10',
+            fairnessMinOnlineMinutes: '30',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'Fairness' })).toBeInTheDocument()
+
+      const roadTimeInput = screen.getByLabelText('Weight of road time to the restaurant') as HTMLInputElement
+      expect(roadTimeInput.value).toBe('50')
+      expect(roadTimeInput).toHaveAttribute('type', 'number')
+      expect(roadTimeInput).toHaveAttribute('min', '0')
+      expect(roadTimeInput).toHaveAttribute('max', '100')
+      expect(roadTimeInput).not.toBeDisabled()
+
+      const earningsInput = screen.getByLabelText("Weight of the rider's pay per hour today") as HTMLInputElement
+      expect(earningsInput.value).toBe('30')
+      expect(earningsInput).toHaveAttribute('type', 'number')
+      expect(earningsInput).toHaveAttribute('min', '0')
+      expect(earningsInput).toHaveAttribute('max', '100')
+      expect(earningsInput).not.toBeDisabled()
+
+      const waitingInput = screen.getByLabelText('Weight of waiting since the last job') as HTMLInputElement
+      expect(waitingInput.value).toBe('20')
+      expect(waitingInput).toHaveAttribute('type', 'number')
+      expect(waitingInput).toHaveAttribute('min', '0')
+      expect(waitingInput).toHaveAttribute('max', '100')
+      expect(waitingInput).not.toBeDisabled()
+
+      const limitInput = screen.getByLabelText('Nearest riders compared for each offer') as HTMLInputElement
+      expect(limitInput.value).toBe('10')
+      expect(limitInput).toHaveAttribute('type', 'number')
+      expect(limitInput).toHaveAttribute('min', '1')
+      expect(limitInput).toHaveAttribute('max', '50')
+      expect(limitInput).not.toBeDisabled()
+
+      const minOnlineInput = screen.getByLabelText('Minutes online before own pay per hour counts') as HTMLInputElement
+      expect(minOnlineInput.value).toBe('30')
+      expect(minOnlineInput).toHaveAttribute('type', 'number')
+      expect(minOnlineInput).toHaveAttribute('min', '0')
+      expect(minOnlineInput).toHaveAttribute('max', '240')
+      expect(minOnlineInput).not.toBeDisabled()
+
+      fireEvent.change(roadTimeInput, { target: { value: '40' } })
+      expect(mockSet).toHaveBeenCalledWith('fairnessWeightRoadTime', '40')
+
+      fireEvent.change(earningsInput, { target: { value: '35' } })
+      expect(mockSet).toHaveBeenCalledWith('fairnessWeightEarnings', '35')
+
+      fireEvent.change(waitingInput, { target: { value: '25' } })
+      expect(mockSet).toHaveBeenCalledWith('fairnessWeightWaiting', '25')
+
+      fireEvent.change(limitInput, { target: { value: '15' } })
+      expect(mockSet).toHaveBeenCalledWith('fairnessCandidateLimit', '15')
+
+      fireEvent.change(minOnlineInput, { target: { value: '45' } })
+      expect(mockSet).toHaveBeenCalledWith('fairnessMinOnlineMinutes', '45')
+    })
+
+    it('disables all five inputs before settings load (loaded = false)', () => {
+      render(
+        <FairnessCard
+          form={{
+            ...dummyForm,
+            fairnessWeightRoadTime: '50',
+            fairnessWeightEarnings: '30',
+            fairnessWeightWaiting: '20',
+            fairnessCandidateLimit: '10',
+            fairnessMinOnlineMinutes: '30',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Weight of road time to the restaurant')).toBeDisabled()
+      expect(screen.getByLabelText("Weight of the rider's pay per hour today")).toBeDisabled()
+      expect(screen.getByLabelText('Weight of waiting since the last job')).toBeDisabled()
+      expect(screen.getByLabelText('Nearest riders compared for each offer')).toBeDisabled()
+      expect(screen.getByLabelText('Minutes online before own pay per hour counts')).toBeDisabled()
+    })
+
+    it('defines SECTIONS entry with id "fairness" and title "Fairness"', () => {
+      const fairnessSection = SECTIONS.find((s) => s.id === 'fairness')
+      expect(fairnessSection).toBeDefined()
+      expect(fairnessSection?.title).toBe('Fairness')
+    })
+
+    it('includes Fairness in MATCHER_COPY with honest copy', () => {
+      expect(MATCHER_COPY.FAIRNESS).toBeDefined()
+      expect(MATCHER_COPY.FAIRNESS?.title).toBe('Fairness')
+      expect(MATCHER_COPY.FAIRNESS?.description).toContain('Fairness card')
+    })
+
+    it('renders Fairness as a choice of the matcher in MatchingCard and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, courierMatcherType: 'NEAREST_COURIER' }}
+          set={mockSet}
+          options={{
+            ...dummyOptions,
+            courierMatcherType: ['NEAREST_COURIER', 'COURIER_SENIORITY', 'STATIC', 'FAIRNESS'],
+          }}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByText('Fairness')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Among the nearest free riders, road time, pay per hour today and waiting, weighed as set in the Fairness card.'
+        )
+      ).toBeInTheDocument()
+
+      const fairnessRadio = screen.getByRole('radio', { name: /Fairness/i })
+      fireEvent.click(fairnessRadio)
+      expect(mockSet).toHaveBeenCalledWith('courierMatcherType', 'FAIRNESS')
     })
   })
 })

@@ -1509,4 +1509,102 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.boxDefaultSize).toBe('SMALL')
     })
   })
+
+  describe('Fairness matcher settings (spec 0044, AC-5)', () => {
+    it('InstanceConfigSettingsAdminInputToJSON preserves each of the five fairness settings', () => {
+      // Load-bearing test guard: without these five fields in ToJSON, a save drops them silently
+      const input = {
+        fairnessWeightRoadTime: 50,
+        fairnessWeightEarnings: 30,
+        fairnessWeightWaiting: 20,
+        fairnessCandidateLimit: 10,
+        fairnessMinOnlineMinutes: 30,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.fairnessWeightRoadTime).toBe(50)
+      expect(json.fairnessWeightEarnings).toBe(30)
+      expect(json.fairnessWeightWaiting).toBe(20)
+      expect(json.fairnessCandidateLimit).toBe(10)
+      expect(json.fairnessMinOnlineMinutes).toBe(30)
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON preserves zero values for fairness weights', () => {
+      const inputWithZeros = {
+        fairnessWeightRoadTime: 0,
+        fairnessWeightEarnings: 0,
+        fairnessWeightWaiting: 0,
+        fairnessMinOnlineMinutes: 0,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(inputWithZeros)
+      expect(json.fairnessWeightRoadTime).toBe(0)
+      expect(json.fairnessWeightEarnings).toBe(0)
+      expect(json.fairnessWeightWaiting).toBe(0)
+      expect(json.fairnessMinOnlineMinutes).toBe(0)
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON reads each of the five fairness settings and gives null when absent', () => {
+      const raw = {
+        fairnessWeightRoadTime: 40,
+        fairnessWeightEarnings: 35,
+        fairnessWeightWaiting: 25,
+        fairnessCandidateLimit: 15,
+        fairnessMinOnlineMinutes: 45,
+      }
+      const dto = InstanceConfigSettingsDtoFromJSON(raw)
+      expect(dto.fairnessWeightRoadTime).toBe(40)
+      expect(dto.fairnessWeightEarnings).toBe(35)
+      expect(dto.fairnessWeightWaiting).toBe(25)
+      expect(dto.fairnessCandidateLimit).toBe(15)
+      expect(dto.fairnessMinOnlineMinutes).toBe(45)
+
+      const missing = InstanceConfigSettingsDtoFromJSON({})
+      expect(missing.fairnessWeightRoadTime).toBeNull()
+      expect(missing.fairnessWeightEarnings).toBeNull()
+      expect(missing.fairnessWeightWaiting).toBeNull()
+      expect(missing.fairnessCandidateLimit).toBeNull()
+      expect(missing.fairnessMinOnlineMinutes).toBeNull()
+    })
+
+    it('InstanceConfigSettingsDtoToJSON serializes all five fairness settings back', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        fairnessWeightRoadTime: 50,
+        fairnessWeightEarnings: 30,
+        fairnessWeightWaiting: 20,
+        fairnessCandidateLimit: 10,
+        fairnessMinOnlineMinutes: 30,
+      })
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.fairnessWeightRoadTime).toBe(50)
+      expect(json.fairnessWeightEarnings).toBe(30)
+      expect(json.fairnessWeightWaiting).toBe(20)
+      expect(json.fairnessCandidateLimit).toBe(10)
+      expect(json.fairnessMinOnlineMinutes).toBe(30)
+    })
+
+    it('InstanceConfigSettingsAdminInput round-trips all five fairness settings through FromJSON and ToJSON', () => {
+      const original = {
+        fairnessWeightRoadTime: 60,
+        fairnessWeightEarnings: 20,
+        fairnessWeightWaiting: 20,
+        fairnessCandidateLimit: 12,
+        fairnessMinOnlineMinutes: 15,
+      }
+      const parsed = InstanceConfigSettingsAdminInputFromJSON(original)
+      expect(parsed.fairnessWeightRoadTime).toBe(60)
+      expect(parsed.fairnessWeightEarnings).toBe(20)
+      expect(parsed.fairnessWeightWaiting).toBe(20)
+      expect(parsed.fairnessCandidateLimit).toBe(12)
+      expect(parsed.fairnessMinOnlineMinutes).toBe(15)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(parsed)
+      expect(serialized.fairnessWeightRoadTime).toBe(60)
+      expect(serialized.fairnessWeightEarnings).toBe(20)
+      expect(serialized.fairnessWeightWaiting).toBe(20)
+      expect(serialized.fairnessCandidateLimit).toBe(12)
+      expect(serialized.fairnessMinOnlineMinutes).toBe(15)
+    })
+  })
 })
