@@ -84,6 +84,8 @@ Scope row 79 (shift priority in dispatch, spec 0049, GA) was built on the branch
 
 Scope row 108 (rider account upkeep, spec 0051, Beta) was built on the branch `feat/rider-account-upkeep` and merged in on 21 November. A rider's page gains an Account card: active or deactivated, the login email, the emergency contact, Edit details, Deactivate (a reason, a confirm naming the effects) or Reactivate, and the account history with the admin who acted. The couriers list labels deactivated riders and has a Deactivated tab; the assign and reassign pickers leave them out. Hand edited SDK: `CourierAccountApi`, `deactivatedAt`, email and emergency contact on the update input (`5a1bb83`, `43cf61a`; tests by a Fable subagent while agy was out of quota, `6ac04a8`, `1b7e172`).
 
+Scope row 76 (monthly statements, spec 0050, Beta) was built on the branch `feat/monthly-statements` and merged in on 21 November. A rider's page gains a Statements card: pick a finished month and a language (Greek or English) and download the PDF or CSV the rider sees; below it, the downloads admins made of this rider's statements, newest 50, with the admin and time. Each download is recorded and shown to the rider. Hand edited SDK: `StatementApi` (`92b1d28`; tests by a Fable subagent while agy was out of quota, `da2e042`).
+
 ## Added
 
 On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
