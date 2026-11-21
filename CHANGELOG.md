@@ -86,6 +86,8 @@ Scope row 108 (rider account upkeep, spec 0051, Beta) was built on the branch `f
 
 Scope row 76 (monthly statements, spec 0050, Beta) was built on the branch `feat/monthly-statements` and merged in on 21 November. A rider's page gains a Statements card: pick a finished month and a language (Greek or English) and download the PDF or CSV the rider sees; below it, the downloads admins made of this rider's statements, newest 50, with the admin and time. Each download is recorded and shown to the rider. Hand edited SDK: `StatementApi` (`92b1d28`; tests by a Fable subagent while agy was out of quota, `da2e042`).
 
+Scope row 10 (multi leg orders, spec 0046, GA) was built on the branch `feat/multi-leg-orders` and merged in on 21 November. The deliveries list says "Leg 1 of 2" under the reference; the delivery page shows the leg in its Order card and an "Order in 2 legs" card with each leg's status, rider and link, and any leg never created. Hand edited SDK: `OrderLegAdmin` and four fields on `DeliveryAdminDto` (`63082dc`, `f8d00dc`; tests by a Fable subagent while agy was out of quota, `c477ae0`, `e6a3bf3`). Owes a cross family review once agy is back.
+
 ## Added
 
 On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
