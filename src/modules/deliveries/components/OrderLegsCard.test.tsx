@@ -26,7 +26,7 @@ describe('OrderLegsCard (spec 0046, AC-6)', () => {
   it('lists each leg with its label, its status and its rider', () => {
     render(<OrderLegsCard deliveryId="delivery-aaaaaa111111" legCount={2} legs={two} missingLegNumbers={[]} />)
 
-    const rows = screen.getAllByRole('listitem')
+    const rows = screen.getAllByRole('listitem') as [HTMLElement, HTMLElement]
     expect(rows).toHaveLength(2)
     expect(rows[0]).toHaveTextContent('Leg 1 of 2')
     expect(rows[0]).toHaveTextContent('Maria Papadopoulou')
@@ -39,7 +39,7 @@ describe('OrderLegsCard (spec 0046, AC-6)', () => {
   it('links each other leg to its own page by its short id, and marks the one on this page', () => {
     render(<OrderLegsCard deliveryId="delivery-aaaaaa111111" legCount={2} legs={two} missingLegNumbers={[]} />)
 
-    const rows = screen.getAllByRole('listitem')
+    const rows = screen.getAllByRole('listitem') as [HTMLElement, HTMLElement]
     expect(within(rows[0]).getByText('This delivery')).toBeInTheDocument()
     expect(within(rows[0]).queryByRole('link')).toBeNull()
     const link = within(rows[1]).getByRole('link')
@@ -47,22 +47,22 @@ describe('OrderLegsCard (spec 0046, AC-6)', () => {
     expect(link).toHaveTextContent('222222')
   })
 
-  it('cross check 5: a 3 leg order with only leg 1 says legs 2 and 3 were never sent', () => {
+  it('cross check 5: a 3 leg order with only leg 1 says legs 2 and 3 were never created', () => {
     render(<OrderLegsCard deliveryId="delivery-aaaaaa111111" legCount={3} legs={[leg()]} missingLegNumbers={[2, 3]} />)
 
-    expect(screen.getByText('Leg 2 of 3, Leg 3 of 3 were never sent by the restaurant.')).toBeInTheDocument()
+    expect(screen.getByText('Leg 2 of 3, Leg 3 of 3 were never created.')).toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
 
   it('one missing leg reads in the singular', () => {
     render(<OrderLegsCard deliveryId="delivery-aaaaaa111111" legCount={2} legs={[leg()]} missingLegNumbers={[2]} />)
 
-    expect(screen.getByText('Leg 2 of 2 was never sent by the restaurant.')).toBeInTheDocument()
+    expect(screen.getByText('Leg 2 of 2 was never created.')).toBeInTheDocument()
   })
 
-  it('a complete order says nothing about a leg never sent', () => {
+  it('a complete order says nothing about a leg never created', () => {
     render(<OrderLegsCard deliveryId="delivery-aaaaaa111111" legCount={2} legs={two} missingLegNumbers={[]} />)
 
-    expect(screen.queryByText(/never sent/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/never (sent|created)/)).not.toBeInTheDocument()
   })
 })

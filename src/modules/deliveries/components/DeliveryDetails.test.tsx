@@ -1268,7 +1268,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
         const card = within(screen.getByTestId('order-legs'))
         expect(card.getByText('Order in 2 legs')).toBeInTheDocument()
-        const rows = card.getAllByRole('listitem')
+        const rows = card.getAllByRole('listitem') as [HTMLElement, HTMLElement]
         expect(rows).toHaveLength(2)
         expect(rows[0]).toHaveTextContent('Leg 1 of 2')
         expect(rows[0]).toHaveTextContent('Ana Papadopoulou')
@@ -1278,10 +1278,10 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
         expect(rows[1]).toHaveTextContent('No rider yet')
         expect(rows[1].querySelector('[data-status="ASSIGNING_COURIER"]')).not.toBeNull()
         expect(within(rows[1]).getByRole('link')).toHaveAttribute('href', '/deliveries/d200-leg-222222')
-        expect(card.queryByText(/never sent/)).not.toBeInTheDocument()
+        expect(card.queryByText(/never (sent|created)/)).not.toBeInTheDocument()
       })
 
-      it('cross check 5: a 3 leg order with only leg 1 says legs 2 and 3 were never sent', () => {
+      it('cross check 5: a 3 leg order with only leg 1 says legs 2 and 3 were never created', () => {
         mockUseGetDeliveryQuery.mockReturnValue({
           data: { ...sampleEurDelivery, legNumber: 1, legCount: 3, orderLegs: [legOne], missingLegNumbers: [2, 3] },
           isLoading: false,
@@ -1290,7 +1290,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
         render(<DeliveryDetails deliveryId="d100" />)
 
         expect(
-          within(screen.getByTestId('order-legs')).getByText('Leg 2 of 3, Leg 3 of 3 were never sent by the restaurant.')
+          within(screen.getByTestId('order-legs')).getByText('Leg 2 of 3, Leg 3 of 3 were never created.')
         ).toBeInTheDocument()
       })
 
