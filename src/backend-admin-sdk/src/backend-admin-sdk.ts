@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, StatementApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
+import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, StatementApi, SplitRequestApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -81,6 +81,11 @@ export class BackendAdminSdk {
   // The co-op's weekly shift slots (spec 0026).
   shiftSlots(): ShiftSlotApi {
     return this.getOrCreateApi(ShiftSlotApi)
+  }
+
+  // The Split requests queue (spec 0047).
+  splitRequests(): SplitRequestApi {
+    return this.getOrCreateApi(SplitRequestApi)
   }
 
   // A rider's monthly statements (spec 0050).

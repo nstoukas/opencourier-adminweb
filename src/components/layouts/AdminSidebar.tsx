@@ -18,9 +18,10 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { CalendarBlank, ChatCircle, Coins, GearSix, MapPin, Moped, Package, Scales, SignOut, Siren, Storefront, Timer, WarningCircle } from '@phosphor-icons/react'
+import { ArrowsSplit, CalendarBlank, ChatCircle, Coins, GearSix, MapPin, Moped, Package, Scales, SignOut, Siren, Storefront, Timer, WarningCircle } from '@phosphor-icons/react'
 import { MessagesBadge } from '@/modules/chat/MessagesBadge'
 import { ReviewsBadge } from '@/modules/reviews/ReviewsBadge'
+import { SplitRequestsBadge } from '@/modules/split-requests/SplitRequestsBadge'
 import { disconnectChatLive } from '@/modules/chat/chatLive'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -53,6 +54,8 @@ const NAV_GROUPS: NavGroup[] = [
       { title: 'SOS', icon: Siren, href: EAdminRoutes.SOS },
       // Wrong or missing products (spec 0032).
       { title: 'Product reports', icon: WarningCircle, href: EAdminRoutes.PRODUCT_REPORTS },
+      // Orders that do not fit one box, with the count waiting for an answer (spec 0047, AC-4).
+      { title: 'Split requests', icon: ArrowsSplit, href: EAdminRoutes.SPLIT_REQUESTS, badge: SplitRequestsBadge },
     ],
   },
   {

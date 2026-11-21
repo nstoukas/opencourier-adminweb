@@ -42,6 +42,8 @@ export type SettingsForm = {
   waitPayFreeMinutes: string
   waitPayCentsPerMinute: string
   waitLimitMinutes: string
+  // Spec 0047 (AC-2): minutes after a split flag before the rider may leave.
+  splitAnswerMinutes: string
   offerTimingEnabled: boolean | null
   offerLeadMinutes: string
   offerTimingCandidates: string
@@ -130,6 +132,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', kind: 'number' },
   { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', kind: 'number' },
   { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', kind: 'number' },
+  { key: 'splitAnswerMinutes', label: 'Minutes before a rider can leave an order not split', kind: 'number' },
   { key: 'shiftsEnabled', label: 'Shifts', kind: 'switch' },
   { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', kind: 'number' },
   { key: 'shiftBreakMinutes', label: 'Longest break inside a worked shift, in minutes', kind: 'number' },
@@ -475,6 +478,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     waitPayFreeMinutes: text(data.waitPayFreeMinutes),
     waitPayCentsPerMinute: text(data.waitPayCentsPerMinute),
     waitLimitMinutes: text(data.waitLimitMinutes),
+    splitAnswerMinutes: text(data.splitAnswerMinutes),
     offerTimingEnabled: data.offerTimingEnabled ?? null,
     offerLeadMinutes: text(data.offerLeadMinutes),
     offerTimingCandidates: text(data.offerTimingCandidates),

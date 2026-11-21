@@ -710,6 +710,17 @@ export function RestaurantDelaysCard({ form, set, loaded }: CardProps) {
             description="Whole minutes, 1 to 60, counted from the restaurant's promised time, or from the rider's arrival if that was later. Applies whether Delay pay is on or off."
             onChange={(value) => set('waitLimitMinutes', value)}
           />
+          {/* Spec 0047 (AC-2): a rider who flagged an order that does not fit one box. */}
+          <NumberField
+            id="splitAnswerMinutes"
+            label={labelOf('splitAnswerMinutes')}
+            value={form.splitAnswerMinutes}
+            min={1}
+            max={60}
+            disabled={!loaded || notLoaded}
+            description="Whole minutes, 1 to 60, from when a rider says an order does not fit one box. With no answer from dispatch by then, the rider may leave and the order is cancelled as the restaurant's. The wait is paid at the Delay pay rate."
+            onChange={(value) => set('splitAnswerMinutes', value)}
+          />
         </div>
       </FieldGroup>
     </SettingsSection>

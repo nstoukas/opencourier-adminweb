@@ -22,6 +22,7 @@ const tagTypes = {
   chatMessages: 'ChatMessages',
   partnerCharges: 'PartnerCharges',
   reviewRequests: 'ReviewRequests',
+  splitRequests: 'SplitRequests',
   settingChanges: 'SettingChanges',
   timeWorked: 'TimeWorked',
 }
@@ -48,6 +49,7 @@ export const Tags = {
   courierAccount: tagTypes['courierAccount'],
   courierStatements: tagTypes['courierStatements'],
   reviewRequests: tagTypes['reviewRequests'],
+  splitRequests: tagTypes['splitRequests'],
   settingChanges: tagTypes['settingChanges'],
   timeWorked: tagTypes['timeWorked'],
   sos: tagTypes['sos'],

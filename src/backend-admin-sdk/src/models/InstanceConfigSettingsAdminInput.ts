@@ -186,6 +186,10 @@ export interface InstanceConfigSettingsAdminInput {
    */
   waitLimitMinutes?: number;
   /**
+   * Spec 0047 (AC-2): minutes after a split flag before the rider may leave, 1 to 60. Hand edited (row 11).
+   */
+  splitAnswerMinutes?: number;
+  /**
    * Spec 0031: whether offers are timed to food readiness. Hand edited.
    * @type {boolean}
    * @memberof InstanceConfigSettingsAdminInput
@@ -501,6 +505,7 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     waitPayFreeMinutes: !exists(json, "waitPayFreeMinutes") ? undefined : json["waitPayFreeMinutes"],
     waitPayCentsPerMinute: !exists(json, "waitPayCentsPerMinute") ? undefined : json["waitPayCentsPerMinute"],
     waitLimitMinutes: !exists(json, "waitLimitMinutes") ? undefined : json["waitLimitMinutes"],
+    splitAnswerMinutes: !exists(json, "splitAnswerMinutes") ? undefined : json["splitAnswerMinutes"],
     offerTimingEnabled: !exists(json, "offerTimingEnabled") ? undefined : json["offerTimingEnabled"],
     offerLeadMinutes: !exists(json, "offerLeadMinutes") ? undefined : json["offerLeadMinutes"],
     offerTimingCandidates: !exists(json, "offerTimingCandidates") ? undefined : json["offerTimingCandidates"],
@@ -597,6 +602,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     waitPayFreeMinutes: value.waitPayFreeMinutes,
     waitPayCentsPerMinute: value.waitPayCentsPerMinute,
     waitLimitMinutes: value.waitLimitMinutes,
+    splitAnswerMinutes: value.splitAnswerMinutes,
     // Without these three lines a save would drop the timed offers settings before they left the browser.
     offerTimingEnabled: value.offerTimingEnabled,
     offerLeadMinutes: value.offerLeadMinutes,

@@ -189,6 +189,10 @@ export interface InstanceConfigSettingsDto {
    */
   waitLimitMinutes?: number | null;
   /**
+   * Spec 0047 (AC-2): minutes after a split flag before the rider may leave, 1 to 60. Hand edited (row 11).
+   */
+  splitAnswerMinutes?: number | null;
+  /**
    * Spec 0031: whether offers are timed to food readiness. Hand edited.
    * @type {boolean}
    * @memberof InstanceConfigSettingsDto
@@ -475,6 +479,7 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     waitPayFreeMinutes: !exists(json, "waitPayFreeMinutes") ? null : json["waitPayFreeMinutes"],
     waitPayCentsPerMinute: !exists(json, "waitPayCentsPerMinute") ? null : json["waitPayCentsPerMinute"],
     waitLimitMinutes: !exists(json, "waitLimitMinutes") ? null : json["waitLimitMinutes"],
+    splitAnswerMinutes: !exists(json, "splitAnswerMinutes") ? null : json["splitAnswerMinutes"],
     offerTimingEnabled: !exists(json, "offerTimingEnabled") ? null : json["offerTimingEnabled"],
     offerLeadMinutes: !exists(json, "offerLeadMinutes") ? null : json["offerLeadMinutes"],
     offerTimingCandidates: !exists(json, "offerTimingCandidates") ? null : json["offerTimingCandidates"],
@@ -569,6 +574,7 @@ export function InstanceConfigSettingsDtoToJSON(
     waitPayFreeMinutes: value.waitPayFreeMinutes,
     waitPayCentsPerMinute: value.waitPayCentsPerMinute,
     waitLimitMinutes: value.waitLimitMinutes,
+    splitAnswerMinutes: value.splitAnswerMinutes,
     offerTimingEnabled: value.offerTimingEnabled,
     offerLeadMinutes: value.offerLeadMinutes,
     offerTimingCandidates: value.offerTimingCandidates,
