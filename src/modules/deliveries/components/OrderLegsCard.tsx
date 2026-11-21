@@ -48,7 +48,7 @@ export function OrderLegsCard({ deliveryId, legCount, legs, missingLegNumbers }:
         {missingLegNumbers.length > 0 ? (
           <p className="text-destructive">
             {missingLegNumbers.map((number) => `Leg ${number} of ${legCount}`).join(", ")}{" "}
-            {missingLegNumbers.length === 1 ? "was" : "were"} never sent by the restaurant.
+            {missingLegNumbers.length === 1 ? "was" : "were"} never created.
           </p>
         ) : null}
       </CardContent>
