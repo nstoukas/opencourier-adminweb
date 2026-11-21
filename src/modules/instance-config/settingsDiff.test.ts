@@ -72,6 +72,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     waitPayFreeMinutes: '5',
     waitPayCentsPerMinute: '10',
     waitLimitMinutes: '10',
+    // Spec 0047: the form has the split answer time too.
+    splitAnswerMinutes: '10',
     handBackSeconds: '60',
     cancellationPayoutPolicy: 'FULL_COMPENSATION',
     returnTripPayPercent: '100',

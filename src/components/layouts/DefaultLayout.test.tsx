@@ -36,6 +36,12 @@ jest.mock('../../api/reviewRequestApi', () => ({
   useGetReviewRequestCountQuery: () => mockUseGetReviewRequestCountQuery(),
 }))
 
+// Mock split requests API query for the open count badge (spec 0047)
+const mockUseGetSplitRequestCountQuery = jest.fn()
+jest.mock('../../api/splitRequestApi', () => ({
+  useGetSplitRequestCountQuery: () => mockUseGetSplitRequestCountQuery(),
+}))
+
 const mockDisconnectChatLive = jest.fn()
 jest.mock('../../modules/chat/chatLive', () => {
   const actual = jest.requireActual('../../modules/chat/chatLive')
@@ -65,6 +71,9 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     })
     mockUseGetReviewRequestCountQuery.mockReturnValue({
       data: { open: 0, overdue: 0 },
+    })
+    mockUseGetSplitRequestCountQuery.mockReturnValue({
+      data: { open: 0 },
     })
   })
 
@@ -224,6 +233,24 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(screen.getByText('Co-op')).toBeInTheDocument()
       const configLink = screen.getByRole('link', { name: /Settings/i })
       expect(configLink).toHaveAttribute('href', '/instance-configuration')
+    })
+
+    // Spec 0047 (row 11, AC-4): "Split requests" under Run the day, with the count waiting for an answer.
+    it('lists "Split requests" (/split-requests) under Run the day, with its count when a rider is waiting', () => {
+      mockUseGetSplitRequestCountQuery.mockReturnValue({ data: { open: 2 } })
+      renderLayout()
+
+      const link = screen.getByRole('link', { name: /Split requests/i })
+      expect(link).toHaveAttribute('href', '/split-requests')
+      expect(EAdminRoutes.SPLIT_REQUESTS).toBe('/split-requests')
+      expect(within(link).getByRole('img', { name: '2 waiting for an answer' })).toHaveTextContent('2')
+    })
+
+    it('shows no count beside "Split requests" when no rider is waiting', () => {
+      renderLayout()
+
+      const link = screen.getByRole('link', { name: /Split requests/i })
+      expect(within(link).queryByRole('img')).toBeNull()
     })
 
     // Spec 0026 (row 77): the Co-op group gains "Shift slots" after Settings.
