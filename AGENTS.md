@@ -83,4 +83,7 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 - Rider accounts (spec 0051): `CourierAccountCard` deactivates, reactivates, edits and shows the account history; a list or
   picker that offers riders for work leaves out those with `deactivatedAt` (the backend refuses them anyway).
 
+- Monthly statements (spec 0050): `CourierStatementsCard` downloads the rider's PDF or CSV as a blob through the hand edited
+  `StatementApi` (`src/api/statementApi.ts`); every download is recorded and shown to the rider, so fetch the file only on the admin's click.
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
