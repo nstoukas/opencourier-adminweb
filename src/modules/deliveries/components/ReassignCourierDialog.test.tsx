@@ -9,20 +9,36 @@ import { EnumDeliveryStatus } from '../../../shared-types'
 import { useReassignDeliveryMutation } from '../../../api/deliveriesApi'
 import { useGetAllCouriersQuery } from '../../../api/couriersApi'
 import { useGetInstanceConfigQuery } from '../../../api/configApi'
+import { BOX_OVER_CAPACITY_WARNING_ID } from './BoxOverCapacityWarning'
 
 // Mock Radix Select primitive using React Context so deep SelectItems update state in JSDOM tests
 jest.mock('@radix-ui/react-select', () => {
   // `as typeof import('react')` because a bare require() is untyped, and an untyped call
   // cannot take the type argument used on createContext below (TS2347).
   const React = require('react') as typeof import('react')
-  const SelectContext = React.createContext<{ onValueChange?: (v: string) => void }>({})
+  const SelectContext = React.createContext<{
+    onValueChange?: (v: string) => void
+    disabled?: boolean
+  }>({})
   return {
-    Root: ({ children, onValueChange }: any) => (
-      <SelectContext.Provider value={{ onValueChange }}>
+    Root: ({ children, onValueChange, disabled }: any) => (
+      <SelectContext.Provider value={{ onValueChange, disabled }}>
         <div data-testid="radix-select-root">{children}</div>
       </SelectContext.Provider>
     ),
-    Trigger: ({ children, ...props }: any) => <button type="button" role="combobox" {...props}>{children}</button>,
+    Trigger: ({ children, disabled, ...props }: any) => {
+      const { disabled: rootDisabled } = React.useContext(SelectContext)
+      return (
+        <button
+          type="button"
+          role="combobox"
+          disabled={disabled ?? rootDisabled}
+          {...props}
+        >
+          {children}
+        </button>
+      )
+    },
     Value: ({ placeholder, children }: any) => <span>{children || placeholder}</span>,
     Icon: ({ children }: any) => <span>{children}</span>,
     Portal: ({ children }: any) => <div>{children}</div>,
@@ -290,7 +306,7 @@ describe('ReassignCourierDialog component', () => {
   })
 
   describe('over capacity warning and confirm step (spec 0043, AC-6, AC-8)', () => {
-    it('on 409 BOX_OVER_CAPACITY: keeps dialog open, shows alert with units, and button reads "Reassign anyway"; pressing it sends confirmOverCapacity: true', async () => {
+    it('after 409 BOX_OVER_CAPACITY for rider A: warning names numbers, confirm button stays disabled until tick box is ticked, then sends confirmOverCapacity true (spec 0043, AC-6, AC-8)', async () => {
       // First attempt fails with 409 BOX_OVER_CAPACITY
       mockReassignDeliveryMutation.mockReturnValueOnce({
         unwrap: () =>
@@ -332,11 +348,21 @@ describe('ReassignCourierDialog component', () => {
         'They already hold 40 of 100 box units, and this order takes 70: 110 in all.'
       )
 
-      // Button now reads "Reassign anyway"
+      // Button now reads "Reassign anyway" and stays disabled until tick box is ticked
       const confirmButton = screen.getByRole('button', { name: /reassign anyway/i })
-      expect(confirmButton).toBeInTheDocument()
+      expect(confirmButton).toBeDisabled()
 
-      // Second press succeeds with confirmOverCapacity: true
+      // Tick the confirmation checkbox
+      const checkbox = screen.getByRole('checkbox', {
+        name: /I checked with the rider that this order fits/i,
+      })
+      fireEvent.click(checkbox)
+      expect(checkbox).toBeChecked()
+
+      // Button is now enabled
+      expect(confirmButton).not.toBeDisabled()
+
+      // Second press succeeds with confirmOverCapacity: true for rider c2
       mockReassignDeliveryMutation.mockReturnValueOnce({
         unwrap: () => Promise.resolve({ ...sampleDelivery, courierId: 'c2' }),
       })
@@ -358,7 +384,7 @@ describe('ReassignCourierDialog component', () => {
       })
     })
 
-    it('choosing another rider clears the warning and the next press sends confirmOverCapacity: false', async () => {
+    it('choosing rider B after A warning hides the warning and the next press sends confirmOverCapacity false for B', async () => {
       mockReassignDeliveryMutation.mockReturnValueOnce({
         unwrap: () =>
           Promise.reject({
@@ -386,6 +412,7 @@ describe('ReassignCourierDialog component', () => {
       expect(screen.queryByRole('alert')).toBeNull()
       const submitButton = screen.getByRole('button', { name: /reassign rider/i })
       expect(submitButton).toBeInTheDocument()
+      expect(submitButton).not.toBeDisabled()
 
       // Next press sends confirmOverCapacity: false for Yannis
       mockReassignDeliveryMutation.mockReturnValueOnce({
@@ -402,6 +429,87 @@ describe('ReassignCourierDialog component', () => {
           confirmOverCapacity: false,
         })
       })
+    })
+
+    it('the rider select is disabled while the request is in flight (spec 0043, review fix)', async () => {
+      mockUseReassignDeliveryMutation.mockReturnValue([
+        mockReassignDeliveryMutation,
+        { isLoading: true },
+      ])
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+
+      const comboboxes = screen.getAllByRole('combobox')
+      const riderSelect = comboboxes[0]
+      expect(riderSelect).toBeDisabled()
+    })
+
+    it('a 409 that arrives while rider A is chosen never confirms for anyone without the tick (spec 0043, review fix)', async () => {
+      mockReassignDeliveryMutation.mockReturnValueOnce({
+        unwrap: () =>
+          Promise.reject({
+            code: 'BOX_OVER_CAPACITY',
+            heldUnits: 40,
+            deliveryUnits: 70,
+          }),
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+      fireEvent.click(screen.getByText(/Eleni Georgiou/))
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      await screen.findByRole('alert')
+      const confirmButton = screen.getByRole('button', { name: /reassign anyway/i })
+
+      // Without tick, button is disabled
+      expect(confirmButton).toBeDisabled()
+      const checkbox = screen.getByRole('checkbox', {
+        name: /I checked with the rider that this order fits/i,
+      })
+      expect(checkbox).not.toBeChecked()
+
+      // Attempting to click disabled confirm button does not dispatch mutation again
+      fireEvent.click(confirmButton)
+      expect(mockReassignDeliveryMutation).toHaveBeenCalledTimes(1)
+    })
+
+    it('the confirm button is described by the warning only while the warning shows (spec 0043, review fix)', async () => {
+      mockReassignDeliveryMutation.mockReturnValueOnce({
+        unwrap: () =>
+          Promise.reject({
+            code: 'BOX_OVER_CAPACITY',
+            heldUnits: 40,
+            deliveryUnits: 70,
+          }),
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+      fireEvent.click(screen.getByText(/Eleni Georgiou/))
+
+      const submitButton = screen.getByRole('button', { name: /reassign rider/i })
+      expect(submitButton).not.toHaveAttribute('aria-describedby')
+
+      fireEvent.click(submitButton)
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveAttribute('id', BOX_OVER_CAPACITY_WARNING_ID)
+
+      const confirmButton = screen.getByRole('button', { name: /reassign anyway/i })
+      expect(confirmButton).toHaveAttribute('aria-describedby', BOX_OVER_CAPACITY_WARNING_ID)
+
+      // Changing rider clears aria-describedby
+      fireEvent.click(screen.getByText(/Yannis Dimitriou/))
+      const submitButtonB = screen.getByRole('button', { name: /reassign rider/i })
+      expect(submitButtonB).not.toHaveAttribute('aria-describedby')
     })
   })
 })

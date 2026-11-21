@@ -8,18 +8,34 @@ import { DeliveryAdminDtoStatusEnum } from '@/backend-admin-sdk'
 import { useAssignDeliveryToCourierMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { Toaster } from '../../../admin-web-components'
+import { BOX_OVER_CAPACITY_WARNING_ID } from './BoxOverCapacityWarning'
 
 // Mock Radix Select primitive using React Context so SelectItems update state in JSDOM tests
 jest.mock('@radix-ui/react-select', () => {
   const MockReact = require('react') as typeof import('react')
-  const SelectContext = MockReact.createContext<{ onValueChange?: (v: string) => void }>({})
+  const SelectContext = MockReact.createContext<{
+    onValueChange?: (v: string) => void
+    disabled?: boolean
+  }>({})
   return {
-    Root: ({ children, onValueChange }: any) => (
-      <SelectContext.Provider value={{ onValueChange }}>
+    Root: ({ children, onValueChange, disabled }: any) => (
+      <SelectContext.Provider value={{ onValueChange, disabled }}>
         <div data-testid="radix-select-root">{children}</div>
       </SelectContext.Provider>
     ),
-    Trigger: ({ children, ...props }: any) => <button type="button" role="combobox" {...props}>{children}</button>,
+    Trigger: ({ children, disabled, ...props }: any) => {
+      const { disabled: rootDisabled } = MockReact.useContext(SelectContext)
+      return (
+        <button
+          type="button"
+          role="combobox"
+          disabled={disabled ?? rootDisabled}
+          {...props}
+        >
+          {children}
+        </button>
+      )
+    },
     Value: ({ placeholder, children }: any) => <span>{children || placeholder}</span>,
     Icon: ({ children }: any) => <span>{children}</span>,
     Portal: ({ children }: any) => <div>{children}</div>,
@@ -158,8 +174,7 @@ describe('AssignCourierCell (spec 0034, AC-4, AC-5)', () => {
       courierId: null,
     }
 
-    it('on 409 BOX_OVER_CAPACITY: keeps dialog open, shows alert with units, and button reads "Assign anyway"; pressing it sends confirmOverCapacity: true', async () => {
-      // First attempt fails with 409 BOX_OVER_CAPACITY
+    it('after 409 BOX_OVER_CAPACITY for rider A: warning names numbers, confirm button stays disabled until tick box is ticked, then sends confirmOverCapacity true (spec 0043, AC-6, AC-8)', async () => {
       mockAssignCourierUnwrap.mockRejectedValueOnce({
         code: 'BOX_OVER_CAPACITY',
         heldUnits: 50,
@@ -200,11 +215,21 @@ describe('AssignCourierCell (spec 0034, AC-4, AC-5)', () => {
         'They already hold 50 of 100 box units, and this order takes 60: 110 in all.'
       )
 
-      // Button now reads "Assign anyway"
+      // Button now reads "Assign anyway" and is disabled until tick box is ticked
       const confirmButton = screen.getByRole('button', { name: 'Assign anyway' })
-      expect(confirmButton).toBeInTheDocument()
+      expect(confirmButton).toBeDisabled()
 
-      // Second attempt succeeds with confirm
+      // Tick the confirmation checkbox
+      const checkbox = screen.getByRole('checkbox', {
+        name: /I checked with the rider that this order fits/i,
+      })
+      fireEvent.click(checkbox)
+      expect(checkbox).toBeChecked()
+
+      // Confirm button is now enabled
+      expect(confirmButton).not.toBeDisabled()
+
+      // Second attempt succeeds with confirmOverCapacity: true for rider A
       mockAssignCourierUnwrap.mockResolvedValueOnce({})
       fireEvent.click(confirmButton)
 
@@ -222,8 +247,7 @@ describe('AssignCourierCell (spec 0034, AC-4, AC-5)', () => {
       })
     })
 
-    it('choosing another rider clears the warning and the next press sends confirmOverCapacity: false', async () => {
-      // First attempt for rider 1 triggers 409 BOX_OVER_CAPACITY
+    it('choosing rider B after A warning hides the warning and the next press sends confirmOverCapacity false for B', async () => {
       mockAssignCourierUnwrap.mockRejectedValueOnce({
         code: 'BOX_OVER_CAPACITY',
         heldUnits: 50,
@@ -247,8 +271,9 @@ describe('AssignCourierCell (spec 0034, AC-4, AC-5)', () => {
       expect(screen.queryByRole('alert')).toBeNull()
       const submitButton = screen.getByRole('button', { name: 'Assign courier' })
       expect(submitButton).toBeInTheDocument()
+      expect(submitButton).not.toBeDisabled()
 
-      // Next press sends confirmOverCapacity: false for the new rider
+      // Next press sends confirmOverCapacity: false for rider B
       mockAssignCourierUnwrap.mockResolvedValueOnce({})
       fireEvent.click(submitButton)
 
@@ -259,6 +284,128 @@ describe('AssignCourierCell (spec 0034, AC-4, AC-5)', () => {
           confirmOverCapacity: false,
         })
       })
+    })
+
+    it('the rider select is disabled while the request is in flight (spec 0043, review fix)', () => {
+      // Simulate in-flight mutation
+      mockUseAssignDeliveryToCourierMutation.mockReturnValue([
+        mockAssignCourier,
+        { isLoading: true },
+      ])
+
+      render(<AssignCourierCell delivery={delivery} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+
+      const selectTrigger = screen.getByRole('combobox')
+      expect(selectTrigger).toBeDisabled()
+    })
+
+    it('a 409 that arrives while rider A is chosen never confirms for anyone without the tick (spec 0043, review fix)', async () => {
+      mockAssignCourierUnwrap.mockRejectedValueOnce({
+        code: 'BOX_OVER_CAPACITY',
+        heldUnits: 50,
+        deliveryUnits: 60,
+      })
+
+      render(<AssignCourierCell delivery={delivery} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+      fireEvent.click(screen.getByText(/Alice Courier/))
+      fireEvent.click(screen.getByRole('button', { name: 'Assign courier' }))
+
+      await screen.findByRole('alert')
+      const confirmButton = screen.getByRole('button', { name: 'Assign anyway' })
+
+      // Without the tick, button is disabled
+      expect(confirmButton).toBeDisabled()
+      const checkbox = screen.getByRole('checkbox', {
+        name: /I checked with the rider that this order fits/i,
+      })
+      expect(checkbox).not.toBeChecked()
+
+      // Attempting to click disabled confirm button does not dispatch mutation
+      fireEvent.click(confirmButton)
+      expect(mockAssignCourier).toHaveBeenCalledTimes(1)
+    })
+
+    it('Cancel then reopen shows no warning and the first press sends confirmOverCapacity false (spec 0043, review fix)', async () => {
+      mockAssignCourierUnwrap.mockRejectedValueOnce({
+        code: 'BOX_OVER_CAPACITY',
+        heldUnits: 50,
+        deliveryUnits: 60,
+      })
+
+      render(<AssignCourierCell delivery={delivery} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+      fireEvent.click(screen.getByText(/Alice Courier/))
+      fireEvent.click(screen.getByRole('button', { name: 'Assign courier' }))
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Assign anyway' })).toBeInTheDocument()
+
+      // Click Cancel
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: /Assign courier/i })).toBeNull()
+      })
+
+      // Reopen dialog
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+      expect(screen.getByRole('heading', { name: /Assign courier/i })).toBeInTheDocument()
+
+      // Warning alert is not shown on reopen
+      expect(screen.queryByRole('alert')).toBeNull()
+
+      // Choose rider A again
+      fireEvent.click(screen.getByText(/Alice Courier/))
+
+      // Button is "Assign courier", not "Assign anyway"
+      const submitButton = screen.getByRole('button', { name: 'Assign courier' })
+      expect(submitButton).toBeInTheDocument()
+
+      // Pressing it sends confirmOverCapacity: false
+      mockAssignCourierUnwrap.mockResolvedValueOnce({})
+      fireEvent.click(submitButton)
+
+      await waitFor(() => {
+        expect(mockAssignCourier).toHaveBeenLastCalledWith({
+          deliveryId: 'del-board-409',
+          courierId: 'c-1',
+          confirmOverCapacity: false,
+        })
+      })
+    })
+
+    it('the confirm button is described by the warning only while the warning shows (spec 0043, review fix)', async () => {
+      mockAssignCourierUnwrap.mockRejectedValueOnce({
+        code: 'BOX_OVER_CAPACITY',
+        heldUnits: 50,
+        deliveryUnits: 60,
+      })
+
+      render(<AssignCourierCell delivery={delivery} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+      fireEvent.click(screen.getByText(/Alice Courier/))
+
+      const submitButton = screen.getByRole('button', { name: 'Assign courier' })
+      expect(submitButton).not.toHaveAttribute('aria-describedby')
+
+      fireEvent.click(submitButton)
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveAttribute('id', BOX_OVER_CAPACITY_WARNING_ID)
+
+      const confirmButton = screen.getByRole('button', { name: 'Assign anyway' })
+      expect(confirmButton).toHaveAttribute('aria-describedby', BOX_OVER_CAPACITY_WARNING_ID)
+
+      // Changing rider clears aria-describedby
+      fireEvent.click(screen.getByText(/Bob Courier/))
+      const submitButtonB = screen.getByRole('button', { name: 'Assign courier' })
+      expect(submitButtonB).not.toHaveAttribute('aria-describedby')
     })
 
     it('shows toast and does NOT show box warning on any other error', async () => {

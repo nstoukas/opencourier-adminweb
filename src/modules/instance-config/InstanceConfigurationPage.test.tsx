@@ -745,6 +745,32 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(liveRegion).toHaveTextContent('')
     })
 
+    it('shows a boxDefaultSize change as "Medium → Large" in words in SaveBar (spec 0043, review fix)', () => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          boxDefaultSize: 'MEDIUM',
+        },
+        isLoading: false,
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const select = document.getElementById('boxDefaultSize') as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+      expect(select.value).toBe('MEDIUM')
+
+      fireEvent.change(select, { target: { value: 'LARGE' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(saveBar).toBeInTheDocument()
+      expect(within(saveBar).getByText('Size of an order sent with none')).toBeInTheDocument()
+      const item = within(saveBar).getByRole('listitem')
+      expect(item).toHaveTextContent(/Size of an order sent with none.*Medium.*→.*Large/)
+      expect(item).not.toHaveTextContent('MEDIUM')
+      expect(item).not.toHaveTextContent('LARGE')
+    })
+
     // Fix 4: Live region is in page even with no change, and announces blockers when there are some
     it('live region is in the page even with no change, and announces blockers when there are some (fix 4)', () => {
       render(<InstanceConfigurationPage />)
