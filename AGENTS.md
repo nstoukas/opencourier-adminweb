@@ -80,4 +80,7 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   nothing else: no count, badge, grouping, search or sort by rider. The value 5 guard does not cover it; the card's own
   test does, so keep that test when changing the card.
 
+- Rider accounts (spec 0051): `CourierAccountCard` deactivates, reactivates, edits and shows the account history; a list or
+  picker that offers riders for work leaves out those with `deactivatedAt` (the backend refuses them anyway).
+
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
