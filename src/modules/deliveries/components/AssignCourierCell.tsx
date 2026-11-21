@@ -136,7 +136,8 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
                 <SelectValue placeholder={couriersLoading ? 'Loading…' : 'Select courier'} />
               </SelectTrigger>
               <SelectContent>
-                {couriers.map((c) => (
+                {/* Spec 0051 (cross check 14, row 108 review): a deactivated rider is never offered as a choice. */}
+                {couriers.filter((c) => !c.deactivatedAt).map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.firstName} {c.lastName}
                     {c.phoneNumber ? ` · ${c.phoneNumber}` : ''}

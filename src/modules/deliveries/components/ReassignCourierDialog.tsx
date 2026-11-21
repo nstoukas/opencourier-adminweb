@@ -107,7 +107,8 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
     ? `${currentCourier.firstName} ${currentCourier.lastName}`.trim()
     : (delivery.courierId ?? '')
 
-  const availableCouriers = couriers.filter((c) => c.id !== delivery.courierId)
+  // Spec 0051 (cross check 14, row 108 review): a deactivated rider is never offered as a choice.
+  const availableCouriers = couriers.filter((c) => c.id !== delivery.courierId && !c.deactivatedAt)
 
   // The SDK types this `number | null`, but its FromJSON copies the key with no default, so a
   // response that omits it leaves `undefined` here. This is the piece-rate a dropped rider is
