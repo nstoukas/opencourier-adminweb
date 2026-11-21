@@ -221,6 +221,77 @@ describe('ReassignCourierDialog component', () => {
     expect(optionTexts.some((t) => t?.includes('Nikos Papadopoulos'))).toBe(false)
   })
 
+  // Spec 0051 (cross check 14, row 108 review ruling: "Deactivated riders in the assign and reassign
+  // pickers"): the picker leaves a deactivated rider out. The backend refuses them anyway.
+  describe('a deactivated rider is never a replacement (spec 0051, row 108 review)', () => {
+    const optionTexts = () => screen.queryAllByRole('option').map((el) => el.textContent ?? '')
+
+    it('lists the active riders and leaves out every rider with deactivatedAt set', async () => {
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [
+          ...sampleCouriers,
+          { id: 'c4', firstName: 'Dimitris', lastName: 'Left', phoneNumber: '+306944444444', deactivatedAt: new Date('2026-11-20T09:00:00Z') },
+          { id: 'c5', firstName: 'Maria', lastName: 'Back', phoneNumber: '+306955555555', deactivatedAt: null },
+        ],
+        isLoading: false,
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+
+      const options = optionTexts()
+      expect(options.some((t) => t.includes('Eleni Georgiou'))).toBe(true)
+      expect(options.some((t) => t.includes('Yannis Dimitriou'))).toBe(true)
+      expect(options.some((t) => t.includes('Maria Back'))).toBe(true)
+      expect(options.some((t) => t.includes('Dimitris Left'))).toBe(false)
+      expect(screen.queryByText(/Dimitris Left/)).toBeNull()
+      expect(screen.queryByText(/\+306944444444/)).toBeNull()
+    })
+
+    it('the rider who holds the job is still left out too, deactivated or not', async () => {
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [
+          { id: 'c1', firstName: 'Nikos', lastName: 'Papadopoulos' },
+          { id: 'c2', firstName: 'Eleni', lastName: 'Georgiou', deactivatedAt: new Date('2026-11-20T09:00:00Z') },
+          { id: 'c3', firstName: 'Yannis', lastName: 'Dimitriou' },
+        ],
+        isLoading: false,
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+
+      const riders = optionTexts().filter((t) => /Papadopoulos|Georgiou|Dimitriou/.test(t))
+      expect(riders).toHaveLength(1)
+      expect(riders[0]).toContain('Yannis Dimitriou')
+    })
+
+    it('a deactivated rider cannot be sent as the new rider: only an active one is submitted', async () => {
+      mockReassignDeliveryMutation.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [
+          ...sampleCouriers,
+          { id: 'c4', firstName: 'Dimitris', lastName: 'Left', deactivatedAt: new Date('2026-11-20T09:00:00Z') },
+        ],
+        isLoading: false,
+      })
+
+      render(<ReassignCourierDialog delivery={sampleDelivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+      expect(await screen.findByText(/reassign delivery/i)).toBeInTheDocument()
+
+      expect(screen.queryByText(/Dimitris Left/)).toBeNull()
+      fireEvent.click(screen.getByText(/Eleni Georgiou/))
+      fireEvent.click(screen.getByRole('button', { name: /reassign rider/i }))
+
+      await waitFor(() => expect(mockReassignDeliveryMutation).toHaveBeenCalledTimes(1))
+      expect(JSON.stringify(mockReassignDeliveryMutation.mock.calls[0])).toContain('c2')
+      expect(JSON.stringify(mockReassignDeliveryMutation.mock.calls[0])).not.toContain('c4')
+    })
+  })
+
   it('disables submit button and shows error when instance config has invalid policy percentage', async () => {
     mockUseGetInstanceConfigQuery.mockReturnValue({
       data: {

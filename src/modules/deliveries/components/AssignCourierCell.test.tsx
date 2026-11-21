@@ -167,6 +167,76 @@ describe('AssignCourierCell (spec 0034, AC-4, AC-5)', () => {
     expect(container.firstChild).toBeNull()
   })
 
+  // Spec 0051 (cross check 14, row 108 review ruling: "Deactivated riders in the assign and reassign
+  // pickers"): the picker leaves a deactivated rider out. The backend refuses them anyway, so listing one
+  // only offers the admin a choice that cannot work.
+  describe('a deactivated rider is never a choice (spec 0051, row 108 review)', () => {
+    const delivery = {
+      id: 'del-deactivated-1',
+      status: DeliveryAdminDtoStatusEnum.AssigningCourier,
+      courierId: null,
+    }
+    const optionTexts = () => screen.queryAllByRole('option').map((el) => el.textContent ?? '')
+
+    it('lists the active riders and leaves out every rider with deactivatedAt set', () => {
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [
+          { id: 'c-1', firstName: 'Alice', lastName: 'Courier', deactivatedAt: null },
+          { id: 'c-gone', firstName: 'Dimitris', lastName: 'Left', phoneNumber: '+306900000001', deactivatedAt: new Date('2026-11-20T09:00:00Z') },
+          { id: 'c-2', firstName: 'Bob', lastName: 'Courier' },
+          { id: 'c-gone-2', firstName: 'Katerina', lastName: 'Gone', deactivatedAt: new Date('2026-01-05T09:00:00Z') },
+        ],
+        isLoading: false,
+      })
+
+      render(<AssignCourierCell delivery={delivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+
+      const options = optionTexts()
+      expect(options).toHaveLength(2)
+      expect(options.some((t) => t.includes('Alice Courier'))).toBe(true)
+      expect(options.some((t) => t.includes('Bob Courier'))).toBe(true)
+      expect(screen.queryByText(/Dimitris Left/)).toBeNull()
+      expect(screen.queryByText(/Katerina Gone/)).toBeNull()
+      expect(screen.queryByText(/\+306900000001/)).toBeNull()
+    })
+
+    it('a rider reactivated since (deactivatedAt null) is listed and can be assigned', async () => {
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [
+          { id: 'c-back', firstName: 'Maria', lastName: 'Back', deactivatedAt: null },
+          { id: 'c-gone', firstName: 'Dimitris', lastName: 'Left', deactivatedAt: new Date('2026-11-20T09:00:00Z') },
+        ],
+        isLoading: false,
+      })
+
+      render(<AssignCourierCell delivery={delivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+      fireEvent.click(screen.getByText(/Maria Back/))
+      fireEvent.click(screen.getByRole('button', { name: 'Assign courier' }))
+
+      await waitFor(() => expect(mockAssignCourier).toHaveBeenCalledTimes(1))
+      expect(mockAssignCourier).toHaveBeenCalledWith(
+        expect.objectContaining({ deliveryId: 'del-deactivated-1', courierId: 'c-back' })
+      )
+    })
+
+    it('when every rider is deactivated, there is nobody to choose', () => {
+      mockUseGetAllCouriersQuery.mockReturnValue({
+        data: [
+          { id: 'c-gone', firstName: 'Dimitris', lastName: 'Left', deactivatedAt: new Date('2026-11-20T09:00:00Z') },
+        ],
+        isLoading: false,
+      })
+
+      render(<AssignCourierCell delivery={delivery} />)
+      fireEvent.click(screen.getByRole('button', { name: /Assign Courier/i }))
+
+      expect(optionTexts()).toEqual([])
+      expect(screen.queryByText(/Dimitris Left/)).toBeNull()
+    })
+  })
+
   describe('over capacity warning and confirm step (spec 0043, AC-6, AC-8)', () => {
     const delivery = {
       id: 'del-board-409',
