@@ -24,6 +24,14 @@ jest.mock('../../api/sosApi', () => ({
   useCloseSosMutation: jest.fn().mockReturnValue([jest.fn(), { isLoading: false }]),
 }))
 
+// Row 123: the emergency contact box reads the rider's account from the Redux store, which these tests
+// do not set up; a stand in keeps them about the incident. The box has its own tests.
+jest.mock('./SosEmergencyContact', () => ({
+  SosEmergencyContact: ({ courierId }: { courierId: string }) => (
+    <div data-testid="sos-emergency-contact" data-courier-id={courierId} />
+  ),
+}))
+
 const mockUseGetSosIncidentQuery = useGetSosIncidentQuery as jest.Mock
 
 describe('SosIncidentDetails (spec 0022, AC-9, AC-10)', () => {

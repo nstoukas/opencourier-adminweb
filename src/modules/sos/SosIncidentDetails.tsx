@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
 import { CloseSosDialog } from './CloseSosDialog'
+import { SosEmergencyContact } from './SosEmergencyContact'
 import { riderName } from './sosAlerts'
 import { SOS_OUTCOME_LABELS, closedByName, riderEnd } from './sosDisplay'
 import { SosStateBadge } from './SosStateBadge'
@@ -88,6 +89,11 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
         riderOutcome={incident.falseAlarmAt ? 'FALSE_ALARM' : incident.safeAt ? 'RIDER_SAFE' : null}
         returnFocusTo={closeButtonRef}
       />
+
+      {/* Row 123: who to call, first on the page while the SOS is open (above the map, so a narrow
+          window shows it without scrolling). Once closed it is gone: it is the contact as it is now,
+          not as it was during the SOS. */}
+      {open ? <SosEmergencyContact courierId={incident.courier.id} /> : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
         <section aria-labelledby="sos-trail" className="flex flex-col gap-2">
