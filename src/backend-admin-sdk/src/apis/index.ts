@@ -7,6 +7,7 @@ export * from './DispatchStopApi';
 export * from './ShiftSlotApi';
 export * from './ShiftOfflineEventApi';
 export * from './CourierAccountApi';
+export * from './StatementApi';
 export * from './CourierSettingsApi';
 export * from './DeliveriesApi';
 export * from './LocationsApi';

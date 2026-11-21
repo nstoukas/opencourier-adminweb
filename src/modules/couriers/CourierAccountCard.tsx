@@ -53,6 +53,9 @@ export function accountChangeText(change: CourierAccountChangeAdminDto): string 
       return `Reactivated${change.reason ? `: ${change.reason}` : ''}`
     case 'PASSWORD_CHANGED':
       return 'Password changed'
+    // Spec 0050 (cross check 14): an admin downloaded the rider's statement ("2026-10 PDF").
+    case 'STATEMENT_DOWNLOADED':
+      return `Statement downloaded: ${change.newValue ?? ''}`
     case 'FIELD_EDITED': {
       const field = (change.field && FIELD_WORDS[change.field]) || change.field || 'A detail'
       return `${field}: ${change.oldValue ?? 'empty'} → ${change.newValue ?? 'empty'}`
