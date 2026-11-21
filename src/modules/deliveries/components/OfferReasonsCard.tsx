@@ -23,15 +23,18 @@ const STRATEGY_WORDS: Record<string, string> = {
 const number = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
-// "4 min 05 s", or "—".
+// "4 min 05 s", "26 h 28 min", or "—".
 export function durationText(seconds: unknown): string {
-  const s = number(seconds);
-  if (s === null) return "—";
-  const whole = Math.round(s);
-  const minutes = Math.floor(whole / 60);
-  return minutes > 0
-    ? `${minutes} min ${String(whole % 60).padStart(2, "0")} s`
-    : `${whole} s`;
+  const s = number(seconds)
+  if (s === null) return '—'
+  const whole = Math.round(s)
+  // An hour or more reads in hours and minutes ("26 h 28 min"); seconds stop mattering then.
+  if (whole >= 3600) {
+    const hours = Math.floor(whole / 3600)
+    return `${hours} h ${String(Math.floor((whole % 3600) / 60)).padStart(2, '0')} min`
+  }
+  const minutes = Math.floor(whole / 60)
+  return minutes > 0 ? `${minutes} min ${String(whole % 60).padStart(2, '0')} s` : `${whole} s`
 }
 
 // "€8.40 per hour", with the euro sign the co-op uses everywhere on this page.
