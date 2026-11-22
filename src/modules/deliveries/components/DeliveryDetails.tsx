@@ -391,6 +391,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               offerReasons={delivery.offerReasons}
               addOnExtraKm={delivery.addOnExtraKm}
               addOnExtraMinutes={delivery.addOnExtraMinutes}
+              addOn={delivery.addOn}
             />
           ) : null}
           <PriceBreakdownCard delivery={delivery} />
