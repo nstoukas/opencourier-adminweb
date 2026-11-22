@@ -3,7 +3,7 @@ import { saveLanguageCookie, type Language } from './language'
 
 // Whether the admin picked a language on this page load before signing in (the switch on the sign in
 // card). Then that choice is what they want, and sign in saves it to their account; otherwise their
-// stored language wins at sign in (spec 0054, cross check 2; decision 47.31). Module state: it only has
+// stored language wins at sign in (spec 0054, cross check 2; decision 47.32). Module state: it only has
 // to last until the sign in finishes, and a reload starts over from the cookie anyway.
 let chosenBeforeSignIn = false
 

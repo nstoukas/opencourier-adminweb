@@ -14,7 +14,7 @@
 //   $t(server.enum.x.{{name}})   another key, looked up after the value is filled in
 // A value can be a "part" ({ part, params }) or a list of parts: each is rendered first, from
 // `server.eventPart.<part>`. This file renders exactly as the backend does, line for line (decision
-// 47.30), rather than leaning on i18next's own interpolation, whose nesting and array handling differ.
+// 47.31), rather than leaning on i18next's own interpolation, whose nesting and array handling differ.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 import type { i18n as I18n } from 'i18next'
 import type { EventMessageParams, EventParamValue, EventPart } from '@/shared-types/event-messages'

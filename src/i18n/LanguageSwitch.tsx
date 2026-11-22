@@ -25,7 +25,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
     if (language === current) return
     applyLanguage(i18n, language)
     if (!accessToken) {
-      // On the sign in card: sign in will save this choice to the account (decision 47.31).
+      // On the sign in card: sign in will save this choice to the account (decision 47.32).
       markChosenBeforeSignIn()
       return
     }

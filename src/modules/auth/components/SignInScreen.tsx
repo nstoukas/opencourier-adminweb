@@ -87,7 +87,7 @@ export function SignInScreen() {
       // (it was always undefined, and a type error). Messages are row 90's to design.
       dispatch(setAccessToken(userInfo.session.accessToken))
       // The language (spec 0054, cross check 2): the one stored on the account wins at sign in, unless the
-      // admin picked one on this card just now, which is then saved to the account (decision 47.31).
+      // admin picked one on this card just now, which is then saved to the account (decision 47.32).
       if (wasChosenBeforeSignIn()) {
         saveLanguage(toLanguage(i18n.language)).catch(() => undefined)
       } else if (userInfo.language) {
