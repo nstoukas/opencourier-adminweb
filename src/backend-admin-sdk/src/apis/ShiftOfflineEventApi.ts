@@ -17,8 +17,12 @@ export interface ShiftOfflineEventAdminDto {
     // "21:10", Athens.
     offlineTime: string | null;
     shiftDate: string;
-    // "Fri 20 Nov, 20:00 to 23:59", Athens.
+    // "Fri 20 Nov, 20:00 to 23:59", Athens, always English: the page words the shift itself from the two
+    // times below (row 124) and shows this only when they are missing (an older backend).
     shiftText: string;
+    // The booked shift's start and end, ISO (row 124). Optional: an older backend does not send them.
+    shiftStartsAt?: string;
+    shiftEndsAt?: string;
     // RIDER, ADMIN, CUT_OFF, LAST_CALL_ACCEPTED or SYSTEM_START.
     cause: string | null;
     causeText: string;

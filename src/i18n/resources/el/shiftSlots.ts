@@ -67,6 +67,7 @@ export const shiftSlots: Translations['shiftSlots'] = {
     loadFailed: 'Δεν φορτώθηκε η λίστα.',
     none: 'Καμία εκκρεμότητα.',
     line: 'Βάρδια {{shift}} · Εκτός σύνδεσης: {{time}} · {{cause}}',
+    shift: '{{day}}, {{start}} έως {{end}}',
     unknownTime: 'άγνωστη ώρα',
     followedUp: 'Έγινε επικοινωνία',
     followedUpBy: 'Έγινε επικοινωνία από {{email}}',

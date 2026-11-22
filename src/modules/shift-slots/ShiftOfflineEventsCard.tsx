@@ -4,15 +4,19 @@ import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, CardTit
 import type { ShiftOfflineEventAdminDto } from '@/backend-admin-sdk'
 import { useFollowUpShiftOfflineEventMutation, useGetShiftOfflineEventsQuery } from '@/api/shiftOfflineEventApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
+import { useFormat } from '@/i18n/useFormat'
+import { describeOfflineShift } from './shiftSlotDisplay'
 
 // Spec 0049 (AC-6, cross check 3): who went Offline during a booked shift, so a representative can check in
 // with them in person. Newest first by the Offline time, open and followed up together; a followed up one
 // stays for 7 days. Never
 // grouped, counted, searched or sorted by rider (value 5): the rider learns nothing here costs them.
-// The shift, the Offline time and the cause are the server's own text, shown as sent.
+// The shift is worded here from its start and end (row 124); the Offline time is the server's Athens
+// clock text, and the cause is worded from its enum value, else the server's English.
 export function ShiftOfflineEventsCard() {
   // useTranslation gives t, which looks a key up in the reader's language.
   const { t } = useTranslation()
+  const { language } = useFormat()
   const visible = usePageVisible()
   const query = useGetShiftOfflineEventsQuery(undefined, { pollingInterval: visible ? 60_000 : 0 })
   const [followUp] = useFollowUpShiftOfflineEventMutation()
@@ -62,7 +66,7 @@ export function ShiftOfflineEventsCard() {
                   <p className="font-medium">{event.courierName}</p>
                   <p className="text-muted-foreground">
                     {t('shiftSlots.offline.line', {
-                      shift: event.shiftText,
+                      shift: describeOfflineShift(event, t, language),
                       time: event.offlineTime ?? t('shiftSlots.offline.unknownTime'),
                       // The cause in the reader's language from its enum value, else the server's English.
                       cause: t(`shiftSlots.offline.cause.${event.cause ?? 'NONE'}`, { defaultValue: event.causeText }),

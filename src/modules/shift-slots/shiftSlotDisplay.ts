@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
-import type { ShiftSlotFieldsAdmin } from '@/backend-admin-sdk'
+import type { ShiftOfflineEventAdminDto, ShiftSlotFieldsAdmin } from '@/backend-admin-sdk'
+import { formatTime, formatWeekdayDate, TIME_ZONE } from '@/i18n/format'
 import { LOCALES, type Language } from '@/i18n/language'
 
 // Spec 0026: ISO weekdays, Monday first, as the backend stores them (1 Monday to 7 Sunday).
@@ -38,5 +39,33 @@ export function describeSlot(slot: ShiftSlotFieldsAdmin, t: TFunction, language:
     start: minutesToClock(slot.startMinute),
     end: minutesToClock(slot.endMinute),
     riders: t('shiftSlots.riders', { count: slot.riderCap }),
+  })
+}
+
+// The YYYY-MM-DD day of an instant on Athens time ('en-CA' writes dates in that order).
+function athensDay(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date(iso))
+}
+
+// "Παρ 20/11, 20:00 έως 23:59" or "Fri 20/11, 20:00 to 23:59": the booked shift of an Offline item, worded
+// here in the reader's language on Athens time (row 124), from the shift's start and end. A shift that ends
+// at midnight reads "24:00", as the backend's English and the rider's sentence do. With no start or end (an
+// older backend), the server's English `shiftText` shows as it came.
+// `Pick<A, 'x' | 'y'>` is the type of an object with only those fields of A, so a test can pass just them.
+export function describeOfflineShift(
+  event: Pick<ShiftOfflineEventAdminDto, 'shiftStartsAt' | 'shiftEndsAt' | 'shiftDate' | 'shiftText'>,
+  t: TFunction,
+  language: Language,
+): string {
+  const { shiftStartsAt, shiftEndsAt } = event
+  if (!shiftStartsAt || !shiftEndsAt) return event.shiftText
+  const end = formatTime(shiftEndsAt, language)
+  // formatTime reads "—" for a value that is not a time; then the server's English is the better line.
+  if (end === '—' || formatTime(shiftStartsAt, language) === '—') return event.shiftText
+  const endsAtMidnight = end === '00:00' && athensDay(shiftEndsAt) !== event.shiftDate
+  return t('shiftSlots.offline.shift', {
+    day: formatWeekdayDate(shiftStartsAt, language),
+    start: formatTime(shiftStartsAt, language),
+    end: endsAtMidnight ? '24:00' : end,
   })
 }
