@@ -1,4 +1,5 @@
-import { formatMoney } from '@/utils/formatMoney'
+import { useTranslation } from 'react-i18next'
+import { useFormat } from '@/i18n/useFormat'
 import { parseQuoteRateInput } from '@/utils/quoteRate'
 
 // The distance the worked example uses, in the instance's own unit (spec 0010, AC-6).
@@ -45,32 +46,42 @@ type Props = {
 // values in the boxes, saved or not. The last line is what the customer pays: delivery is
 // charged to the customer, never billed through the restaurant (AGENTS.md, spec 0010 AC-7).
 export function PricingExample({ baseFeeText, rateText, feePercentText, currency, distanceUnit }: Props) {
+  // useTranslation gives t (a key to words); useFormat gives f, money as it reads in the reader's language.
+  const { t } = useTranslation()
+  const f = useFormat()
   const breakdown = pricingBreakdown(baseFeeText, rateText, feePercentText)
-  const unit = distanceUnit === 'MILES' ? 'mi' : 'km'
-  const money = (cents: number) => formatMoney(cents, currency) ?? String(cents)
+  const unit = t(distanceUnit === 'MILES' ? 'settings.pricingExample.unitMi' : 'settings.pricingExample.unitKm')
+  const money = (cents: number) => f.money(cents, currency)
 
   return (
     <section
-      aria-label="Worked example"
+      aria-label={t('settings.pricingExample.name')}
       data-testid="pricing-example"
       className="rounded-lg bg-muted p-4 text-sm"
     >
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        A {EXAMPLE_DISTANCE} {unit} delivery
+        {t('settings.pricingExample.heading', { distance: EXAMPLE_DISTANCE, unit })}
       </p>
       {breakdown === null ? (
-        <p className="text-muted-foreground">Fill in the three boxes to see the example.</p>
+        <p className="text-muted-foreground">{t('settings.pricingExample.fillIn')}</p>
       ) : (
         <dl className="flex flex-col gap-1">
-          <Row label="Base fee" value={money(breakdown.baseFee)} />
+          <Row label={t('settings.pricingExample.baseFee')} value={money(breakdown.baseFee)} />
           <Row
-            label={`${EXAMPLE_DISTANCE} ${unit} × ${money(Number(rateText))}`}
+            label={t('settings.pricingExample.distance', {
+              distance: EXAMPLE_DISTANCE,
+              unit,
+              rate: money(Number(rateText)),
+            })}
             value={money(breakdown.distanceFee)}
           />
-          <Row label="Rider gets" value={money(breakdown.riderPay)} strong />
-          <Row label={`Co-op fee ${feePercentText.trim()}%`} value={money(breakdown.coopFee)} />
+          <Row label={t('settings.pricingExample.riderGets')} value={money(breakdown.riderPay)} strong />
           <Row
-            label="Customer pays"
+            label={t('settings.pricingExample.coopFee', { percent: feePercentText.trim() })}
+            value={money(breakdown.coopFee)}
+          />
+          <Row
+            label={t('settings.pricingExample.customerPays')}
             value={money(breakdown.customerPays)}
             strong
             className="mt-1 border-t border-border pt-2"

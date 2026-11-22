@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown'
+import { useTranslation } from 'react-i18next'
 import { Button, Label } from '@/admin-web-components'
 
 // `node` is pulled out so react-markdown's AST node is never spread onto the DOM element.
@@ -31,14 +32,17 @@ type Props = {
 // The editor for one public page (courier rules, about the co-op, terms, privacy): markdown on
 // the left, a live preview on the right, its own Save (spec 0010, AC-8). Same behaviour as the
 // four copies it replaces on the old page.
+// `title` and `placeholder` arrive already in the reader's language (the page translates them).
 export function PublicPageEditor({ title, value, placeholder, isSaving, onChange, onSave, onCancel }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   return (
     <div className="mt-4">
-      <h2 className="pb-2 text-lg font-semibold">Editing {title}</h2>
+      <h2 className="pb-2 text-lg font-semibold">{t('settings.publicPageEditor.editing', { title })}</h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-muted p-6">
           <Label htmlFor="public-page-content" className="mb-2 block">
-            Content (Markdown)
+            {t('settings.publicPageEditor.content')}
           </Label>
           <textarea
             id="public-page-content"
@@ -48,26 +52,26 @@ export function PublicPageEditor({ title, value, placeholder, isSaving, onChange
             placeholder={placeholder}
           />
           <p className="mt-2 text-xs text-muted-foreground">
-            Use markdown formatting: # Headers, **bold**, *italic*, - Lists, [links](url)
+            {t('settings.publicPageEditor.hint')}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-muted p-6">
-          <h3 className="mb-3 text-sm font-semibold">Preview</h3>
+          <h3 className="mb-3 text-sm font-semibold">{t('settings.publicPageEditor.preview')}</h3>
           <div className="prose prose-sm h-96 max-w-none overflow-y-auto rounded-md border border-border bg-background p-4">
             {value ? (
               <ReactMarkdown components={MARKDOWN_COMPONENTS}>{value}</ReactMarkdown>
             ) : (
-              <p className="text-muted-foreground">No content yet</p>
+              <p className="text-muted-foreground">{t('settings.publicPageEditor.empty')}</p>
             )}
           </div>
         </div>
       </div>
       <div className="mt-4 flex gap-2">
         <Button type="button" onClick={onSave} disabled={isSaving}>
-          {isSaving ? 'Saving…' : 'Save'}
+          {isSaving ? t('common.saving') : t('common.save')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

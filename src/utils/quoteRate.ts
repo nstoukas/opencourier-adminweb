@@ -1,4 +1,6 @@
-import { formatMoney } from './formatMoney'
+import type { TFunction } from 'i18next'
+import { formatMoney } from '@/i18n/format'
+import type { Language } from '@/i18n/language'
 
 // Checks if a numeric quote rate is a finite, non-negative integer (in minor currency units/cents).
 export function isValidQuoteRate(rate: number): boolean {
@@ -14,19 +16,23 @@ export function parseQuoteRateInput(text: string): number | null {
   return isValidQuoteRate(rate) ? rate : null
 }
 
-// Generates a human-readable description string for the configured quote rate per distance unit.
+// The line under the rate box on the co-op settings page, in the reader's language (spec 0054):
+// `t` is the function useTranslation gives a component, `language` sets how the amount reads.
 export function describeQuoteRate(
+  t: TFunction,
+  language: Language,
   rate: number,
   currencyCode: string | null | undefined,
   distanceUnit: string | null | undefined,
 ): string {
   if (!isValidQuoteRate(rate)) {
-    return 'Enter a whole number of cents, zero or more.'
+    return t('settings.quoteRate.invalid')
   }
   if (rate === 0) {
-    return '0: the distance part of every DeliveryQuote is zero. Riders are then paid only the base fee.'
+    return t('settings.quoteRate.zero')
   }
-  const money = formatMoney(rate, currencyCode) ?? String(rate)
-  const unit = distanceUnit === 'MILES' ? 'mile' : 'kilometre'
-  return `${money} per ${unit} of travel.`
+  const money = formatMoney(rate, currencyCode, language)
+  return t(distanceUnit === 'MILES' ? 'settings.quoteRate.amountPerMile' : 'settings.quoteRate.amountPerKilometre', {
+    money,
+  })
 }

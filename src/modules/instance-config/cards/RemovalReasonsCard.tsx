@@ -1,23 +1,28 @@
 import React, { useRef, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { Button, Field, FieldDescription, FieldGroup } from '@/admin-web-components'
 import type { RemovalReasonAdminDto } from '@/backend-admin-sdk'
 import { useGetRemovalReasonsQuery } from '@/api/removalRequestApi'
-import { RemovalReasonDialog, RemoveRemovalReasonDialog } from '../components/RemovalReasonDialogs'
+import { RemovalReasonDialog, RemoveRemovalReasonDialog, reasonName } from '../components/RemovalReasonDialogs'
 import { labelOf } from '../settingsDiff'
 import { NumberField, SettingsSection, type CardProps } from './SettingsCards'
 
 // What one reason does, in words: the list a representative reads to check it matches the decision.
-function reasonFlags(reason: RemovalReasonAdminDto): string {
+// It takes `t` (from useTranslation) so the words follow the reader's language.
+function reasonFlags(t: TFunction, reason: RemovalReasonAdminDto): string {
   return [
-    reason.paidToRider ? 'Paid to the rider' : 'Not paid',
-    reason.chargedToRestaurant ? 'Charged to the restaurant' : 'Not charged',
-    ...(reason.needsNote ? ['Needs a note'] : []),
+    t(reason.paidToRider ? 'settings.removalReasons.paid' : 'settings.removalReasons.notPaid'),
+    t(reason.chargedToRestaurant ? 'settings.removalReasons.charged' : 'settings.removalReasons.notCharged'),
+    ...(reason.needsNote ? [t('settings.removalReasons.needsNote')] : []),
   ].join(' · ')
 }
 
 // Removal reasons (spec 0035, AC-2). The reasons save at once through their own routes; the return
 // trip share goes through the page's save bar, like every other setting on this page.
 export function RemovalReasonsCard({ form, set, loaded }: Pick<CardProps, 'form' | 'set' | 'loaded'>) {
+  // useTranslation gives t (a key to words) and i18n, whose `language` picks which name of a reason shows first.
+  const { t, i18n } = useTranslation()
   const { data: reasons, isLoading, isError } = useGetRemovalReasonsQuery()
   // The add or edit dialog's open state, apart from the reason it holds (adminweb AGENTS.md).
   const [editorOpen, setEditorOpen] = useState(false)
@@ -39,59 +44,65 @@ export function RemovalReasonsCard({ form, set, loaded }: Pick<CardProps, 'form'
   return (
     <SettingsSection
       id="removal-reasons"
-      title="Removal reasons"
-      description="The reasons a rider can give when asking to come off an order, and what each one pays and bills."
+      title={t('settings.sections.removalReasons')}
+      description={t('settings.removalReasons.description')}
     >
       <FieldGroup>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading the reasons.</p>
+          <p className="text-sm text-muted-foreground">{t('settings.removalReasons.loading')}</p>
         ) : isError ? (
           <p role="alert" className="text-sm text-destructive">
-            Could not load the reasons.
+            {t('settings.removalReasons.loadFailed')}
           </p>
         ) : !reasons || reasons.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No reasons yet. Riders cannot ask to come off an order until one is added.</p>
+          <p className="text-sm text-muted-foreground">{t('settings.removalReasons.empty')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {reasons.map((reason) => (
-              <li
-                key={reason.id}
-                data-testid="removal-reason-row"
-                className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="break-words text-sm font-medium">
-                    {reason.position}. {reason.label}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{reasonFlags(reason)}</p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={(event) => {
-                      openerRef.current = event.currentTarget
-                      setEditing(reason)
-                      setEditorOpen(true)
-                    }}
-                  >
-                    Edit <span className="sr-only">{reason.label}</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={(event) => {
-                      openerRef.current = event.currentTarget
-                      setRemoving(reason)
-                    }}
-                  >
-                    Remove <span className="sr-only">{reason.label}</span>
-                  </Button>
-                </div>
-              </li>
-            ))}
+            {reasons.map((reason) => {
+              // The reader's language first, the other when it is missing (an old reason has no Greek yet).
+              const name = reasonName(reason, i18n.language)
+              return (
+                <li
+                  key={reason.id}
+                  data-testid="removal-reason-row"
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium">
+                      {reason.position}
+                      {'. '}
+                      {name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{reasonFlags(t, reason)}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(event) => {
+                        openerRef.current = event.currentTarget
+                        setEditing(reason)
+                        setEditorOpen(true)
+                      }}
+                    >
+                      {t('common.edit')} <span className="sr-only">{name}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(event) => {
+                        openerRef.current = event.currentTarget
+                        setRemoving(reason)
+                      }}
+                    >
+                      {t('common.remove')} <span className="sr-only">{name}</span>
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
         <Field>
@@ -107,20 +118,20 @@ export function RemovalReasonsCard({ form, set, loaded }: Pick<CardProps, 'form'
                 setEditorOpen(true)
               }}
             >
-              Add reason
+              {t('settings.removalReasons.add')}
             </Button>
           </div>
-          <FieldDescription>Changes to the list save at once, not with the bar at the bottom.</FieldDescription>
+          <FieldDescription>{t('settings.removalReasons.savesAtOnce')}</FieldDescription>
         </Field>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <NumberField
             id="returnTripPayPercent"
-            label={labelOf('returnTripPayPercent')}
+            label={labelOf(t, 'returnTripPayPercent')}
             value={form.returnTripPayPercent}
             min={0}
             max={100}
             disabled={!loaded}
-            description="Share of the delivery's distance fee a rider is paid for bringing the food back, on any job cancelled after pickup. Whole percent, 0 to 100; 0 switches it off. The restaurant is not charged for it."
+            description={t('settings.removalReasons.returnTripHelp')}
             onChange={(value) => set('returnTripPayPercent', value)}
           />
         </div>

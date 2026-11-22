@@ -2,6 +2,8 @@ import { Button, Input } from '@/admin-web-components'
 import { buildPayoutPolicyInput, normalizePolicyKey, policiesToRows } from '@/utils/payoutPolicyForm'
 import type { PayoutPolicyRow } from '@/utils/payoutPolicyForm'
 import { useEffect, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
+import { showMessage, type ShownMessage } from '@/i18n/shownMessage'
 
 export interface ReassignmentPayoutPolicyEditorProps {
   policies: Record<string, number> | null | undefined
@@ -18,7 +20,10 @@ export function ReassignmentPayoutPolicyEditor({
 }: ReassignmentPayoutPolicyEditorProps) {
   const [rows, setRows] = useState<PayoutPolicyRow[]>([])
   const [defaultRowId, setDefaultRowId] = useState('')
-  const [errors, setErrors] = useState<string[]>([])
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Keys with their values, worded when drawn, so a language switch reaches them (shownMessage.ts).
+  const [errors, setErrors] = useState<ShownMessage[]>([])
   // A useRef value survives re-renders without causing one.
   const nextRowNumber = useRef(0)
 
@@ -69,12 +74,11 @@ export function ReassignmentPayoutPolicyEditor({
 
   return (
     <div className="border rounded-lg p-6 space-y-4">
-      <h3 className="text-lg font-semibold">Reassignment payout policies</h3>
+      <h3 className="text-lg font-semibold">{t('settings.payoutPolicies.title')}</h3>
+      <p className="text-sm text-muted-foreground">{t('settings.payoutPolicies.intro')}</p>
       <p className="text-sm text-muted-foreground">
-        How much of a dropped rider&apos;s piece-rate they keep when a Delivery is reassigned to someone else. 100% is the worker-centered default.
-      </p>
-      <p className="text-sm text-muted-foreground">
-        Renaming or removing a policy does not change past reassignments — a <code>CourierCompensation</code> row and its <code>DeliveryEvent</code> keep the name that was in force when it happened.
+        {/* Trans fills the <c>…</c> marks in the sentence with the element given for `c`, here <code>. */}
+        <Trans i18nKey="settings.payoutPolicies.pastUnchanged" components={{ c: <code /> }} />
       </p>
       <div className="space-y-3">
         {rows.map((row) => {
@@ -88,7 +92,7 @@ export function ReassignmentPayoutPolicyEditor({
                 <Input
                   value={row.key}
                   onChange={(e) => handleKeyChange(row.id, e.target.value)}
-                  placeholder="Policy name (e.g. FULL_COMPENSATION)"
+                  placeholder={t('settings.payoutPolicies.namePlaceholder')}
                   className="flex-1"
                 />
                 <div className="flex items-center gap-1">
@@ -101,7 +105,7 @@ export function ReassignmentPayoutPolicyEditor({
                     placeholder="0"
                     className="w-20"
                   />
-                  <span className="text-sm text-muted-foreground">%</span>
+                  <span className="text-sm text-muted-foreground">{'%'}</span>
                 </div>
                 <label className="flex items-center gap-1 text-sm text-foreground cursor-pointer">
                   <input
@@ -109,9 +113,11 @@ export function ReassignmentPayoutPolicyEditor({
                     name="payout-default-policy"
                     checked={row.id === defaultRowId}
                     onChange={() => setDefaultRowId(row.id)}
-                    aria-label={`Make ${row.key || 'this policy'} the default`}
+                    aria-label={t('settings.payoutPolicies.makeDefault', {
+                      name: row.key || t('settings.payoutPolicies.thisPolicy'),
+                    })}
                   />
-                  Default
+                  {t('settings.payoutPolicies.default')}
                 </label>
                 <Button
                   type="button"
@@ -119,12 +125,12 @@ export function ReassignmentPayoutPolicyEditor({
                   size="sm"
                   onClick={() => handleRemoveRow(row.id)}
                 >
-                  Remove
+                  {t('common.remove')}
                 </Button>
               </div>
               {showStoredKey && (
                 <p className="text-sm text-muted-foreground">
-                  Will be saved as <code>{storedKey}</code>
+                  {t('settings.payoutPolicies.savedAs')} <code>{storedKey}</code>
                 </p>
               )}
             </div>
@@ -133,16 +139,19 @@ export function ReassignmentPayoutPolicyEditor({
       </div>
       <div>
         <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-          Add policy
+          {t('settings.payoutPolicies.add')}
         </Button>
       </div>
       {errors.length > 0 && (
         <ul className="space-y-1">
-          {errors.map((error) => (
-            <li key={error} className="text-red-500 text-sm">
-              {error}
-            </li>
-          ))}
+          {errors.map((error) => {
+            const words = showMessage(error, t)
+            return (
+              <li key={words} className="text-red-500 text-sm">
+                {words}
+              </li>
+            )
+          })}
         </ul>
       )}
       <div>
@@ -151,7 +160,7 @@ export function ReassignmentPayoutPolicyEditor({
           disabled={isSaving}
           onClick={handleSave}
         >
-          {isSaving ? 'Saving…' : 'Save payout policies'}
+          {isSaving ? t('common.saving') : t('settings.payoutPolicies.save')}
         </Button>
       </div>
     </div>

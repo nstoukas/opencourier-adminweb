@@ -1,3 +1,4 @@
+import { keyMessage, type ShownMessage } from '@/i18n/shownMessage'
 import { listPayoutPolicies } from './reassignmentPayout'
 
 // Represents a single editable row in the reassignment payout policy editor.
@@ -13,10 +14,11 @@ export type PayoutPolicyFormState = {
   defaultRowId: string
 }
 
-// Result of validating and building reassignment payout policy data.
+// Result of validating and building reassignment payout policy data. Each error is a translation key with
+// its values (spec 0054), so the editor keeps it in state and words it in the reader's language when drawn.
 export type BuiltPayoutPolicies =
   | { ok: true; policies: Record<string, number>; defaultPolicy: string }
-  | { ok: false; errors: string[] }
+  | { ok: false; errors: ShownMessage[] }
 
 // Converts raw policy key string into uppercase snake_case format.
 export function normalizePolicyKey(raw: string): string {
@@ -42,12 +44,12 @@ export function policiesToRows(
   return { rows, defaultRowId }
 }
 
-// Validates policy form state and produces payload object or array of error strings.
+// Validates policy form state and produces payload object or array of error messages.
 export function buildPayoutPolicyInput(state: PayoutPolicyFormState): BuiltPayoutPolicies {
-  const errors: string[] = []
+  const errors: ShownMessage[] = []
 
   if (state.rows.length === 0) {
-    errors.push('Add at least one payout policy. Reassignment cannot run without one.')
+    errors.push(keyMessage('settings.payoutPolicies.errors.none'))
   }
 
   const keyCounts = new Map<string, number>()
@@ -57,32 +59,32 @@ export function buildPayoutPolicyInput(state: PayoutPolicyFormState): BuiltPayou
     const key = normalizePolicyKey(row.key)
 
     if (key === '') {
-      errors.push(`Row ${position}: policy name is required.`)
+      errors.push(keyMessage('settings.payoutPolicies.errors.nameRequired', { position }))
     } else if (!/^[A-Z0-9_]+$/.test(key)) {
-      errors.push(`Row ${position}: use only letters, numbers and underscores in a policy name.`)
+      errors.push(keyMessage('settings.payoutPolicies.errors.nameCharacters', { position }))
     } else {
       keyCounts.set(key, (keyCounts.get(key) ?? 0) + 1)
     }
 
     if (row.percent.trim() === '') {
-      errors.push(`Row ${position}: percentage is required.`)
+      errors.push(keyMessage('settings.payoutPolicies.errors.percentRequired', { position }))
     } else {
       const percent = Number(row.percent)
       if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
-        errors.push(`Row ${position}: percentage must be a number between 0 and 100.`)
+        errors.push(keyMessage('settings.payoutPolicies.errors.percentRange', { position }))
       }
     }
   })
 
   keyCounts.forEach((count, key) => {
     if (count > 1) {
-      errors.push(`Two policies are both named ${key}. Policy names must be unique.`)
+      errors.push(keyMessage('settings.payoutPolicies.errors.duplicate', { name: key }))
     }
   })
 
   const hasDefaultRow = state.rows.some((row) => row.id === state.defaultRowId)
   if (state.rows.length > 0 && !hasDefaultRow) {
-    errors.push('Choose which policy is the default.')
+    errors.push(keyMessage('settings.payoutPolicies.errors.chooseDefault'))
   }
 
   if (errors.length > 0) {

@@ -6,20 +6,11 @@ import {
 import { Button, useToast } from "@/admin-web-components";
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
 import { PageHeader } from "@/components/layouts/PageHeader";
-import {
-  COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
-  COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
-  CURRENCY_TO_HUMAN,
-  DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN,
-  DISTANCE_UNIT_TO_HUMAN,
-  GEO_CALCULATION_TYPE_TO_HUMAN,
-  QUOTE_CALCULATION_TYPE_TO_HUMAN,
-} from "@/shared-types";
+import { useFormat } from "@/i18n/useFormat";
+import { useServerText } from "@/i18n/useServerText";
 import {
   InstanceCard,
-  MATCHER_COPY,
-  TWO_ORDER_POLICY_LABELS,
-  ADD_ON_MOMENT_LABELS,
+  optionLabel as optionWords,
   MatchingCard,
   OffersCard,
   TwoOrdersCard,
@@ -56,38 +47,23 @@ import {
 import type { NextPage } from "next";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+
+// The map's placeholder while it loads. A component of its own, so it can ask for its words.
+function MapLoading() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex h-[400px] w-full items-center justify-center rounded-lg bg-muted text-muted-foreground">
+      {t("settings.page.loadingMap")}
+    </div>
+  );
+}
 
 // The drawing tool loads only in the browser (Leaflet needs `window`).
 const AdminMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-[400px] w-full items-center justify-center rounded-lg bg-muted text-muted-foreground">
-      Loading map…
-    </div>
-  ),
+  loading: () => <MapLoading />,
 });
-
-// Words for an option's code in the save bar, by setting.
-const OPTION_LABELS: Partial<Record<SettingKey, Record<string, string>>> = {
-  currency: CURRENCY_TO_HUMAN,
-  distanceUnit: DISTANCE_UNIT_TO_HUMAN,
-  quoteCalculationType: QUOTE_CALCULATION_TYPE_TO_HUMAN,
-  geoCalculationType: GEO_CALCULATION_TYPE_TO_HUMAN,
-  deliveryDurationCalculationType: DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN,
-  courierCompensationCalculationType: COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN,
-  defaultDietaryRestrictions: COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
-  // Spec 0043 (review): the bar reads "Medium → Large", not the codes.
-  boxDefaultSize: { SMALL: "Small", MEDIUM: "Medium", LARGE: "Large" },
-  // Row 80 review: the policy in the card's own words, not "SHORTAGE_ONLY → WHENEVER_FITS".
-  twoOrderPolicy: TWO_ORDER_POLICY_LABELS,
-  // Row 81: the add on moment in the card's words too.
-  addOnMoment: ADD_ON_MOMENT_LABELS,
-};
-
-const optionLabel = (key: SettingKey, option: string): string =>
-  key === "courierMatcherType"
-    ? MATCHER_COPY[option]?.title ?? option
-    : OPTION_LABELS[key]?.[option] ?? option;
 
 // Co-op settings (spec 0010): the instance's settings in seven cards, one save bar that lists
 // every change as "old → new" and sends only those. The dropped rider pay policies and the
@@ -105,6 +81,17 @@ const InstanceConfigurationPage: NextPage = () => {
   const instanceConfigResponse = useGetInstanceConfigQuery({});
   const [setInstanceConfigMutation] = useSetInstanceConfigMutation();
   const { toast } = useToast();
+  // useTranslation gives t, which looks a key up in the reader's language; the page redraws on a switch,
+  // so the save bar's list (worked out below while drawing) follows the language too.
+  const { t } = useTranslation();
+  const { language } = useFormat();
+  // errorText: the server's refusal in the reader's language when it sent a known code, else its own words.
+  const { errorText } = useServerText();
+  // Words for an option's code in the save bar, by setting (optionLabel in SettingsCards).
+  const optionLabel = useCallback(
+    (key: SettingKey, option: string) => optionWords(t, key, option),
+    [t],
+  );
 
   const data = instanceConfigResponse.data;
   const loaded = !!data;
@@ -162,10 +149,13 @@ const InstanceConfigurationPage: NextPage = () => {
   );
 
   const changes = useMemo(
-    () => pendingChanges(saved, edited, optionLabel),
-    [saved, edited],
+    () => pendingChanges(t, language, saved, edited, optionLabel),
+    [t, language, saved, edited, optionLabel],
   );
-  const blockers = useMemo(() => findBlockers(changes, edited), [changes, edited]);
+  const blockers = useMemo(
+    () => findBlockers(t, changes, edited, saved),
+    [t, changes, edited, saved],
+  );
 
   const handleDiscard = () => {
     setOverrides({});
@@ -182,13 +172,12 @@ const InstanceConfigurationPage: NextPage = () => {
       await setInstanceConfigMutation(
         savePayload(changes, edited, savedDetails) as any,
       ).unwrap();
-      toast({ title: "Saved", description: successMessage(changes) });
+      toast({ title: t("settings.page.saved"), description: successMessage(t, changes) });
     } catch (error: any) {
       // The backend's own reason (row 50); every change stays in the bar.
       toast({
-        title: "Not saved",
-        description:
-          error?.message || "The settings could not be saved. Please try again.",
+        title: t("settings.page.notSaved"),
+        description: errorText(error, t("settings.page.saveFailed")),
         variant: "destructive",
       });
       console.error("Failed to save the co-op settings:", error);
@@ -210,15 +199,13 @@ const InstanceConfigurationPage: NextPage = () => {
         reassignmentPayoutDefaultPolicy: defaultPolicy,
       }).unwrap();
       toast({
-        title: "Saved",
-        description: "Reassignment payout policies saved successfully.",
+        title: t("settings.page.saved"),
+        description: t("settings.page.payoutSaved"),
       });
     } catch (error: any) {
       toast({
-        title: "Not saved",
-        description:
-          error?.message ||
-          "Failed to save reassignment payout policies. Please try again.",
+        title: t("settings.page.notSaved"),
+        description: errorText(error, t("settings.page.payoutSaveFailed")),
         variant: "destructive",
       });
       console.error("Failed to save reassignment payout policies:", error);
@@ -246,17 +233,21 @@ const InstanceConfigurationPage: NextPage = () => {
       await setInstanceConfigMutation({
         details: { ...savedDetails, [page.key]: pageText.trim() },
       } as any).unwrap();
-      toast({ title: "Saved", description: `${page.title} saved successfully.` });
+      toast({
+        title: t("settings.page.saved"),
+        description: t("settings.page.publicPageSaved", { title: t(page.titleKey) }),
+      });
       setCurrentView("main");
     } catch (error: any) {
       toast({
-        title: "Not saved",
-        description:
-          error?.message ||
-          `Failed to save ${page.title.toLowerCase()}. Please try again.`,
+        title: t("settings.page.notSaved"),
+        description: errorText(
+          error,
+          t("settings.page.publicPageSaveFailed", { title: t(page.titleKey).toLowerCase() }),
+        ),
         variant: "destructive",
       });
-      console.error(`Failed to save ${page.title}:`, error);
+      console.error(`Failed to save ${page.key}:`, error);
     } finally {
       setIsSavingPage(false);
     }
@@ -271,12 +262,13 @@ const InstanceConfigurationPage: NextPage = () => {
     set,
     options: instanceConfigOptionsResponse.data,
     loaded,
+    saved,
   };
 
   return (
     <DefaultLayout>
       <PageHeader
-        title="Co-op settings"
+        title={t("settings.page.title")}
         action={
           currentView !== "main" ? (
             <Button
@@ -284,7 +276,7 @@ const InstanceConfigurationPage: NextPage = () => {
               variant="secondary"
               onClick={() => setCurrentView("main")}
             >
-              ← Back
+              {t("settings.page.back")}
             </Button>
           ) : undefined
         }
@@ -293,14 +285,14 @@ const InstanceConfigurationPage: NextPage = () => {
       {currentView === "main" ? (
         <>
           {/* Pills that jump to each card (spec 0010, AC-1). */}
-          <nav aria-label="Settings sections" className="mb-6 flex flex-wrap gap-2">
+          <nav aria-label={t("settings.page.sectionsNav")} className="mb-6 flex flex-wrap gap-2">
             {SECTIONS.map((section) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
                 className="rounded-md bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {section.title}
+                {t(section.titleKey)}
               </a>
             ))}
           </nav>
@@ -351,9 +343,9 @@ const InstanceConfigurationPage: NextPage = () => {
         </>
       ) : (
         <PublicPageEditor
-          title={pageOf(currentView).title}
+          title={t(pageOf(currentView).titleKey)}
           value={pageText}
-          placeholder={pageOf(currentView).placeholder}
+          placeholder={t(pageOf(currentView).placeholderKey)}
           isSaving={isSavingPage}
           onChange={setPageText}
           onSave={handleSavePage}

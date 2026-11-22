@@ -14,8 +14,10 @@ import {
 } from '@/admin-web-components'
 import { useCreateDispatchStopMutation, useGetDispatchStopPreviewQuery } from '@/api/dispatchStopApi'
 import type { DispatchStopReason } from '@/backend-admin-sdk'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
-import { REASON_LABELS, athensToday } from './dispatchStopDisplay'
+import { useTranslation } from 'react-i18next'
+import { useServerText } from '@/i18n/useServerText'
+import { keyMessage, showMessage, textMessage, type ShownMessage } from '@/i18n/shownMessage'
+import { REASON_KEYS, athensToday, reasonLabel } from './dispatchStopDisplay'
 
 type Props = {
   open: boolean
@@ -32,6 +34,9 @@ const SELECT_CLASS =
 // Stop dispatch now (until a time, or until restarted) or schedule a stop, in Athens time.
 export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: Props) {
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const [createStop, { isLoading }] = useCreateDispatchStopMutation()
   // The counts are read each time Stop now opens (spec 0014, AC-9); skipped for a schedule.
   const preview = useGetDispatchStopPreviewQuery(undefined, {
@@ -44,7 +49,8 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
   const [startTime, setStartTime] = useState('')
   const [endDate, setEndDate] = useState('')
   const [endTime, setEndTime] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // A key or the server's words, translated when drawn, so a language switch reaches it (shownMessage.ts).
+  const [error, setError] = useState<ShownMessage | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -72,11 +78,15 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
         ...(mode === 'schedule' ? { startsOn: { date: startDate, time: startTime } } : {}),
         ...(needsEnd ? { endsOn: { date: endDate, time: endTime } } : {}),
       }).unwrap()
-      toast({ title: mode === 'now' ? 'Dispatch is stopped.' : 'The stop is scheduled.' })
+      toast({ title: t(mode === 'now' ? 'dispatchStop.dialog.stopped' : 'dispatchStop.dialog.scheduled') })
       onOpenChange(false)
     } catch (err: unknown) {
       // The backend names what is wrong ("Another dispatch stop already covers part of that time.").
-      setError(backendMessage(err, 'The stop could not be saved. Please try again.'))
+      // The server's own words when it sent some ("Another dispatch stop already covers part of that time."),
+      // else our sentence, kept as its key so it is translated when drawn.
+      const fallback = 'dispatchStop.dialog.saveFailed'
+      const words = errorText(err, fallback)
+      setError(words === fallback ? keyMessage(fallback) : textMessage(words))
     }
   }
 
@@ -97,45 +107,43 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
       >
         <form onSubmit={submit} noValidate>
           <DialogHeader>
-            <DialogTitle>{mode === 'now' ? 'Stop dispatch now' : 'Schedule a stop'}</DialogTitle>
-            <DialogDescription>
-              No rider gets an offer and no restaurant can order delivery while it is on. Deliveries already picked up
-              are finished. Times are Athens time.
-            </DialogDescription>
+            <DialogTitle>
+              {t(mode === 'now' ? 'dispatchStop.dialog.titleNow' : 'dispatchStop.dialog.titleSchedule')}
+            </DialogTitle>
+            <DialogDescription>{t('dispatchStop.dialog.description')}</DialogDescription>
           </DialogHeader>
 
           {mode === 'now' ? (
             <p role="note" className="mt-3 rounded-md border border-border bg-muted p-3 text-sm">
               {preview.isError
-                ? 'Could not count the open offers and deliveries; stopping still works.'
+                ? t('dispatchStop.dialog.previewFailed')
                 : preview.data
-                ? `This ends ${preview.data.offersToEnd} open ${
-                    preview.data.offersToEnd === 1 ? 'offer' : 'offers'
-                  } and sends ${preview.data.deliveriesToReturn} ${
-                    preview.data.deliveriesToReturn === 1 ? 'delivery' : 'deliveries'
-                  } not yet picked up back to waiting. Riders who lose a delivery are paid by the co-op's reassignment setting.`
-                : 'Counting open offers and deliveries not yet picked up…'}
+                ? t('dispatchStop.dialog.preview', {
+                    offers: t('dispatchStop.dialog.offers', { count: preview.data.offersToEnd }),
+                    deliveries: t('dispatchStop.dialog.deliveries', { count: preview.data.deliveriesToReturn }),
+                  })
+                : t('dispatchStop.dialog.counting')}
             </p>
           ) : null}
 
           {error ? (
             <p role="alert" className="mt-3 text-sm font-medium text-destructive">
-              {error}
+              {showMessage(error, t)}
             </p>
           ) : null}
 
           <div className="space-y-3 py-4">
             <div className="space-y-1">
-              <Label htmlFor="stop-reason">Reason</Label>
+              <Label htmlFor="stop-reason">{t('dispatchStop.dialog.reason')}</Label>
               <select
                 id="stop-reason"
                 className={SELECT_CLASS}
                 value={reason}
                 onChange={(e) => setReason(e.target.value as DispatchStopReason)}
               >
-                {(Object.keys(REASON_LABELS) as DispatchStopReason[]).map((value) => (
+                {(Object.keys(REASON_KEYS) as DispatchStopReason[]).map((value) => (
                   <option key={value} value={value}>
-                    {REASON_LABELS[value]}
+                    {reasonLabel(t, value)}
                   </option>
                 ))}
               </select>
@@ -144,7 +152,7 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
             {mode === 'schedule' ? (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="stop-start-date">Starts on</Label>
+                  <Label htmlFor="stop-start-date">{t('dispatchStop.dialog.startsOn')}</Label>
                   <Input
                     id="stop-start-date"
                     type="date"
@@ -153,7 +161,7 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="stop-start-time">At</Label>
+                  <Label htmlFor="stop-start-time">{t('dispatchStop.dialog.at')}</Label>
                   <Input
                     id="stop-start-time"
                     type="time"
@@ -171,18 +179,18 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
                   checked={hasEnd}
                   onChange={(e) => setHasEnd(e.target.checked)}
                 />
-                <Label htmlFor="stop-has-end">Set an end time (otherwise until you restart)</Label>
+                <Label htmlFor="stop-has-end">{t('dispatchStop.dialog.hasEnd')}</Label>
               </div>
             )}
 
             {needsEnd ? (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="stop-end-date">Ends on</Label>
+                  <Label htmlFor="stop-end-date">{t('dispatchStop.dialog.endsOn')}</Label>
                   <Input id="stop-end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="stop-end-time">At</Label>
+                  <Label htmlFor="stop-end-time">{t('dispatchStop.dialog.at')}</Label>
                   <Input id="stop-end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               </div>
@@ -191,11 +199,11 @@ export function StopDispatchDialog({ open, onOpenChange, mode, returnFocusTo }: 
 
           <DialogFooter>
             <Button type="button" variant="ghost" disabled={isLoading} onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant={mode === 'now' ? 'destructive' : 'default'} disabled={!isValid || isLoading}>
               {isLoading ? <Spinner className="mr-2" /> : null}
-              {mode === 'now' ? 'Stop dispatch' : 'Schedule stop'}
+              {t(mode === 'now' ? 'dispatchStop.dialog.submitNow' : 'dispatchStop.dialog.submitSchedule')}
             </Button>
           </DialogFooter>
         </form>

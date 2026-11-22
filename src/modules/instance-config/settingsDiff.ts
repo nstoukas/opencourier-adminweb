@@ -1,11 +1,18 @@
 import { featureCollection } from '@turf/turf'
-import { formatMoney } from '@/utils/formatMoney'
+import type { TFunction } from 'i18next'
+import type { ChatPreset } from '@/backend-admin-sdk/src/models/InstanceConfigSettingsDto'
+import { formatMoney } from '@/i18n/format'
+import type { Language } from '@/i18n/language'
 import { parseQuoteRateInput } from '@/utils/quoteRate'
 
 /**
  * The co-op settings page's save bar (spec 0010): what the boxes hold, how each setting is
  * compared with its saved value and shown as "old → new", what stops Save, and what Save sends.
  * Plain functions with no React, so each rule can be tested on its own.
+ *
+ * Words (spec 0054): a function that returns words a person reads takes `t` first, the function
+ * useTranslation gives a component, and the reader's language where money or a preset is shown. The page
+ * calls them while it draws, so a language switch rewords the bar at once.
  */
 
 // What the page's boxes hold. Number boxes hold the text typed (a string), so an emptied box is
@@ -59,10 +66,10 @@ export type SettingsForm = {
   shiftDropNoticeHours: string
   // Time worked (spec 0040): the longest Offline that stays a break inside one worked shift, in minutes.
   shiftBreakMinutes: string
-  // Chat (spec 0034, AC-13 and AC-18): each preset list as typed, one preset per line, and the days
-  // messages are kept.
-  chatQuickRepliesDispatch: string
-  chatQuickRepliesCourier: string
+  // Chat (spec 0034, AC-13 and AC-18): each preset list as typed, and the days messages are kept. Since
+  // spec 0054 (AC-7) a preset is a pair, its Greek and its English, each box holding the text typed.
+  chatQuickRepliesDispatch: ChatPreset[]
+  chatQuickRepliesCourier: ChatPreset[]
   chatRetentionDays: string
   // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
   addressNoteRetentionDays: string
@@ -105,102 +112,140 @@ type Kind =
   | 'number' // a number box; range rules stay with the backend
   | 'switch' // on or off
   | 'phone' // a phone number, compared without the spaces, dashes, dots and brackets the backend removes
-  | 'lines' // a list typed one entry per line, sent as a list of the trimmed, non empty lines
+  | 'presets' // a list of { el, en } pairs, sent trimmed, with rows left empty in both languages dropped
 
-export type SettingDefinition = { key: SettingKey; label: string; kind: Kind; details?: boolean }
+// `labelKey` is the translation key of the setting's name (spec 0054), looked up when the bar or a box
+// is drawn, so the name follows the reader's language.
+export type SettingDefinition = { key: SettingKey; labelKey: string; kind: Kind; details?: boolean }
 
-// Every setting the bar covers, in page order, with the label the bar shows. The details ones
+// Every setting the bar covers, in page order, with the key of the name the bar shows. The details ones
 // live inside the backend's `details` object, which is replaced whole (spec 0010, AC-12).
 export const SETTINGS: SettingDefinition[] = [
-  { key: 'quoteBaseFee', label: 'Base fee', kind: 'cents' },
-  { key: 'quoteRatePerDistanceUnit', label: 'Rate per km', kind: 'cents' },
-  { key: 'feePercentageAmount', label: 'Co-op fee (%)', kind: 'number' },
-  { key: 'feePercentageCeiling', label: 'Co-op fee ceiling (%)', kind: 'number' },
-  { key: 'currency', label: 'Currency', kind: 'select' },
-  { key: 'distanceUnit', label: 'Distance unit', kind: 'select' },
-  { key: 'quoteCalculationType', label: 'Quote calculation', kind: 'select' },
-  { key: 'courierMatcherType', label: 'Who gets the offer first', kind: 'select' },
-  { key: 'maxAssignmentDistance', label: 'Furthest courier to offer', kind: 'number' },
-  { key: 'maxDriftDistance', label: 'Max drift distance', kind: 'number' },
-  { key: 'arrivalRadiusMetres', label: 'Arrival radius (metres)', kind: 'number' },
-  { key: 'quoteExpirationMinutes', label: 'Quote stays valid for', kind: 'number' },
-  { key: 'geoCalculationType', label: 'Measure distance by', kind: 'select' },
-  { key: 'deliveryDurationCalculationType', label: 'Delivery duration calculation', kind: 'select' },
-  { key: 'offerExpiryEnabled', label: 'Offer expiry', kind: 'switch' },
-  { key: 'offerExpirySeconds', label: 'Seconds before an unanswered offer ends', kind: 'number' },
-  { key: 'noCourierRetrySeconds', label: 'Seconds between retries when no rider is free', kind: 'number' },
-  { key: 'offerTimingEnabled', label: 'Timed offers', kind: 'switch' },
-  { key: 'offerLeadMinutes', label: 'Lead time before an offer (minutes)', kind: 'number' },
-  { key: 'offerTimingCandidates', label: 'Riders compared by road time', kind: 'number' },
-  { key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', kind: 'number' },
-  { key: 'cancellationPayoutPolicy', label: 'Pay when a job is cancelled', kind: 'select' },
-  { key: 'defaultCourierPayRate', label: 'Default courier pay rate', kind: 'number' },
-  { key: 'defaultMaxWorkingHours', label: 'Default max working hours', kind: 'number' },
-  { key: 'courierCompensationCalculationType', label: 'Courier compensation calculation', kind: 'select' },
-  { key: 'returnTripPayPercent', label: 'Return trip pay (%)', kind: 'number' },
-  { key: 'waitPayEnabled', label: 'Delay pay', kind: 'switch' },
-  { key: 'waitPayFreeMinutes', label: 'Free minutes after the promised time', kind: 'number' },
-  { key: 'waitPayCentsPerMinute', label: 'Delay pay per minute (cents)', kind: 'number' },
-  { key: 'waitLimitMinutes', label: 'Minutes before a rider can leave', kind: 'number' },
-  { key: 'splitAnswerMinutes', label: 'Minutes before a rider can leave an order not split', kind: 'number' },
-  { key: 'shiftsEnabled', label: 'Shifts', kind: 'switch' },
-  { key: 'shiftDropNoticeHours', label: 'Notice to drop a shift, in hours', kind: 'number' },
-  { key: 'shiftBreakMinutes', label: 'Longest break inside a worked shift, in minutes', kind: 'number' },
-  { key: 'region', label: 'Service area', kind: 'region', details: true },
-  { key: 'name', label: 'Name', kind: 'text', details: true },
-  { key: 'link', label: 'URL', kind: 'url', details: true },
-  { key: 'websocketLink', label: 'Websocket URL', kind: 'url', details: true },
-  { key: 'imageUrl', label: 'Logo image URL', kind: 'url', details: true },
-  { key: 'defaultDietaryRestrictions', label: 'Default dietary restrictions', kind: 'multi' },
-  { key: 'savedCustomerRetentionMonths', label: 'Saved customer retention (months)', kind: 'number' },
-  { key: 'restaurantHistoryDays', label: 'Restaurant order history (days)', kind: 'number' },
-  { key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', kind: 'number' },
-  { key: 'dispatchPhoneNumber', label: 'Dispatch phone number', kind: 'phone' },
+  { key: 'quoteBaseFee', labelKey: 'settings.labels.quoteBaseFee', kind: 'cents' },
+  { key: 'quoteRatePerDistanceUnit', labelKey: 'settings.labels.quoteRatePerDistanceUnit', kind: 'cents' },
+  { key: 'feePercentageAmount', labelKey: 'settings.labels.feePercentageAmount', kind: 'number' },
+  { key: 'feePercentageCeiling', labelKey: 'settings.labels.feePercentageCeiling', kind: 'number' },
+  { key: 'currency', labelKey: 'settings.labels.currency', kind: 'select' },
+  { key: 'distanceUnit', labelKey: 'settings.labels.distanceUnit', kind: 'select' },
+  { key: 'quoteCalculationType', labelKey: 'settings.labels.quoteCalculationType', kind: 'select' },
+  { key: 'courierMatcherType', labelKey: 'settings.labels.courierMatcherType', kind: 'select' },
+  { key: 'maxAssignmentDistance', labelKey: 'settings.labels.maxAssignmentDistance', kind: 'number' },
+  { key: 'maxDriftDistance', labelKey: 'settings.labels.maxDriftDistance', kind: 'number' },
+  { key: 'arrivalRadiusMetres', labelKey: 'settings.labels.arrivalRadiusMetres', kind: 'number' },
+  { key: 'quoteExpirationMinutes', labelKey: 'settings.labels.quoteExpirationMinutes', kind: 'number' },
+  { key: 'geoCalculationType', labelKey: 'settings.labels.geoCalculationType', kind: 'select' },
+  { key: 'deliveryDurationCalculationType', labelKey: 'settings.labels.deliveryDurationCalculationType', kind: 'select' },
+  { key: 'offerExpiryEnabled', labelKey: 'settings.labels.offerExpiryEnabled', kind: 'switch' },
+  { key: 'offerExpirySeconds', labelKey: 'settings.labels.offerExpirySeconds', kind: 'number' },
+  { key: 'noCourierRetrySeconds', labelKey: 'settings.labels.noCourierRetrySeconds', kind: 'number' },
+  { key: 'offerTimingEnabled', labelKey: 'settings.labels.offerTimingEnabled', kind: 'switch' },
+  { key: 'offerLeadMinutes', labelKey: 'settings.labels.offerLeadMinutes', kind: 'number' },
+  { key: 'offerTimingCandidates', labelKey: 'settings.labels.offerTimingCandidates', kind: 'number' },
+  { key: 'handBackSeconds', labelKey: 'settings.labels.handBackSeconds', kind: 'number' },
+  { key: 'cancellationPayoutPolicy', labelKey: 'settings.labels.cancellationPayoutPolicy', kind: 'select' },
+  { key: 'defaultCourierPayRate', labelKey: 'settings.labels.defaultCourierPayRate', kind: 'number' },
+  { key: 'defaultMaxWorkingHours', labelKey: 'settings.labels.defaultMaxWorkingHours', kind: 'number' },
+  { key: 'courierCompensationCalculationType', labelKey: 'settings.labels.courierCompensationCalculationType', kind: 'select' },
+  { key: 'returnTripPayPercent', labelKey: 'settings.labels.returnTripPayPercent', kind: 'number' },
+  { key: 'waitPayEnabled', labelKey: 'settings.labels.waitPayEnabled', kind: 'switch' },
+  { key: 'waitPayFreeMinutes', labelKey: 'settings.labels.waitPayFreeMinutes', kind: 'number' },
+  { key: 'waitPayCentsPerMinute', labelKey: 'settings.labels.waitPayCentsPerMinute', kind: 'number' },
+  { key: 'waitLimitMinutes', labelKey: 'settings.labels.waitLimitMinutes', kind: 'number' },
+  { key: 'splitAnswerMinutes', labelKey: 'settings.labels.splitAnswerMinutes', kind: 'number' },
+  { key: 'shiftsEnabled', labelKey: 'settings.labels.shiftsEnabled', kind: 'switch' },
+  { key: 'shiftDropNoticeHours', labelKey: 'settings.labels.shiftDropNoticeHours', kind: 'number' },
+  { key: 'shiftBreakMinutes', labelKey: 'settings.labels.shiftBreakMinutes', kind: 'number' },
+  { key: 'region', labelKey: 'settings.labels.region', kind: 'region', details: true },
+  { key: 'name', labelKey: 'settings.labels.name', kind: 'text', details: true },
+  { key: 'link', labelKey: 'settings.labels.link', kind: 'url', details: true },
+  { key: 'websocketLink', labelKey: 'settings.labels.websocketLink', kind: 'url', details: true },
+  { key: 'imageUrl', labelKey: 'settings.labels.imageUrl', kind: 'url', details: true },
+  { key: 'defaultDietaryRestrictions', labelKey: 'settings.labels.defaultDietaryRestrictions', kind: 'multi' },
+  { key: 'savedCustomerRetentionMonths', labelKey: 'settings.labels.savedCustomerRetentionMonths', kind: 'number' },
+  { key: 'restaurantHistoryDays', labelKey: 'settings.labels.restaurantHistoryDays', kind: 'number' },
+  { key: 'sosLocationRetentionDays', labelKey: 'settings.labels.sosLocationRetentionDays', kind: 'number' },
+  { key: 'dispatchPhoneNumber', labelKey: 'settings.labels.dispatchPhoneNumber', kind: 'phone' },
   // Chat (spec 0034).
-  { key: 'chatQuickRepliesDispatch', label: 'Dispatch quick replies', kind: 'lines' },
-  { key: 'chatQuickRepliesCourier', label: 'Courier quick replies', kind: 'lines' },
-  { key: 'chatRetentionDays', label: 'Chat messages kept for (days)', kind: 'number' },
+  { key: 'chatQuickRepliesDispatch', labelKey: 'settings.labels.chatQuickRepliesDispatch', kind: 'presets' },
+  { key: 'chatQuickRepliesCourier', labelKey: 'settings.labels.chatQuickRepliesCourier', kind: 'presets' },
+  { key: 'chatRetentionDays', labelKey: 'settings.labels.chatRetentionDays', kind: 'number' },
   // Address notes (spec 0053, AC-6).
-  { key: 'addressNoteRetentionDays', label: 'Address notes kept without an upvote (days)', kind: 'number' },
+  { key: 'addressNoteRetentionDays', labelKey: 'settings.labels.addressNoteRetentionDays', kind: 'number' },
   // Review requests (spec 0038).
-  { key: 'reviewAnswerDays', label: 'Days to answer a review request', kind: 'number' },
-  { key: 'reviewCorrectionMaxCents', label: 'Largest review pay correction (cents)', kind: 'number' },
+  { key: 'reviewAnswerDays', labelKey: 'settings.labels.reviewAnswerDays', kind: 'number' },
+  { key: 'reviewCorrectionMaxCents', labelKey: 'settings.labels.reviewCorrectionMaxCents', kind: 'number' },
   // Box model (spec 0043, AC-2, AC-8).
-  { key: 'boxUnitsSmall', label: 'Box units a Small order takes', kind: 'number' },
-  { key: 'boxUnitsMedium', label: 'Box units a Medium order takes', kind: 'number' },
-  { key: 'boxUnitsLarge', label: 'Box units a Large order takes', kind: 'number' },
-  { key: 'boxDefaultSize', label: 'Size of an order sent with none', kind: 'select' },
+  { key: 'boxUnitsSmall', labelKey: 'settings.labels.boxUnitsSmall', kind: 'number' },
+  { key: 'boxUnitsMedium', labelKey: 'settings.labels.boxUnitsMedium', kind: 'number' },
+  { key: 'boxUnitsLarge', labelKey: 'settings.labels.boxUnitsLarge', kind: 'number' },
+  { key: 'boxDefaultSize', labelKey: 'settings.labels.boxDefaultSize', kind: 'select' },
   // Fairness matcher (spec 0044, AC-5).
-  { key: 'fairnessWeightRoadTime', label: "Weight of road time to the restaurant", kind: 'number' },
-  { key: 'fairnessWeightEarnings', label: "Weight of the rider's pay per hour today", kind: 'number' },
-  { key: 'fairnessWeightWaiting', label: 'Weight of waiting since the last job or going Online', kind: 'number' },
-  { key: 'fairnessWeightShift', label: 'Weight of being on a booked shift', kind: 'number' },
-  { key: 'fairnessCandidateLimit', label: "Nearest riders compared for each offer", kind: 'number' },
-  { key: 'fairnessMinOnlineMinutes', label: "Minutes online before own pay per hour counts", kind: 'number' },
+  { key: 'fairnessWeightRoadTime', labelKey: 'settings.labels.fairnessWeightRoadTime', kind: 'number' },
+  { key: 'fairnessWeightEarnings', labelKey: 'settings.labels.fairnessWeightEarnings', kind: 'number' },
+  { key: 'fairnessWeightWaiting', labelKey: 'settings.labels.fairnessWeightWaiting', kind: 'number' },
+  { key: 'fairnessWeightShift', labelKey: 'settings.labels.fairnessWeightShift', kind: 'number' },
+  { key: 'fairnessCandidateLimit', labelKey: 'settings.labels.fairnessCandidateLimit', kind: 'number' },
+  { key: 'fairnessMinOnlineMinutes', labelKey: 'settings.labels.fairnessMinOnlineMinutes', kind: 'number' },
   // Two orders at once (spec 0048, AC-1).
-  { key: 'stackingEnabled', label: 'Two orders offered together', kind: 'switch' },
-  { key: 'twoOrderPolicy', label: 'When two orders may go together', kind: 'select' },
-  { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', kind: 'number' },
-  { key: 'addOnOffersEnabled', label: 'One more order offered while on a job', kind: 'switch' },
-  { key: 'addOnMoment', label: 'When one more order may be offered', kind: 'select' },
+  { key: 'stackingEnabled', labelKey: 'settings.labels.stackingEnabled', kind: 'switch' },
+  { key: 'twoOrderPolicy', labelKey: 'settings.labels.twoOrderPolicy', kind: 'select' },
+  { key: 'twoOrderDelayLimitMinutes', labelKey: 'settings.labels.twoOrderDelayLimitMinutes', kind: 'number' },
+  { key: 'addOnOffersEnabled', labelKey: 'settings.labels.addOnOffersEnabled', kind: 'switch' },
+  { key: 'addOnMoment', labelKey: 'settings.labels.addOnMoment', kind: 'select' },
 ]
 
-// The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
-// distance unit in the boxes.
-export function labelOf(key: SettingKey, form?: Pick<SettingsForm, 'distanceUnit'>): string {
-  if (key === 'quoteRatePerDistanceUnit') {
-    return form?.distanceUnit === 'MILES' ? 'Rate per mile' : 'Rate per km'
+// The words for a setting, shared by its box and the bar (row 87 review), in the reader's language.
+// The rate follows the distance unit in the boxes.
+export function labelOf(t: TFunction, key: SettingKey, form?: Pick<SettingsForm, 'distanceUnit'>): string {
+  if (key === 'quoteRatePerDistanceUnit' && form?.distanceUnit === 'MILES') {
+    return t('settings.labels.quoteRatePerMile')
   }
-  return SETTINGS.find((definition) => definition.key === key)?.label ?? key
+  const definition = SETTINGS.find((candidate) => candidate.key === key)
+  return definition ? t(definition.labelKey) : key
 }
 
+// A preset list as the backend sent it, as the page's boxes hold it (spec 0054, AC-7). A plain text, from
+// before the backend kept pairs, is the Greek one with an empty English box to fill.
+export function presetsOf(value: unknown): ChatPreset[] {
+  if (!Array.isArray(value)) return []
+  return value.map((entry) => {
+    if (typeof entry === 'string') return { el: entry, en: '' }
+    const pair = (entry ?? {}) as { el?: unknown; en?: unknown }
+    return {
+      el: typeof pair.el === 'string' ? pair.el : '',
+      en: typeof pair.en === 'string' ? pair.en : '',
+    }
+  })
+}
 
-// A 'lines' box as it is saved: one entry per line, trimmed, blank lines dropped (spec 0034, AC-13).
-export function linesOf(text: string): string[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '')
+// A preset list as it is saved: each text trimmed, a row empty in both languages dropped (as a blank
+// line was before spec 0054).
+export function cleanPresets(rows: ChatPreset[] | null | undefined): ChatPreset[] {
+  return (rows ?? [])
+    .map((row) => ({ el: row.el.trim(), en: row.en.trim() }))
+    .filter((row) => row.el !== '' || row.en !== '')
+}
+
+// One preset in the reader's language, else the other one (the same rule as the backend's chatPresetText).
+export function presetText(preset: ChatPreset, language: Language): string {
+  return language === 'en' ? preset.en || preset.el : preset.el || preset.en
+}
+
+// The rows (by index) that miss their Greek or their English and must have both: a row that is new or
+// edited (spec 0054, AC-7). A row the backend already holds exactly so (an old one, Greek only) may stay
+// as it is until someone edits it. Rows empty in both languages are dropped on save, so never listed.
+export function incompletePresetRows(rows: ChatPreset[], savedRows: ChatPreset[] | null | undefined): number[] {
+  const saved = cleanPresets(savedRows)
+  const found: number[] = []
+  rows.forEach((row, index) => {
+    const el = row.el.trim()
+    const en = row.en.trim()
+    if (el === '' && en === '') return
+    if (el !== '' && en !== '') return
+    const untouched = saved.some((old) => old.el === el && old.en === en)
+    if (!untouched) found.push(index)
+  })
+  return found
 }
 
 // The backend's limits for a preset list (AC-13). It refuses the same by name; checking here first
@@ -244,8 +289,8 @@ function comparable(definition: SettingDefinition, value: unknown): string {
       return [...((value as string[] | undefined) ?? [])].sort().join(',')
     case 'switch':
       return value === null || value === undefined ? '' : String(value)
-    case 'lines':
-      return linesOf(String(value ?? '')).join('\n')
+    case 'presets':
+      return JSON.stringify(cleanPresets(value as ChatPreset[] | undefined))
     case 'phone':
       // The backend stores the number with these removed (row 72), so "+30 24210 12345" typed
       // and "+302421012345" saved are the same number and the edit leaves the bar after a save.
@@ -264,32 +309,37 @@ export function sameValue(key: SettingKey, a: unknown, b: unknown): boolean {
 
 export type PendingChange = { key: SettingKey; label: string; from: string; to: string }
 
-// How an empty box reads in the bar; successMessage also reads it to tell a cleared number (review nit).
-export const EMPTY_SHOWN = '(empty)'
+// The key of how an empty box reads in the bar; successMessage also reads it to tell a cleared number
+// (review nit).
+export const EMPTY_SHOWN_KEY = 'settings.bar.empty'
 
-// How a value reads in the bar. `optionLabel` turns an option's code into its words.
+// How a value reads in the bar, in the reader's language. `optionLabel` turns an option's code into its words.
 function shown(
+  t: TFunction,
+  language: Language,
   definition: SettingDefinition,
   value: unknown,
   currency: string,
   optionLabel: (key: SettingKey, option: string) => string,
 ): string {
   if (definition.kind === 'region') return ''
-  if (definition.kind === 'lines') {
-    const list = linesOf(String(value ?? ''))
-    return list.length ? list.join(' · ') : '(none)'
+  if (definition.kind === 'presets') {
+    const list = cleanPresets(value as ChatPreset[] | undefined)
+    return list.length ? list.map((preset) => presetText(preset, language)).join(' · ') : t('settings.bar.none')
   }
-  if (definition.kind === 'switch') return value === true ? 'On' : value === false ? 'Off' : '—'
+  if (definition.kind === 'switch') {
+    return value === true ? t('settings.bar.on') : value === false ? t('settings.bar.off') : t('common.dash')
+  }
   if (definition.kind === 'multi') {
     const list = (value as string[] | undefined) ?? []
-    return list.length ? list.map((option) => optionLabel(definition.key, option)).join(', ') : '(none)'
+    return list.length ? list.map((option) => optionLabel(definition.key, option)).join(', ') : t('settings.bar.none')
   }
   const text = definition.kind === 'url' ? sanitizeURL(String(value ?? '')) : String(value ?? '').trim()
-  if (text === '') return EMPTY_SHOWN
+  if (text === '') return t(EMPTY_SHOWN_KEY)
   if (definition.kind === 'select') return optionLabel(definition.key, text)
   if (definition.kind === 'cents') {
     const cents = parseQuoteRateInput(text)
-    return cents === null ? text : formatMoney(cents, currency) ?? text
+    return cents === null ? text : formatMoney(cents, currency, language)
   }
   return text
 }
@@ -297,6 +347,8 @@ function shown(
 // Every setting whose box differs from its saved value, in page order. Nothing is counted
 // before the settings load (`saved` is null): null to null is not a change (AC-13).
 export function pendingChanges(
+  t: TFunction,
+  language: Language,
   saved: SettingsForm | null,
   edited: SettingsForm,
   optionLabel: (key: SettingKey, option: string) => string = (_key, option) => option,
@@ -306,52 +358,64 @@ export function pendingChanges(
     (definition) => comparable(definition, saved[definition.key]) !== comparable(definition, edited[definition.key]),
   ).map((definition) => ({
     key: definition.key,
-    label: labelOf(definition.key, edited),
+    label: labelOf(t, definition.key, edited),
     // Money shows in the currency it was saved in, and the new value in the one being saved.
-    from: shown(definition, saved[definition.key], saved.currency, optionLabel),
-    to: shown(definition, edited[definition.key], edited.currency, optionLabel),
+    from: shown(t, language, definition, saved[definition.key], saved.currency, optionLabel),
+    to: shown(t, language, definition, edited[definition.key], edited.currency, optionLabel),
   }))
 }
 
 // One wording for a bad link, in the box and in the bar (row 87 review).
-export const urlErrorText = (label: string) => `${label} is not a valid URL`
+export const urlErrorText = (t: TFunction, label: string) => t('settings.blockers.invalidUrl', { label })
 
-export const CENTS_ERROR = (label: string) => `${label}: enter a whole number of cents, zero or more`
+export const CENTS_ERROR = (t: TFunction, label: string) => t('settings.blockers.cents', { label })
 
 // Every reason Save is off, in words the bar shows (AC-14). Only changed settings are checked:
 // an untouched one keeps its saved value and is not sent. The required details are checked
-// whenever any detail changed, because `details` is then sent whole.
-export function blockers(changes: PendingChange[], edited: SettingsForm): string[] {
+// whenever any detail changed, because `details` is then sent whole. `saved` tells an old preset
+// kept as it was from a new or edited one (spec 0054); without it every preset row is checked.
+export function blockers(
+  t: TFunction,
+  changes: PendingChange[],
+  edited: SettingsForm,
+  saved: SettingsForm | null = null,
+): string[] {
   const changed = new Set(changes.map((change) => change.key))
   const found: string[] = []
   const detailsChanged = SETTINGS.some((definition) => definition.details && changed.has(definition.key))
   if (detailsChanged) {
-    if (edited.name.trim() === '') found.push('Name is empty')
-    if (edited.link.trim() === '') found.push('URL is empty')
-    if (edited.region == null) found.push('Service area is not drawn')
+    if (edited.name.trim() === '') found.push(t('settings.blockers.nameEmpty'))
+    if (edited.link.trim() === '') found.push(t('settings.blockers.urlEmpty'))
+    if (edited.region == null) found.push(t('settings.blockers.areaNotDrawn'))
   }
   for (const definition of SETTINGS) {
     if (!changed.has(definition.key)) continue
     const value = edited[definition.key]
+    const label = labelOf(t, definition.key, edited)
     if (definition.kind === 'url' && !isValidURL(sanitizeURL(String(value ?? '')))) {
-      found.push(urlErrorText(definition.label))
+      found.push(urlErrorText(t, label))
     }
     if (definition.kind === 'multi' && ((value as string[] | undefined) ?? []).length === 0) {
-      found.push(`${definition.label} has nothing selected`)
+      found.push(t('settings.blockers.nothingSelected', { label }))
     }
     if (definition.kind === 'cents' && parseQuoteRateInput(String(value ?? '')) === null) {
-      found.push(CENTS_ERROR(definition.label))
+      found.push(CENTS_ERROR(t, label))
     }
     if (definition.kind === 'number' && String(value ?? '').trim() === '') {
-      found.push(`${definition.label} is empty`)
+      found.push(t('settings.blockers.empty', { label }))
     }
-    if (definition.kind === 'lines') {
-      const list = linesOf(String(value ?? ''))
+    if (definition.kind === 'presets') {
+      const rows = (value as ChatPreset[] | undefined) ?? []
+      const list = cleanPresets(rows)
       if (list.length > QUICK_REPLIES_MAX_ENTRIES) {
-        found.push(`${definition.label}: at most ${QUICK_REPLIES_MAX_ENTRIES}, one per line`)
+        found.push(t('settings.blockers.presetsTooMany', { label, max: QUICK_REPLIES_MAX_ENTRIES }))
       }
-      if (list.some((line) => line.length > QUICK_REPLY_MAX_LENGTH)) {
-        found.push(`${definition.label}: each at most ${QUICK_REPLY_MAX_LENGTH} characters`)
+      if (list.some((preset) => preset.el.length > QUICK_REPLY_MAX_LENGTH || preset.en.length > QUICK_REPLY_MAX_LENGTH)) {
+        found.push(t('settings.blockers.presetsTooLong', { label, max: QUICK_REPLY_MAX_LENGTH }))
+      }
+      const savedRows = saved ? (saved[definition.key] as ChatPreset[]) : null
+      if (incompletePresetRows(rows, savedRows).length > 0) {
+        found.push(t('settings.blockers.presetsIncomplete', { label }))
       }
     }
   }
@@ -359,12 +423,20 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
   // values the save would leave in effect; the backend checks the same and has the last word.
   if (changed.has('feePercentageAmount') || changed.has('feePercentageCeiling')) {
     const fee = feeAboveCeiling(edited)
-    if (fee) found.push(`${labelOf('feePercentageAmount')} is ${fee.fee}, above the co-op's ceiling of ${fee.ceiling} %`)
+    if (fee) {
+      found.push(
+        t('settings.blockers.feeAboveCeiling', {
+          label: labelOf(t, 'feePercentageAmount'),
+          fee: fee.fee,
+          ceiling: fee.ceiling,
+        }),
+      )
+    }
   }
   // Spec 0043 (AC-2): Small may not take more room than Medium, nor Medium more than Large, with the
   // values the save would leave in effect. The backend checks the same and has the last word.
   if (changed.has('boxUnitsSmall') || changed.has('boxUnitsMedium') || changed.has('boxUnitsLarge')) {
-    const order = boxUnitsOutOfOrder(edited)
+    const order = boxUnitsOutOfOrder(t, edited)
     if (order) found.push(order)
   }
   // Spec 0044 (AC-5): the three fairness weights cannot all be 0, on the values the save would leave.
@@ -375,7 +447,11 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
     )
     if (allZero) {
       found.push(
-        `${labelOf('fairnessWeightRoadTime')}, ${labelOf('fairnessWeightEarnings')} and ${labelOf('fairnessWeightWaiting')} cannot all be 0`
+        t('settings.blockers.weightsAllZero', {
+          roadTime: labelOf(t, 'fairnessWeightRoadTime'),
+          earnings: labelOf(t, 'fairnessWeightEarnings'),
+          waiting: labelOf(t, 'fairnessWeightWaiting'),
+        }),
       )
     }
   }
@@ -385,6 +461,7 @@ export function blockers(changes: PendingChange[], edited: SettingsForm): string
 // Spec 0043: the sentence when the three sizes' units are out of order, else null. Empty or non
 // number boxes are left to the "is empty" check and the backend.
 export function boxUnitsOutOfOrder(
+  t: TFunction,
   form: Pick<SettingsForm, 'boxUnitsSmall' | 'boxUnitsMedium' | 'boxUnitsLarge'>,
 ): string | null {
   const small = Number(form.boxUnitsSmall.trim())
@@ -392,10 +469,10 @@ export function boxUnitsOutOfOrder(
   const large = Number(form.boxUnitsLarge.trim())
   const known = (text: string, value: number) => text.trim() !== '' && Number.isFinite(value)
   if (known(form.boxUnitsSmall, small) && known(form.boxUnitsMedium, medium) && small > medium) {
-    return `Small (${small} units) cannot take more room than Medium (${medium} units)`
+    return t('settings.blockers.smallAboveMedium', { small, medium })
   }
   if (known(form.boxUnitsMedium, medium) && known(form.boxUnitsLarge, large) && medium > large) {
-    return `Medium (${medium} units) cannot take more room than Large (${large} units)`
+    return t('settings.blockers.mediumAboveLarge', { medium, large })
   }
   return null
 }
@@ -441,8 +518,9 @@ export function savePayload(
     const value = edited[definition.key]
     if (definition.kind === 'cents' || definition.kind === 'number') {
       payload[definition.key] = Number(String(value).trim())
-    } else if (definition.kind === 'lines') {
-      payload[definition.key] = linesOf(String(value ?? ''))
+    } else if (definition.kind === 'presets') {
+      // Always pairs (spec 0054, AC-7): the backend reads `{ el, en }`.
+      payload[definition.key] = cleanPresets(value as ChatPreset[])
     } else {
       payload[definition.key] = value
     }
@@ -512,8 +590,8 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     shiftsEnabled: data.shiftsEnabled ?? null,
     shiftDropNoticeHours: text(data.shiftDropNoticeHours),
     shiftBreakMinutes: text(data.shiftBreakMinutes),
-    chatQuickRepliesDispatch: Array.isArray(data.chatQuickRepliesDispatch) ? data.chatQuickRepliesDispatch.join('\n') : '',
-    chatQuickRepliesCourier: Array.isArray(data.chatQuickRepliesCourier) ? data.chatQuickRepliesCourier.join('\n') : '',
+    chatQuickRepliesDispatch: presetsOf(data.chatQuickRepliesDispatch),
+    chatQuickRepliesCourier: presetsOf(data.chatQuickRepliesCourier),
     chatRetentionDays: text(data.chatRetentionDays),
     addressNoteRetentionDays: text(data.addressNoteRetentionDays),
     reviewAnswerDays: text(data.reviewAnswerDays),
@@ -540,17 +618,17 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
 export const EMPTY_FORM: SettingsForm = formFromSettings({})
 
 // The success words (AC-15): what was saved, plus today's sentence for a setting that has one.
-export function successMessage(changes: PendingChange[]): string {
+export function successMessage(t: TFunction, changes: PendingChange[]): string {
   const keys = new Set(changes.map((change) => change.key))
-  const parts = [`Saved: ${changes.map((change) => change.label).join(', ')}.`]
+  const parts = [t('settings.success.saved', { labels: changes.map((change) => change.label).join(', ') })]
   if (keys.has('quoteBaseFee') || keys.has('quoteRatePerDistanceUnit') || keys.has('feePercentageAmount')) {
-    parts.push('Pricing applies to the next quote; deliveries already quoted keep their price.')
+    parts.push(t('settings.success.pricing'))
   }
   if (keys.has('offerExpiryEnabled') || keys.has('offerExpirySeconds') || keys.has('noCourierRetrySeconds')) {
-    parts.push('Offer settings apply to the next offer; an offer already out keeps its deadline.')
+    parts.push(t('settings.success.offers'))
   }
   if (keys.has('offerTimingEnabled') || keys.has('offerLeadMinutes') || keys.has('offerTimingCandidates')) {
-    parts.push('Timed offers apply to the next offer; an offer already out is not moved.')
+    parts.push(t('settings.success.timedOffers'))
   }
   if (
     keys.has('waitPayEnabled') ||
@@ -558,43 +636,43 @@ export function successMessage(changes: PendingChange[]): string {
     keys.has('waitPayCentsPerMinute') ||
     keys.has('waitLimitMinutes')
   ) {
-    parts.push('Restaurant delay settings apply to waits that end from now on; a wait already paid keeps its amount.')
+    parts.push(t('settings.success.delays'))
   }
   if (keys.has('arrivalRadiusMetres')) {
-    parts.push("Riders' apps use the new arrival radius within ten minutes.")
+    parts.push(t('settings.success.arrival'))
   }
   if (keys.has('shiftsEnabled') || keys.has('shiftDropNoticeHours')) {
-    parts.push('Riders see nothing of shifts until shift booking is built.')
+    parts.push(t('settings.success.shifts'))
   }
   if (keys.has('shiftBreakMinutes')) {
-    parts.push("Every rider's time worked, past shifts included, is worked out again with the new break length.")
+    parts.push(t('settings.success.shiftBreak'))
   }
   if (keys.has('handBackSeconds')) {
-    parts.push('The hand back applies to the next accept; a running hand back keeps its end.')
+    parts.push(t('settings.success.handBack'))
   }
   if (keys.has('cancellationPayoutPolicy')) {
-    parts.push('Cancelled job pay applies to cancellations from now on.')
+    parts.push(t('settings.success.cancellation'))
   }
   if (keys.has('returnTripPayPercent')) {
-    parts.push('Return trip pay applies to food recorded as returned from now on.')
+    parts.push(t('settings.success.returnTrip'))
   }
   if (keys.has('savedCustomerRetentionMonths')) {
-    parts.push('The daily job uses the retention from its next run.')
+    parts.push(t('settings.success.savedCustomers'))
   }
   if (keys.has('restaurantHistoryDays')) {
-    parts.push('Restaurants see the new order history period at once.')
+    parts.push(t('settings.success.history'))
   }
   if (keys.has('sosLocationRetentionDays')) {
-    parts.push('The daily job deletes SOS positions under the new period from its next run.')
+    parts.push(t('settings.success.sos'))
   }
   if (keys.has('chatQuickRepliesDispatch') || keys.has('chatQuickRepliesCourier')) {
-    parts.push('The new quick replies show the next time a conversation is opened.')
+    parts.push(t('settings.success.presets'))
   }
   if (keys.has('chatRetentionDays')) {
-    parts.push('The daily job deletes chat messages under the new period from its next run.')
+    parts.push(t('settings.success.chatRetention'))
   }
   if (keys.has('addressNoteRetentionDays')) {
-    parts.push('The nightly job deletes address notes under the new period from its next run, and riders see the new period in How notes work.')
+    parts.push(t('settings.success.addressNotes'))
   }
   if (
     keys.has('stackingEnabled') ||
@@ -606,11 +684,13 @@ export function successMessage(changes: PendingChange[]): string {
     // Review fix (row 81): an add on change is named as such, not only as "two orders together".
     const addOn = keys.has('addOnOffersEnabled') || keys.has('addOnMoment')
     const stack = keys.has('stackingEnabled') || keys.has('twoOrderPolicy') || keys.has('twoOrderDelayLimitMinutes')
-    const what = addOn && stack ? 'Two orders together and one more order on a job' : addOn ? 'One more order on a job' : 'Two orders together'
-    parts.push(`${what}: applies to the next offer; offers already out and jobs already taken are unchanged.`)
+    const what = t(
+      addOn && stack ? 'settings.success.stackAndAddOn' : addOn ? 'settings.success.addOn' : 'settings.success.stack',
+    )
+    parts.push(t('settings.success.stackApplies', { what }))
   }
   if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {
-    parts.push('New box units apply to orders made from now on; an order already made keeps its units.')
+    parts.push(t('settings.success.boxUnits'))
   }
   if (
     keys.has('fairnessWeightRoadTime') ||
@@ -620,24 +700,21 @@ export function successMessage(changes: PendingChange[]): string {
     keys.has('fairnessCandidateLimit') ||
     keys.has('fairnessMinOnlineMinutes')
   ) {
-    parts.push('The fairness settings apply from the next offer.')
+    parts.push(t('settings.success.fairness'))
   }
   if (keys.has('boxDefaultSize')) {
-    parts.push('The default size applies to orders sent without a size from now on.')
+    parts.push(t('settings.success.defaultSize'))
   }
   if (keys.has('reviewAnswerDays')) {
-    parts.push('New review requests get the new answer period; requests already sent keep their date.')
+    parts.push(t('settings.success.reviewDays'))
   }
   if (keys.has('reviewCorrectionMaxCents')) {
-    parts.push('The new limit applies to the next answer with a pay correction.')
+    parts.push(t('settings.success.reviewMax'))
   }
   const dispatchPhone = changes.find((change) => change.key === 'dispatchPhoneNumber')
   if (dispatchPhone) {
-    parts.push(
-      dispatchPhone.to === EMPTY_SHOWN
-        ? 'Riders no longer see a Call dispatch button.'
-        : 'Riders see the Call dispatch button within ten minutes.',
-    )
+    // `to` was worded with the same t, so an emptied number reads as the same "(empty)" words.
+    parts.push(t(dispatchPhone.to === t(EMPTY_SHOWN_KEY) ? 'settings.success.phoneCleared' : 'settings.success.phoneSet'))
   }
   return parts.join(' ')
 }

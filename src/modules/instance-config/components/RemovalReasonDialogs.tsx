@@ -28,10 +28,19 @@ import {
   useRemoveRemovalReasonMutation,
   useUpdateRemovalReasonMutation,
 } from '@/api/removalRequestApi'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
+import { useTranslation } from 'react-i18next'
+import { useServerText } from '@/i18n/useServerText'
+import { isMessageKey, keyMessage, showMessage, textMessage, type ShownMessage } from '@/i18n/shownMessage'
 
-// The same limit as the backend's `label` column.
+// The same limit as the backend's `label` and `labelEl` columns.
 const LABEL_MAX = 60
+
+// The server's own words when it sent some (a refusal such as "the last reason cannot be removed"), else our
+// sentence kept as its key, so it is translated when drawn. `errorText` is useServerText's.
+function errorMessage(errorText: (error: unknown, fallback: string) => string, err: unknown, fallbackKey: string): ShownMessage {
+  const words = errorText(err, fallbackKey)
+  return words === fallbackKey ? keyMessage(fallbackKey) : textMessage(words)
+}
 
 // One labelled on/off switch of the dialog.
 function ReasonSwitch({
@@ -69,21 +78,31 @@ type DialogProps = {
 
 // Add a reason or edit one (spec 0035, AC-2). A new reason takes the end of the list, so its position
 // is only asked for when editing. A request already sent keeps its own copy of the reason.
+// Since spec 0054 (AC-7) each reason has its Greek and its English, both required whenever the dialog
+// saves: an old reason with no Greek opens with an empty Greek box, to be filled before it saves again.
 export function RemovalReasonDialog({ open, reason, onOpenChange, onCloseAutoFocus }: DialogProps) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const [createReason, { isLoading: creating }] = useCreateRemovalReasonMutation()
   const [updateReason, { isLoading: updating }] = useUpdateRemovalReasonMutation()
   const [label, setLabel] = useState('')
+  const [labelEl, setLabelEl] = useState('')
   const [paidToRider, setPaidToRider] = useState(true)
   const [chargedToRestaurant, setChargedToRestaurant] = useState(false)
   const [needsNote, setNeedsNote] = useState(false)
   const [position, setPosition] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // A key or the server's words, translated when drawn (shownMessage.ts).
+  const [error, setError] = useState<ShownMessage | null>(null)
   const saving = creating || updating
+  // True while the message on show is "type it in both languages": the empty box is then marked.
+  const missingLabel = isMessageKey(error, 'settings.removalReasons.labelMissing')
 
   // Each open starts from the reason being edited, or the new reason's defaults (paid, not charged).
   useEffect(() => {
     if (!open) return
     setLabel(reason?.label ?? '')
+    setLabelEl(reason?.labelEl ?? '')
     setPaidToRider(reason?.paidToRider ?? true)
     setChargedToRestaurant(reason?.chargedToRestaurant ?? false)
     setNeedsNote(reason?.needsNote ?? false)
@@ -93,11 +112,12 @@ export function RemovalReasonDialog({ open, reason, onOpenChange, onCloseAutoFoc
 
   const save = async () => {
     const trimmed = label.trim()
-    if (trimmed === '') return setError('Type what the rider reads for this reason.')
-    const fields = { label: trimmed, paidToRider, chargedToRestaurant, needsNote }
+    const trimmedEl = labelEl.trim()
+    if (trimmed === '' || trimmedEl === '') return setError(keyMessage('settings.removalReasons.labelMissing'))
+    const fields = { label: trimmed, labelEl: trimmedEl, paidToRider, chargedToRestaurant, needsNote }
     const positionNumber = Number(position.trim())
     if (reason && (position.trim() === '' || !Number.isInteger(positionNumber))) {
-      return setError('The position must be a whole number.')
+      return setError(keyMessage('settings.removalReasons.positionWhole'))
     }
     setError(null)
     try {
@@ -105,7 +125,7 @@ export function RemovalReasonDialog({ open, reason, onOpenChange, onCloseAutoFoc
       else await createReason(fields).unwrap()
       onOpenChange(false)
     } catch (err) {
-      setError(backendMessage(err, 'The reason could not be saved. Try again in a moment.'))
+      setError(errorMessage(errorText, err, 'settings.removalReasons.saveFailed'))
     }
   }
 
@@ -113,46 +133,60 @@ export function RemovalReasonDialog({ open, reason, onOpenChange, onCloseAutoFoc
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
       <DialogContent className="sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>{reason ? 'Edit reason' : 'Add reason'}</DialogTitle>
-          <DialogDescription>
-            Riders see this list when they ask to come off an order. Requests already sent keep the reason as it read then.
-          </DialogDescription>
+          <DialogTitle>{t(reason ? 'settings.removalReasons.editTitle' : 'settings.removalReasons.addTitle')}</DialogTitle>
+          <DialogDescription>{t('settings.removalReasons.dialogDescription')}</DialogDescription>
         </DialogHeader>
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="removal-reason-label">Reason</FieldLabel>
-            <Input
-              id="removal-reason-label"
-              value={label}
-              maxLength={LABEL_MAX}
-              onChange={(event) => setLabel(event.target.value)}
-            />
-            <FieldDescription>What the rider reads. At most {LABEL_MAX} characters.</FieldDescription>
-          </Field>
+          {/* The Greek and the English side by side; both are required to save. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="removal-reason-label-el">{t('settings.removalReasons.labelEl')}</FieldLabel>
+              <Input
+                id="removal-reason-label-el"
+                lang="el"
+                value={labelEl}
+                maxLength={LABEL_MAX}
+                aria-invalid={missingLabel && labelEl.trim() === '' ? true : undefined}
+                onChange={(event) => setLabelEl(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="removal-reason-label">{t('settings.removalReasons.labelEn')}</FieldLabel>
+              <Input
+                id="removal-reason-label"
+                lang="en"
+                value={label}
+                maxLength={LABEL_MAX}
+                aria-invalid={missingLabel && label.trim() === '' ? true : undefined}
+                onChange={(event) => setLabel(event.target.value)}
+              />
+            </Field>
+          </div>
+          <FieldDescription>{t('settings.removalReasons.labelHelp', { max: LABEL_MAX })}</FieldDescription>
           <ReasonSwitch
             id="removal-reason-paid"
-            label="Paid to the rider"
-            description="The rider sees whether a reason is paid before sending."
+            label={t('settings.removalReasons.paid')}
+            description={t('settings.removalReasons.paidHelp')}
             checked={paidToRider}
             onChange={setPaidToRider}
           />
           <ReasonSwitch
             id="removal-reason-charged"
-            label="Charged to the restaurant"
-            description="Bills the restaurant the same amount the rider would get. Never a delivery fee."
+            label={t('settings.removalReasons.charged')}
+            description={t('settings.removalReasons.chargedHelp')}
             checked={chargedToRestaurant}
             onChange={setChargedToRestaurant}
           />
           <ReasonSwitch
             id="removal-reason-note"
-            label="Needs a note"
-            description="The rider must say what happened before sending."
+            label={t('settings.removalReasons.needsNote')}
+            description={t('settings.removalReasons.noteHelp')}
             checked={needsNote}
             onChange={setNeedsNote}
           />
           {reason ? (
             <Field>
-              <FieldLabel htmlFor="removal-reason-position">Position</FieldLabel>
+              <FieldLabel htmlFor="removal-reason-position">{t('settings.removalReasons.position')}</FieldLabel>
               <Input
                 id="removal-reason-position"
                 type="number"
@@ -160,24 +194,24 @@ export function RemovalReasonDialog({ open, reason, onOpenChange, onCloseAutoFoc
                 value={position}
                 onChange={(event) => setPosition(event.target.value)}
               />
-              <FieldDescription>Smaller numbers come first in the rider&apos;s list.</FieldDescription>
+              <FieldDescription>{t('settings.removalReasons.positionHelp')}</FieldDescription>
             </Field>
           ) : (
-            <FieldDescription>A new reason goes to the end of the list.</FieldDescription>
+            <FieldDescription>{t('settings.removalReasons.newGoesLast')}</FieldDescription>
           )}
         </FieldGroup>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
-            {error}
+            {showMessage(error, t)}
           </p>
         ) : null}
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button type="button" onClick={save} disabled={saving}>
             {saving ? <Spinner className="mr-2 h-4 w-4" /> : null}
-            {reason ? 'Save reason' : 'Add reason'}
+            {t(reason ? 'settings.removalReasons.save' : 'settings.removalReasons.add')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -197,8 +231,12 @@ export function RemoveRemovalReasonDialog({
   onRemoved: () => void
   onCloseAutoFocus: (event: Event) => void
 }) {
+  const { t, i18n } = useTranslation()
+  const { errorText } = useServerText()
   const [removeReason, { isLoading }] = useRemoveRemovalReasonMutation()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ShownMessage | null>(null)
+  // The reason as the reader's language names it (written by the co-op, so shown as written, not translated).
+  const name = reasonName(reason, i18n.language)
 
   const confirm = async () => {
     setError(null)
@@ -206,7 +244,7 @@ export function RemoveRemovalReasonDialog({
       await removeReason({ id: reason.id }).unwrap()
       onRemoved()
     } catch (err) {
-      setError(backendMessage(err, 'The reason could not be removed. Try again in a moment.'))
+      setError(errorMessage(errorText, err, 'settings.removalReasons.removeFailed'))
     }
   }
 
@@ -214,25 +252,29 @@ export function RemoveRemovalReasonDialog({
     <AlertDialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
       <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove this reason?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {reason.label}. Riders stop seeing it. Requests already sent keep it.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t('settings.removalReasons.removeTitle')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('settings.removalReasons.removeDescription', { label: name })}</AlertDialogDescription>
         </AlertDialogHeader>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
-            {error}
+            {showMessage(error, t)}
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t('common.cancel')}</AlertDialogCancel>
           {/* A plain Button, so the dialog stays open until the removal is done. */}
           <Button type="button" variant="destructive" disabled={isLoading} onClick={confirm}>
             {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-            Remove reason
+            {t('settings.removalReasons.remove')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   )
+}
+
+// A reason's name in the reader's language, else the other one (spec 0054, AC-7): Greek first for a Greek
+// reader, English first otherwise. Both are the co-op's own words, never translated by the app.
+export function reasonName(reason: Pick<RemovalReasonAdminDto, 'label' | 'labelEl'>, language: string): string {
+  return language === 'el' ? reason.labelEl || reason.label : reason.label || reason.labelEl || ''
 }
