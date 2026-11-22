@@ -130,8 +130,14 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
                       {message.recordedInEnglish ? (
                         <>
                           {/* lang="en": the stored English is read out in English by a screen reader. */}
-                          <span lang="en">{message.text}</span>{' '}
-                          <span className="text-xs text-muted-foreground">({t('common.recordedInEnglish')})</span>
+                          <span lang="en">{message.text}</span>
+                          {/* The note tells a reader in another language why this line is English; to an English reader it says nothing new. */}
+                          {f.language !== 'en' ? (
+                            <>
+                              {' '}
+                              <span className="text-xs text-muted-foreground">({t('common.recordedInEnglish')})</span>
+                            </>
+                          ) : null}
                         </>
                       ) : (
                         (message.text ?? t('common.dash'))

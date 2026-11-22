@@ -29,8 +29,8 @@ export function shiftMonth(month: string, delta: number): string {
 }
 
 // "November 2026" in English, "Νοέμβριος 2026" in Greek (spec 0054: pages pass the reader's language,
-// the Greek statement passes 'el'). English when no language is given, as before.
-export function monthTitle(month: string, language: Language = 'en'): string {
+// the Greek statement passes 'el'). Required, so a caller cannot forget it (row 47 review).
+export function monthTitle(month: string, language: Language): string {
   const date = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 15))
   return new Intl.DateTimeFormat(LOCALES[language], { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date)
 }

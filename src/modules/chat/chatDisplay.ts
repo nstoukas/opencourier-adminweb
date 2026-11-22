@@ -8,7 +8,8 @@ import { LOCALES, type Language } from '@/i18n/language'
 const TIME_ZONE = 'Europe/Athens'
 
 // The clock and the short date follow the reader's language (spec 0054, AC-3): "17 Nov" or "17 Νοε".
-// Each function takes the language last; left out it is English, the words these had before.
+// Each function takes the language last, and it is required: a caller that forgot it would silently get
+// one language whatever the reader chose (row 47 review).
 // Building an Intl formatter is slow, so each language's pair is built once and kept.
 const formats = new Map<Language, { clock: Intl.DateTimeFormat; day: Intl.DateTimeFormat }>()
 function formatsFor(language: Language) {
@@ -25,13 +26,13 @@ function formatsFor(language: Language) {
 // Which Athens calendar day a time falls on, as YYYY-MM-DD (en-CA's order): logic, not words.
 const dayKey = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
 
-export function messageTime(iso: string, language: Language = 'en'): string {
+export function messageTime(iso: string, language: Language): string {
   return formatsFor(language).clock.format(new Date(iso))
 }
 
 // A message's stamp: the clock for today (Athens day), the date and the clock before that, since one
 // thread runs for up to 90 days (AC-18). "14:05" today, "17 Nov, 14:05" for an older day.
-export function messageStamp(iso: string, now: Date = new Date(), language: Language = 'en'): string {
+export function messageStamp(iso: string, now: Date, language: Language): string {
   const { clock, day } = formatsFor(language)
   const date = new Date(iso)
   const time = clock.format(date)
@@ -39,7 +40,7 @@ export function messageStamp(iso: string, now: Date = new Date(), language: Lang
 }
 
 // A thread row's time: the clock for today, the date before that.
-export function threadTime(iso: string | null, now: Date = new Date(), language: Language = 'en'): string {
+export function threadTime(iso: string | null, now: Date, language: Language): string {
   if (!iso) return ''
   const { clock, day } = formatsFor(language)
   const date = new Date(iso)

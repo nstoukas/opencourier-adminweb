@@ -19,8 +19,8 @@ export function reasonLabel(t: TFunction, reason: DispatchStopReason): string {
 }
 
 // "Sat 1 Nov, 12:00" (English) or "Σάβ 1 Νοε, 12:00" (Greek), in Athens time. `language` picks the
-// words of the weekday and month (spec 0054); left out it is English, as every caller had before row 47.
-export function athensDateTime(iso: string, language: Language = 'en'): string {
+// words of the weekday and month (spec 0054). Required, so a caller cannot forget it (row 47 review).
+export function athensDateTime(iso: string, language: Language): string {
   return new Intl.DateTimeFormat(LOCALES[language], {
     timeZone: INSTANCE_TIMEZONE,
     weekday: 'short',
@@ -33,7 +33,7 @@ export function athensDateTime(iso: string, language: Language = 'en'): string {
 }
 
 // "12:00" in Athens time (the same digits in both languages; `language` is taken for symmetry).
-export function athensTime(iso: string, language: Language = 'en'): string {
+export function athensTime(iso: string, language: Language): string {
   return new Intl.DateTimeFormat(LOCALES[language], {
     timeZone: INSTANCE_TIMEZONE,
     hour: '2-digit',
@@ -44,7 +44,7 @@ export function athensTime(iso: string, language: Language = 'en'): string {
 
 // An end time, with its date only when it falls on another Athens day than `fromIso`
 // ("17:00", or "Sun 2 Nov, 06:00").
-export function athensEnd(fromIso: string, endIso: string, language: Language = 'en'): string {
+export function athensEnd(fromIso: string, endIso: string, language: Language): string {
   return athensToday(new Date(fromIso)) === athensToday(new Date(endIso))
     ? athensTime(endIso, language)
     : athensDateTime(endIso, language)

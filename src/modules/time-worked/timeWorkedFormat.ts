@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { JobEndLabel, TimeWorkedChangeCause } from '../../backend-admin-sdk'
 import { athensToday } from '../dispatch-stop/dispatchStopDisplay'
-import { DEFAULT_LANGUAGE, LOCALES, type Language } from '@/i18n/language'
+import { LOCALES, type Language } from '@/i18n/language'
 import { keyMessage, type ShownMessage } from '@/i18n/shownMessage'
 import type { Formats } from '@/i18n/useFormat'
 
@@ -67,9 +67,9 @@ export function rangeFromQuery(
 
 // A calendar day (YYYY-MM-DD) in words, "Thu 19 Nov 2026" (Greek "Πέμ 19 Νοε 2026"). The day is formatted
 // in UTC so it stays the same day whatever the browser's zone. Used by the rider card and the totals page
-// alike. The language picks the locale (en-GB or el-GR, src/i18n/language.ts); Greek when left out, as in
-// src/i18n/format.ts.
-export function formatDay(day: string, withWeekday = true, language: Language = DEFAULT_LANGUAGE): string {
+// alike. The language picks the locale (en-GB or el-GR, src/i18n/language.ts). It is required in every helper
+// here, so a caller cannot forget it and silently get one language (row 47 review).
+export function formatDay(day: string, withWeekday: boolean, language: Language): string {
   return new Date(`${day}T00:00:00Z`).toLocaleDateString(LOCALES[language], {
     timeZone: 'UTC',
     weekday: withWeekday ? 'short' : undefined,
@@ -82,7 +82,7 @@ export function formatDay(day: string, withWeekday = true, language: Language = 
 // The totals add up only the days inside the range, so a "By week" row whose Monday to Sunday week
 // reaches outside it is part of a week. This says which part, or null for a whole week (review
 // 2026-11-20, decision 36.49). `t` and the language come from the page (useTranslation, useFormat).
-export function weekPart(monday: string, range: DayRange, t: TFunction, language: Language = DEFAULT_LANGUAGE): string | null {
+export function weekPart(monday: string, range: DayRange, t: TFunction, language: Language): string | null {
   const sunday = addDays(monday, 6)
   const first = monday < range.from ? range.from : monday
   const last = sunday > range.to ? range.to : sunday
@@ -139,7 +139,7 @@ export const END_KEYS: Record<JobEndLabel, string> = {
 }
 
 // "1.2 km", always one decimal (spec 0042 AC-1); "1,2 km" in Greek.
-export function formatKm(km: number, language: Language = DEFAULT_LANGUAGE): string {
+export function formatKm(km: number, language: Language): string {
   const number = new Intl.NumberFormat(LOCALES[language], { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   return `${number.format(Math.round(km * 10) / 10)} km`
 }
