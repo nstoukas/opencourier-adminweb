@@ -556,7 +556,7 @@ export function FairnessCard({ form, set, loaded }: CardProps) {
 }
 
 // Spec 0048 (AC-1): the two choices for when a pair may be offered, in plain words.
-const TWO_ORDER_POLICY_LABELS: Record<string, string> = {
+export const TWO_ORDER_POLICY_LABELS: Record<string, string> = {
   SHORTAGE_ONLY: 'Only when no free rider is a good fit',
   WHENEVER_FITS: 'Whenever the two orders fit',
 }

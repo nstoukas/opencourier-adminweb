@@ -18,6 +18,7 @@ import {
 import {
   InstanceCard,
   MATCHER_COPY,
+  TWO_ORDER_POLICY_LABELS,
   MatchingCard,
   OffersCard,
   TwoOrdersCard,
@@ -76,6 +77,8 @@ const OPTION_LABELS: Partial<Record<SettingKey, Record<string, string>>> = {
   defaultDietaryRestrictions: COURIER_DIETARY_RESTRICTIONS_TO_HUMAN,
   // Spec 0043 (review): the bar reads "Medium → Large", not the codes.
   boxDefaultSize: { SMALL: "Small", MEDIUM: "Medium", LARGE: "Large" },
+  // Row 80 review: the policy in the card's own words, not "SHORTAGE_ONLY → WHENEVER_FITS".
+  twoOrderPolicy: TWO_ORDER_POLICY_LABELS,
 };
 
 const optionLabel = (key: SettingKey, option: string): string =>
