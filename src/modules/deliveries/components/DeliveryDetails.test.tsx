@@ -120,6 +120,16 @@ jest.mock('../../../api/removalRequestApi', () => ({
   }),
 }))
 
+jest.mock('../../../api/complaintApi', () => ({
+  useGetComplaintDeliveryRidersQuery: jest.fn().mockReturnValue({
+    data: [],
+    currentData: [],
+    isLoading: false,
+    isError: false,
+  }),
+  useFileComplaintMutation: jest.fn().mockReturnValue([jest.fn(), { isLoading: false }]),
+}))
+
 const mockGoToDeliveries = jest.fn()
 jest.mock('../../../hooks/useAdminPageNavigator', () => {
   const actual = jest.requireActual('../../../hooks/useAdminPageNavigator')
