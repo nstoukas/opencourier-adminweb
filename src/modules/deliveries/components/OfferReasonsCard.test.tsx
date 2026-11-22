@@ -951,6 +951,29 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
       ]);
     });
 
+    it('produces "Only one rider on a job was compared" when candidateCount is 1 (spec 0048, row 81, agy review)', () => {
+      const singleCandidateAddOnReason: OfferReasonAdmin = {
+        id: "reason-addon-1cand",
+        deliveryEventId: "evt-addon-1c",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          currentDeliveryId: "del-job-111111",
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      const lines = addOnLines(singleCandidateAddOnReason);
+      expect(lines).toContain("Only one rider on a job was compared");
+      expect(lines).not.toContain("Fewest extra minutes of 1 riders on a job compared");
+    });
+
     it("formats notice when a passed over free rider was found under WHENEVER_FITS policy (spec 0048, row 81 review fix)", () => {
       const addOnReason: OfferReasonAdmin = {
         id: "reason-addon-free-rider",
@@ -1079,6 +1102,36 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
 
       // Candidate table is not rendered
       expect(screen.queryByRole("table")).toBeNull();
+    });
+
+    it("renders 'Only one rider on a job was compared' when candidateCount is 1 (spec 0048, row 81, agy review)", () => {
+      const courierNames = new Map([["c-1", "Yannis M."]]);
+      const addOnReason1Cand: OfferReasonAdmin = {
+        id: "reason-addon-1cand-render",
+        deliveryEventId: "evt-addon-1c-render",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          currentDeliveryId: "del-job-123456",
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[addOnReason1Cand]}
+          courierNameById={courierNames}
+        />
+      );
+
+      expect(screen.getByText("Only one rider on a job was compared")).toBeInTheDocument();
+      expect(screen.queryByText(/Fewest extra minutes/)).toBeNull();
     });
   });
 });

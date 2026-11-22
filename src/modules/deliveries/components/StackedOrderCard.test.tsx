@@ -435,6 +435,48 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
         screen.getByText('No stop order now: it is kept only while both orders are open with one rider.')
       ).toBeInTheDocument()
     })
+
+    it('reads "One more order on the way" and links the stop list partner when addOn is true with no reasons (spec 0048, row 81, agy review)', () => {
+      // In the short window before the OFFERED event writes the reason, or before reasons load,
+      // server sets addOn: true. It must render "One more order on the way" and link the partner from stops.
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={[]}
+          addOn={true}
+        />
+      )
+
+      const card = screen.getByTestId('stacked-order')
+      expect(card).toBeInTheDocument()
+      expect(within(card).getByRole('heading', { name: 'One more order on the way' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'One more order added' })).toBeNull()
+
+      // Links partner delivery 222222 from stackStops
+      const partnerLinks = screen.getAllByRole('link', { name: '222222' })
+      expect(partnerLinks.length).toBeGreaterThan(0)
+      partnerLinks.forEach((link) => {
+        expect(link).toHaveAttribute('href', `/deliveries/${partnerDeliveryId}`)
+      })
+
+      // Safety rule is asserted
+      expect(screen.getByText(/Each is paid in full from its own quote\./)).toBeInTheDocument()
+    })
+
+    it('reads "One more order on the way" when addOn is true and offerReasons is undefined (spec 0048, row 81, agy review)', () => {
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={undefined}
+          addOn={true}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'One more order on the way' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'One more order added' })).toBeNull()
+    })
   })
 
   describe('The job an add on joined (spec 0048, row 81 review fix)', () => {
@@ -523,6 +565,74 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       partnerLinks.forEach((link) => {
         expect(link).toHaveAttribute('href', `/deliveries/${partnerDeliveryId}`)
       })
+    })
+
+    it('reads "One more order added" and never names X or old figures when pair has no stop list and reasons [ADD_ON naming X, SINGLE] (spec 0048, row 81, agy review)', () => {
+      // Delivery was offered as an add-on to job X and declined, then accepted as SINGLE,
+      // and later joined by another order. Once both orders are delivered, stackStops is null.
+      const declinedAddOnReason: OfferReasonAdmin = {
+        id: 'reason-declined-addon',
+        deliveryEventId: 'evt-addon-old',
+        courierId: 'c1',
+        strategy: 'FAIRNESS',
+        weights: null,
+        values: {
+          currentDeliveryId: 'del-job-X-999999',
+          extraKm: 3.2,
+          extraMinutes: 9,
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: 'ADD_ON',
+        createdAt: '2026-11-22T08:00:00.000Z',
+      }
+      const singleOfferReason: OfferReasonAdmin = {
+        id: 'reason-single-accepted',
+        deliveryEventId: 'evt-single',
+        courierId: 'c1',
+        strategy: 'FAIRNESS',
+        weights: null,
+        values: {},
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: 'SINGLE',
+        createdAt: '2026-11-22T08:05:00.000Z',
+      }
+
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={null}
+          offerReasons={[declinedAddOnReason, singleOfferReason]}
+        />
+      )
+
+      // The SINGLE offer clears the pair so currentPairingReason is undefined -> renders "One more order added"
+      expect(screen.getByRole('heading', { name: 'One more order added' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'One more order on the way' })).toBeNull()
+
+      // Must never name X (del-job-X-999999 / 999999) nor link to it
+      expect(screen.queryByText(/del-job-X-999999/)).toBeNull()
+      expect(screen.queryByText(/999999/)).toBeNull()
+      expect(screen.queryByRole('link', { name: '999999' })).toBeNull()
+
+      // Must never show old figures from the declined add-on offer (+3.2 km, +9 min)
+      expect(screen.queryByText(/3\.2/)).toBeNull()
+      expect(screen.queryByText(/9 min/)).toBeNull()
+      expect(screen.queryByText(/adding \+/)).toBeNull()
+
+      // With stackStops null and no partner resolvable, says "another delivery"
+      expect(screen.getByText('another delivery')).toBeInTheDocument()
+      expect(
+        screen.getByText(/Offered alone\. Later another order,/)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Each is paid in full from its own quote\./)
+      ).toBeInTheDocument()
     })
   })
 })
