@@ -1,4 +1,7 @@
-import { useLoginMutation } from '@/api/authApi'
+import { useLoginMutation, useSetLanguageMutation } from '@/api/authApi'
+import { LanguageSwitch } from '@/i18n/LanguageSwitch'
+import { applyLanguage, wasChosenBeforeSignIn } from '@/i18n/languageChoice'
+import { toLanguage } from '@/i18n/language'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { setAccessToken } from '@/modules/auth/slices/authSlice'
 import {
@@ -20,10 +23,13 @@ import { useAppDispatch } from '../../../ui-shared-utils'
 import { XCircle } from '@phosphor-icons/react'
 import Head from 'next/head'
 import { useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Turns a failed sign in into plain words. Never an HTTP code and never the server's own text,
  * which is written for developers. The same words as the restaurant portal's sign in (row 92).
+ * Returns a translation key (spec 0054, decision 47.10): the component translates it when drawing,
+ * so a language switch reaches a message already on screen.
  */
 export function signInErrorMessage(error: unknown): string {
   // `unknown` means "could be anything": JavaScript can throw any value, so we check that it is
@@ -35,13 +41,13 @@ export function signInErrorMessage(error: unknown): string {
       : undefined
   const status = failure?.statusCode ?? failure?.response?.status
   if (status === 400 || status === 401 || status === 403 || status === 404) {
-    return "That email and password don't match. Check for typos and try again."
+    return 'auth.wrongLogin'
   }
   if (status === 429) {
-    return 'Too many tries in a row. Wait a minute, then try again.'
+    return 'auth.tooMany'
   }
   // A 5xx, or no status at all (the network failed before the server answered).
-  return "The co-op's server didn't answer. Check your internet connection and try again in a minute."
+  return 'auth.noAnswer'
 }
 
 /**
@@ -55,14 +61,17 @@ export function SignInScreen() {
   const { goHome } = useAdminPageNavigator()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // A translation key (or '' for none), translated when drawn.
   const [error, setError] = useState('')
+  const { t, i18n } = useTranslation()
+  const [saveLanguage] = useSetLanguageMutation()
 
   // `FormEvent` is the type of the event a <form> passes to onSubmit.
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     // Stop the browser's own form post (a full page reload); we send the request ourselves.
     event.preventDefault()
     if (!email.trim() || !password) {
-      setError('Enter your email and password, then press Sign In.')
+      setError('auth.enterBoth')
       return
     }
 
@@ -77,6 +86,13 @@ export function SignInScreen() {
       // The old form also stored a `chatToken` here, a field the login reply does not have
       // (it was always undefined, and a type error). Messages are row 90's to design.
       dispatch(setAccessToken(userInfo.session.accessToken))
+      // The language (spec 0054, cross check 2): the one stored on the account wins at sign in, unless the
+      // admin picked one on this card just now, which is then saved to the account (decision 47.31).
+      if (wasChosenBeforeSignIn()) {
+        saveLanguage(toLanguage(i18n.language)).catch(() => undefined)
+      } else if (userInfo.language) {
+        applyLanguage(i18n, toLanguage(userInfo.language))
+      }
       await goHome()
     } catch (err) {
       setError(signInErrorMessage(err))
@@ -86,17 +102,19 @@ export function SignInScreen() {
   return (
     <>
       <Head>
-        <title>Sign In · OpenCourier Admin</title>
+        <title>{t('auth.pageTitle')}</title>
       </Head>
       <main className="flex min-h-svh items-center justify-center bg-muted px-4 py-10">
         <Card className="w-full max-w-[400px] rounded-xl">
           <CardHeader className="space-y-2">
+            {/* The language switch, so an admin can read the sign in in English (as request-web's card). */}
+            <LanguageSwitch className="self-end" />
             {/* The design system's mark: black ink, for white or muted grounds, 48px tall or more. */}
             {/* A plain <img>: next/image on Next 13.5 hands React 18.2 a `fetchPriority` prop it warns about. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/opencourier-sign.png" alt="OpenCourier" width={42} height={48} className="h-12 w-auto self-start" />
-            <h1 className="pt-2 text-2xl font-semibold tracking-tight">Co-op Admin</h1>
-            <CardDescription>Sign in with the email and password the co-op gave you.</CardDescription>
+            <h1 className="pt-2 text-2xl font-semibold tracking-tight">{t('auth.heading')}</h1>
+            <CardDescription>{t('auth.description')}</CardDescription>
           </CardHeader>
           <CardContent>
             {/* noValidate: we show our own message in the Alert instead of the browser's bubble,
@@ -104,7 +122,7 @@ export function SignInScreen() {
             <form onSubmit={handleSubmit} noValidate className="space-y-6">
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="admin-email">Email</FieldLabel>
+                  <FieldLabel htmlFor="admin-email">{t('auth.email')}</FieldLabel>
                   <Input
                     id="admin-email"
                     type="email"
@@ -118,7 +136,7 @@ export function SignInScreen() {
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="admin-password">Password</FieldLabel>
+                  <FieldLabel htmlFor="admin-password">{t('auth.password')}</FieldLabel>
                   <Input
                     id="admin-password"
                     type="password"
@@ -134,8 +152,8 @@ export function SignInScreen() {
               {error ? (
                 <Alert variant="destructive">
                   <XCircle className="size-4" />
-                  <AlertTitle>Could not sign in</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertTitle>{t('auth.failedTitle')}</AlertTitle>
+                  <AlertDescription>{t(error)}</AlertDescription>
                 </Alert>
               ) : null}
 
@@ -144,10 +162,10 @@ export function SignInScreen() {
                   <>
                     {/* The button's own words say "Signing in…", so the spinner stays silent here. */}
                     <Spinner className="mr-2" aria-hidden />
-                    Signing in…
+                    {t('auth.submitting')}
                   </>
                 ) : (
-                  'Sign In'
+                  t('auth.submit')
                 )}
               </Button>
             </form>

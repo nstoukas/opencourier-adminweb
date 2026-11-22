@@ -2,6 +2,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '../..
 import { cn } from '../../ui-shared-utils'
 import { usePathname } from 'next/navigation'
 import React, { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AdminSidebar, useCoopName } from './AdminSidebar'
 import { SosAlerts } from '@/modules/sos/SosAlerts'
 import { ChatLive } from '@/modules/chat/ChatLive'
@@ -19,6 +20,7 @@ interface DefaultLayoutProps extends React.HTMLAttributes<HTMLDivElement> {
  * Below 1024px the sidebar becomes a sheet, opened from a slim bar at the top.
  */
 export function DefaultLayout({ children, className, fillViewport = false }: DefaultLayoutProps) {
+  const { t } = useTranslation()
   return (
     <SidebarProvider>
       {/* Hidden until a keyboard user presses Tab, then the first thing on the page. */}
@@ -26,7 +28,7 @@ export function DefaultLayout({ children, className, fillViewport = false }: Def
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:shadow-md focus:ring-2 focus:ring-ring"
       >
-        Skip to content
+        {t('layout.skipToContent')}
       </a>
       <AdminSidebar />
       <CloseSheetOnNavigation />

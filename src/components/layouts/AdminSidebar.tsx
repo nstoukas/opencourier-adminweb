@@ -24,9 +24,12 @@ import { ReviewsBadge } from '@/modules/reviews/ReviewsBadge'
 import { SplitRequestsBadge } from '@/modules/split-requests/SplitRequestsBadge'
 import { disconnectChatLive } from '@/modules/chat/chatLive'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitch } from '@/i18n/LanguageSwitch'
 import { usePathname } from 'next/navigation'
 
 type NavItem = {
+  // A key in the language files (layout.nav.*), translated when drawn.
   title: string
   icon: PhosphorIcon
   href: string
@@ -35,6 +38,7 @@ type NavItem = {
 }
 
 type NavGroup = {
+  // A key in the language files (layout.navGroup.*); its last part also names the group's id.
   label: string
   items: NavItem[]
 }
@@ -43,44 +47,44 @@ type NavGroup = {
 // Messages with row 111; Instance Configuration became Settings in row 87.
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Run the day',
+    label: 'layout.navGroup.runTheDay',
     items: [
       // The live board (spec 0034).
-      { title: 'Dispatch', icon: MapPin, href: EAdminRoutes.HOME },
-      { title: 'Deliveries', icon: Package, href: EAdminRoutes.DELIVERIES },
+      { title: 'layout.nav.dispatch', icon: MapPin, href: EAdminRoutes.HOME },
+      { title: 'layout.nav.deliveries', icon: Package, href: EAdminRoutes.DELIVERIES },
       // Dispatch's chat with riders and restaurants, with its count of unread threads (spec 0034, AC-2).
-      { title: 'Messages', icon: ChatCircle, href: EAdminRoutes.CHAT, badge: MessagesBadge },
+      { title: 'layout.nav.messages', icon: ChatCircle, href: EAdminRoutes.CHAT, badge: MessagesBadge },
       // Riders' SOS incidents (spec 0022).
-      { title: 'SOS', icon: Siren, href: EAdminRoutes.SOS },
+      { title: 'layout.nav.sos', icon: Siren, href: EAdminRoutes.SOS },
       // Wrong or missing products (spec 0032).
-      { title: 'Product reports', icon: WarningCircle, href: EAdminRoutes.PRODUCT_REPORTS },
+      { title: 'layout.nav.productReports', icon: WarningCircle, href: EAdminRoutes.PRODUCT_REPORTS },
       // Orders that do not fit one box, with the count waiting for an answer (spec 0047, AC-4).
-      { title: 'Split requests', icon: ArrowsSplit, href: EAdminRoutes.SPLIT_REQUESTS, badge: SplitRequestsBadge },
+      { title: 'layout.nav.splitRequests', icon: ArrowsSplit, href: EAdminRoutes.SPLIT_REQUESTS, badge: SplitRequestsBadge },
     ],
   },
   {
-    label: 'People',
+    label: 'layout.navGroup.people',
     items: [
-      { title: 'Couriers', icon: Moped, href: EAdminRoutes.COURIERS },
-      { title: 'Restaurants', icon: Storefront, href: EAdminRoutes.PARTNERS },
+      { title: 'layout.nav.couriers', icon: Moped, href: EAdminRoutes.COURIERS },
+      { title: 'layout.nav.restaurants', icon: Storefront, href: EAdminRoutes.PARTNERS },
     ],
   },
   {
-    label: 'Co-op',
+    label: 'layout.navGroup.coop',
     items: [
-      { title: 'Settings', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION },
+      { title: 'layout.nav.settings', icon: GearSix, href: EAdminRoutes.INSTANCE_CONFIGURATION },
       // The co-op's weekly shift slots (spec 0026).
-      { title: 'Shift slots', icon: CalendarBlank, href: EAdminRoutes.SHIFT_SLOTS },
+      { title: 'layout.nav.shiftSlots', icon: CalendarBlank, href: EAdminRoutes.SHIFT_SLOTS },
       // What each restaurant owes, billed by hand (spec 0036).
-      { title: 'Charges', icon: Coins, href: EAdminRoutes.CHARGES },
+      { title: 'layout.nav.charges', icon: Coins, href: EAdminRoutes.CHARGES },
       // Riders' review requests, with the count still open (spec 0038, AC-5).
-      { title: 'Reviews', icon: Scales, href: EAdminRoutes.REVIEWS, badge: ReviewsBadge },
+      { title: 'layout.nav.reviews', icon: Scales, href: EAdminRoutes.REVIEWS, badge: ReviewsBadge },
       // Complaints both ways, each decided by a person (spec 0052). No badge or count.
-      { title: 'Complaints', icon: Megaphone, href: EAdminRoutes.COMPLAINTS },
+      { title: 'layout.nav.complaints', icon: Megaphone, href: EAdminRoutes.COMPLAINTS },
       // Riders' notes about places, flagged ones first (spec 0053). No badge or count.
-      { title: 'Address notes', icon: NotePencil, href: EAdminRoutes.ADDRESS_NOTES },
+      { title: 'layout.nav.addressNotes', icon: NotePencil, href: EAdminRoutes.ADDRESS_NOTES },
       // The co-op's totals only (spec 0040); one rider's time worked is on that rider's page.
-      { title: 'Time worked', icon: Timer, href: EAdminRoutes.TIME_WORKED },
+      { title: 'layout.nav.timeWorked', icon: Timer, href: EAdminRoutes.TIME_WORKED },
     ],
   },
 ]
@@ -111,6 +115,8 @@ export function AdminSidebar() {
   const pathname = usePathname() || '/'
   const dispatch = useAppDispatch()
   const coopName = useCoopName()
+  // useTranslation gives `t`, which looks a key up in the reader's language.
+  const { t } = useTranslation()
 
   // Sign Out leaves nothing of this session behind for the next person at the same screen.
   // Forgetting the token first unmounts the pages (the sign in guard draws nothing without one),
@@ -137,13 +143,13 @@ export function AdminSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <nav aria-label="Main">
+        <nav aria-label={t('layout.mainNav')}>
           {NAV_GROUPS.map((group) => {
-            // "Run the day" -> "nav-run-the-day": an id may not contain spaces.
-            const labelId = `nav-${group.label.toLowerCase().replace(/\s+/g, '-')}`
+            // 'layout.navGroup.runTheDay' -> "nav-runTheDay": the same id in every language.
+            const labelId = `nav-${group.label.split('.').pop()}`
             return (
               <SidebarGroup key={group.label}>
-                <SidebarGroupLabel id={labelId}>{group.label}</SidebarGroupLabel>
+                <SidebarGroupLabel id={labelId}>{t(group.label)}</SidebarGroupLabel>
                 <SidebarMenu aria-labelledby={labelId}>
                   {group.items.map((item) => {
                     const active = isActivePath(pathname, item.href)
@@ -153,7 +159,7 @@ export function AdminSidebar() {
                         <SidebarMenuButton asChild isActive={active}>
                           <Link href={item.href} aria-current={active ? 'page' : undefined}>
                             <item.icon />
-                            <span>{item.title}</span>
+                            <span>{t(item.title)}</span>
                             {item.badge ? <item.badge /> : null}
                           </Link>
                         </SidebarMenuButton>
@@ -168,12 +174,14 @@ export function AdminSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="pb-4">
+        {/* The language switch (spec 0054, AC-2): Greek or English, saved on this admin's account. */}
+        <LanguageSwitch className="mx-2 self-start" />
         <SidebarMenu>
           <SidebarMenuItem>
             {/* Signing out forgets the token; the sign in guard then sends you to /login. */}
             <SidebarMenuButton onClick={signOut}>
               <SignOut />
-              <span>Sign Out</span>
+              <span>{t('layout.signOut')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
