@@ -1060,7 +1060,7 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
             min={30}
             max={730}
             disabled={!loaded}
-            description="A courier note about a place that no other rider upvotes for this many days is deleted, at 03:30. Each upvote restarts the period. Riders are told the period. Whole days, 30 to 730; 182 is about 6 months."
+            description="A note about a place (by a rider, an admin or a restaurant) that no rider other than its author upvotes for this many days is deleted, at 03:30. Each such upvote restarts the period. Riders are told the period. Whole days, 30 to 730; 182 is about 6 months."
             onChange={(value) => set('addressNoteRetentionDays', value)}
           />
           {/* Row 72: the number riders call in one tap from the job screen. */}
