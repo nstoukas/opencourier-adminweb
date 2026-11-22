@@ -30,8 +30,9 @@ try {
   console.error(result.stdout, result.stderr)
   process.exit(2)
 }
+// Only this rule's reports: anything else (an unknown rule in a disable comment) is not hard coded text.
 const found = files.flatMap((file) =>
-  file.messages.map((message) => `${path.relative(ROOT, file.filePath)}:${message.line}  ${message.message}`),
+  file.messages.filter((message) => message.ruleId === 'i18next/no-literal-string').map((message) => `${path.relative(ROOT, file.filePath)}:${message.line}  ${message.message}`),
 )
 const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'))
 if (found.length > baseline.count) {
