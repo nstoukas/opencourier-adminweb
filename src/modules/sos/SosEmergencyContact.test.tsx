@@ -32,8 +32,11 @@ describe('SosEmergencyContact (row 123)', () => {
 
     render(<SosEmergencyContact courierId={courierId} />)
 
-    // Verify it asks for this courier's account
-    expect(mockUseGetCourierAccountQuery).toHaveBeenCalledWith({ id: courierId })
+    // Verify it asks for this courier's account with 10 s polling (row 123 review)
+    expect(mockUseGetCourierAccountQuery).toHaveBeenCalledWith(
+      { id: courierId },
+      { pollingInterval: 10_000 },
+    )
 
     // Emergency contact heading is present
     expect(screen.getByRole('heading', { level: 2, name: 'Emergency contact' })).toBeInTheDocument()
@@ -199,5 +202,127 @@ describe('SosEmergencyContact (row 123)', () => {
 
     // Critical safety requirement: failed load must never read as "No emergency contact"
     expect(screen.queryByText('No emergency contact')).not.toBeInTheDocument()
+  })
+
+  // Review rulings (docs/reviews/2026-11-22-opencourier-adminweb-feat-sos-emergency-contact.md):
+  // (1) The contact must poll every 10 s so a failed load retries by itself.
+  // (2) A contact already loaded must stay on screen if a later poll fails (never replaced by the error).
+  describe('polling and retry rulings (row 123 review)', () => {
+    it('polls every 10 s so updates and retries happen automatically (review ruling 1)', () => {
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: {
+          emergencyContactName: 'Maria Papadopoulou',
+          emergencyContactPhone: '+30 694 000 0000',
+        },
+        isError: false,
+      })
+
+      render(<SosEmergencyContact courierId={courierId} />)
+
+      // Verified to subscribe with 10 s (10_000 ms) polling interval, matching the incident poll
+      expect(mockUseGetCourierAccountQuery).toHaveBeenCalledWith(
+        { id: courierId },
+        { pollingInterval: 10_000 },
+      )
+    })
+
+    it('retries automatically after a failed initial load: shows contact once a later poll succeeds (review ruling 1)', () => {
+      // Step 1: Initial query fails (network blip, 500, etc.)
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: undefined,
+        isError: true,
+      })
+
+      const { rerender } = render(<SosEmergencyContact courierId={courierId} />)
+
+      // Shows error message initially
+      expect(screen.getByRole('alert')).toHaveTextContent('The emergency contact could not be loaded.')
+      expect(screen.queryByText('Eleni Dimitriou')).not.toBeInTheDocument()
+
+      // Step 2: Next poll succeeds and delivers the contact
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: {
+          emergencyContactName: 'Eleni Dimitriou',
+          emergencyContactPhone: '+30 695 111 2222',
+        },
+        isError: false,
+      })
+
+      rerender(<SosEmergencyContact courierId={courierId} />)
+
+      // Error alert is replaced by the loaded contact
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.getByText('Eleni Dimitriou')).toBeInTheDocument()
+      const link = screen.getByRole('link', { name: '+30 695 111 2222' })
+      expect(link).toBeInTheDocument()
+      expect(link).toHaveAttribute('href', 'tel:+306951112222')
+    })
+
+    it('keeps a loaded contact on screen if a later poll fails, never replacing it with the error (review ruling 2)', () => {
+      // Step 1: Contact initially loaded successfully
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: {
+          emergencyContactName: 'Maria Papadopoulou',
+          emergencyContactPhone: '+30 694 000 0000',
+        },
+        isError: false,
+      })
+
+      const { rerender } = render(<SosEmergencyContact courierId={courierId} />)
+
+      expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+      // Step 2: Subsequent poll fails. RTK Query keeps currentData from cache while setting isError: true
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: {
+          emergencyContactName: 'Maria Papadopoulou',
+          emergencyContactPhone: '+30 694 000 0000',
+        },
+        isError: true,
+      })
+
+      rerender(<SosEmergencyContact courierId={courierId} />)
+
+      // Contact must remain visible on screen in an emergency, never replaced by the error
+      expect(screen.getByText('Maria Papadopoulou')).toBeInTheDocument()
+      const link = screen.getByRole('link', { name: '+30 694 000 0000' })
+      expect(link).toBeInTheDocument()
+      expect(link).toHaveAttribute('href', 'tel:+306940000000')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.queryByText(/The emergency contact could not be loaded/i)).not.toBeInTheDocument()
+    })
+
+    it('keeps "No emergency contact" on screen if a later poll fails, never replacing it with the error (review ruling 2)', () => {
+      // Step 1: Rider is confirmed to have no emergency contact set
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: {
+          emergencyContactName: null,
+          emergencyContactPhone: null,
+        },
+        isError: false,
+      })
+
+      const { rerender } = render(<SosEmergencyContact courierId={courierId} />)
+
+      expect(screen.getByText('No emergency contact')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+      // Step 2: Subsequent poll fails while currentData is still retained
+      mockUseGetCourierAccountQuery.mockReturnValue({
+        currentData: {
+          emergencyContactName: null,
+          emergencyContactPhone: null,
+        },
+        isError: true,
+      })
+
+      rerender(<SosEmergencyContact courierId={courierId} />)
+
+      // Still displays "No emergency contact" rather than switching to an error alert
+      expect(screen.getByText('No emergency contact')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.queryByText(/The emergency contact could not be loaded/i)).not.toBeInTheDocument()
+    })
   })
 })
