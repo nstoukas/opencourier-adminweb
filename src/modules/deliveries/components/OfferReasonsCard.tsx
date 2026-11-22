@@ -176,7 +176,10 @@ export function addOnLines(reason: OfferReasonAdmin, t: TFunction, f: Formats): 
   if (v.carryingFood === true) {
     lines.push(t("deliveries.offerReasons.carryingFood"));
   }
-  if (typeof reason.candidateCount === "number") {
+  // agy review: with one rider there was nothing to compare, and "of 1 riders" read wrong.
+  if (reason.candidateCount === 1) {
+    lines.push(t("deliveries.offerReasons.oneCompared"));
+  } else if (typeof reason.candidateCount === "number") {
     lines.push(t("deliveries.offerReasons.fewestMinutes", { riders: reason.candidateCount }));
   }
   // Review fix (value 1): why a rider on a job got it rather than a free rider. Recorded from the row 81

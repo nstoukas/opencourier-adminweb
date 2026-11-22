@@ -25,6 +25,9 @@ type Props = {
   // Row 81: what this delivery was offered as adding to a rider's job, when it was an add on.
   addOnExtraKm?: number | null;
   addOnExtraMinutes?: number | null;
+  // Row 81 (agy review): the server's own word that this delivery is an open add on offer right now, so the
+  // card says so even before the offer's reason is on the record.
+  addOn?: boolean;
 };
 
 // The newest reason that paired this delivery with another: a stack's or an add on's (row 81).
@@ -47,7 +50,14 @@ function partnerFromStops({ deliveryId, stackStops }: Props): string | null {
 // Review fix (row 81): the reason that explains the pair shown now. The newest pairing reason, but only when
 // it names the same other delivery as the stop list: a delivery once offered as an add on and declined, then
 // joined later by another rider's add on, would otherwise show its own old offer's title and figures.
+// agy review: and only when this delivery's newest offer of all was a pairing one. A single offer clears
+// any pair (the backend writes offerGroupId null with it), so a delivery whose last offer was single and
+// that has a pair now was joined later by an add on. Without this, once both are delivered and the stop
+// list is gone, the old declined add on reason came back and named the wrong job.
 function currentPairingReason(props: Props): OfferReasonAdmin | undefined {
+  const reasons = props.offerReasons ?? [];
+  const newestOfAll = reasons[reasons.length - 1];
+  if (newestOfAll && newestOfAll.kind !== "STACK" && newestOfAll.kind !== "ADD_ON") return undefined;
   const newest = newestPairingReason(props.offerReasons);
   const fromStops = partnerFromStops(props);
   if (newest && fromStops && partnerOfReason(newest) !== fromStops) return undefined;
@@ -71,10 +81,10 @@ export function StackedOrderCard(props: Props) {
   // Numbers in the reader's language (spec 0054, AC-3).
   const f = useFormat();
   const reason = currentPairingReason(props);
-  // Row 81: this delivery came as one more order to a rider already on a job.
-  const addOn = reason?.kind === "ADD_ON";
+  // Row 81: this delivery came as one more order to a rider already on a job (or is offered as one now).
+  const addOn = props.addOn === true || reason?.kind === "ADD_ON";
   // Review fix: this delivery was the job; another order was added to it later.
-  const joined = reason === undefined;
+  const joined = !addOn && reason === undefined;
   const partnerId = joined ? partnerFromStops(props) : stackPartnerId(props);
   const link = (id: string) =>
     id === deliveryId ? (

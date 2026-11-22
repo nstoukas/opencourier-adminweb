@@ -1632,5 +1632,33 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(screen.getByText('One more order on the way')).toBeInTheDocument()
       expect(screen.getByText(/adding \+1\.5 km, \+5 min/)).toBeInTheDocument()
     })
+
+    it('passes addOn to StackedOrderCard so an open add-on with no offer reasons renders "One more order on the way" (spec 0048, row 81, agy review)', () => {
+      // When an add-on offer is open but offerReasons has not loaded or is empty,
+      // passing addOn={delivery.addOn} ensures it is rendered as "One more order on the way".
+      const openAddOnWithoutReasons = {
+        ...sampleEurDelivery,
+        offerGroupId: null,
+        addOn: true,
+        addOnExtraKm: 1.2,
+        addOnExtraMinutes: 4,
+        stackStops: [
+          { deliveryId: 'd100', stop: 'PICKUP' },
+          { deliveryId: 'd200', stop: 'PICKUP' },
+        ],
+        offerReasons: [],
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: openAddOnWithoutReasons,
+        currentData: openAddOnWithoutReasons,
+        isLoading: false,
+      })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.getByTestId('stacked-order')).toBeInTheDocument()
+      expect(screen.getByText('One more order on the way')).toBeInTheDocument()
+      expect(screen.queryByText('One more order added')).toBeNull()
+      expect(screen.getByText(/adding \+1\.2 km, \+4 min/)).toBeInTheDocument()
+    })
   })
 })

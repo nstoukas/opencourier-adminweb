@@ -388,6 +388,7 @@ export const deliveries = {
     adds: 'Adds +{{km}} km, +{{minutes}} min to that job',
     carryingFood: 'The rider was carrying food: twice the time to answer, never an insistent ring',
     fewestMinutes: 'Fewest extra minutes of {{riders}} riders on a job compared',
+    oneCompared: 'Only one rider on a job was compared',
     freeRiderFound:
       'A free rider was found, but the co-op\'s policy was "Whenever the two orders fit", so the add on went first',
     noFreeRider: 'No free rider was found for this order',
