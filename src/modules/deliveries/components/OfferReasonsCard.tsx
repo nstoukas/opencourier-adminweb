@@ -160,7 +160,10 @@ export function addOnLines(reason: OfferReasonAdmin): string[] {
   if (v.carryingFood === true) {
     lines.push("The rider was carrying food: twice the time to answer, never an insistent ring");
   }
-  if (typeof reason.candidateCount === "number") {
+  // agy review: with one rider there was nothing to compare, and "of 1 riders" read wrong.
+  if (reason.candidateCount === 1) {
+    lines.push("Only one rider on a job was compared");
+  } else if (typeof reason.candidateCount === "number") {
     lines.push(`Fewest extra minutes of ${reason.candidateCount} riders on a job compared`);
   }
   // Review fix (value 1): why a rider on a job got it rather than a free rider. Recorded from the row 81
