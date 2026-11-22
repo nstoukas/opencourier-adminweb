@@ -94,6 +94,8 @@ Scope row 83 (complaints both ways with no ratings, spec 0052, Beta) was built o
 
 The cross family review (agy, `/crosscheck review`) that rows 79, 10 and 11 owed was given on 22 November, and its fixes, built on the branch `fix/agy-owed-reviews`, were merged in the same day. Row 10: after a click on another leg, the delivery page kept showing the previous leg's record, with its Assign, Reassign, Cancel and status buttons acting on that leg, until the new answer landed, because it read RTK Query's `data`; it now reads `currentData`, the answer for this id only, and shows "Loading delivery data." meanwhile (`306c1d0`; tests by agy, `8528660`). Rows 79 and 11 needed no adminweb change.
 
+Scope row 82 (courier notes on addresses, spec 0053, Beta) was built on the branch `feat/address-notes` and merged in on 22 November. Address notes (sidebar, Co-op group, no badge or count) lists the notes riders flagged, with their flags, then a search by street, address or coordinates (no list until something is typed, 20 a page); each note shows its text, place, author (linked to the rider), dates and upvotes, with Delete and Dismiss flags, both asking a second time with focus on the safe choice. Settings gains the address note retention period (30 to 730 days) beside the other retention periods, and the hand edited SDK gains `AddressNoteApi` (`22007b1`, review fixes `a1d95f7`, `27b4518`, `82bc04c`; tests by agy, `9122fc3`, `1b23d56`).
+
 ## Added
 
 On 2 November the admin stack built from 27 October to 2 November was merged in, from row 66
