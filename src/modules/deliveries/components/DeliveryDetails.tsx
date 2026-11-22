@@ -17,6 +17,7 @@ import { DeliveryEventTimeline } from '@/modules/deliveries/components/DeliveryE
 import { DeliveryIssues } from '@/modules/deliveries/components/DeliveryIssues'
 import { DeliveryRemovalRequests } from '@/modules/deliveries/components/DeliveryRemovalRequests'
 import { ProductReportsCard } from '@/modules/product-reports/ProductReportsCard'
+import { FileComplaintCard } from '@/modules/complaints/FileComplaintCard'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
 import { formatMoney } from '@/utils/formatMoney'
@@ -303,6 +304,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
           <DeliveryIssues deliveryId={delivery.id} />
           <DeliveryRemovalRequests deliveryId={delivery.id} />
           <ProductReportsCard deliveryId={delivery.id} />
+          {/* Spec 0052 (AC-3): file a complaint about the rider for someone who phoned in. */}
+          <FileComplaintCard deliveryId={delivery.id} />
           <DeliveryEventTimeline deliveryId={delivery.id} courierNameById={courierNameById} />
         </div>
 
