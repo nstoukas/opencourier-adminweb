@@ -4,6 +4,7 @@ import { useMarkDeliveryIssueHandledMutation } from '@/api/deliveriesApi'
 import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@/admin-web-components'
 import type { DispatchAttentionRowDto } from '@/backend-admin-sdk'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
+import { shortId } from '@/utils/shortId'
 import { isRedRow, minutesSince, rowHref } from './dispatchDisplay'
 import { ApproveRemovalButton, DeclineRemovalButton } from './RemovalRequestActions'
 
@@ -111,8 +112,12 @@ function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: num
           {row.pairedDeliveryId ? (
             <p className="text-muted-foreground" data-testid="attention-pair">
               Two orders together, with{' '}
-              <Link href={`/deliveries/${row.pairedDeliveryId}`} className="underline">
-                {row.pairedOrderReference ? `#${row.pairedOrderReference}` : 'the other order'}
+              {/* agy review of row 80: the short id beside the reference (this repo's AGENTS.md), and the short id
+                  alone when the other order has no reference. */}
+              <Link href={`/deliveries/${row.pairedDeliveryId}`} className="underline" title={row.pairedDeliveryId}>
+                {row.pairedOrderReference
+                  ? `#${row.pairedOrderReference} · ${shortId(row.pairedDeliveryId)}`
+                  : `delivery ${shortId(row.pairedDeliveryId)}`}
               </Link>
             </p>
           ) : null}
