@@ -30,24 +30,45 @@ function newestPairingReason(offerReasons: OfferReasonAdmin[] | undefined): Offe
   return reasons[reasons.length - 1];
 }
 
+// The other delivery a pairing reason names: a stack's partner, or the job an add on was added to.
+function partnerOfReason(reason: OfferReasonAdmin | undefined): string | null {
+  const partner = reason?.kind === "ADD_ON" ? reason.values.currentDeliveryId : reason?.values.partnerDeliveryId;
+  return typeof partner === "string" ? partner : null;
+}
+
+// The other delivery in the stop list, while the two are with one rider.
+function partnerFromStops({ deliveryId, stackStops }: Props): string | null {
+  return stackStops?.find((stop) => stop.deliveryId !== deliveryId)?.deliveryId ?? null;
+}
+
+// Review fix (row 81): the reason that explains the pair shown now. The newest pairing reason, but only when
+// it names the same other delivery as the stop list: a delivery once offered as an add on and declined, then
+// joined later by another rider's add on, would otherwise show its own old offer's title and figures.
+function currentPairingReason(props: Props): OfferReasonAdmin | undefined {
+  const newest = newestPairingReason(props.offerReasons);
+  const fromStops = partnerFromStops(props);
+  if (newest && fromStops && partnerOfReason(newest) !== fromStops) return undefined;
+  return newest;
+}
+
 // The other delivery of the stack: from the stop list, else from the newest STACK reason (or, for an add on,
 // the job it was added to).
-export function stackPartnerId({ deliveryId, stackStops, offerReasons }: Props): string | null {
-  const fromStops = stackStops?.find((stop) => stop.deliveryId !== deliveryId)?.deliveryId;
-  if (fromStops) return fromStops;
-  const newest = newestPairingReason(offerReasons);
-  const partner = newest?.kind === "ADD_ON" ? newest.values.currentDeliveryId : newest?.values.partnerDeliveryId;
-  return typeof partner === "string" ? partner : null;
+export function stackPartnerId(props: Props): string | null {
+  return partnerFromStops(props) ?? partnerOfReason(newestPairingReason(props.offerReasons));
 }
 
 // Spec 0048 (AC-12): a delivery offered together with another one (a stack). Names the other delivery, and
 // while the two are still with one rider, the order of their four stops. The reason for the pairing is on
-// the offer reasons card below.
+// the offer reasons card below. Row 81: or a delivery offered as an add on, or (review fix) the job an add
+// on was added to, which has a pair but no pairing reason of its own: it was offered alone.
 export function StackedOrderCard(props: Props) {
   const { deliveryId, stackStops, addOnExtraKm, addOnExtraMinutes } = props;
-  const partnerId = stackPartnerId(props);
+  const reason = currentPairingReason(props);
   // Row 81: this delivery came as one more order to a rider already on a job.
-  const addOn = newestPairingReason(props.offerReasons)?.kind === "ADD_ON";
+  const addOn = reason?.kind === "ADD_ON";
+  // Review fix: this delivery was the job; another order was added to it later.
+  const joined = reason === undefined;
+  const partnerId = joined ? partnerFromStops(props) : stackPartnerId(props);
   const link = (id: string) =>
     id === deliveryId ? (
       <span className="text-xs text-muted-foreground">this delivery</span>
@@ -59,10 +80,18 @@ export function StackedOrderCard(props: Props) {
   return (
     <Card data-testid="stacked-order">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">{addOn ? "One more order on the way" : "Two orders together"}</CardTitle>
+        <CardTitle className="text-lg">
+          {addOn ? "One more order on the way" : joined ? "One more order added" : "Two orders together"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        {addOn ? (
+        {joined ? (
+          <p>
+            Offered alone. Later another order,{" "}
+            {partnerId ? link(partnerId) : <span className="text-muted-foreground">another delivery</span>}, was
+            added to this job while the rider was on it. Each is paid in full from its own quote.
+          </p>
+        ) : addOn ? (
           <p>
             Offered to a rider on a job, added to{" "}
             {partnerId ? link(partnerId) : <span className="text-muted-foreground">their job</span>}

@@ -112,7 +112,7 @@ function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: num
           {row.pairedDeliveryId ? (
             <p className="text-muted-foreground" data-testid="attention-pair">
               {/* Row 81: an add on names the job it would ride with. */}
-              {row.addOn ? 'One more order on the way, with the job' : 'Two orders together, with'}{' '}
+              {row.addOn ? 'One more order on the way, added to the job' : 'Two orders together, with'}{' '}
               {/* agy review of row 80: the short id beside the reference (this repo's AGENTS.md), and the short id
                   alone when the other order has no reference. */}
               <Link href={`/deliveries/${row.pairedDeliveryId}`} className="underline" title={row.pairedDeliveryId}>

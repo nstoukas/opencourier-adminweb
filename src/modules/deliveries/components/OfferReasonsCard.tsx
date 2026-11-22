@@ -117,6 +117,13 @@ export function stackLines(reason: OfferReasonAdmin): string[] {
   if (typeof v.partnerDeliveryId === "string") {
     lines.push(`Offered together with delivery ${shortId(v.partnerDeliveryId)}`);
   }
+  return [...lines, ...stopAndWaitLines(v)];
+}
+
+// The order of the four stops and each customer's extra wait, which a stack's reason and an add on's reason
+// (row 81) both record in the same shape. Review nit: shared here rather than dressing an add on up as a stack.
+function stopAndWaitLines(v: OfferReasonAdmin["values"]): string[] {
+  const lines: string[] = [];
   if (Array.isArray(v.sequence)) {
     const stops = v.sequence
       .map((item, index) => {
@@ -137,8 +144,8 @@ export function stackLines(reason: OfferReasonAdmin): string[] {
 }
 
 // Spec 0048 (row 81, AC-12): why an add on went to its rider: the job it was added to, what it added, the
-// order of the stops, each customer's extra wait, whether the rider carried food (then it was calm), and how
-// many riders on a job were compared (the fewest extra minutes won).
+// order of the stops, each customer's extra wait, whether the rider carried food (then it was calm), how
+// many riders on a job were compared (the fewest extra minutes won), and whether a free rider was passed over.
 export function addOnLines(reason: OfferReasonAdmin): string[] {
   if (reason.kind !== "ADD_ON") return [];
   const v = reason.values;
@@ -149,13 +156,21 @@ export function addOnLines(reason: OfferReasonAdmin): string[] {
   if (typeof v.extraKm === "number" && typeof v.extraMinutes === "number") {
     lines.push(`Adds +${v.extraKm} km, +${v.extraMinutes} min to that job`);
   }
-  // The stops and the extra waits read as for a pair.
-  lines.push(...stackLines({ ...reason, kind: "STACK", values: { ...v, partnerDeliveryId: undefined } }));
+  lines.push(...stopAndWaitLines(v));
   if (v.carryingFood === true) {
     lines.push("The rider was carrying food: twice the time to answer, never an insistent ring");
   }
   if (typeof reason.candidateCount === "number") {
     lines.push(`Fewest extra minutes of ${reason.candidateCount} riders on a job compared`);
+  }
+  // Review fix (value 1): why a rider on a job got it rather than a free rider. Recorded from the row 81
+  // review on; an older reason has neither value and gets no line.
+  if (v.freeRiderFound === true) {
+    lines.push(
+      'A free rider was found, but the co-op\'s policy was "Whenever the two orders fit", so the add on went first'
+    );
+  } else if (v.freeRiderFound === false) {
+    lines.push("No free rider was found for this order");
   }
   return lines;
 }

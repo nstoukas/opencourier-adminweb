@@ -603,7 +603,11 @@ export function successMessage(changes: PendingChange[]): string {
     keys.has('addOnOffersEnabled') ||
     keys.has('addOnMoment')
   ) {
-    parts.push('Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.')
+    // Review fix (row 81): an add on change is named as such, not only as "two orders together".
+    const addOn = keys.has('addOnOffersEnabled') || keys.has('addOnMoment')
+    const stack = keys.has('stackingEnabled') || keys.has('twoOrderPolicy') || keys.has('twoOrderDelayLimitMinutes')
+    const what = addOn && stack ? 'Two orders together and one more order on a job' : addOn ? 'One more order on a job' : 'Two orders together'
+    parts.push(`${what}: applies to the next offer; offers already out and jobs already taken are unchanged.`)
   }
   if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {
     parts.push('New box units apply to orders made from now on; an order already made keeps its units.')
