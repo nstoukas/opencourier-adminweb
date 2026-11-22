@@ -11,6 +11,10 @@
 //   {{name, clock}}     an ISO time shown as HH:mm on Greek time
 //   {{name, list}}      a list of parts, "a, b and c" (Greek "a, b και c")
 //   {{name, comma}}     a list of parts joined with ", "
+//   {{name, money}}     cents, with the sibling `currency` value, as the language writes money ("3,50 €")
+//   {{name, decimal}}   a number with the language's decimal mark, at most one decimal ("1,2")
+//   {{name, day}}       an ISO time's day on Greek time, seen from now: "today", "tomorrow", "on 3 August"
+//   {{name, when}}      an ISO time as HH:mm, and its day when that is not today ("09:00 tomorrow")
 //   $t(server.enum.x.{{name}})   another key, looked up after the value is filled in
 // A value can be a "part" ({ part, params }) or a list of parts: each is rendered first, from
 // `server.eventPart.<part>`. This file renders exactly as the backend does, line for line (decision
@@ -18,11 +22,35 @@
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 import type { i18n as I18n } from 'i18next'
 import type { EventMessageParams, EventParamValue, EventPart } from '@/shared-types/event-messages'
-import { formatTime } from './format'
-import { toLanguage, type Language } from './language'
+import { formatMoney, formatNumber, formatTime, TIME_ZONE } from './format'
+import { LOCALES, toLanguage, type Language } from './language'
 
 // Each language's word for the last "and" of a list (no comma before it in either), as the backend has it.
 const LIST_AND: Record<Language, string> = { el: 'και', en: 'and' }
+
+// Each language's words for a day seen from today, as the backend's renderer has them.
+const DAY_WORDS: Record<Language, { today: string; tomorrow: string; on: string }> = {
+  el: { today: 'σήμερα', tomorrow: 'αύριο', on: 'στις' },
+  en: { today: 'today', tomorrow: 'tomorrow', on: 'on' },
+}
+
+// The YYYY-MM-DD day of an instant on Greek time ('en-CA' writes dates in that order).
+function greekDay(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(date)
+}
+
+// "today", "tomorrow", or "on 3 August" (Greek "στις 3 Αυγούστου"), seen from now on Greek time.
+function dayText(language: Language, date: Date): string {
+  const words = DAY_WORDS[language]
+  const now = new Date()
+  if (greekDay(date) === greekDay(now)) return words.today
+  // Noon plus a day lands on tomorrow's date whatever the clock change does.
+  const tomorrow = new Date(`${greekDay(now)}T12:00:00Z`)
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+  if (greekDay(date) === tomorrow.toISOString().slice(0, 10)) return words.tomorrow
+  const dayMonth = new Intl.DateTimeFormat(LOCALES[language], { day: 'numeric', month: 'long', timeZone: TIME_ZONE })
+  return `${words.on} ${dayMonth.format(date)}`
+}
 
 function listOf(language: Language, texts: string[]): string {
   if (texts.length <= 1) return texts.join('')
@@ -46,6 +74,7 @@ function formatValue(
   language: Language,
   value: EventParamValue | undefined,
   format: string | undefined,
+  params: EventMessageParams,
 ): string {
   if (value === undefined || value === null) return ''
   if (Array.isArray(value)) {
@@ -59,6 +88,18 @@ function formatValue(
     const time = formatTime(value, language)
     return time === '—' ? value : time
   }
+  if ((format === 'day' || format === 'when') && typeof value === 'string') {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    const day = dayText(language, date)
+    if (format === 'day') return day
+    const time = formatTime(value, language)
+    return day === DAY_WORDS[language].today ? time : `${time} ${day}`
+  }
+  if (format === 'money' && typeof value === 'number') {
+    return formatMoney(value, typeof params.currency === 'string' ? params.currency : 'EUR', language)
+  }
+  if (format === 'decimal' && typeof value === 'number') return formatNumber(value, language, 1)
   return String(value)
 }
 
@@ -69,7 +110,7 @@ function render(i18n: I18n, language: Language, key: string, params: EventMessag
   if (template === null) return key
   const fill = (text: string) =>
     text.replace(PLACEHOLDER, (_match, name: string, format?: string) =>
-      formatValue(i18n, language, params[name], format),
+      formatValue(i18n, language, params[name], format, params),
     )
   // Nested keys first, filling only the placeholders inside the key, so a value (an admin's note, say)
   // is never read as a key itself.
@@ -120,6 +161,24 @@ export function eventMessageText(
   if (!event.message) return { text: null, recordedInEnglish: false }
   const fromPartner = !code && event.eventSource != null && event.eventSource !== 'OPENCOURIER'
   return { text: event.message, recordedInEnglish: !fromPartner }
+}
+
+// ── Other sentences sent by code (review of 2026-11-22) ──────────────────────────────────────
+
+/**
+ * A sentence the server sends as a code with values beside its English (a dispatch board row's
+ * `detailCode`, a restaurant's `notAcceptingCode`): the text of `server.<group>.<code>` in the reader's
+ * language, else the server's English as sent (no code, or a code newer than this copy).
+ */
+export function codedSentenceText(
+  i18n: I18n,
+  group: 'board' | 'error' | 'notice',
+  code: string | null | undefined,
+  params: EventMessageParams | null | undefined,
+  english: string,
+): string {
+  const key = `server.${group}.${code}`
+  return code && hasServerText(i18n, key) ? renderServerText(i18n, key, params ?? {}) : english
 }
 
 // ── Refusals (AC-6) ──────────────────────────────────────────────────────────────────────────
