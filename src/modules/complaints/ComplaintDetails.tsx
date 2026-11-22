@@ -1,6 +1,13 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Card,
   CardContent,
@@ -45,6 +52,7 @@ function TextForm({
   disabled,
   onSave,
   extra,
+  confirm,
 }: {
   id: string
   label: string
@@ -55,9 +63,17 @@ function TextForm({
   onSave: (text: string) => Promise<boolean>
   // A second button beside Save, given the setter so it can fill the box.
   extra?: (setText: (text: string) => void) => React.ReactNode
+  // Row 83 review: a final step (a decision, a withdrawal) is asked again in a dialog before it is saved,
+  // as the courier app asks before the rider's one reply.
+  confirm?: { title: string; body: string }
 }) {
   const [text, setText] = useState('')
+  const [asking, setAsking] = useState(false)
   const trimmed = text.trim()
+  const save = async () => {
+    if (await onSave(trimmed)) setText('')
+    setAsking(false)
+  }
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
@@ -77,14 +93,29 @@ function TextForm({
           type="button"
           size="sm"
           disabled={disabled || busy || trimmed.length === 0}
-          onClick={async () => {
-            if (await onSave(trimmed)) setText('')
-          }}
+          onClick={() => (confirm ? setAsking(true) : save())}
         >
           {buttonText}
         </Button>
         {extra ? extra(setText) : null}
       </div>
+      {confirm && asking ? (
+        <AlertDialog open onOpenChange={(open) => !open && !busy && setAsking(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{confirm.title}</AlertDialogTitle>
+              <AlertDialogDescription>{confirm.body}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              {/* A plain Button, so the dialog stays open until the save is done. */}
+              <Button onClick={save} disabled={busy}>
+                {buttonText}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </div>
   )
 }
@@ -243,6 +274,13 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
                     buttonText="Record the decision"
                     busy={decideState.isLoading}
                     disabled={awaitingReply}
+                    confirm={{
+                      title: 'Record this decision?',
+                      body:
+                        complaint.filedBy === 'RIDER'
+                          ? 'The rider who filed it will see it, and it cannot be changed.'
+                          : 'The rider and whoever filed it will see it, and it cannot be changed.',
+                    }}
                     onSave={(outcome) =>
                       run(
                         () => decide({ id: complaint.id, outcome }).unwrap(),
@@ -258,6 +296,10 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
                       hint="Closes the complaint with no finding against anyone. The reason is shown to the rider and to whoever filed it."
                       buttonText="Withdraw the complaint"
                       busy={withdrawState.isLoading}
+                      confirm={{
+                        title: 'Withdraw this complaint?',
+                        body: 'It closes with no finding against anyone, and it cannot be reopened. The reason is shown to the rider and to whoever filed it.',
+                      }}
                       onSave={(reason) =>
                         run(
                           () => withdraw({ id: complaint.id, reason }).unwrap(),
