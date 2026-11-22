@@ -42,9 +42,15 @@ export function describeSlot(slot: ShiftSlotFieldsAdmin, t: TFunction, language:
   })
 }
 
-// The YYYY-MM-DD day of an instant on Athens time ('en-CA' writes dates in that order).
-function athensDay(iso: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date(iso))
+// Built once, since building a formatter is slow (format.ts caches its own for the same reason).
+const ATHENS_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+
+// The YYYY-MM-DD day of a valid date on Athens time. formatToParts hands back the year, month and day as
+// separate pieces, so the result never depends on how a locale orders or separates them.
+function athensDay(date: Date): string {
+  const parts = ATHENS_DATE.formatToParts(date)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
 // "Παρ 20/11, 20:00 έως 23:59" or "Fri 20/11, 20:00 to 23:59": the booked shift of an Offline item, worded
@@ -59,13 +65,16 @@ export function describeOfflineShift(
 ): string {
   const { shiftStartsAt, shiftEndsAt } = event
   if (!shiftStartsAt || !shiftEndsAt) return event.shiftText
-  const end = formatTime(shiftEndsAt, language)
-  // formatTime reads "—" for a value that is not a time; then the server's English is the better line.
-  if (end === '—' || formatTime(shiftStartsAt, language) === '—') return event.shiftText
-  const endsAtMidnight = end === '00:00' && athensDay(shiftEndsAt) !== event.shiftDate
+  const startsAt = new Date(shiftStartsAt)
+  const endsAt = new Date(shiftEndsAt)
+  // A value that is not a time gives an Invalid Date, whose getTime() is NaN, and Intl throws on one;
+  // then the server's English is the better line.
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return event.shiftText
+  const end = formatTime(endsAt, language)
+  const endsAtMidnight = end === '00:00' && athensDay(endsAt) !== event.shiftDate
   return t('shiftSlots.offline.shift', {
-    day: formatWeekdayDate(shiftStartsAt, language),
-    start: formatTime(shiftStartsAt, language),
+    day: formatWeekdayDate(startsAt, language),
+    start: formatTime(startsAt, language),
     end: endsAtMidnight ? '24:00' : end,
   })
 }
