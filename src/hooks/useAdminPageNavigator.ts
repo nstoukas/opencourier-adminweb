@@ -28,6 +28,9 @@ export enum EAdminRoutes {
   CHARGES_STATEMENT = '/charges/statement/[billId]',
   // Riders' review requests, answered by a person (spec 0038).
   REVIEWS = '/reviews',
+  // Complaints both ways, decided by a person (spec 0052). No rider's count or list anywhere.
+  COMPLAINTS = '/complaints',
+  COMPLAINT_DETAILS = '/complaints/[complaintId]',
   SPLIT_REQUESTS = '/split-requests',
   // The co-op's time worked totals (spec 0040).
   TIME_WORKED = '/time-worked',
