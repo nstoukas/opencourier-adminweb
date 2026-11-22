@@ -13,6 +13,7 @@
  */
 
 import { exists, mapValues } from "../runtime";
+import type { ChatPreset } from './InstanceConfigSettingsDto';
 /**
  *
  * @export
@@ -292,8 +293,9 @@ export interface InstanceConfigSettingsAdminInput {
    */
   dispatchPhoneNumber?: string;
   // Chat (spec 0034). Without the ToJSON lines below a save would drop them silently.
-  chatQuickRepliesDispatch?: Array<string>;
-  chatQuickRepliesCourier?: Array<string>;
+  // Pairs since spec 0054 (AC-7): { el, en } per preset.
+  chatQuickRepliesDispatch?: Array<ChatPreset>;
+  chatQuickRepliesCourier?: Array<ChatPreset>;
   chatRetentionDays?: number;
   // Address notes (spec 0053). Without the ToJSON line below a save would drop it silently.
   addressNoteRetentionDays?: number;

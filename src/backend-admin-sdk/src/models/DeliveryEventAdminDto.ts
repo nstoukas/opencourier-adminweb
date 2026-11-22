@@ -13,6 +13,7 @@
  */
 
 import { exists, mapValues } from '../runtime';
+import type { EventMessageParams } from '../../../shared-types/event-messages';
 
 /**
  * 
@@ -32,6 +33,11 @@ export interface DeliveryEventAdminDto {
     // false = the transition was attempted and recorded but did not take effect.
     transitionSuccessful: boolean;
     message: string | null;
+    // Hand edited (spec 0054, AC-4): what the record says, as a code (src/shared-types/event-messages.ts)
+    // and its values, shown in the reader's language. Null on rows written before row 47 and on rows a
+    // partner integration wrote; then `message` is shown as it was stored. Optional for older fixtures.
+    messageCode?: string | null;
+    messageParams?: EventMessageParams | null;
     createdAt: Date;
     // The rider an OFFERED or OFFER_EXPIRED event is about (spec 0002); null on every other
     // event. Shown on this one delivery's timeline only, never grouped or counted per rider
@@ -76,6 +82,8 @@ export function DeliveryEventAdminDtoFromJSONTyped(json: any, ignoreDiscriminato
         'newStatus': json['newStatus'] === undefined ? null : json['newStatus'],
         'transitionSuccessful': json['transitionSuccessful'],
         'message': json['message'] === undefined ? null : json['message'],
+        'messageCode': typeof json['messageCode'] === 'string' ? json['messageCode'] : null,
+        'messageParams': json['messageParams'] && typeof json['messageParams'] === 'object' ? json['messageParams'] : null,
         'createdAt': (new Date(json['createdAt'])),
         'courierId': json['courierId'] == null ? null : json['courierId'],
         // Guarded like waitingForCourierSince: new Date(undefined) would be an Invalid Date.
@@ -99,6 +107,8 @@ export function DeliveryEventAdminDtoToJSON(value?: DeliveryEventAdminDto | null
         'newStatus': value.newStatus,
         'transitionSuccessful': value.transitionSuccessful,
         'message': value.message,
+        'messageCode': value.messageCode,
+        'messageParams': value.messageParams,
         'createdAt': (value.createdAt.toISOString()),
         'courierId': value.courierId,
         'occurredAt': value.occurredAt === undefined ? undefined : value.occurredAt.toISOString(),

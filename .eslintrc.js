@@ -5,7 +5,9 @@
 module.exports = {
   root: true,
   extends: ['prettier', 'plugin:@typescript-eslint/recommended', 'plugin:@next/next/recommended'],
-  plugins: ['@typescript-eslint', 'unused-imports'],
+  // i18next is loaded only so a `// eslint-disable-next-line i18next/no-literal-string` comment resolves;
+  // its rule runs in the ratchet (`yarn lint:i18n`, .eslintrc.i18n.js), not in this lint (spec 0054, AC-8).
+  plugins: ['@typescript-eslint', 'unused-imports', 'i18next'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     project: true,

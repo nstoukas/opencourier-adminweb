@@ -115,4 +115,28 @@ export class AuthApi extends runtime.BaseAPI {
         return await response.value();
     }
 
+
+    /**
+     * Hand edited (spec 0054, AC-2): saves the language chosen in the switch, 'el' or 'en'.
+     * PUT /api/admin/v1/auth/language with { language }; answers { language }.
+     */
+    async setLanguage(language: 'el' | 'en', initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ language: string }> {
+        const headerParameters: runtime.HTTPHeaders = {};
+        headerParameters['Content-Type'] = 'application/json';
+        if (this.configuration && this.configuration.accessToken) {
+            const tokenString = await this.configuration.accessToken("bearer", []);
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const response = await this.request({
+            path: `/api/admin/v1/auth/language`,
+            method: 'PUT',
+            headers: headerParameters,
+            query: {},
+            body: { language },
+        }, initOverrides);
+        return await new runtime.JSONApiResponse<{ language: string }>(response).value();
+    }
+
 }

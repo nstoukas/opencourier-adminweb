@@ -37,6 +37,9 @@ export interface UserAdminDto {
      * @memberof UserAdminDto
      */
     email: string | null;
+    // Hand edited (spec 0054, AC-2): the language this admin chose, 'el' or 'en'. Optional: a backend
+    // before row 47 does not send it, and then the page keeps its cookie's language.
+    language?: string;
 }
 
 
@@ -76,6 +79,7 @@ export function UserAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: boolea
         'id': json['id'],
         'role': json['role'],
         'email': json['email'],
+        'language': json['language'] === 'el' || json['language'] === 'en' ? json['language'] : undefined,
     };
 }
 
@@ -91,6 +95,7 @@ export function UserAdminDtoToJSON(value?: UserAdminDto | null): any {
         'id': value.id,
         'role': value.role,
         'email': value.email,
+        'language': value.language,
     };
 }
 

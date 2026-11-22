@@ -1,0 +1,45 @@
+// Words used on more than one screen, in Greek (spec 0054, row 47); key for key with ../en/common.ts.
+import type { Translations } from '../en'
+
+export const common: Translations['common'] = {
+  appName: 'OpenCourier Διαχείριση',
+  loading: 'Φόρτωση…',
+  notLoadedYet: 'Δεν φορτώθηκε ακόμη',
+  saving: 'Αποθήκευση…',
+  save: 'Αποθήκευση',
+  saveChanges: 'Αποθήκευση αλλαγών',
+  cancel: 'Άκυρο',
+  close: 'Κλείσιμο',
+  open: 'Άνοιγμα',
+  edit: 'Επεξεργασία',
+  delete: 'Διαγραφή',
+  remove: 'Αφαίρεση',
+  add: 'Προσθήκη',
+  back: 'Πίσω',
+  confirm: 'Επιβεβαίωση',
+  tryAgain: 'Δοκιμάστε ξανά',
+  retry: 'Ξανά',
+  reload: 'Ανανέωση',
+  search: 'Αναζήτηση',
+  yes: 'Ναι',
+  no: 'Όχι',
+  none: 'Κανένα',
+  optional: '(προαιρετικό)',
+  required: 'Υποχρεωτικό',
+  dash: '—',
+  of: 'από',
+  from: 'Από',
+  to: 'έως',
+  minutes_one: '{{count}} λεπτό',
+  minutes_other: '{{count}} λεπτά',
+  atTime: 'στις {{time}}',
+  atOneOClock: 'στη {{time}}',
+  serverError: 'Κάτι πήγε στραβά. Δοκιμάστε ξανά σε ένα λεπτό.',
+  noConnection: 'Ο διακομιστής του συνεταιρισμού δεν απάντησε. Ελέγξτε τη σύνδεσή σας στο διαδίκτυο και δοκιμάστε ξανά.',
+  recordedInEnglish: 'καταγράφηκε στα αγγλικά',
+}
+
+export const language: Translations['language'] = {
+  label: 'Γλώσσα',
+  saveFailed: 'Η γλώσσα άλλαξε εδώ, αλλά ο διακομιστής δεν μπόρεσε να την αποθηκεύσει. Θα ξαναδοκιμάσει την επόμενη φορά.',
+}

@@ -12,6 +12,9 @@ import * as runtime from '../runtime';
 export interface RemovalReasonAdminDto {
     id: string;
     label: string;
+    // Spec 0054 (AC-7): the Greek label beside the English `label`; null when none was written yet.
+    // Optional (`?`) too: a backend before row 47 does not send it, and then the English shows.
+    labelEl?: string | null;
     paidToRider: boolean;
     chargedToRestaurant: boolean;
     needsNote: boolean;
@@ -22,6 +25,8 @@ export interface RemovalReasonAdminDto {
 
 export interface RemovalReasonCreateAdminInput {
     label: string;
+    // Spec 0054 (AC-7): the Greek label. The form requires both; the backend accepts it missing (an older page).
+    labelEl?: string;
     paidToRider: boolean;
     chargedToRestaurant: boolean;
     needsNote: boolean;
@@ -38,6 +43,8 @@ export interface RemovalRequestAdminDto {
     courierName: string;
     // The reason as it read when the rider sent the request: a later edit never changes it.
     label: string;
+    // Its Greek label, copied the same way (spec 0054, AC-7); null when the reason had none.
+    labelEl?: string | null;
     paidToRider: boolean;
     chargedToRestaurant: boolean;
     note: string | null;

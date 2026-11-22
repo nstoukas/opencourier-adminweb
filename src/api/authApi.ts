@@ -35,7 +35,23 @@ export const authApi = baseApi.injectEndpoints({
       },
       providesTags: [Tags.me],
     }),
+    // Saves the language chosen in the switch on the admin's own account (spec 0054, AC-2), so the next
+    // sign in, on any computer, starts in it. The cookie keeps it for this browser before sign in.
+    setLanguage: build.mutation<{ language: string }, 'el' | 'en'>({
+      queryFn: async (language, api) => {
+        try {
+          const { accessToken } = (api.getState() as AppState).auth
+          const sdk = prepareAdminSdk(accessToken || '')
+          const data = await sdk.auth().setLanguage(language)
+          return { data }
+        } catch (error) {
+          return {
+            error: handleBackendError(error, api),
+          }
+        }
+      },
+    }),
   }),
 })
 
-export const { useLoginMutation, useGetMeQuery } = authApi
+export const { useLoginMutation, useGetMeQuery, useSetLanguageMutation } = authApi

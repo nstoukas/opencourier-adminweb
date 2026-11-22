@@ -12,6 +12,8 @@ export class ApiError extends Error implements ApiException {
   // Only on BOX_OVER_CAPACITY (spec 0043, AC-6): what the rider holds and what the order takes, out of 100.
   readonly heldUnits?: number;
   readonly deliveryUnits?: number;
+  // The values a refusal's sentence fills in (spec 0054, AC-6): `server.error.<code>` in the language files.
+  readonly params?: Record<string, unknown>;
 
   constructor(
     code: ErrorCode,
@@ -19,12 +21,14 @@ export class ApiError extends Error implements ApiException {
     statusCode: number,
     alreadyBilled?: string[],
     boxUnits?: { heldUnits: number; deliveryUnits: number },
+    params?: Record<string, unknown>,
   ) {
     super(message)
     this.code = code
     this.message = message
     this.statusCode = statusCode
     if (alreadyBilled) this.alreadyBilled = alreadyBilled
+    if (params) this.params = params
     if (boxUnits) {
       this.heldUnits = boxUnits.heldUnits
       this.deliveryUnits = boxUnits.deliveryUnits

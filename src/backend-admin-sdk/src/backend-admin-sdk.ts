@@ -193,7 +193,12 @@ export class BackendAdminSdk {
         typeof errorObject.heldUnits === 'number' && typeof errorObject.deliveryUnits === 'number'
           ? { heldUnits: errorObject.heldUnits, deliveryUnits: errorObject.deliveryUnits }
           : undefined
-      return new ApiError(errorObject.code, errorObject.message, errorObject.statusCode, alreadyBilled, boxUnits)
+      // A refusal's numbers for its translated sentence (spec 0054, AC-6), e.g. { heldUnits, deliveryUnits }.
+      const params =
+        typeof errorObject.params === 'object' && errorObject.params !== null && !Array.isArray(errorObject.params)
+          ? (errorObject.params as Record<string, unknown>)
+          : undefined
+      return new ApiError(errorObject.code, errorObject.message, errorObject.statusCode, alreadyBilled, boxUnits, params)
     }
     return new Error(errorObject)
   }

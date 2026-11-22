@@ -13,6 +13,13 @@
  */
 
 import { exists, mapValues } from "../runtime";
+
+// One chat preset in both languages (spec 0054, AC-7). The backend reads a plain string, from a page
+// older than row 47, as the Greek one; this app always sends pairs.
+export interface ChatPreset {
+  el: string;
+  en: string;
+}
 /**
  *
  * @export
@@ -290,9 +297,10 @@ export interface InstanceConfigSettingsDto {
    * @memberof InstanceConfigSettingsDto
    */
   dispatchPhoneNumber?: string | null;
-  // Chat (spec 0034): the two preset lists and the days messages are kept.
-  chatQuickRepliesDispatch?: Array<string> | null;
-  chatQuickRepliesCourier?: Array<string> | null;
+  // Chat (spec 0034): the two preset lists and the days messages are kept. Since spec 0054 (AC-7) each
+  // preset is a pair, its Greek and its English (hand edited).
+  chatQuickRepliesDispatch?: Array<ChatPreset> | null;
+  chatQuickRepliesCourier?: Array<ChatPreset> | null;
   chatRetentionDays?: number | null;
   // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
   addressNoteRetentionDays?: number | null;
