@@ -161,7 +161,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       expect(listItems[3]).toHaveTextContent('Drop off 222222')
     })
 
-    it('shows "The two are no longer with one rider, so each goes on alone." when stackStops is null or empty', () => {
+    it('shows "No stop order now: it is kept only while both orders are open with one rider." when stackStops is null or empty', () => {
       const { rerender } = render(
         <StackedOrderCard
           deliveryId={currentDeliveryId}
@@ -171,7 +171,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       )
 
       expect(
-        screen.getByText('The two are no longer with one rider, so each goes on alone.')
+        screen.getByText('No stop order now: it is kept only while both orders are open with one rider.')
       ).toBeInTheDocument()
       expect(screen.queryByRole('list')).toBeNull()
 
@@ -184,7 +184,20 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       )
 
       expect(
-        screen.getByText('The two are no longer with one rider, so each goes on alone.')
+        screen.getByText('No stop order now: it is kept only while both orders are open with one rider.')
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('list')).toBeNull()
+
+      rerender(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={undefined}
+          offerReasons={[stackOfferReason]}
+        />
+      )
+
+      expect(
+        screen.getByText('No stop order now: it is kept only while both orders are open with one rider.')
       ).toBeInTheDocument()
       expect(screen.queryByRole('list')).toBeNull()
     })

@@ -1722,5 +1722,24 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(missing.twoOrderPolicy).toBeNull()
       expect(missing.twoOrderDelayLimitMinutes).toBeNull()
     })
+
+    it('preserves boundary and out-of-range twoOrderDelayLimitMinutes values in serialization and round-trip (spec 0048, row 80, AC-1)', () => {
+      for (const val of [0, 30, -5, 35, 12.5]) {
+        const input = {
+          stackingEnabled: true,
+          twoOrderPolicy: 'SHORTAGE_ONLY',
+          twoOrderDelayLimitMinutes: val,
+        }
+        const json = InstanceConfigSettingsAdminInputToJSON(input)
+        expect(json.twoOrderDelayLimitMinutes).toBe(val)
+
+        const from = InstanceConfigSettingsAdminInputFromJSON({ twoOrderDelayLimitMinutes: val })
+        expect(from.twoOrderDelayLimitMinutes).toBe(val)
+
+        const dto = InstanceConfigSettingsDtoFromJSON({ twoOrderDelayLimitMinutes: val })
+        expect(dto.twoOrderDelayLimitMinutes).toBe(val)
+        expect(InstanceConfigSettingsDtoToJSON(dto).twoOrderDelayLimitMinutes).toBe(val)
+      }
+    })
   })
 })

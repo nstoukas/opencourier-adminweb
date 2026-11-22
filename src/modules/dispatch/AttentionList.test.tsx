@@ -773,7 +773,9 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
   })
 
   describe('Paired delivery indication (spec 0048, AC-12)', () => {
-    it('renders "Two orders together, with #REF" when pairedDeliveryId and pairedOrderReference are present', () => {
+    const pairedDeliveryId = 'del-partner-222222'
+
+    it('renders "Two orders together, with #REF · shortId" when pairedDeliveryId and pairedOrderReference are present', () => {
       const row: DispatchAttentionRowDto = {
         id: 'r-paired',
         kind: 'OFFER_UNANSWERED',
@@ -790,7 +792,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
         customerLabel: 'Maria P.',
         detail: 'Offered to Nikos',
         held: false,
-        pairedDeliveryId: 'del-2',
+        pairedDeliveryId,
         pairedOrderReference: 'REF2',
       }
 
@@ -798,14 +800,15 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
 
       const pairNotice = screen.getByTestId('attention-pair')
       expect(pairNotice).toBeInTheDocument()
-      expect(pairNotice).toHaveTextContent('Two orders together, with #REF2')
+      expect(pairNotice).toHaveTextContent('Two orders together, with #REF2 · 222222')
 
-      const link = within(pairNotice).getByRole('link', { name: '#REF2' })
+      const link = within(pairNotice).getByRole('link', { name: '#REF2 · 222222' })
       expect(link).toBeInTheDocument()
-      expect(link).toHaveAttribute('href', '/deliveries/del-2')
+      expect(link).toHaveAttribute('href', `/deliveries/${pairedDeliveryId}`)
+      expect(link).toHaveAttribute('title', pairedDeliveryId)
     })
 
-    it('renders "Two orders together, with the other order" when pairedOrderReference is null', () => {
+    it('renders "Two orders together, with delivery shortId" when pairedOrderReference is null', () => {
       const row: DispatchAttentionRowDto = {
         id: 'r-paired-noref',
         kind: 'OFFER_UNANSWERED',
@@ -822,7 +825,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
         customerLabel: 'Maria P.',
         detail: 'Offered to Nikos',
         held: false,
-        pairedDeliveryId: 'del-2',
+        pairedDeliveryId,
         pairedOrderReference: null,
       }
 
@@ -830,11 +833,45 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
 
       const pairNotice = screen.getByTestId('attention-pair')
       expect(pairNotice).toBeInTheDocument()
-      expect(pairNotice).toHaveTextContent('Two orders together, with the other order')
+      expect(pairNotice).toHaveTextContent('Two orders together, with delivery 222222')
 
-      const link = within(pairNotice).getByRole('link', { name: 'the other order' })
+      const link = within(pairNotice).getByRole('link', { name: 'delivery 222222' })
       expect(link).toBeInTheDocument()
-      expect(link).toHaveAttribute('href', '/deliveries/del-2')
+      expect(link).toHaveAttribute('href', `/deliveries/${pairedDeliveryId}`)
+      expect(link).toHaveAttribute('title', pairedDeliveryId)
+    })
+
+    it('renders "Two orders together, with delivery shortId" when pairedOrderReference is empty string', () => {
+      const row: DispatchAttentionRowDto = {
+        id: 'r-paired-emptyref',
+        kind: 'OFFER_UNANSWERED',
+        since: '2026-11-09T14:20:00.000Z',
+        deliveryId: 'del-1',
+        sosId: null,
+        issueId: null,
+        threadId: null,
+        status: DeliveryAdminDtoStatusEnum.AssigningCourier,
+        courierId: 'c1',
+        orderReference: 'REF1',
+        restaurantName: 'Souvlaki Bar',
+        riderName: 'Nikos',
+        customerLabel: 'Maria P.',
+        detail: 'Offered to Nikos',
+        held: false,
+        pairedDeliveryId,
+        pairedOrderReference: '',
+      }
+
+      render(<AttentionList rows={[row]} more={0} nowMs={nowMs} />)
+
+      const pairNotice = screen.getByTestId('attention-pair')
+      expect(pairNotice).toBeInTheDocument()
+      expect(pairNotice).toHaveTextContent('Two orders together, with delivery 222222')
+
+      const link = within(pairNotice).getByRole('link', { name: 'delivery 222222' })
+      expect(link).toBeInTheDocument()
+      expect(link).toHaveAttribute('href', `/deliveries/${pairedDeliveryId}`)
+      expect(link).toHaveAttribute('title', pairedDeliveryId)
     })
 
     it('does not render attention-pair when pairedDeliveryId is absent or null', () => {

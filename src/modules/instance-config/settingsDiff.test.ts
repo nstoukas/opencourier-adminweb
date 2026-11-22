@@ -2248,6 +2248,56 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(typeof payload.twoOrderDelayLimitMinutes).toBe('number')
     })
 
+    it('formFromSettings and savePayload handle boundary and out-of-range delay limit values (spec 0048, row 80, AC-1)', () => {
+      // Out-of-range backend values (< 0, > 30, floats) are mapped to strings by formFromSettings
+      const backendNegative = { twoOrderDelayLimitMinutes: -5 }
+      expect(formFromSettings(backendNegative).twoOrderDelayLimitMinutes).toBe('-5')
+
+      const backendAboveMax = { twoOrderDelayLimitMinutes: 35 }
+      expect(formFromSettings(backendAboveMax).twoOrderDelayLimitMinutes).toBe('35')
+
+      const backendFloat = { twoOrderDelayLimitMinutes: 12.5 }
+      expect(formFromSettings(backendFloat).twoOrderDelayLimitMinutes).toBe('12.5')
+
+      const backendMax = { twoOrderDelayLimitMinutes: 30 }
+      expect(formFromSettings(backendMax).twoOrderDelayLimitMinutes).toBe('30')
+
+      // Out-of-range edited values are converted to numbers by savePayload
+      const savedDetails = { name: 'Volos' }
+      const editedNegative: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '-5' }
+      const payloadNeg = savePayload(pendingChanges(baseSavedForm, editedNegative), editedNegative, savedDetails)
+      expect(payloadNeg.twoOrderDelayLimitMinutes).toBe(-5)
+
+      const editedAboveMax: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '35' }
+      const payloadAbove = savePayload(pendingChanges(baseSavedForm, editedAboveMax), editedAboveMax, savedDetails)
+      expect(payloadAbove.twoOrderDelayLimitMinutes).toBe(35)
+
+      const editedFloat: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '12.5' }
+      const payloadFloat = savePayload(pendingChanges(baseSavedForm, editedFloat), editedFloat, savedDetails)
+      expect(payloadFloat.twoOrderDelayLimitMinutes).toBe(12.5)
+    })
+
+    it('blockers rejects empty or whitespace twoOrderDelayLimitMinutes and accepts valid numbers (spec 0048, row 80, AC-1)', () => {
+      // Empty delay limit is rejected
+      const editedEmpty: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '' }
+      const changesEmpty = pendingChanges(baseSavedForm, editedEmpty)
+      expect(blockers(changesEmpty, editedEmpty)).toContain('Most minutes a pair may delay a customer is empty')
+
+      // Whitespace delay limit is rejected
+      const editedWhitespace: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '   ' }
+      const changesWhitespace = pendingChanges(baseSavedForm, editedWhitespace)
+      expect(blockers(changesWhitespace, editedWhitespace)).toContain('Most minutes a pair may delay a customer is empty')
+
+      // Boundary values 0 and 30 are not rejected as empty
+      const editedZero: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '0' }
+      const changesZero = pendingChanges(baseSavedForm, editedZero)
+      expect(blockers(changesZero, editedZero)).not.toContain('Most minutes a pair may delay a customer is empty')
+
+      const editedThirty: SettingsForm = { ...baseSavedForm, twoOrderDelayLimitMinutes: '30' }
+      const changesThirty = pendingChanges(baseSavedForm, editedThirty)
+      expect(blockers(changesThirty, editedThirty)).not.toContain('Most minutes a pair may delay a customer is empty')
+    })
+
     it('successMessage appends two orders sentence when any stacking setting changes, and only once if all change', () => {
       const sentence =
         'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'

@@ -2323,5 +2323,86 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderDelayLimitMinutes: 0 })
       })
     })
+
+    it('blocks save when twoOrderDelayLimitMinutes is emptied and names setting in blockers (spec 0048, row 80, AC-1)', () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10)
+      render(<InstanceConfigurationPage />)
+
+      const delayInput = document.getElementById('twoOrderDelayLimitMinutes') as HTMLInputElement
+      fireEvent.change(delayInput, { target: { value: '' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).toBeDisabled()
+      expect(saveButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+
+      const blockersContainer = document.getElementById('save-all-blockers')
+      expect(blockersContainer?.textContent).toContain('Most minutes a pair may delay a customer is empty')
+
+      fireEvent.click(saveButton)
+      expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+    })
+
+    it('shows backend refusal sentence in destructive toast when backend rejects out-of-range delay limit (> 30)', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10)
+      const serverErrorMessage = 'twoOrderDelayLimitMinutes must be between 0 and 30'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: serverErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const delayInput = document.getElementById('twoOrderDelayLimitMinutes') as HTMLInputElement
+      fireEvent.change(delayInput, { target: { value: '35' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderDelayLimitMinutes: 35 })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Not saved',
+            description: serverErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+
+      // Change remains in the save bar
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Most minutes a pair may delay a customer')).toBeInTheDocument()
+      expect(within(saveBar).getByText(/35/)).toBeInTheDocument()
+    })
+
+    it('shows backend refusal in destructive toast when negative delay limit (< 0) is rejected by backend', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10)
+      const serverErrorMessage = 'twoOrderDelayLimitMinutes must be 0 or more'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ message: serverErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const delayInput = document.getElementById('twoOrderDelayLimitMinutes') as HTMLInputElement
+      fireEvent.change(delayInput, { target: { value: '-5' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderDelayLimitMinutes: -5 })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Not saved',
+            description: serverErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByText('Most minutes a pair may delay a customer')).toBeInTheDocument()
+      expect(within(saveBar).getByText(/-5/)).toBeInTheDocument()
+    })
   })
 })

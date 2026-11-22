@@ -1683,6 +1683,37 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '15')
     })
 
+    it('allows entering boundary and out-of-range delay limits (0, 30, -5, 35), passing raw input to set (spec 0048, row 80, AC-1)', () => {
+      const mockSet = jest.fn()
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: true,
+            twoOrderPolicy: 'SHORTAGE_ONLY',
+            twoOrderDelayLimitMinutes: '10',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const delayEl = screen.getByLabelText('Most minutes a pair may delay a customer') as HTMLInputElement
+
+      fireEvent.change(delayEl, { target: { value: '0' } })
+      expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '0')
+
+      fireEvent.change(delayEl, { target: { value: '30' } })
+      expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '30')
+
+      fireEvent.change(delayEl, { target: { value: '-5' } })
+      expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '-5')
+
+      fireEvent.change(delayEl, { target: { value: '35' } })
+      expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '35')
+    })
+
     it('disables all three inputs and displays "Not loaded yet" when stackingEnabled is null', () => {
       render(
         <TwoOrdersCard
