@@ -64,6 +64,8 @@ export const shiftSlots = {
     loadFailed: 'Could not load this list.',
     none: 'Nothing to follow up.',
     line: 'Shift {{shift}} · Offline at {{time}} · {{cause}}',
+    // The shift in that line: "Fri 20/11, 20:00 to 23:59" (Athens time).
+    shift: '{{day}}, {{start}} to {{end}}',
     unknownTime: 'an unknown time',
     followedUp: 'Followed up',
     followedUpBy: 'Followed up by {{email}}',
