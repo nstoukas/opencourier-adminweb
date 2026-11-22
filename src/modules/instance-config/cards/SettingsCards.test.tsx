@@ -1114,6 +1114,84 @@ describe('SettingsCards components (row 87 review fixes)', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // InstanceCard: chat presets (PresetsField, spec 0054, AC-7)
+  // ---------------------------------------------------------------------------
+  describe('InstanceCard chat presets (PresetsField, spec 0054, AC-7)', () => {
+    it('typing in the English box changes the English half only and leaves Greek unchanged', () => {
+      const mockSet = jest.fn()
+      const courierPresets = [
+        { el: 'Γεια σας', en: 'Hello' },
+        { el: 'Έφτασα', en: 'Arrived' },
+      ]
+
+      render(
+        <InstanceCard
+          form={{
+            ...dummyForm,
+            chatQuickRepliesCourier: courierPresets,
+            chatQuickRepliesDispatch: [{ el: 'Καλημέρα', en: 'Good morning' }],
+          }}
+          saved={{
+            ...dummyForm,
+            chatQuickRepliesCourier: courierPresets,
+            chatQuickRepliesDispatch: [{ el: 'Καλημέρα', en: 'Good morning' }],
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+          linkLocked={true}
+        />
+      )
+
+      // The courier preset 1 English input
+      const courierEnglishInput = document.getElementById('chatQuickRepliesCourier-0-en') as HTMLInputElement
+      expect(courierEnglishInput).not.toBeNull()
+      expect(courierEnglishInput.value).toBe('Hello')
+
+      fireEvent.change(courierEnglishInput, { target: { value: 'Hello there' } })
+
+      expect(mockSet).toHaveBeenCalledWith('chatQuickRepliesCourier', [
+        { el: 'Γεια σας', en: 'Hello there' },
+        { el: 'Έφτασα', en: 'Arrived' },
+      ])
+    })
+
+    it('typing in the dispatch presets English box changes only the English half of dispatch preset', () => {
+      const mockSet = jest.fn()
+      const dispatchPresets = [{ el: 'Παρακαλώ καλέστε', en: 'Please call' }]
+
+      render(
+        <InstanceCard
+          form={{
+            ...dummyForm,
+            chatQuickRepliesCourier: [],
+            chatQuickRepliesDispatch: dispatchPresets,
+          }}
+          saved={{
+            ...dummyForm,
+            chatQuickRepliesCourier: [],
+            chatQuickRepliesDispatch: dispatchPresets,
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+          linkLocked={true}
+        />
+      )
+
+      const dispatchEnglishInput = document.getElementById('chatQuickRepliesDispatch-0-en') as HTMLInputElement
+      expect(dispatchEnglishInput).not.toBeNull()
+      expect(dispatchEnglishInput.value).toBe('Please call')
+
+      fireEvent.change(dispatchEnglishInput, { target: { value: 'Please call us' } })
+
+      expect(mockSet).toHaveBeenCalledWith('chatQuickRepliesDispatch', [
+        { el: 'Παρακαλώ καλέστε', en: 'Please call us' },
+      ])
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // MatchingCard: arrivalRadiusMetres (spec 0021, AC-11, row 19)
   // ---------------------------------------------------------------------------
   describe('MatchingCard (spec 0021, AC-11)', () => {

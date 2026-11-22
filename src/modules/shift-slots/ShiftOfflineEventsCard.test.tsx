@@ -1,6 +1,8 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { Provider } from 'react-redux'
+import { I18nextProvider } from 'react-i18next'
+import { createI18n } from '@/i18n/createI18n'
 import { makeStore } from '@/redux/store'
 import { prepareAdminSdk } from '../../api'
 import { ApiError } from '@/backend-admin-sdk'
@@ -40,6 +42,18 @@ describe('ShiftOfflineEventsCard (spec 0049, AC-6)', () => {
     return render(
       <Provider store={store}>
         <ShiftOfflineEventsCard />
+      </Provider>
+    )
+  }
+
+  function renderCardIn(language: 'el' | 'en') {
+    const store = makeStore()
+    const i18n = createI18n(language)
+    return render(
+      <Provider store={store}>
+        <I18nextProvider i18n={i18n}>
+          <ShiftOfflineEventsCard />
+        </I18nextProvider>
       </Provider>
     )
   }
@@ -118,6 +132,35 @@ describe('ShiftOfflineEventsCard (spec 0049, AC-6)', () => {
       renderCard()
       const row = await screen.findByRole('listitem')
       expect(row).toHaveTextContent('Offline at an unknown time')
+    })
+
+    it('words the booked shift from shiftStartsAt and shiftEndsAt in the reader language on Athens time (row 124)', async () => {
+      sdk.list.mockResolvedValue([
+        item({
+          shiftStartsAt: '2026-11-20T18:00:00.000Z',
+          shiftEndsAt: '2026-11-20T22:00:00.000Z',
+          shiftDate: '2026-11-20',
+          shiftText: 'Fri 20 Nov, 20:00 to 24:00',
+        }),
+      ])
+      renderCard()
+      const row = await screen.findByRole('listitem')
+      expect(row).toHaveTextContent('Shift Fri 20/11, 20:00 to 24:00')
+      expect(row).not.toHaveTextContent('Fri 20 Nov')
+    })
+
+    it('words the booked shift in Greek when viewing in Greek (row 124)', async () => {
+      sdk.list.mockResolvedValue([
+        item({
+          shiftStartsAt: '2026-11-20T18:00:00.000Z',
+          shiftEndsAt: '2026-11-20T21:59:00.000Z',
+          shiftDate: '2026-11-20',
+          shiftText: 'Fri 20 Nov, 20:00 to 23:59',
+        }),
+      ])
+      renderCardIn('el')
+      const row = await screen.findByRole('listitem')
+      expect(row).toHaveTextContent('Βάρδια Παρ 20/11, 20:00 έως 23:59')
     })
 
     // Cross check 2: an admin caused item arrives already followed up by that admin.

@@ -1,3 +1,5 @@
+import type { AppContext } from 'next/app'
+import App from '../pages/_app'
 import {
   toLanguage,
   languageFromCookies,
@@ -124,6 +126,88 @@ describe('language and cookie helpers (spec 0054, cross check 2)', () => {
       expect(i18n.language).toBe('en')
       expect(document.documentElement.lang).toBe('en')
       expect(document.cookie).toContain('oc_lang=en')
+    })
+  })
+
+  describe('App.getInitialProps language detection (server and browser, spec 0054, AC-2)', () => {
+    it('reads language from server request Cookie header (English when cookie has oc_lang=en)', async () => {
+      const mockContext = {
+        ctx: {
+          req: {
+            headers: {
+              cookie: 'session=123; oc_lang=en',
+            },
+          },
+        },
+        Component: () => null,
+        router: {} as any,
+        AppTree: () => null,
+      } as unknown as AppContext
+
+      const result = await (App as any).getInitialProps(mockContext)
+      expect(result.language).toBe('en')
+    })
+
+    it('defaults to Greek on server request when no oc_lang cookie is present or Cookie header is absent', async () => {
+      const mockContextWithOtherCookie = {
+        ctx: {
+          req: {
+            headers: {
+              cookie: 'session=123',
+            },
+          },
+        },
+        Component: () => null,
+        router: {} as any,
+        AppTree: () => null,
+      } as unknown as AppContext
+
+      const resultWithOtherCookie = await (App as any).getInitialProps(mockContextWithOtherCookie)
+      expect(resultWithOtherCookie.language).toBe('el')
+
+      const mockContextWithoutCookies = {
+        ctx: {
+          req: {
+            headers: {},
+          },
+        },
+        Component: () => null,
+        router: {} as any,
+        AppTree: () => null,
+      } as unknown as AppContext
+
+      const resultWithoutCookies = await (App as any).getInitialProps(mockContextWithoutCookies)
+      expect(resultWithoutCookies.language).toBe('el')
+    })
+
+    it('reads language from document.cookie in browser environment (no ctx.req)', async () => {
+      let cookieStore = 'oc_lang=en'
+      const originalCookie = Object.getOwnPropertyDescriptor(document, 'cookie')
+      Object.defineProperty(document, 'cookie', {
+        get: () => cookieStore,
+        set: (v: string) => {
+          cookieStore = v
+        },
+        configurable: true,
+      })
+
+      const mockContext = {
+        ctx: {},
+        Component: () => null,
+        router: {} as any,
+        AppTree: () => null,
+      } as unknown as AppContext
+
+      const resultEn = await (App as any).getInitialProps(mockContext)
+      expect(resultEn.language).toBe('en')
+
+      cookieStore = ''
+      const resultEl = await (App as any).getInitialProps(mockContext)
+      expect(resultEl.language).toBe('el')
+
+      if (originalCookie) {
+        Object.defineProperty(document, 'cookie', originalCookie)
+      }
     })
   })
 })

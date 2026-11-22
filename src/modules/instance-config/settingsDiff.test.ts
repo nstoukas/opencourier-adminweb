@@ -1789,6 +1789,36 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(payload).not.toHaveProperty('details')
     })
 
+    it('savePayload sends each preset as a Greek/English pair with distinct el and en (spec 0054, AC-7)', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesDispatch: [
+          { el: '  Καλημέρα από το κέντρο  ', en: '  Good morning from dispatch  ' },
+          { el: 'Παρακαλώ καλέστε μας', en: 'Please call us' },
+          { el: '   ', en: '   ' },
+        ],
+        chatQuickRepliesCourier: [
+          { el: 'Έφτασα στο κατάστημα', en: 'Arrived at the restaurant' },
+          { el: 'Στο δρόμο για την παράδοση', en: 'On the way to delivery' },
+        ],
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.chatQuickRepliesDispatch).toEqual([
+        { el: 'Καλημέρα από το κέντρο', en: 'Good morning from dispatch' },
+        { el: 'Παρακαλώ καλέστε μας', en: 'Please call us' },
+      ])
+      expect(payload.chatQuickRepliesCourier).toEqual([
+        { el: 'Έφτασα στο κατάστημα', en: 'Arrived at the restaurant' },
+        { el: 'Στο δρόμο για την παράδοση', en: 'On the way to delivery' },
+      ])
+      const dispatchPresets = payload.chatQuickRepliesDispatch as Array<{ el: string; en: string }>
+      expect(dispatchPresets[0]?.el).not.toBe(dispatchPresets[0]?.en)
+      expect(dispatchPresets[0]?.el).toBe('Καλημέρα από το κέντρο')
+      expect(dispatchPresets[0]?.en).toBe('Good morning from dispatch')
+    })
+
     it('InstanceConfigSettingsAdminInputToJSON and InstanceConfigSettingsDtoFromJSON carry all three chat keys', () => {
       const input = {
         chatQuickRepliesDispatch: [{ el: 'Dispatch reply 1', en: 'Reply 1' }],
