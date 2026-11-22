@@ -2246,7 +2246,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       })
     })
 
-    it('changing twoOrderPolicy to WHENEVER_FITS puts it on the save bar and Save sends the new value', async () => {
+    it('changing twoOrderPolicy to WHENEVER_FITS puts it on the save bar in words (not codes) and Save sends the new value', async () => {
       withTwoOrders(false, 'SHORTAGE_ONLY')
       mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
       render(<InstanceConfigurationPage />)
@@ -2255,15 +2255,58 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       fireEvent.change(policySelect, { target: { value: 'WHENEVER_FITS' } })
 
       const saveBar = screen.getByTestId('save-bar')
-      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(
-        /When two orders may go together.*SHORTAGE_ONLY.*WHENEVER_FITS/
+      const item = within(saveBar).getByRole('listitem')
+      // Spec 0048 (row 80 review fix): save bar names policy in card's words, not raw codes
+      expect(item).toHaveTextContent(
+        /When two orders may go together.*Only when no free rider is a good fit.*→.*Whenever the two orders fit/
       )
+      expect(item).not.toHaveTextContent('SHORTAGE_ONLY')
+      expect(item).not.toHaveTextContent('WHENEVER_FITS')
 
       fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
 
       await waitFor(() => {
         expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderPolicy: 'WHENEVER_FITS' })
       })
+    })
+
+    it('changing twoOrderPolicy from WHENEVER_FITS back to SHORTAGE_ONLY shows words on the save bar', async () => {
+      withTwoOrders(false, 'WHENEVER_FITS')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const policySelect = document.getElementById('twoOrderPolicy') as HTMLSelectElement
+      fireEvent.change(policySelect, { target: { value: 'SHORTAGE_ONLY' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      const item = within(saveBar).getByRole('listitem')
+      expect(item).toHaveTextContent(
+        /When two orders may go together.*Whenever the two orders fit.*→.*Only when no free rider is a good fit/
+      )
+      expect(item).not.toHaveTextContent('WHENEVER_FITS')
+      expect(item).not.toHaveTextContent('SHORTAGE_ONLY')
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderPolicy: 'SHORTAGE_ONLY' })
+      })
+    })
+
+    it('falls back to raw code on save bar if an unknown policy code is present', () => {
+      withTwoOrders(false, 'UNKNOWN_POLICY')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const policySelect = document.getElementById('twoOrderPolicy') as HTMLSelectElement
+      fireEvent.change(policySelect, { target: { value: 'WHENEVER_FITS' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      const item = within(saveBar).getByRole('listitem')
+      // Unknown code from backend falls back to raw option string in optionLabel
+      expect(item).toHaveTextContent(
+        /When two orders may go together.*UNKNOWN_POLICY.*→.*Whenever the two orders fit/
+      )
     })
 
     it('editing twoOrderDelayLimitMinutes sends the number, 0 included', async () => {

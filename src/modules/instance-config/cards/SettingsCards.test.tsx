@@ -16,6 +16,7 @@ import {
   PUBLIC_PAGES,
   SECTIONS,
   MATCHER_COPY,
+  TWO_ORDER_POLICY_LABELS,
 } from './SettingsCards'
 import { EMPTY_FORM, blockers, pendingChanges, type SettingsForm } from '../settingsDiff'
 
@@ -1628,6 +1629,14 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       const section = SECTIONS.find((s) => s.id === 'two-orders')
       expect(section).toBeDefined()
       expect(section?.title).toBe('Two orders')
+    })
+
+    it('exports TWO_ORDER_POLICY_LABELS with plain language labels for each policy', () => {
+      // Spec 0048 (AC-1, row 80 review): labels for the two policy choices in plain words
+      expect(TWO_ORDER_POLICY_LABELS).toEqual({
+        SHORTAGE_ONLY: 'Only when no free rider is a good fit',
+        WHENEVER_FITS: 'Whenever the two orders fit',
+      })
     })
 
     it('renders Two orders section heading, description and binds switch, select and number field', () => {
