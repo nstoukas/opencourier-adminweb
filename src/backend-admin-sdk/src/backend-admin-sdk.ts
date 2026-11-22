@@ -2,6 +2,9 @@ import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
 import { AuthApi, ChatApi, ComplaintApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, StatementApi, SplitRequestApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
 import { ApiError } from './errors'
 
+// The answers that are files, not JSON: their bytes must reach the caller untouched.
+const FILE_CONTENT_TYPE = /^(image\/|application\/pdf|text\/csv|application\/octet-stream)/i
+
 export class BackendAdminSdk {
   private apis: { [name: string]: BaseAPI } = {}
   private readonly params: ConfigurationParameters
@@ -32,7 +35,13 @@ export class BackendAdminSdk {
           },
           post: async (ctx) => {
             if (ctx.response.status !== 204) {
-              if (!ctx.response.headers.get('Content-Type')?.includes('application/json')) {
+              const contentType = ctx.response.headers.get('Content-Type') ?? ''
+              // A file (a complaint photo, spec 0052; a statement PDF or CSV, spec 0050) is passed on as it
+              // came. Before this line every non JSON answer became "{}", so those files arrived as 2 bytes.
+              if (ctx.response.ok && FILE_CONTENT_TYPE.test(contentType)) {
+                return ctx.response
+              }
+              if (!contentType.includes('application/json')) {
                 return new Response(JSON.stringify({}), ctx.init)
               }
               const body = await ctx.response.json()
