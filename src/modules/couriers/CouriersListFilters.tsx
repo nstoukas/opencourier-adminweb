@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Input } from '@/admin-web-components'
 import type { CourierApiGetManyCouriersRequest } from '@/backend-admin-sdk'
@@ -13,12 +14,13 @@ export type CourierListStatus = NonNullable<CourierApiGetManyCouriersRequest['st
 
 // "Working now" is Online or Last call: a rider finishing their last deliveries is still working
 // (decision 97.1).
-export const COURIER_LIST_STATUSES: { value: CourierListStatus; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'working', label: 'Working now' },
-  { value: 'offline', label: 'Offline' },
+// Each label is a translation key, looked up when the buttons are drawn (spec 0054).
+export const COURIER_LIST_STATUSES: { value: CourierListStatus; labelKey: string }[] = [
+  { value: 'all', labelKey: 'couriers.filters.all' },
+  { value: 'working', labelKey: 'couriers.filters.working' },
+  { value: 'offline', labelKey: 'couriers.filters.offline' },
   // Spec 0051 (AC-6): riders whose account is deactivated.
-  { value: 'deactivated', label: 'Deactivated' },
+  { value: 'deactivated', labelKey: 'couriers.filters.deactivated' },
 ]
 
 // How long after the last key the search is sent, so typing a name sends one request, not one per
@@ -32,6 +34,8 @@ type Props = {
 }
 
 export function CouriersListFilters({ status, onStatusChange, onSearchChange }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   // The text as it was SEARCH_DELAY_MS after the last key (the shared debounce hook).
   const settled = useDebouncedValue(text, SEARCH_DELAY_MS)
@@ -53,7 +57,7 @@ export function CouriersListFilters({ status, onStatusChange, onSearchChange }: 
       {/* A segmented control: plain buttons, the pressed one marked with aria-pressed. */}
       <div
         role="group"
-        aria-label="Show couriers"
+        aria-label={t('couriers.filters.show')}
         className="inline-flex flex-wrap rounded-md border border-input p-0.5"
       >
         {COURIER_LIST_STATUSES.map((option) => {
@@ -70,7 +74,7 @@ export function CouriersListFilters({ status, onStatusChange, onSearchChange }: 
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           )
         })}
@@ -82,8 +86,8 @@ export function CouriersListFilters({ status, onStatusChange, onSearchChange }: 
         />
         <Input
           type="search"
-          aria-label="Search couriers"
-          placeholder="Name or phone"
+          aria-label={t('couriers.filters.search')}
+          placeholder={t('couriers.filters.searchPlaceholder')}
           maxLength={100}
           value={text}
           onChange={(event) => setText(event.target.value)}

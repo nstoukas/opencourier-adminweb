@@ -1,37 +1,50 @@
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
 import { useGetCourierTimeWorkedQuery } from '@/api/timeWorkedApi'
 import type { EarningsFiguresDto, WorkedDayDto, WorkedJobDto, WorkedShiftDto } from '@/backend-admin-sdk'
-import { athensDateTime, athensEnd, athensTime, athensToday } from '@/modules/dispatch-stop/dispatchStopDisplay'
-import { formatMoney } from '@/utils/formatMoney'
+import { athensToday } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { enumLabel } from '@/i18n/enumLabel'
+import { useFormat } from '@/i18n/useFormat'
 import { DayRangeForm } from './DayRangeForm'
 import {
-  CAUSE_LABELS,
+  CAUSE_KEYS,
   DayRange,
-  END_LABELS,
+  END_KEYS,
   RIDER_MAX_DAYS,
-  STATUS_LABELS,
   addDays,
+  dayAndTime,
   formatDay,
   formatDuration,
   formatKm,
   isUnderAMinute,
   jobMinutes,
+  shiftTime,
 } from './timeWorkedFormat'
 
-const dayTitle = (day: string) => formatDay(day)
-
-// A label for a value the copy does not know yet (a new backend status or cause) falls back to the code.
-const statusLabel = (status: string) => (STATUS_LABELS as Record<string, string>)[status] ?? status
-const causeLabel = (cause: string) => (CAUSE_LABELS as Record<string, string>)[cause] ?? cause
-// A label the server added before this copy knew it shows as its code, never "undefined".
-const endLabel = (label: string) => (END_LABELS as Record<string, string>)[label] ?? label
+// A label for a value the copy does not know yet (a new backend cause or end) falls back to the code,
+// never "undefined". `t` comes from the component's useTranslation.
+const causeLabel = (cause: string, t: TFunction) => {
+  const key = (CAUSE_KEYS as Partial<Record<string, string>>)[cause]
+  return key ? t(key) : cause
+}
+const endLabel = (label: string, t: TFunction) => {
+  const key = (END_KEYS as Partial<Record<string, string>>)[label]
+  return key ? t(key) : label
+}
 
 function Split({ job, wait, unpaid }: { job: number; wait: number; unpaid: number }) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   return (
     <p className="text-muted-foreground">
-      Jobs {formatDuration(job)} · Paid waiting {formatDuration(wait)} · Unpaid {formatDuration(unpaid)}
+      {t('timeWorked.card.split', {
+        jobs: formatDuration(job, t),
+        wait: formatDuration(wait, t),
+        unpaid: formatDuration(unpaid, t),
+      })}
     </p>
   )
 }
@@ -39,26 +52,39 @@ function Split({ job, wait, unpaid }: { job: number; wait: number; unpaid: numbe
 // Spec 0042 (AC-1, AC-15): the four figures of a day or a week, as the rider's Earnings screen shows
 // them. Plain text: no colour, threshold or mark, and never a figure from another rider (AC-16).
 function Figures({ figures, currencyCode }: { figures: EarningsFiguresDto; currencyCode: string }) {
-  const money = (cents: number | null) => (cents === null ? '—' : formatMoney(cents, currencyCode) ?? '—')
+  const { t } = useTranslation()
+  // useFormat gives money in the reader's language.
+  const f = useFormat()
+  const money = (cents: number | null) => (cents === null ? t('common.dash') : f.money(cents, currencyCode))
   const wait =
     figures.medianPickupWaitSeconds === null
-      ? '—'
-      : `${Math.round(figures.medianPickupWaitSeconds / 60)} min (${figures.pickupWaitCount} ${
-          figures.pickupWaitCount === 1 ? 'wait' : 'waits'
-        })`
+      ? t('common.dash')
+      : t('timeWorked.card.wait', {
+          minutes: Math.round(figures.medianPickupWaitSeconds / 60),
+          count: figures.pickupWaitCount,
+        })
   return (
     <>
       <p>
-        {money(figures.moneyCents)} · {figures.dropOffCount} {figures.dropOffCount === 1 ? 'drop off' : 'drop offs'} ·{' '}
-        {formatDuration(figures.workSeconds)} worked
+        {t('timeWorked.card.totals', {
+          money: money(figures.moneyCents),
+          count: figures.dropOffCount,
+          duration: formatDuration(figures.workSeconds, t),
+        })}
       </p>
       <p>
-        {money(figures.centsPerHour)} per hour worked · {money(figures.activeCentsPerHour)} per hour on a job ·{' '}
-        {money(figures.centsPerPaidKm)} per paid km · typical pickup wait {wait}
+        {t('timeWorked.card.rates', {
+          perHour: money(figures.centsPerHour),
+          perActiveHour: money(figures.activeCentsPerHour),
+          perKm: money(figures.centsPerPaidKm),
+          wait,
+        })}
       </p>
       <Split job={figures.jobSeconds} wait={figures.paidWaitSeconds} unpaid={figures.unpaidSeconds} />
       {figures.noJobMoneyCents > 0 ? (
-        <p className="text-muted-foreground">{money(figures.noJobMoneyCents)} paid that is not linked to a job</p>
+        <p className="text-muted-foreground">
+          {t('timeWorked.card.noJobMoney', { money: money(figures.noJobMoneyCents) })}
+        </p>
       ) : null}
     </>
   )
@@ -67,56 +93,76 @@ function Figures({ figures, currencyCode }: { figures: EarningsFiguresDto; curre
 // Spec 0042 (AC-8, AC-15): one job as the rider's list shows it, linked to the delivery's own admin page
 // for its pay breakdown and events.
 function JobRow({ job, currencyCode, inNoShift }: { job: WorkedJobDto; currencyCode: string; inNoShift: boolean }) {
+  const { t } = useTranslation()
+  const f = useFormat()
   const money = job.compensations.reduce((sum, c) => sum + c.amountCents, job.deliveryMoneyCents)
+  // The parts after the destination, joined with " · ": distance, minutes, how it ended, out of shift.
+  const parts = [
+    job.paidKm === null ? t('common.dash') : formatKm(job.paidKm, f.language),
+    t('timeWorked.duration.minutes', { minutes: jobMinutes(job) }),
+    ...(job.endLabel ? [endLabel(job.endLabel, t)] : []),
+    ...(inNoShift ? [t('timeWorked.card.notInShift')] : []),
+  ]
   return (
     <li className="flex flex-wrap items-baseline gap-x-2">
-      <span className="font-medium tabular-nums">{athensTime(job.acceptedAt)}</span>
+      <span className="font-medium tabular-nums">{f.time(job.acceptedAt)}</span>
       <Link href={`/deliveries/${job.deliveryId}`} className="underline underline-offset-2">
-        {job.pickupName} → {job.dropoffArea ?? '—'}
+        {`${job.pickupName} → ${job.dropoffArea ?? t('common.dash')}`}
       </Link>
-      <span className="text-muted-foreground">
-        {job.paidKm === null ? '—' : formatKm(job.paidKm)} · {jobMinutes(job)} min
-        {job.endLabel ? ` · ${endLabel(job.endLabel)}` : ''}
-        {inNoShift ? ' · not in a recorded shift' : ''}
-      </span>
-      <span className="ml-auto tabular-nums">{formatMoney(money, currencyCode) ?? '—'}</span>
+      <span className="text-muted-foreground">{parts.join(' · ')}</span>
+      <span className="ml-auto tabular-nums">{f.money(money, currencyCode)}</span>
     </li>
   )
 }
 
 function ShiftItem({ shift }: { shift: WorkedShiftDto }) {
-  const money = (cents: number | null) => (cents === null ? '—' : formatMoney(cents, shift.currencyCode) ?? '—')
+  const { t } = useTranslation()
+  const f = useFormat()
+  const money = (cents: number | null) => (cents === null ? t('common.dash') : f.money(cents, shift.currencyCode))
   // Every later time in the shift shows its date too when it falls on another Athens day than the
   // shift's start, so a long shift (a phone that died while Online, 36.18) reads clearly (review).
-  const at = (iso: string) => athensEnd(shift.startedAt, iso)
+  const at = (iso: string) => shiftTime(f, shift.startedAt, iso)
+  const times = t('timeWorked.card.shiftTimes', {
+    start: dayAndTime(f, shift.startedAt),
+    end: shift.endedAt ? at(shift.endedAt) : t('timeWorked.card.stillOpen'),
+  })
+  const onBreak = shift.onBreakSince ? ` ${t('timeWorked.card.onBreak', { time: at(shift.onBreakSince) })}` : ''
   return (
     <li className="rounded-md border border-border p-3">
-      {shift.startedBeforeRange ? <p className="text-xs text-muted-foreground">Started before these days</p> : null}
+      {shift.startedBeforeRange ? (
+        <p className="text-xs text-muted-foreground">{t('timeWorked.card.startedBefore')}</p>
+      ) : null}
       <p className="font-medium">
-        {athensDateTime(shift.startedAt)} to {shift.endedAt ? at(shift.endedAt) : 'still open'}
-        {shift.onBreakSince ? ` (on a break since ${at(shift.onBreakSince)})` : ''}
-        {' · '}
-        {formatDuration(shift.workSeconds)} · {money(shift.moneyCents)} · {money(shift.centsPerHour)} per hour
+        {`${times}${onBreak} · ${formatDuration(shift.workSeconds, t)} · ${money(shift.moneyCents)} · ${t(
+          'timeWorked.card.perHour',
+          { money: money(shift.centsPerHour) },
+        )}`}
       </p>
       <Split job={shift.jobSeconds} wait={shift.paidWaitSeconds} unpaid={shift.unpaidSeconds} />
       {shift.lateMoneyCents > 0 ? (
-        <p className="text-muted-foreground">{money(shift.lateMoneyCents)} of it added later</p>
+        <p className="text-muted-foreground">
+          {t('timeWorked.card.addedLater', { money: money(shift.lateMoneyCents) })}
+        </p>
       ) : null}
       {shift.breaks.map((b) => (
         <p key={b.startedAt} className="font-medium text-muted-foreground">
           {isUnderAMinute(b)
-            ? `Break at ${at(b.startedAt)}, under a minute`
-            : `Break ${at(b.startedAt)} to ${at(b.endedAt)}`}
+            ? t('timeWorked.card.breakShort', { time: at(b.startedAt) })
+            : t('timeWorked.card.break', { start: at(b.startedAt), end: at(b.endedAt) })}
         </p>
       ))}
       <details className="mt-2">
-        <summary className="cursor-pointer underline underline-offset-2">Records behind this shift</summary>
-        <h4 className="mt-2 font-medium">Status changes</h4>
+        <summary className="cursor-pointer underline underline-offset-2">{t('timeWorked.card.records')}</summary>
+        <h4 className="mt-2 font-medium">{t('timeWorked.card.statusChanges')}</h4>
         <ul>
           {shift.statusChanges.map((change) => (
             <li key={`${change.at}-${change.toStatus}`}>
-              {at(change.at)} {statusLabel(change.fromStatus)} to {statusLabel(change.toStatus)},{' '}
-              {causeLabel(change.cause)}
+              {t('timeWorked.card.statusChange', {
+                time: at(change.at),
+                from: enumLabel(t, 'courierStatus', change.fromStatus),
+                to: enumLabel(t, 'courierStatus', change.toStatus),
+                cause: causeLabel(change.cause, t),
+              })}
               {change.adminLabel ? ` (${change.adminLabel})` : ''}
             </li>
           ))}
@@ -137,13 +183,15 @@ function DayItem({
   jobs: { job: WorkedJobDto; inNoShift: boolean }[]
   currencyCode: string
 }) {
+  const { t } = useTranslation()
+  const f = useFormat()
   return (
     <li className="border-t border-border pt-3">
-      <h3 className="font-semibold">{dayTitle(day.date)}</h3>
+      <h3 className="font-semibold">{formatDay(day.date, true, f.language)}</h3>
       <Figures figures={day} currencyCode={currencyCode} />
       {jobs.length > 0 ? (
         <>
-          <h4 className="mt-2 font-medium">Jobs accepted this day</h4>
+          <h4 className="mt-2 font-medium">{t('timeWorked.card.jobsThisDay')}</h4>
           <ul className="flex flex-col gap-1">
             {jobs.map(({ job, inNoShift }) => (
               <JobRow
@@ -181,6 +229,9 @@ export function CourierTimeWorkedCard({
   courierId: string
   pollingInterval?: number
 }) {
+  const { t } = useTranslation()
+  const f = useFormat()
+  const dayTitle = (day: string) => formatDay(day, true, f.language)
   const today = athensToday()
   const [range, setRange] = useState<DayRange>({
     from: addDays(today, -6),
@@ -232,34 +283,35 @@ export function CourierTimeWorkedCard({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Time worked</CardTitle>
+        <CardTitle className="text-lg">{t('timeWorked.page.title')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
-        <p className="text-muted-foreground">
-          The same figures the rider sees in the app, to answer their questions and review requests.
-        </p>
+        <p className="text-muted-foreground">{t('timeWorked.card.intro')}</p>
         <DayRangeForm idPrefix="courier-time-worked" value={range} maxDays={RIDER_MAX_DAYS} onChange={setRange} />
         {query.isLoading || (query.isFetching && !data) ? (
-          <p className="text-muted-foreground">Loading…</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         ) : query.isError ? (
           <p role="alert" className="text-destructive">
-            Could not load the time worked.
+            {t('timeWorked.page.loadFailed')}
           </p>
         ) : data ? (
           <>
             <p className="text-muted-foreground">
-              Time worked is recorded from{' '}
-              {data.recordedFrom ? dayTitle(athensToday(new Date(data.recordedFrom))) : 'today'}.
+              {data.recordedFrom
+                ? t('timeWorked.card.recordedFrom', { day: dayTitle(athensToday(new Date(data.recordedFrom))) })
+                : t('timeWorked.card.recordedFromToday')}
             </p>
             {shownDays.length === 0 && earlier.length === 0 ? (
-              <p className="text-muted-foreground">No time worked in these days.</p>
+              <p className="text-muted-foreground">{t('timeWorked.card.none')}</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {weeks.map((week) => (
                   <li key={week.weekStart} className="pt-1">
                     <h3 className="font-semibold">
-                      Week {formatDay(week.weekStart)} to {formatDay(addDays(week.weekStart, 6))}
-                      {week.soFar ? ' (so far)' : ''}
+                      {t(week.soFar ? 'timeWorked.card.weekSoFar' : 'timeWorked.card.week', {
+                        from: dayTitle(week.weekStart),
+                        to: dayTitle(addDays(week.weekStart, 6)),
+                      })}
                     </h3>
                     <Figures figures={week} currencyCode={data.currencyCode} />
                   </li>
@@ -275,7 +327,7 @@ export function CourierTimeWorkedCard({
                 ))}
                 {earlier.length > 0 ? (
                   <li className="border-t border-border pt-3">
-                    <h3 className="font-semibold">Began before these days</h3>
+                    <h3 className="font-semibold">{t('timeWorked.card.earlier')}</h3>
                     <ul className="mt-2 flex flex-col gap-2">
                       {earlier.map((s) => (
                         <ShiftItem key={s.startedAt} shift={s} />

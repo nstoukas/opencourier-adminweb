@@ -10,6 +10,8 @@ import Link from 'next/link'
 // The router singleton, not the hook: it is only needed when a notification is clicked.
 import Router from 'next/router'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useFormat } from '@/i18n/useFormat'
 import { bannerText } from './sosDisplay'
 import {
   enableSosAlerts,
@@ -32,6 +34,9 @@ const incidentPath = (id: string) => `/sos/${encodeURIComponent(id)}`
 // plays a sound on every poll and raises one browser notification, once "Enable SOS alerts" was
 // clicked on this browser.
 export function SosAlerts() {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat gives the time in it.
+  const { t } = useTranslation()
+  const f = useFormat()
   // Only while signed in: after Sign Out nothing asks the backend again.
   const signedIn = !!useSelector(selectAccessToken)
   const { data, refetch, isError, fulfilledTimeStamp } = useGetCurrentSosQuery(undefined, { skip: !signedIn })
@@ -55,6 +60,9 @@ export function SosAlerts() {
   latest.current = incidents
   const chosenRef = useRef(chosen)
   chosenRef.current = chosen
+  // The newest `t`, so a language switch does not count as a new SOS in the effect below.
+  const tRef = useRef(t)
+  tRef.current = t
 
   const open = useCallback((id: string) => void Router.push(incidentPath(id)), [])
 
@@ -76,7 +84,7 @@ export function SosAlerts() {
     .join(',')
   useEffect(() => {
     if (!chosen || activeIds === '') return
-    notifyNewSos(latest.current, open)
+    notifyNewSos(latest.current, open, tRef.current)
     playSosSound()
   }, [activeIds, chosen, open])
 
@@ -110,20 +118,16 @@ export function SosAlerts() {
           data-testid="sos-unreachable"
         >
           {fulfilledTimeStamp
-            ? `No contact with the server since ${new Date(fulfilledTimeStamp).toLocaleTimeString('en-GB', {
-                hour: '2-digit',
-                minute: '2-digit',
-                // The co-op's time, never the browser's zone (adminweb AGENTS.md).
-                timeZone: 'Europe/Athens',
-              })}. SOS alerts may be late.`
-            : 'Cannot reach the server. SOS alerts may be late.'}
+            ? // f.time is on the co-op's time, never the browser's zone (adminweb AGENTS.md).
+              t('sos.alerts.unreachableSince', { time: f.time(new Date(fulfilledTimeStamp)) })
+            : t('sos.alerts.unreachable')}
         </div>
       )}
       {blocked && (
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="sos-notifications-blocked">
           <span className="inline-flex items-center gap-1 rounded-full border border-warning-foreground/20 bg-warning-soft px-2.5 py-0.5 text-xs font-semibold text-foreground">
             <BellSlash size={14} aria-hidden="true" weight="bold" />
-            Notifications blocked in this browser: allow them in the site settings. Banner and sound are on.
+            {t('sos.alerts.blocked')}
           </span>
         </div>
       )}
@@ -131,10 +135,10 @@ export function SosAlerts() {
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="sos-alerts-off">
           <span className="inline-flex items-center gap-1 rounded-full bg-destructive px-2.5 py-0.5 text-xs font-semibold text-destructive-foreground">
             <BellSlash size={14} aria-hidden="true" weight="bold" />
-            SOS alerts off
+            {t('sos.alerts.off')}
           </span>
           <Button size="sm" variant="outline" onClick={onEnable}>
-            {chosen && !audible ? 'Turn SOS sound on' : 'Enable SOS alerts'}
+            {chosen && !audible ? t('sos.alerts.soundOn') : t('sos.alerts.enable')}
           </Button>
         </div>
       )}
@@ -143,7 +147,7 @@ export function SosAlerts() {
         // leaves each banner a plain link for screen readers.
         <ul
           className="flex flex-col gap-2"
-          aria-label="Riders' SOS"
+          aria-label={t('sos.banner.label')}
           aria-live="assertive"
           aria-relevant="additions"
           data-testid="sos-banners"
@@ -162,8 +166,8 @@ export function SosAlerts() {
                   )}
                 >
                   <Siren size={20} aria-hidden="true" weight="fill" className={active ? 'animate-pulse' : undefined} />
-                  <span className="flex-1">{bannerText(incident, now)}</span>
-                  <span className="text-xs font-normal underline">Open</span>
+                  <span className="flex-1">{bannerText(incident, now, t)}</span>
+                  <span className="text-xs font-normal underline">{t('common.open')}</span>
                 </Link>
               </li>
             )

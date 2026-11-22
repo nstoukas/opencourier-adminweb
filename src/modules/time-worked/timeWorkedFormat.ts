@@ -1,5 +1,9 @@
-import type { JobEndLabel, TimeWorkedChangeCause, TimeWorkedCourierStatus } from '../../backend-admin-sdk'
+import type { TFunction } from 'i18next'
+import type { JobEndLabel, TimeWorkedChangeCause } from '../../backend-admin-sdk'
 import { athensToday } from '../dispatch-stop/dispatchStopDisplay'
+import { DEFAULT_LANGUAGE, LOCALES, type Language } from '@/i18n/language'
+import { keyMessage, type ShownMessage } from '@/i18n/shownMessage'
+import type { Formats } from '@/i18n/useFormat'
 
 // Spec 0040: plain helpers for the Time worked page and a rider's Time worked card. Days are
 // YYYY-MM-DD in Europe/Athens, as the server counts them; this file does no timezone maths of its own.
@@ -31,40 +35,42 @@ export function daysInRange(from: string, to: string): number {
 export type DayRange = { from: string; to: string }
 
 // The range in the URL when it is valid and within the limit, else the last `defaultDays` days ending
-// today. A sentence says why a range was not used, so a pasted link never fails silently.
+// today. A sentence says why a range was not used, so a pasted link never fails silently. The sentence
+// is a translation key (with its values), translated by the page, so it follows the reader's language.
 export function rangeFromQuery(
   from: unknown,
   to: unknown,
   maxDays: number,
   defaultDays: number,
   now: Date = new Date()
-): { range: DayRange; problem: string | null } {
+): { range: DayRange; problem: ShownMessage | null } {
   const today = athensToday(now)
   const fallback = { from: addDays(today, -(defaultDays - 1)), to: today }
   if (from === undefined && to === undefined) return { range: fallback, problem: null }
   if (!isDay(from) || !isDay(to))
     return {
       range: fallback,
-      problem: 'The dates must be days written as YYYY-MM-DD.',
+      problem: keyMessage('timeWorked.problem.format'),
     }
   if (from > to)
     return {
       range: fallback,
-      problem: 'The first day must be on or before the last day.',
+      problem: keyMessage('timeWorked.problem.order'),
     }
   if (daysInRange(from, to) > maxDays)
     return {
       range: fallback,
-      problem: `A range may cover at most ${maxDays} days.`,
+      problem: keyMessage('timeWorked.problem.tooLong', { max: maxDays }),
     }
   return { range: { from, to }, problem: null }
 }
 
-// "3 h 12 min", "48 min", "0 min".
-// A calendar day (YYYY-MM-DD) in words, "Thu 19 Nov 2026". The day is formatted in UTC so it stays the
-// same day whatever the browser's zone. Used by the rider card and the totals page alike.
-export function formatDay(day: string, withWeekday = true): string {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', {
+// A calendar day (YYYY-MM-DD) in words, "Thu 19 Nov 2026" (Greek "Πέμ 19 Νοε 2026"). The day is formatted
+// in UTC so it stays the same day whatever the browser's zone. Used by the rider card and the totals page
+// alike. The language picks the locale (en-GB or el-GR, src/i18n/language.ts); Greek when left out, as in
+// src/i18n/format.ts.
+export function formatDay(day: string, withWeekday = true, language: Language = DEFAULT_LANGUAGE): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(LOCALES[language], {
     timeZone: 'UTC',
     weekday: withWeekday ? 'short' : undefined,
     day: 'numeric',
@@ -75,28 +81,32 @@ export function formatDay(day: string, withWeekday = true): string {
 
 // The totals add up only the days inside the range, so a "By week" row whose Monday to Sunday week
 // reaches outside it is part of a week. This says which part, or null for a whole week (review
-// 2026-11-20, decision 36.49).
-export function weekPart(monday: string, range: DayRange): string | null {
+// 2026-11-20, decision 36.49). `t` and the language come from the page (useTranslation, useFormat).
+export function weekPart(monday: string, range: DayRange, t: TFunction, language: Language = DEFAULT_LANGUAGE): string | null {
   const sunday = addDays(monday, 6)
   const first = monday < range.from ? range.from : monday
   const last = sunday > range.to ? range.to : sunday
   if (first === monday && last === sunday) return null
   const short = (day: string) =>
-    new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', {
+    new Date(`${day}T00:00:00Z`).toLocaleDateString(LOCALES[language], {
       timeZone: 'UTC',
       weekday: 'short',
       day: 'numeric',
       month: 'short',
     })
   return first === last
-    ? `part of the week: ${short(first)} only`
-    : `part of the week: ${short(first)} to ${short(last)}`
+    ? t('timeWorked.weekPart.only', { day: short(first) })
+    : t('timeWorked.weekPart.range', { first: short(first), last: short(last) })
 }
 
-export function formatDuration(seconds: number): string {
+// "3 h 12 min", "48 min", "0 min" (Greek "3 ώρ. 12 λ."), in the reader's language through `t`.
+export function formatDuration(seconds: number, t: TFunction): string {
   const minutes = Math.max(0, Math.floor(seconds / 60))
-  if (minutes < 60) return `${minutes} min`
-  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`
+  if (minutes < 60) return t('timeWorked.duration.minutes', { minutes })
+  return t('timeWorked.duration.hours', {
+    hours: Math.floor(minutes / 60),
+    minutes: String(minutes % 60).padStart(2, '0'),
+  })
 }
 
 // "38%" for unpaid over work, or an em dash with no work time.
@@ -104,35 +114,45 @@ export function formatShare(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—'
 }
 
-export const STATUS_LABELS: Record<TimeWorkedCourierStatus, string> = {
-  ONLINE: 'Online',
-  OFFLINE: 'Offline',
-  LAST_CALL: 'Last Call',
+// A status's words come from enumLabel(t, 'courierStatus', …) (src/i18n/enumLabel.ts).
+
+// The translation key of each cause. A Record over the backend's type, so a cause added there without a
+// key here is a type error.
+export const CAUSE_KEYS: Record<TimeWorkedChangeCause, string> = {
+  RIDER: 'timeWorked.cause.RIDER',
+  ADMIN: 'timeWorked.cause.ADMIN',
+  CUT_OFF: 'timeWorked.cause.CUT_OFF',
+  LAST_CALL_ACCEPTED: 'timeWorked.cause.LAST_CALL_ACCEPTED',
+  SYSTEM_START: 'timeWorked.cause.SYSTEM_START',
 }
 
-export const CAUSE_LABELS: Record<TimeWorkedChangeCause, string> = {
-  RIDER: 'by the rider',
-  ADMIN: 'by an admin',
-  CUT_OFF: 'by a password change',
-  LAST_CALL_ACCEPTED: 'on accepting their last job',
-  SYSTEM_START: 'when recording began',
+// Spec 0042 (AC-8): how a job ended when not in this rider's drop off, the rider app's words, as keys.
+export const END_KEYS: Record<JobEndLabel, string> = {
+  CANCELLED_AFTER_PICKUP: 'timeWorked.end.CANCELLED_AFTER_PICKUP',
+  CANCELLED: 'timeWorked.end.CANCELLED',
+  REMOVED: 'timeWorked.end.REMOVED',
+  HANDED_BACK: 'timeWorked.end.HANDED_BACK',
+  REASSIGNED: 'timeWorked.end.REASSIGNED',
+  FAILED: 'timeWorked.end.FAILED',
+  ENDED: 'timeWorked.end.ENDED',
+  IN_PROGRESS: 'timeWorked.end.IN_PROGRESS',
 }
 
-// Spec 0042 (AC-8): how a job ended when not in this rider's drop off, the rider app's words.
-export const END_LABELS: Record<JobEndLabel, string> = {
-  CANCELLED_AFTER_PICKUP: 'Cancelled after pickup',
-  CANCELLED: 'Cancelled',
-  REMOVED: 'Removed',
-  HANDED_BACK: 'Handed back',
-  REASSIGNED: 'Reassigned',
-  FAILED: 'Failed',
-  ENDED: 'Ended',
-  IN_PROGRESS: 'In progress',
+// "1.2 km", always one decimal (spec 0042 AC-1); "1,2 km" in Greek.
+export function formatKm(km: number, language: Language = DEFAULT_LANGUAGE): string {
+  const number = new Intl.NumberFormat(LOCALES[language], { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return `${number.format(Math.round(km * 10) / 10)} km`
 }
 
-// "1.2 km", one decimal (spec 0042 AC-1).
-export function formatKm(km: number): string {
-  return `${(Math.round(km * 10) / 10).toFixed(1)} km`
+// A time of a shift, with its weekday and date when it falls on another Athens day than `fromIso`
+// ("17:00", or "Sun 02/11, 06:00"), in the reader's language through the format helper.
+export function shiftTime(f: Formats, fromIso: string, iso: string): string {
+  return athensToday(new Date(fromIso)) === athensToday(new Date(iso)) ? f.time(iso) : dayAndTime(f, iso)
+}
+
+// "Sun 02/11, 06:00" on Athens time.
+export function dayAndTime(f: Formats, iso: string): string {
+  return `${f.weekdayDate(iso)}, ${f.time(iso)}`
 }
 
 // Accept to the job's end (or now, while held), in whole minutes, rounded as the server rounds them.

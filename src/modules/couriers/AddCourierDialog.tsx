@@ -11,11 +11,12 @@ import {
   Label,
   Spinner,
 } from '@/admin-web-components'
+import { useTranslation } from 'react-i18next'
 import { useCreateCourierMutation } from '@/api/couriersApi'
+import { useServerText } from '@/i18n/useServerText'
 import {
   PASSWORD_MAX,
   PASSWORD_MIN,
-  backendMessage,
   isValidEmail,
   isValidPasswordPair,
   isValidRiderPhone,
@@ -37,6 +38,9 @@ type CreatedNotice = { courierId: string; name: string; email: string; password:
 // The co-op issues every rider's login (spec 0013, AC-1 to AC-3): an admin types the rider's
 // details and a password, and sees the login once to pass on. There is no public sign up.
 export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCourier }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const [createCourier, { isLoading }] = useCreateCourierMutation()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -44,7 +48,8 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // What the server threw, kept as it came: its words are worked out when drawn, in the current language.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
   const [created, setCreated] = useState<CreatedNotice | null>(null)
 
   // Every time the dialog opens it starts empty, and the last notice is gone for good.
@@ -56,15 +61,15 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
       setEmail('')
       setPassword('')
       setConfirm('')
-      setError(null)
+      setFailure(null)
       setCreated(null)
     }
   }, [open])
 
   const phoneProblem =
-    phone.length > 0 && !isValidRiderPhone(phone) ? 'A plus and 8 to 15 digits, e.g. +30 690 000 0000.' : null
-  const emailProblem = email.length > 0 && !isValidEmail(email) ? 'Not a valid email address.' : null
-  const pwProblem = passwordProblem(password, confirm)
+    phone.length > 0 && !isValidRiderPhone(phone) ? t('couriers.add.phoneProblem') : null
+  const emailProblem = email.length > 0 && !isValidEmail(email) ? t('couriers.add.emailProblem') : null
+  const pwProblem = passwordProblem(password, confirm, t)
   const isValid =
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
@@ -75,7 +80,7 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!isValid || isLoading) return
-    setError(null)
+    setFailure(null)
     try {
       const courier = await createCourier({
         firstName: firstName.trim(),
@@ -92,8 +97,7 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
         password,
       })
     } catch (err: unknown) {
-      // The backend names which value is taken ("That phone is already used by another rider.").
-      setError(backendMessage(err, 'The rider could not be created. Please try again.'))
+      setFailure({ error: err })
     }
   }
 
@@ -126,47 +130,46 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
         {created ? (
           <>
             <DialogHeader>
-              <DialogTitle>{created.name} can log in</DialogTitle>
-              <DialogDescription>Copy them now: the password cannot be shown again.</DialogDescription>
+              <DialogTitle>{t('couriers.add.createdTitle', { name: created.name })}</DialogTitle>
+              <DialogDescription>{t('couriers.add.createdDescription')}</DialogDescription>
             </DialogHeader>
             <dl className="space-y-2 rounded-md border border-border p-3 text-sm">
               <div>
-                <dt className="text-muted-foreground">Email</dt>
+                <dt className="text-muted-foreground">{t('couriers.add.email')}</dt>
                 <dd className="break-all font-mono">{created.email}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Password</dt>
+                <dt className="text-muted-foreground">{t('couriers.add.password')}</dt>
                 <dd className="break-all font-mono">{created.password}</dd>
               </div>
             </dl>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Done
+                {t('couriers.add.done')}
               </Button>
               <Button type="button" onClick={() => onOpenCourier(created.courierId)}>
-                Open {created.name}
+                {t('couriers.add.open', { name: created.name })}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <form onSubmit={submit} noValidate>
             <DialogHeader>
-              <DialogTitle>Add courier</DialogTitle>
-              <DialogDescription>
-                Creates the rider and their login. You will see the password once, to pass on to them.
-              </DialogDescription>
+              <DialogTitle>{t('couriers.add.title')}</DialogTitle>
+              <DialogDescription>{t('couriers.add.description')}</DialogDescription>
             </DialogHeader>
 
-            {error ? (
+            {failure ? (
               <p role="alert" className="mt-3 text-sm font-medium text-destructive">
-                {error}
+                {/* The backend names which value is taken ("That phone is already used by another rider."). */}
+                {errorText(failure.error, t('couriers.add.saveFailed'))}
               </p>
             ) : null}
 
             <div className="space-y-3 py-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label htmlFor="courier-first-name">First name</Label>
+                  <Label htmlFor="courier-first-name">{t('couriers.field.firstName')}</Label>
                   <Input
                     id="courier-first-name"
                     value={firstName}
@@ -175,7 +178,7 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="courier-last-name">Last name</Label>
+                  <Label htmlFor="courier-last-name">{t('couriers.field.lastName')}</Label>
                   <Input
                     id="courier-last-name"
                     value={lastName}
@@ -185,7 +188,7 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="courier-phone">Phone</Label>
+                <Label htmlFor="courier-phone">{t('couriers.field.phoneNumber')}</Label>
                 <Input
                   id="courier-phone"
                   type="tel"
@@ -203,7 +206,7 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
                 ) : null}
               </div>
               <div className="space-y-1">
-                <Label htmlFor="courier-email">Email (their login)</Label>
+                <Label htmlFor="courier-email">{t('couriers.add.emailLogin')}</Label>
                 <Input
                   id="courier-email"
                   type="email"
@@ -221,18 +224,18 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
                 ) : null}
               </div>
               <div className="space-y-1">
-                <Label htmlFor="courier-password">Password</Label>
+                <Label htmlFor="courier-password">{t('couriers.add.password')}</Label>
                 <Input
                   id="courier-password"
                   type="password"
                   autoComplete="new-password"
-                  placeholder={`${PASSWORD_MIN} to ${PASSWORD_MAX} characters`}
+                  placeholder={t('couriers.password.placeholder', { min: PASSWORD_MIN, max: PASSWORD_MAX })}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="courier-password-confirm">Password again</Label>
+                <Label htmlFor="courier-password-confirm">{t('couriers.add.passwordAgain')}</Label>
                 <Input
                   id="courier-password-confirm"
                   type="password"
@@ -251,11 +254,11 @@ export function AddCourierDialog({ open, onOpenChange, returnFocusTo, onOpenCour
 
             <DialogFooter>
               <Button type="button" variant="ghost" disabled={isLoading} onClick={() => onOpenChange(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={!isValid || isLoading}>
                 {isLoading ? <Spinner className="mr-2" /> : null}
-                Create courier
+                {t('couriers.add.submit')}
               </Button>
             </DialogFooter>
           </form>

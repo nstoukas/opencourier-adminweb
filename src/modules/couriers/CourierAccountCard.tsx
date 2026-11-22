@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   Button,
   Card,
@@ -25,8 +27,8 @@ import {
   useGetCourierAccountQuery,
   useReactivateCourierMutation,
 } from '@/api/courierAccountApi'
-import { formatDate } from '@/ui-shared-utils'
-import { backendMessage } from './courierAccountRules'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
 
 // Spec 0051 (row 108, AC-6): a rider's account. The login email and the emergency contact, Deactivate or
 // Reactivate, an edit of every detail, and the record of every account action, newest first. A person
@@ -34,45 +36,64 @@ import { backendMessage } from './courierAccountRules'
 
 export const REASON_MAX = 300
 
-const FIELD_WORDS: Record<string, string> = {
-  firstName: 'First name',
-  lastName: 'Last name',
-  phoneNumber: 'Phone',
-  email: 'Login email',
-  emergencyContactName: 'Emergency contact name',
-  emergencyContactPhone: 'Emergency contact phone',
-  deliverySetting: 'Offers',
-}
+// The details the history names in words (couriers.field.* in the language files); any other field
+// shows as the server named it.
+const NAMED_FIELDS = new Set([
+  'firstName',
+  'lastName',
+  'phoneNumber',
+  'email',
+  'emergencyContactName',
+  'emergencyContactPhone',
+  'deliverySetting',
+])
 
-// One history line in words.
-export function accountChangeText(change: CourierAccountChangeAdminDto): string {
+// One history line in words, in the reader's language (`t` comes from the component's useTranslation).
+// The reason and the values are the rider's or admin's own words, shown as written.
+export function accountChangeText(change: CourierAccountChangeAdminDto, t: TFunction): string {
   switch (change.kind) {
     case 'DEACTIVATED':
-      return `Deactivated${change.reason ? `: ${change.reason}` : ''}`
+      return change.reason
+        ? t('couriers.account.change.deactivatedReason', { reason: change.reason })
+        : t('couriers.account.change.deactivated')
     case 'REACTIVATED':
-      return `Reactivated${change.reason ? `: ${change.reason}` : ''}`
+      return change.reason
+        ? t('couriers.account.change.reactivatedReason', { reason: change.reason })
+        : t('couriers.account.change.reactivated')
     case 'PASSWORD_CHANGED':
-      return 'Password changed'
+      return t('couriers.account.change.passwordChanged')
     // Spec 0050 (cross check 14): an admin downloaded the rider's statement ("2026-10 PDF").
     case 'STATEMENT_DOWNLOADED':
-      return `Statement downloaded: ${change.newValue ?? ''}`
+      return t('couriers.account.change.statementDownloaded', { what: change.newValue ?? '' })
     case 'FIELD_EDITED': {
-      const field = (change.field && FIELD_WORDS[change.field]) || change.field || 'A detail'
-      return `${field}: ${change.oldValue ?? 'empty'} → ${change.newValue ?? 'empty'}`
+      const field = change.field
+        ? NAMED_FIELDS.has(change.field)
+          ? t(`couriers.field.${change.field}`)
+          : change.field
+        : t('couriers.account.change.aDetail')
+      const empty = t('couriers.account.change.empty')
+      return t('couriers.account.change.fieldEdited', {
+        field,
+        before: change.oldValue ?? empty,
+        after: change.newValue ?? empty,
+      })
     }
     default:
       return change.kind
   }
 }
 
-function actorText(change: CourierAccountChangeAdminDto): string {
-  if (change.actorIsRider) return 'by the rider'
-  return change.actorEmail ? `by ${change.actorEmail}` : 'by an admin'
+function actorText(change: CourierAccountChangeAdminDto, t: TFunction): string {
+  if (change.actorIsRider) return t('couriers.account.byRider')
+  return change.actorEmail ? t('couriers.account.byEmail', { email: change.actorEmail }) : t('couriers.account.byAdmin')
 }
 
 type Props = { courier: CourierAdminDto; name: string }
 
 export function CourierAccountCard({ courier, name }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat formats dates in it.
+  const { t } = useTranslation()
+  const f = useFormat()
   const accountQuery = useGetCourierAccountQuery({ id: courier.id })
   const changesQuery = useGetCourierAccountChangesQuery({ id: courier.id })
   const [dialog, setDialog] = useState<'deactivate' | 'reactivate' | 'edit' | null>(null)
@@ -85,34 +106,36 @@ export function CourierAccountCard({ courier, name }: Props) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Account</CardTitle>
+        <CardTitle className="text-lg">{t('couriers.account.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {accountQuery.isError ? (
-          <p className="text-destructive">Could not load the account.</p>
+          <p className="text-destructive">{t('couriers.account.loadFailed')}</p>
         ) : (
           <DetailList
             items={[
               {
-                label: 'Account',
+                label: t('couriers.account.title'),
                 value: deactivated
-                  ? `Deactivated${account?.deactivatedAt ? ` on ${formatDate(account.deactivatedAt)}` : ''}`
-                  : 'Active',
+                  ? account?.deactivatedAt
+                    ? t('couriers.account.deactivatedOn', { date: f.dateTime(account.deactivatedAt) })
+                    : t('couriers.account.deactivated')
+                  : t('couriers.account.active'),
               },
-              { label: 'Login email', value: account?.email ?? '—' },
+              { label: t('couriers.field.email'), value: account?.email ?? t('common.dash') },
               {
-                label: 'Emergency contact',
+                label: t('couriers.account.emergencyContact'),
                 value:
                   account && (account.emergencyContactName || account.emergencyContactPhone)
                     ? [account.emergencyContactName, account.emergencyContactPhone].filter(Boolean).join(', ')
-                    : 'None given',
+                    : t('couriers.account.noneGiven'),
               },
             ]}
           />
         )}
         <div className="flex flex-wrap gap-2">
           <Button ref={editRef} type="button" variant="outline" disabled={!account} onClick={() => setDialog('edit')}>
-            Edit details
+            {t('couriers.account.editDetails')}
           </Button>
           <Button
             ref={actionRef}
@@ -120,22 +143,23 @@ export function CourierAccountCard({ courier, name }: Props) {
             variant={deactivated ? 'outline' : 'destructive'}
             onClick={() => setDialog(deactivated ? 'reactivate' : 'deactivate')}
           >
-            {deactivated ? 'Reactivate' : 'Deactivate'}
+            {deactivated ? t('couriers.account.reactivate') : t('couriers.account.deactivate')}
           </Button>
         </div>
 
         <div>
-          <h3 className="mb-2 font-medium">Account history</h3>
+          <h3 className="mb-2 font-medium">{t('couriers.account.history')}</h3>
           {changesQuery.isError ? (
-            <p className="text-destructive">Could not load the account history.</p>
+            <p className="text-destructive">{t('couriers.account.historyFailed')}</p>
           ) : changes.length === 0 ? (
-            <p className="text-muted-foreground">No changes yet.</p>
+            <p className="text-muted-foreground">{t('couriers.account.noChanges')}</p>
           ) : (
             <ul className="space-y-1">
               {changes.map((change) => (
                 <li key={change.id}>
-                  <span className="text-muted-foreground">{formatDate(change.createdAt)}</span> ·{' '}
-                  {accountChangeText(change)} <span className="text-muted-foreground">{actorText(change)}</span>
+                  <span className="text-muted-foreground">{f.dateTime(change.createdAt)}</span>
+                  {` · ${accountChangeText(change, t)} `}
+                  <span className="text-muted-foreground">{actorText(change, t)}</span>
                 </li>
               ))}
             </ul>
@@ -178,15 +202,18 @@ function DeactivationDialog({
   name: string
   returnFocusTo: React.RefObject<HTMLElement>
 }) {
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const { toast } = useToast()
   const [deactivate, deactivateState] = useDeactivateCourierMutation()
   const [reactivate, reactivateState] = useReactivateCourierMutation()
   const [reason, setReason] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // What the server threw, kept as it came: its words are worked out when drawn, in the current language.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
   useEffect(() => {
     if (mode) {
       setReason('')
-      setError(null)
+      setFailure(null)
     }
   }, [mode])
   const busy = deactivateState.isLoading || reactivateState.isLoading
@@ -196,18 +223,18 @@ function DeactivationDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!mode || !canSubmit || busy) return
-    setError(null)
+    setFailure(null)
     try {
       if (mode === 'deactivate') {
         await deactivate({ id: courierId, reason: trimmed }).unwrap()
-        toast({ title: `${name}'s account is deactivated.` })
+        toast({ title: t('couriers.account.toastDeactivated', { name }) })
       } else {
         await reactivate({ id: courierId, reason: trimmed || undefined }).unwrap()
-        toast({ title: `${name}'s account is active again.` })
+        toast({ title: t('couriers.account.toastReactivated', { name }) })
       }
       onClose()
     } catch (err: unknown) {
-      setError(backendMessage(err, 'This could not be saved. Please try again.'))
+      setFailure({ error: err })
     }
   }
 
@@ -222,20 +249,26 @@ function DeactivationDialog({
       >
         <form onSubmit={submit} noValidate>
           <DialogHeader>
-            <DialogTitle>{mode === 'reactivate' ? `Reactivate ${name}` : `Deactivate ${name}`}</DialogTitle>
+            <DialogTitle>
+              {mode === 'reactivate'
+                ? t('couriers.account.reactivateTitle', { name })
+                : t('couriers.account.deactivateTitle', { name })}
+            </DialogTitle>
             <DialogDescription>
               {mode === 'reactivate'
-                ? 'They keep their login and history and start Offline. Their password is cleared: they set a new one with Forgot password, or you set one with Change password.'
-                : 'They are signed out on every phone and set Offline, and can no longer sign in or get offers. Their shift bookings that have not ended are dropped. Their deliveries, pay and records stay. A rider who holds a job or has an open SOS cannot be deactivated.'}
+                ? t('couriers.account.reactivateDescription')
+                : t('couriers.account.deactivateDescription')}
             </DialogDescription>
           </DialogHeader>
-          {error ? (
+          {failure ? (
             <p role="alert" className="mt-3 text-sm font-medium text-destructive">
-              {error}
+              {errorText(failure.error, t('couriers.account.saveFailed'))}
             </p>
           ) : null}
           <div className="space-y-1 py-4">
-            <Label htmlFor="account-reason">{mode === 'reactivate' ? 'Reason (optional)' : 'Reason'}</Label>
+            <Label htmlFor="account-reason">
+              {mode === 'reactivate' ? t('couriers.account.reasonOptional') : t('couriers.account.reason')}
+            </Label>
             <Input
               id="account-reason"
               value={reason}
@@ -244,16 +277,16 @@ function DeactivationDialog({
               onChange={(e) => setReason(e.target.value)}
             />
             <p id="account-reason-help" className="text-xs text-muted-foreground">
-              Up to {REASON_MAX} characters. The rider sees it in their account history.
+              {t('couriers.account.reasonHelp', { max: REASON_MAX })}
             </p>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant={mode === 'reactivate' ? 'default' : 'destructive'} disabled={!canSubmit || busy}>
               {busy ? <Spinner className="mr-2" /> : null}
-              {mode === 'reactivate' ? 'Reactivate' : 'Deactivate'}
+              {mode === 'reactivate' ? t('couriers.account.reactivate') : t('couriers.account.deactivate')}
             </Button>
           </DialogFooter>
         </form>
@@ -278,6 +311,8 @@ function EditDetailsDialog({
   onClose: () => void
   returnFocusTo: React.RefObject<HTMLElement>
 }) {
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const { toast } = useToast()
   const [save, { isLoading }] = useEditCourierDetailsMutation()
   const [form, setForm] = useState({
@@ -288,7 +323,8 @@ function EditDetailsDialog({
     emergencyContactName,
     emergencyContactPhone,
   })
-  const [error, setError] = useState<string | null>(null)
+  // What the server threw, kept as it came: its words are worked out when drawn, in the current language.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((current) => ({ ...current, [key]: e.target.value }))
   const emailChanged = form.email.trim().toLowerCase() !== email.trim().toLowerCase()
@@ -297,7 +333,7 @@ function EditDetailsDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!canSubmit || isLoading) return
-    setError(null)
+    setFailure(null)
     try {
       await save({
         id: courier.id,
@@ -310,10 +346,10 @@ function EditDetailsDialog({
           emergencyContactPhone: form.emergencyContactPhone,
         },
       }).unwrap()
-      toast({ title: 'Details saved.' })
+      toast({ title: t('couriers.account.editSaved') })
       onClose()
     } catch (err: unknown) {
-      setError(backendMessage(err, 'The details could not be saved. Please try again.'))
+      setFailure({ error: err })
     }
   }
 
@@ -335,34 +371,34 @@ function EditDetailsDialog({
       >
         <form onSubmit={submit} noValidate>
           <DialogHeader>
-            <DialogTitle>Edit details</DialogTitle>
-            <DialogDescription>Every change is recorded, and the rider sees it in their account history.</DialogDescription>
+            <DialogTitle>{t('couriers.account.editDetails')}</DialogTitle>
+            <DialogDescription>{t('couriers.account.editDescription')}</DialogDescription>
           </DialogHeader>
-          {error ? (
+          {failure ? (
             <p role="alert" className="mt-3 text-sm font-medium text-destructive">
-              {error}
+              {errorText(failure.error, t('couriers.account.editFailed'))}
             </p>
           ) : null}
           <div className="space-y-3 py-4">
-            {field('firstName', 'First name')}
-            {field('lastName', 'Last name')}
-            {field('phoneNumber', 'Phone', 'tel')}
-            {field('email', 'Login email', 'email')}
+            {field('firstName', t('couriers.field.firstName'))}
+            {field('lastName', t('couriers.field.lastName'))}
+            {field('phoneNumber', t('couriers.field.phoneNumber'), 'tel')}
+            {field('email', t('couriers.field.email'), 'email')}
             {emailChanged ? (
               <p role="note" className="rounded-md border border-border bg-muted p-3 text-xs">
-                A new login email signs the rider out on every phone. Their old address is told about the change.
+                {t('couriers.account.emailNote')}
               </p>
             ) : null}
-            {field('emergencyContactName', 'Emergency contact name')}
-            {field('emergencyContactPhone', 'Emergency contact phone', 'tel')}
+            {field('emergencyContactName', t('couriers.field.emergencyContactName'))}
+            {field('emergencyContactPhone', t('couriers.field.emergencyContactPhone'), 'tel')}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={!canSubmit || isLoading}>
               {isLoading ? <Spinner className="mr-2" /> : null}
-              Save
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </form>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
 import type { ShiftOfflineEventAdminDto } from '@/backend-admin-sdk'
 import { useFollowUpShiftOfflineEventMutation, useGetShiftOfflineEventsQuery } from '@/api/shiftOfflineEventApi'
@@ -8,11 +9,15 @@ import { usePageVisible } from '@/hooks/usePageVisible'
 // with them in person. Newest first by the Offline time, open and followed up together; a followed up one
 // stays for 7 days. Never
 // grouped, counted, searched or sorted by rider (value 5): the rider learns nothing here costs them.
+// The shift, the Offline time and the cause are the server's own text, shown as sent.
 export function ShiftOfflineEventsCard() {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const visible = usePageVisible()
   const query = useGetShiftOfflineEventsQuery(undefined, { pollingInterval: visible ? 60_000 : 0 })
   const [followUp] = useFollowUpShiftOfflineEventMutation()
   const [busyId, setBusyId] = useState<string | null>(null)
+  // A translation key, not words, so a language switch reaches a message already on screen.
   const [problem, setProblem] = useState<string | null>(null)
 
   const onFollowUp = async (event: ShiftOfflineEventAdminDto) => {
@@ -23,9 +28,7 @@ export function ShiftOfflineEventsCard() {
     } catch (error) {
       const status = (error as { statusCode?: number } | undefined)?.statusCode
       setProblem(
-        status === 409
-          ? 'Another admin followed this up first. The list is up to date now.'
-          : 'Could not save the follow up. Try again.'
+        status === 409 ? 'shiftSlots.offline.conflict' : 'shiftSlots.offline.failed'
       )
     } finally {
       setBusyId(null)
@@ -36,24 +39,21 @@ export function ShiftOfflineEventsCard() {
   return (
     <Card className="mt-6">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Offline during a booked shift</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          A rider who stayed Offline past the break limit during their booked shift. Check in with them in person;
-          nothing here changes their offers or pay, and the rider sees the same record.
-        </p>
+        <CardTitle className="text-lg">{t('shiftSlots.offline.title')}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t('shiftSlots.offline.description')}</p>
       </CardHeader>
       <CardContent>
         {problem ? (
           <Alert className="mb-3" role="alert">
-            <AlertDescription>{problem}</AlertDescription>
+            <AlertDescription>{t(problem)}</AlertDescription>
           </Alert>
         ) : null}
         {query.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
         ) : query.isError ? (
-          <p className="text-sm text-destructive">Could not load this list.</p>
+          <p className="text-sm text-destructive">{t('shiftSlots.offline.loadFailed')}</p>
         ) : events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing to follow up.</p>
+          <p className="text-sm text-muted-foreground">{t('shiftSlots.offline.none')}</p>
         ) : (
           <ul className="divide-y divide-border">
             {events.map((event) => (
@@ -61,22 +61,31 @@ export function ShiftOfflineEventsCard() {
                 <div className="text-sm">
                   <p className="font-medium">{event.courierName}</p>
                   <p className="text-muted-foreground">
-                    Shift {event.shiftText} · Offline at {event.offlineTime ?? 'an unknown time'} · {event.causeText}
+                    {t('shiftSlots.offline.line', {
+                      shift: event.shiftText,
+                      time: event.offlineTime ?? t('shiftSlots.offline.unknownTime'),
+                      cause: event.causeText,
+                    })}
                   </p>
                 </div>
                 {event.followedUpAt ? (
                   <p className="text-sm text-muted-foreground">
-                    Followed up{event.followedUpByEmail ? ` by ${event.followedUpByEmail}` : ''}
+                    {event.followedUpByEmail
+                      ? t('shiftSlots.offline.followedUpBy', { email: event.followedUpByEmail })
+                      : t('shiftSlots.offline.followedUp')}
                   </p>
                 ) : (
                   <Button
                     type="button"
                     variant="outline"
                     disabled={busyId !== null}
-                    aria-label={`Mark followed up: ${event.courierName}, Offline at ${event.offlineTime ?? 'an unknown time'}`}
+                    aria-label={t('shiftSlots.offline.markLabel', {
+                      name: event.courierName,
+                      time: event.offlineTime ?? t('shiftSlots.offline.unknownTime'),
+                    })}
                     onClick={() => void onFollowUp(event)}
                   >
-                    {busyId === event.id ? 'Saving…' : 'Followed up'}
+                    {busyId === event.id ? t('common.saving') : t('shiftSlots.offline.followedUp')}
                   </Button>
                 )}
               </li>

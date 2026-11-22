@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { SosPointAdminDto } from '@/backend-admin-sdk'
-import { athensDateTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { useFormat } from '@/i18n/useFormat'
+import { sosTime } from './sosDisplay'
 
 type Props = {
   // Oldest first, as the backend sends them.
@@ -42,6 +44,9 @@ function FitToTrail({ points }: Props) {
 // page and nowhere else (AC-13). The newest point is the big red one. Loaded only in the browser
 // (the page imports it with `ssr: false`), because Leaflet needs `window`.
 export default function SosTrailMap({ points }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat gives the time in it.
+  const { t } = useTranslation()
+  const f = useFormat()
   const trail = points.map((point) => [point.latitude, point.longitude] as [number, number])
   const newest = points[points.length - 1]
   return (
@@ -62,7 +67,7 @@ export default function SosTrailMap({ points }: Props) {
             radius={9}
             pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#c8453e', fillOpacity: 1 }}
           >
-            <Tooltip>Last position, {athensDateTime(newest.recordedAt)}</Tooltip>
+            <Tooltip>{t('sos.details.lastPosition', { time: sosTime(f, newest.recordedAt) })}</Tooltip>
           </CircleMarker>
         ) : null}
         <FitToTrail points={points} />

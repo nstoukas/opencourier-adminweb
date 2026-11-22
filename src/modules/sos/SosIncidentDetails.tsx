@@ -1,15 +1,16 @@
 import { useGetSosIncidentQuery } from '@/api/sosApi'
 import { PageHeader } from '@/components/layouts/PageHeader'
-import { athensDateTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { useFormat } from '@/i18n/useFormat'
 import { Button, DetailList, Spinner } from '../../admin-web-components'
 import { CheckCircle } from '@phosphor-icons/react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CloseSosDialog } from './CloseSosDialog'
 import { SosEmergencyContact } from './SosEmergencyContact'
 import { riderName } from './sosAlerts'
-import { SOS_OUTCOME_LABELS, closedByName, riderEnd } from './sosDisplay'
+import { closedByName, outcomeLabel, riderEnd, sosTime } from './sosDisplay'
 import { SosStateBadge } from './SosStateBadge'
 
 // Leaflet needs `window`, so the map loads only in the browser.
@@ -24,6 +25,9 @@ const ACTIVE_POLL_MS = 10_000
 // Spec 0022 (AC-9, AC-10): one SOS. Who, when, how it ended, the trail while its points exist, and
 // the close.
 export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat gives times in it.
+  const { t } = useTranslation()
+  const f = useFormat()
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const [closeOpen, setCloseOpen] = useState(false)
   const query = useGetSosIncidentQuery({ id: incidentId }, { skip: incidentId === '' })
@@ -45,7 +49,10 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
       <>
         <PageHeader title="SOS" />
         <p role="alert" className="text-sm text-destructive">
-          This SOS could not be loaded. <Link href="/sos" className="underline">Back to SOS</Link>
+          {t('sos.details.loadFailed')}{' '}
+          <Link href="/sos" className="underline">
+            {t('sos.details.back')}
+          </Link>
         </p>
       </>
     )
@@ -53,7 +60,7 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
   if (!incident) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner className="h-4 w-4" /> Loading…
+        <Spinner className="h-4 w-4" /> {t('common.loading')}
       </div>
     )
   }
@@ -66,7 +73,7 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
   return (
     <>
       <PageHeader
-        title={`SOS: ${name}`}
+        title={t('sos.titleNamed', { name })}
         action={
           // The header's description is a <p>, which a badge (a <div>) may not sit in: it goes here.
           <>
@@ -74,7 +81,7 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
             {open ? (
               <Button ref={closeButtonRef} type="button" variant="destructive" onClick={() => setCloseOpen(true)}>
                 <CheckCircle aria-hidden="true" className="mr-2 h-4 w-4" />
-                Close SOS
+                {t('sos.details.close')}
               </Button>
             ) : null}
           </>
@@ -98,47 +105,57 @@ export function SosIncidentDetails({ incidentId }: { incidentId: string }) {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
         <section aria-labelledby="sos-trail" className="flex flex-col gap-2">
           <h2 id="sos-trail" className="text-lg font-semibold">
-            Where the rider was
+            {t('sos.details.trailTitle')}
           </h2>
           {firstPoint && lastPoint ? (
             <>
               <SosTrailMap points={incident.points} />
               <p className="text-xs text-muted-foreground">
-                {incident.points.length} positions from {athensDateTime(firstPoint.recordedAt)} to{' '}
-                {athensDateTime(lastPoint.recordedAt)}
-                {active ? '. Updates every 10 s while the SOS is active.' : '.'}
+                {t('sos.details.positions', {
+                  count: incident.points.length,
+                  from: sosTime(f, firstPoint.recordedAt),
+                  to: sosTime(f, lastPoint.recordedAt),
+                })}
+                {active ? ` ${t('sos.details.updates')}` : ''}
               </p>
             </>
           ) : (
             <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
               {incident.pointsDeletedAt
-                ? `Location points deleted (${athensDateTime(incident.pointsDeletedAt)}).`
-                : 'No location points recorded.'}
+                ? t('sos.details.pointsDeleted', { time: sosTime(f, incident.pointsDeletedAt) })
+                : t('sos.details.noPoints')}
             </p>
           )}
         </section>
 
         <section aria-labelledby="sos-facts" className="flex flex-col gap-2">
           <h2 id="sos-facts" className="text-lg font-semibold">
-            The record
+            {t('sos.details.record')}
           </h2>
           <DetailList
             items={[
-              { label: 'Rider', value: <Link className="underline" href={`/couriers/${incident.courier.id}`}>{name}</Link> },
-              { label: 'Started', value: athensDateTime(incident.startedAt) },
               {
-                label: 'Job held',
+                label: t('sos.details.rider'),
+                value: (
+                  <Link className="underline" href={`/couriers/${incident.courier.id}`}>
+                    {name}
+                  </Link>
+                ),
+              },
+              { label: t('sos.details.started'), value: sosTime(f, incident.startedAt) },
+              {
+                label: t('sos.details.jobHeld'),
                 value: incident.deliveryId ? (
                   <Link className="underline" href={`/deliveries/${incident.deliveryId}`}>
-                    Open the delivery
+                    {t('sos.details.openDelivery')}
                   </Link>
                 ) : null,
               },
-              { label: 'Rider ended it', value: riderEnd(incident) },
-              { label: 'Closed', value: incident.closedAt ? athensDateTime(incident.closedAt) : null },
-              { label: 'Closed by', value: closedByName(incident) },
-              { label: 'Outcome', value: incident.outcome ? SOS_OUTCOME_LABELS[incident.outcome] : null },
-              { label: 'Note', value: incident.note },
+              { label: t('sos.details.riderEnded'), value: riderEnd(incident, t, f) },
+              { label: t('sos.details.closed'), value: incident.closedAt ? sosTime(f, incident.closedAt) : null },
+              { label: t('sos.details.closedBy'), value: closedByName(incident, t) },
+              { label: t('sos.details.outcome'), value: incident.outcome ? outcomeLabel(incident.outcome, t) : null },
+              { label: t('sos.details.note'), value: incident.note },
             ]}
           />
         </section>

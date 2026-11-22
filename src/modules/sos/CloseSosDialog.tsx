@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Dialog,
@@ -14,8 +15,8 @@ import {
 } from '@/admin-web-components'
 import { useCloseSosMutation } from '@/api/sosApi'
 import type { SosOutcome } from '@/backend-admin-sdk'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
-import { SOS_NOTE_MAX, SOS_OUTCOMES, SOS_OUTCOME_LABELS } from './sosDisplay'
+import { useServerText } from '@/i18n/useServerText'
+import { SOS_NOTE_MAX, SOS_OUTCOMES, outcomeLabel } from './sosDisplay'
 
 type Props = {
   open: boolean
@@ -46,18 +47,22 @@ export function CloseSosDialog({
   riderOutcome,
   returnFocusTo,
 }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const { toast } = useToast()
   const [closeSos, { isLoading }] = useCloseSosMutation()
   // '' while nothing is chosen yet: Close SOS stays disabled until it is.
   const [outcome, setOutcome] = useState<SosOutcome | ''>(riderOutcome ?? '')
   const [note, setNote] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // What the server threw, kept as it came: its words are worked out when drawn, in the current language.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
 
   useEffect(() => {
     if (open) {
       setOutcome(riderOutcome ?? '')
       setNote('')
-      setError(null)
+      setFailure(null)
     }
   }, [open, riderOutcome])
 
@@ -66,14 +71,14 @@ export function CloseSosDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (isLoading || tooLong || outcome === '') return
-    setError(null)
+    setFailure(null)
     try {
       await closeSos({ id: incidentId, outcome, note: note.trim() === '' ? null : note.trim() }).unwrap()
-      toast({ title: 'The SOS is closed.' })
+      toast({ title: t('sos.close.done') })
       onOpenChange(false)
     } catch (err: unknown) {
-      // The backend names what is wrong ("This SOS has already been closed.").
-      setError(backendMessage(err, 'The SOS could not be closed. Please try again.'))
+      // The backend names what is wrong ("This SOS has already been closed."), shown when drawn.
+      setFailure({ error: err })
     }
   }
 
@@ -94,23 +99,21 @@ export function CloseSosDialog({
       >
         <form onSubmit={submit} noValidate>
           <DialogHeader>
-            <DialogTitle>Close {riderName}&apos;s SOS</DialogTitle>
+            <DialogTitle>{t('sos.close.title', { name: riderName })}</DialogTitle>
             <DialogDescription>
-              {active
-                ? "Closing it stops the rider's phone sharing its position, and they can be offered work again."
-                : 'The rider already ended it. Closing it records what happened.'}
+              {active ? t('sos.close.activeDescription') : t('sos.close.endedDescription')}
             </DialogDescription>
           </DialogHeader>
 
-          {error ? (
+          {failure ? (
             <p role="alert" className="mt-3 text-sm font-medium text-destructive">
-              {error}
+              {errorText(failure.error, t('sos.close.failed'))}
             </p>
           ) : null}
 
           <div className="space-y-3 py-4">
             <div className="space-y-1">
-              <Label htmlFor="sos-outcome">What happened</Label>
+              <Label htmlFor="sos-outcome">{t('sos.close.whatHappened')}</Label>
               <select
                 id="sos-outcome"
                 className={SELECT_CLASS}
@@ -118,17 +121,17 @@ export function CloseSosDialog({
                 onChange={(e) => setOutcome(e.target.value as SosOutcome | '')}
               >
                 <option value="" disabled>
-                  Choose…
+                  {t('sos.close.choose')}
                 </option>
                 {SOS_OUTCOMES.map((value) => (
                   <option key={value} value={value}>
-                    {SOS_OUTCOME_LABELS[value]}
+                    {outcomeLabel(value, t)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="sos-note">Note (optional)</Label>
+              <Label htmlFor="sos-note">{t('sos.close.note')}</Label>
               <Textarea
                 id="sos-note"
                 value={note}
@@ -138,18 +141,18 @@ export function CloseSosDialog({
                 onChange={(e) => setNote(e.target.value)}
               />
               <p id="sos-note-count" className={tooLong ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
-                {note.length} / {SOS_NOTE_MAX}
+                {`${note.length} / ${SOS_NOTE_MAX}`}
               </p>
             </div>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isLoading || tooLong || outcome === ''}>
               {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-              Close SOS
+              {t('sos.details.close')}
             </Button>
           </DialogFooter>
         </form>

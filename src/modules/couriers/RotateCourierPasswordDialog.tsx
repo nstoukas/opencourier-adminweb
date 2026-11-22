@@ -12,8 +12,10 @@ import {
   Spinner,
   useToast,
 } from '@/admin-web-components'
+import { useTranslation } from 'react-i18next'
 import { useRotateCourierPasswordMutation } from '@/api/couriersApi'
-import { PASSWORD_MAX, PASSWORD_MIN, backendMessage, isValidPasswordPair, passwordProblem } from './courierAccountRules'
+import { useServerText } from '@/i18n/useServerText'
+import { PASSWORD_MAX, PASSWORD_MIN, isValidPasswordPair, passwordProblem } from './courierAccountRules'
 
 type Props = {
   open: boolean
@@ -38,35 +40,39 @@ export function RotateCourierPasswordDialog({
   carryingDelivery,
   returnFocusTo,
 }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  const { errorText } = useServerText()
   const { toast } = useToast()
   const [rotatePassword, { isLoading }] = useRotateCourierPasswordMutation()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const who = firstName.trim() || 'this rider'
-  const Who = firstName.trim() || 'This rider'
+  // What the server threw, kept as it came: its words are worked out when drawn, in the current language.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
+  const name = firstName.trim()
+  const Who = name || t('couriers.rotate.thisRider')
 
   useEffect(() => {
     if (open) {
       setPassword('')
       setConfirm('')
-      setError(null)
+      setFailure(null)
     }
   }, [open])
 
-  const problem = passwordProblem(password, confirm)
+  const problem = passwordProblem(password, confirm, t)
   const isValid = isValidPasswordPair(password, confirm)
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!isValid || isLoading) return
-    setError(null)
+    setFailure(null)
     try {
       await rotatePassword({ id: courierId, password }).unwrap()
-      toast({ title: `New password set for ${who}. Their phone is signed out.` })
+      toast({ title: name ? t('couriers.rotate.toastNamed', { name }) : t('couriers.rotate.toastUnnamed') })
       onOpenChange(false)
     } catch (err: unknown) {
-      setError(backendMessage(err, 'The password could not be changed. Please try again.'))
+      setFailure({ error: err })
     }
   }
 
@@ -81,39 +87,36 @@ export function RotateCourierPasswordDialog({
       >
         <form onSubmit={submit} noValidate>
           <DialogHeader>
-            <DialogTitle>Change password</DialogTitle>
-            <DialogDescription>
-              {Who} is signed out of the app on their phone and set Offline. They log in again with the new password.
-            </DialogDescription>
+            <DialogTitle>{t('couriers.rotate.title')}</DialogTitle>
+            <DialogDescription>{t('couriers.rotate.description', { who: Who })}</DialogDescription>
           </DialogHeader>
 
           {carryingDelivery ? (
             <p role="note" className="mt-3 rounded-md border border-border bg-muted p-3 text-sm">
-              {Who} is carrying a delivery. Steps still waiting on their phone are sent only when they log in again on
-              that phone. If the phone is lost, reassign the delivery.
+              {t('couriers.rotate.carrying', { who: Who })}
             </p>
           ) : null}
 
-          {error ? (
+          {failure ? (
             <p role="alert" className="mt-3 text-sm font-medium text-destructive">
-              {error}
+              {errorText(failure.error, t('couriers.rotate.saveFailed'))}
             </p>
           ) : null}
 
           <div className="space-y-3 py-4">
             <div className="space-y-1">
-              <Label htmlFor="rider-new-password">New password</Label>
+              <Label htmlFor="rider-new-password">{t('couriers.rotate.newPassword')}</Label>
               <Input
                 id="rider-new-password"
                 type="password"
                 autoComplete="new-password"
-                placeholder={`${PASSWORD_MIN} to ${PASSWORD_MAX} characters`}
+                placeholder={t('couriers.password.placeholder', { min: PASSWORD_MIN, max: PASSWORD_MAX })}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="rider-new-password-confirm">New password again</Label>
+              <Label htmlFor="rider-new-password-confirm">{t('couriers.rotate.newPasswordAgain')}</Label>
               <Input
                 id="rider-new-password-confirm"
                 type="password"
@@ -132,11 +135,11 @@ export function RotateCourierPasswordDialog({
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={!isValid || isLoading}>
               {isLoading ? <Spinner className="mr-2" /> : null}
-              Set new password
+              {t('couriers.rotate.submit')}
             </Button>
           </DialogFooter>
         </form>

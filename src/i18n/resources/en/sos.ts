@@ -1,3 +1,93 @@
 // sos: English texts (spec 0054, row 47). Every key here has its Greek in ../el/sos.ts.
 export const sos = {
+  // "SOS: Maria Papadopoulou", the incident page's title and the browser notification's.
+  titleNamed: 'SOS: {{name}}',
+  outcome: {
+    RIDER_SAFE: 'Rider safe',
+    HELP_ARRIVED: 'Help arrived',
+    FALSE_ALARM: 'False alarm',
+    OTHER: 'Other',
+  },
+  state: {
+    ACTIVE: 'Active',
+    AWAITING_CLOSE: 'Awaiting close',
+    CLOSED: 'Closed',
+  },
+  // How long an SOS has been running.
+  ago: {
+    justNow: 'just now',
+    minutes: '{{minutes}} min ago',
+    hours: '{{hours}} h ago',
+    hoursMinutes: '{{hours}} h {{minutes}} min ago',
+  },
+  banner: {
+    active: 'SOS: {{name}}, {{ago}}',
+    falseAlarm: '{{name}} marked false alarm, awaiting close',
+    safe: '{{name}} marked safe, awaiting close',
+    label: "Riders' SOS",
+  },
+  riderEnd: {
+    safe: 'Safe at {{time}}',
+    falseAlarm: 'False alarm at {{time}}',
+  },
+  anAdmin: 'an admin',
+  // The browser notification for a new SOS (its title is titleNamed).
+  notificationBody: 'A rider needs help. Open the admin to see where they are.',
+  alerts: {
+    unreachableSince: 'No contact with the server since {{time}}. SOS alerts may be late.',
+    unreachable: 'Cannot reach the server. SOS alerts may be late.',
+    blocked: 'Notifications blocked in this browser: allow them in the site settings. Banner and sound are on.',
+    off: 'SOS alerts off',
+    soundOn: 'Turn SOS sound on',
+    enable: 'Enable SOS alerts',
+  },
+  list: {
+    description:
+      "A rider's position is shared only while their SOS is active, and deleted after the period set on Settings.",
+    openNow: 'Open now',
+    unreachable: 'Cannot reach the server, so this list may be out of date. It is asked again every 10 s.',
+    none: 'No rider has an open SOS.',
+    closed: 'Closed',
+    state: 'State',
+    riderEnd: 'Safe or false alarm',
+    action: 'Action',
+  },
+  details: {
+    loadFailed: 'This SOS could not be loaded.',
+    back: 'Back to SOS',
+    close: 'Close SOS',
+    trailTitle: 'Where the rider was',
+    positions_one: '{{count}} position from {{from}} to {{to}}.',
+    positions_other: '{{count}} positions from {{from}} to {{to}}.',
+    updates: 'Updates every 10 s while the SOS is active.',
+    pointsDeleted: 'Location points deleted ({{time}}).',
+    noPoints: 'No location points recorded.',
+    lastPosition: 'Last position, {{time}}',
+    record: 'The record',
+    rider: 'Rider',
+    started: 'Started',
+    jobHeld: 'Job held',
+    openDelivery: 'Open the delivery',
+    riderEnded: 'Rider ended it',
+    closed: 'Closed',
+    closedBy: 'Closed by',
+    outcome: 'Outcome',
+    note: 'Note',
+  },
+  contact: {
+    title: 'Emergency contact',
+    none: 'No emergency contact',
+    failed: 'The emergency contact could not be loaded.',
+    openRider: "Open the rider's page",
+  },
+  close: {
+    title: "Close {{name}}'s SOS",
+    activeDescription: "Closing it stops the rider's phone sharing its position, and they can be offered work again.",
+    endedDescription: 'The rider already ended it. Closing it records what happened.',
+    whatHappened: 'What happened',
+    choose: 'Choose…',
+    note: 'Note (optional)',
+    done: 'The SOS is closed.',
+    failed: 'The SOS could not be closed. Please try again.',
+  },
 }

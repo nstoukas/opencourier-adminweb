@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next'
+
 // The rules the backend applies to a rider's login (spec 0013, AC-3), checked here first so the
 // admin sees what is wrong before sending. The backend checks again; it has the last word.
 
@@ -19,10 +21,11 @@ export function isValidEmail(email: string): boolean {
 export const PASSWORD_MIN = 8
 export const PASSWORD_MAX = 72
 
-export function passwordProblem(password: string, confirm: string): string | null {
-  if (password.length > 0 && password.length < PASSWORD_MIN) return `At least ${PASSWORD_MIN} characters.`
-  if (password.length > PASSWORD_MAX) return `At most ${PASSWORD_MAX} characters.`
-  if (confirm.length > 0 && password !== confirm) return 'The two passwords do not match.'
+// The problem in words, in the reader's language (`t` comes from the component's useTranslation).
+export function passwordProblem(password: string, confirm: string, t: TFunction): string | null {
+  if (password.length > 0 && password.length < PASSWORD_MIN) return t('couriers.password.tooShort', { min: PASSWORD_MIN })
+  if (password.length > PASSWORD_MAX) return t('couriers.password.tooLong', { max: PASSWORD_MAX })
+  if (confirm.length > 0 && password !== confirm) return t('couriers.password.mismatch')
   return null
 }
 
@@ -30,6 +33,9 @@ export function isValidPasswordPair(password: string, confirm: string): boolean 
   return password.length >= PASSWORD_MIN && password.length <= PASSWORD_MAX && password === confirm
 }
 
+// The backend's own sentence when it sent one. Kept for the modules that still call it; the couriers,
+// shift slots and SOS screens use useServerText().errorText instead, which also knows the error codes
+// the server translates (spec 0054, AC-6).
 // The backend's own sentence when it sent one ("That phone is already used by another rider."),
 // else the fallback. `err` is whatever the mutation threw, so every step is checked.
 export function backendMessage(err: unknown, fallback: string): string {

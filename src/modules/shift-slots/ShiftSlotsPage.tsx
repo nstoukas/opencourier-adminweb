@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CalendarPlus, ClockCounterClockwise, PencilSimple, Trash } from '@phosphor-icons/react'
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, CardTitle, Switch } from '@/admin-web-components'
 import type { ShiftSlotAdminDto } from '@/backend-admin-sdk'
@@ -9,7 +10,8 @@ import { RemoveShiftSlotDialog } from './RemoveShiftSlotDialog'
 import { ShiftSlotDialog } from './ShiftSlotDialog'
 import { ShiftSlotHistoryDialog } from './ShiftSlotHistoryDialog'
 import { ShiftOfflineEventsCard } from './ShiftOfflineEventsCard'
-import { WEEKDAYS, minutesToClock } from './shiftSlotDisplay'
+import { useFormat } from '@/i18n/useFormat'
+import { WEEKDAYS, minutesToClock, weekdayLabel } from './shiftSlotDisplay'
 
 // Which dialog over a slot is open, besides Add and Edit.
 type SlotDialog = { kind: 'remove' | 'history'; slot: ShiftSlotAdminDto } | null
@@ -17,6 +19,9 @@ type SlotDialog = { kind: 'remove' | 'history'; slot: ShiftSlotAdminDto } | null
 // The co-op's weekly shift slots (spec 0026, row 77): grouped by day, each with its times and cap, and
 // Add, Edit, Remove and History. Nothing here reaches riders until shift booking (row 78).
 export function ShiftSlotsPage() {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat knows which one.
+  const { t } = useTranslation()
+  const { language } = useFormat()
   const [showRemoved, setShowRemoved] = useState(false)
   const slotsQuery = useGetShiftSlotsQuery({ includeRemoved: showRemoved })
   const configQuery = useGetInstanceConfigQuery({})
@@ -46,8 +51,8 @@ export function ShiftSlotsPage() {
   return (
     <>
       <PageHeader
-        title="Shift slots"
-        description="Weekly slots in Athens time, with the most riders each takes. Every change is on the record."
+        title={t('shiftSlots.page.title')}
+        description={t('shiftSlots.page.description')}
         action={
           <Button
             ref={addRef}
@@ -59,110 +64,117 @@ export function ShiftSlotsPage() {
             }}
           >
             <CalendarPlus aria-hidden="true" className="mr-2 h-4 w-4" />
-            Add slot
+            {t('shiftSlots.page.add')}
           </Button>
         }
       />
 
       {shiftsOff ? (
         <Alert className="mb-6">
-          <AlertDescription>
-            Shifts are off. Riders see none of this until you switch them on in Settings.
-          </AlertDescription>
+          <AlertDescription>{t('shiftSlots.page.shiftsOff')}</AlertDescription>
         </Alert>
       ) : null}
 
       <div className="mb-4 flex items-center gap-3">
         <Switch id="show-removed-slots" checked={showRemoved} onCheckedChange={(checked: boolean) => setShowRemoved(checked)} />
         <label htmlFor="show-removed-slots" className="text-sm">
-          Show removed slots
+          {t('shiftSlots.page.showRemoved')}
         </label>
       </div>
 
       {slotsQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
       ) : slotsQuery.isError ? (
-        <p className="text-sm text-destructive">Could not load the shift slots.</p>
+        <p className="text-sm text-destructive">{t('shiftSlots.page.loadFailed')}</p>
       ) : slots.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No shift slots yet.</p>
+        <p className="text-sm text-muted-foreground">{t('shiftSlots.page.none')}</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {WEEKDAYS.filter((day) => slots.some((slot) => slot.weekday === day.value)).map((day) => (
-            <Card key={day.value}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{day.label}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul>
-                  {slots
-                    .filter((slot) => slot.weekday === day.value)
-                    .map((slot) => {
-                      const removed = slot.removedAt !== null
-                      return (
-                        <li
-                          key={slot.id}
-                          className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-b-0"
-                        >
-                          <span className={`text-sm ${removed ? 'text-muted-foreground line-through' : 'font-medium'}`}>
-                            <span className="tabular-nums">
-                              {minutesToClock(slot.startMinute)} to {minutesToClock(slot.endMinute)}
+          {WEEKDAYS.filter((weekday) => slots.some((slot) => slot.weekday === weekday)).map((weekday) => {
+            const dayName = weekdayLabel(weekday, t, language)
+            return (
+              <Card key={weekday}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">{dayName}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul>
+                    {slots
+                      .filter((slot) => slot.weekday === weekday)
+                      .map((slot) => {
+                        const removed = slot.removedAt !== null
+                        // The day and times every button's label names, for a screen reader.
+                        const labelValues = {
+                          day: dayName,
+                          start: minutesToClock(slot.startMinute),
+                          end: minutesToClock(slot.endMinute),
+                        }
+                        return (
+                          <li
+                            key={slot.id}
+                            className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-b-0"
+                          >
+                            <span className={`text-sm ${removed ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                              <span className="tabular-nums">
+                                {t('shiftSlots.times', { start: labelValues.start, end: labelValues.end })}
+                              </span>
+                              {' · '}
+                              {t('shiftSlots.riders', { count: slot.riderCap })}
+                              {removed ? ` · ${t('shiftSlots.page.removed')}` : ''}
                             </span>
-                            {' · '}
-                            {slot.riderCap === 1 ? '1 rider' : `${slot.riderCap} riders`}
-                            {removed ? ' · removed' : ''}
-                          </span>
-                          <span className="flex gap-2">
-                            {removed ? null : (
-                              <>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  aria-label={`Edit ${day.label} ${minutesToClock(slot.startMinute)} to ${minutesToClock(slot.endMinute)}`}
-                                  onClick={(event) => {
-                                    editorReturn.current = event.currentTarget
-                                    setEditing(slot)
-                                    setEditorOpen(true)
-                                  }}
-                                >
-                                  <PencilSimple aria-hidden="true" className="mr-1.5 h-4 w-4" />
-                                  Edit
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  aria-label={`Remove ${day.label} ${minutesToClock(slot.startMinute)} to ${minutesToClock(slot.endMinute)}`}
-                                  onClick={(event) => {
-                                    openerRef.current = event.currentTarget
-                                    setSlotDialog({ kind: 'remove', slot })
-                                  }}
-                                >
-                                  <Trash aria-hidden="true" className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`History of ${day.label} ${minutesToClock(slot.startMinute)} to ${minutesToClock(slot.endMinute)}`}
-                              onClick={(event) => {
-                                openerRef.current = event.currentTarget
-                                setSlotDialog({ kind: 'history', slot })
-                              }}
-                            >
-                              <ClockCounterClockwise aria-hidden="true" className="mr-1.5 h-4 w-4" />
-                              History
-                            </Button>
-                          </span>
-                        </li>
+                            <span className="flex gap-2">
+                              {removed ? null : (
+                                <>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    aria-label={t('shiftSlots.page.editLabel', labelValues)}
+                                    onClick={(event) => {
+                                      editorReturn.current = event.currentTarget
+                                      setEditing(slot)
+                                      setEditorOpen(true)
+                                    }}
+                                  >
+                                    <PencilSimple aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                                    {t('common.edit')}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    aria-label={t('shiftSlots.page.removeLabel', labelValues)}
+                                    onClick={(event) => {
+                                      openerRef.current = event.currentTarget
+                                      setSlotDialog({ kind: 'remove', slot })
+                                    }}
+                                  >
+                                    <Trash aria-hidden="true" className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-label={t('shiftSlots.page.historyLabel', labelValues)}
+                                onClick={(event) => {
+                                  openerRef.current = event.currentTarget
+                                  setSlotDialog({ kind: 'history', slot })
+                                }}
+                              >
+                                <ClockCounterClockwise aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                                {t('shiftSlots.page.history')}
+                              </Button>
+                            </span>
+                          </li>
                       )
                     })}
                 </ul>
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       )}
 

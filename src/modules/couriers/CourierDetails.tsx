@@ -1,15 +1,15 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useGetCourierQuery } from '@/api/couriersApi'
 import { useGetDeliveriesQuery } from '@/api/deliveriesApi'
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { usePageVisible } from '@/hooks/usePageVisible'
-import { formatMoney } from '@/utils/formatMoney'
-import { formatDate } from '@/ui-shared-utils'
+import { useFormat } from '@/i18n/useFormat'
 import { Key, PhoneCall } from '@phosphor-icons/react'
 import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle, DetailList, StatusBadge } from '@/admin-web-components'
 import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
-import { courierName, deliverySettingLabel, memberSince } from './courierDisplay'
+import { courierName, deliverySettingLabel } from './courierDisplay'
 import { RotateCourierPasswordDialog } from './RotateCourierPasswordDialog'
 import { MessageButton } from '@/modules/chat/MessageButton'
 import { CourierTimeWorkedCard } from '@/modules/time-worked/CourierTimeWorkedCard'
@@ -28,6 +28,10 @@ const REFRESH_MS = 30_000
 // The one exception is the Time worked card (spec 0040, decisions 36.3 and 36.8): the same figures the
 // rider sees, shown to answer their questions and review requests, never compared with another rider.
 export function CourierDetails({ courierId }: { courierId: string }) {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat gives dates and
+  // money in that language.
+  const { t } = useTranslation()
+  const f = useFormat()
   const { goToCouriers, goToDeliveryDetails } = useAdminPageNavigator()
   // The Change password dialog (spec 0013), and its button, which gets focus back on close.
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
@@ -53,21 +57,21 @@ export function CourierDetails({ courierId }: { courierId: string }) {
   if (courierQuery.isLoading || (!courier && !courierQuery.isError && courierId)) {
     return (
       <>
-        <PageHeader title="Courier" />
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <PageHeader title={t('couriers.fallbackName')} />
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
       </>
     )
   }
   if (!courier) {
     return (
       <>
-        <PageHeader title="Courier" />
-        <p className="text-sm text-muted-foreground">Courier not found or could not be loaded.</p>
+        <PageHeader title={t('couriers.fallbackName')} />
+        <p className="text-sm text-muted-foreground">{t('couriers.details.notFound')}</p>
       </>
     )
   }
 
-  const name = courierName(courier)
+  const name = courierName(courier, t)
   const firstName = courier.firstName.trim()
 
   return (
@@ -75,7 +79,7 @@ export function CourierDetails({ courierId }: { courierId: string }) {
       <Breadcrumb
         steps={[
           {
-            label: 'Couriers',
+            label: t('couriers.list.title'),
             href: '/couriers',
             onClick: () => goToCouriers(),
           },
@@ -90,7 +94,7 @@ export function CourierDetails({ courierId }: { courierId: string }) {
             <MessageButton party={{ courierId: courier.id }} name={name} />
             <Button ref={passwordButtonRef} type="button" variant="outline" onClick={() => setPasswordDialogOpen(true)}>
               <Key aria-hidden="true" className="mr-2 h-4 w-4" />
-              Change password
+              {t('couriers.rotate.title')}
             </Button>
             {courier.phoneNumber ? (
               // A plain link styled as the design system's default button: the phone dials it.
@@ -99,7 +103,7 @@ export function CourierDetails({ courierId }: { courierId: string }) {
                 className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <PhoneCall aria-hidden="true" className="h-4 w-4" />
-                {firstName ? `Call ${firstName}` : 'Call'}
+                {firstName ? t('couriers.details.callNamed', { name: firstName }) : t('couriers.details.call')}
               </a>
             ) : null}
           </div>
@@ -115,23 +119,23 @@ export function CourierDetails({ courierId }: { courierId: string }) {
       />
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <StatusBadge kind="courier" status={courier.status} />
-        <span>{courier.phoneNumber ?? 'No phone'}</span>
-        <span>Member since {memberSince(courier.createdAt)}</span>
+        <span>{courier.phoneNumber ?? t('couriers.details.noPhone')}</span>
+        <span>{t('couriers.details.memberSince', { date: f.monthYear(courier.createdAt) })}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Right now</CardTitle>
+              <CardTitle className="text-lg">{t('couriers.details.rightNow')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               {nowQuery.isLoading ? (
-                <p className="text-muted-foreground">Loading…</p>
+                <p className="text-muted-foreground">{t('common.loading')}</p>
               ) : nowQuery.isError ? (
-                <p className="text-destructive">Could not load deliveries.</p>
+                <p className="text-destructive">{t('couriers.details.loadDeliveriesFailed')}</p>
               ) : (nowQuery.data?.data ?? []).length === 0 ? (
-                <p className="text-muted-foreground">Not carrying a delivery</p>
+                <p className="text-muted-foreground">{t('couriers.details.notCarrying')}</p>
               ) : (
                 <ul>
                   {(nowQuery.data?.data ?? []).map((delivery) => (
@@ -144,15 +148,15 @@ export function CourierDetails({ courierId }: { courierId: string }) {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Recent deliveries</CardTitle>
+              <CardTitle className="text-lg">{t('couriers.details.recent')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               {recentQuery.isLoading ? (
-                <p className="text-muted-foreground">Loading…</p>
+                <p className="text-muted-foreground">{t('common.loading')}</p>
               ) : recentQuery.isError ? (
-                <p className="text-destructive">Could not load deliveries.</p>
+                <p className="text-destructive">{t('couriers.details.loadDeliveriesFailed')}</p>
               ) : (recentQuery.data?.data ?? []).length === 0 ? (
-                <p className="text-muted-foreground">No deliveries yet</p>
+                <p className="text-muted-foreground">{t('couriers.details.noDeliveries')}</p>
               ) : (
                 <ul>
                   {(recentQuery.data?.data ?? []).map((delivery) => (
@@ -162,9 +166,9 @@ export function CourierDetails({ courierId }: { courierId: string }) {
                       onOpen={goToDeliveryDetails}
                       extra={
                         <span className="text-right text-xs text-muted-foreground">
-                          {formatDate(delivery.createdAt)}
+                          {f.dateTime(delivery.createdAt)}
                           <span className="block font-medium tabular-nums text-foreground">
-                            {formatMoney(delivery.totalCompensation, delivery.currencyCode) ?? '—'}
+                            {f.money(delivery.totalCompensation, delivery.currencyCode)}
                           </span>
                         </span>
                       }
@@ -179,14 +183,14 @@ export function CourierDetails({ courierId }: { courierId: string }) {
         <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Setup</CardTitle>
+              <CardTitle className="text-lg">{t('couriers.details.setup')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               <DetailList
                 items={[
                   {
-                    label: 'Offers',
-                    value: deliverySettingLabel(courier.deliverySetting),
+                    label: t('couriers.field.deliverySetting'),
+                    value: deliverySettingLabel(courier.deliverySetting, t),
                   },
                 ]}
               />

@@ -4,7 +4,8 @@ import type { StatementFormat, StatementLang } from '@/backend-admin-sdk'
 import { downloadStatement, refreshCourierStatements, useGetCourierStatementsQuery } from '@/api/statementApi'
 import useAppSelector from '@/hooks/useAppSelector'
 import { useDispatch } from 'react-redux'
-import { formatDate } from '@/ui-shared-utils'
+import { useTranslation } from 'react-i18next'
+import { useFormat } from '@/i18n/useFormat'
 
 // Spec 0050 (AC-9, cross check 14): a rider's monthly statements, the same file the rider downloads. Every
 // download is recorded on the server and shown to the rider in "Changes by the co-op"; the list below is the
@@ -23,12 +24,16 @@ export function saveBlob(blob: Blob, filename: string): void {
 }
 
 export function CourierStatementsCard({ courierId }: { courierId: string }) {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat formats dates in it.
+  const { t } = useTranslation()
+  const f = useFormat()
   const query = useGetCourierStatementsQuery({ id: courierId })
   const accessToken = useAppSelector((state) => state.auth.accessToken)
   const dispatch = useDispatch()
   const [month, setMonth] = useState('')
   const [lang, setLang] = useState<StatementLang>('el')
   const [busy, setBusy] = useState<StatementFormat | null>(null)
+  // A translation key, not words, so a language switch reaches a message already on screen.
   const [problem, setProblem] = useState<string | null>(null)
   const months = query.data?.months ?? []
   const chosen = month || months[0] || ''
@@ -42,7 +47,7 @@ export function CourierStatementsCard({ courierId }: { courierId: string }) {
       const blob = await downloadStatement(accessToken || '', { id: courierId, month: chosen, format, lang })
       saveBlob(blob, `statement-${chosen}.${format}`)
     } catch {
-      setProblem('The statement could not be downloaded. Please try again.')
+      setProblem('couriers.statements.downloadFailed')
     } finally {
       setBusy(null)
       dispatch(refreshCourierStatements())
@@ -52,21 +57,18 @@ export function CourierStatementsCard({ courierId }: { courierId: string }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Statements</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          The rider&apos;s own monthly record, as they download it: every job with its pay parts, the totals and the
-          hours. Each download is recorded and the rider sees it.
-        </p>
+        <CardTitle className="text-lg">{t('couriers.statements.title')}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t('couriers.statements.description')}</p>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {query.isError ? (
-          <p className="text-destructive">Could not load the statements.</p>
+          <p className="text-destructive">{t('couriers.statements.loadFailed')}</p>
         ) : months.length === 0 && !query.isLoading ? (
-          <p className="text-muted-foreground">No complete month yet.</p>
+          <p className="text-muted-foreground">{t('couriers.statements.noMonth')}</p>
         ) : (
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label htmlFor="statement-month">Month</Label>
+              <Label htmlFor="statement-month">{t('couriers.statements.month')}</Label>
               <select
                 id="statement-month"
                 className="block h-9 rounded-md border border-input bg-background px-2"
@@ -81,41 +83,46 @@ export function CourierStatementsCard({ courierId }: { courierId: string }) {
               </select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="statement-lang">Language</Label>
+              <Label htmlFor="statement-lang">{t('couriers.statements.language')}</Label>
               <select
                 id="statement-lang"
                 className="block h-9 rounded-md border border-input bg-background px-2"
                 value={lang}
                 onChange={(e) => setLang(e.target.value === 'en' ? 'en' : 'el')}
               >
-                <option value="el">Greek</option>
-                <option value="en">English</option>
+                <option value="el">{t('couriers.statements.greek')}</option>
+                <option value="en">{t('couriers.statements.english')}</option>
               </select>
             </div>
             <Button type="button" variant="outline" disabled={!chosen || busy !== null} onClick={() => void download('pdf')}>
-              {busy === 'pdf' ? 'Downloading…' : 'PDF'}
+              {busy === 'pdf' ? t('couriers.statements.downloading') : 'PDF'}
             </Button>
             <Button type="button" variant="outline" disabled={!chosen || busy !== null} onClick={() => void download('csv')}>
-              {busy === 'csv' ? 'Downloading…' : 'CSV'}
+              {busy === 'csv' ? t('couriers.statements.downloading') : 'CSV'}
             </Button>
           </div>
         )}
         {problem ? (
           <p role="alert" className="font-medium text-destructive">
-            {problem}
+            {t(problem)}
           </p>
         ) : null}
         <div>
-          <h3 className="mb-2 font-medium">Downloaded by admins</h3>
+          <h3 className="mb-2 font-medium">{t('couriers.statements.downloadedBy')}</h3>
           {downloads.length === 0 ? (
-            <p className="text-muted-foreground">None yet.</p>
+            <p className="text-muted-foreground">{t('couriers.statements.noneYet')}</p>
           ) : (
             <ul className="space-y-1">
               {downloads.map((row) => (
                 <li key={row.id}>
-                  <span className="text-muted-foreground">{formatDate(row.createdAt)}</span> · {row.month}{' '}
-                  {row.format.toUpperCase()}
-                  {row.adminEmail ? <span className="text-muted-foreground"> by {row.adminEmail}</span> : null}
+                  <span className="text-muted-foreground">{f.dateTime(row.createdAt)}</span>
+                  {` · ${row.month} ${row.format.toUpperCase()}`}
+                  {row.adminEmail ? (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      {t('couriers.statements.by', { email: row.adminEmail })}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>

@@ -7,6 +7,7 @@
 // - A poll tick every 10 s from a tiny Web Worker: Chrome slows an ordinary page timer to once a
 //   minute in a tab hidden for 5 minutes, but not a worker's timer.
 
+import type { TFunction } from 'i18next'
 import type { SosIncidentAdminDto } from '@/backend-admin-sdk'
 
 export const SOS_POLL_MS = 10_000
@@ -144,15 +145,20 @@ export function riderName(incident: Pick<SosIncidentAdminDto, 'courier'>): strin
 }
 
 // One notification for each active SOS this browser has not notified yet. `onOpen` runs when the
-// admin clicks it (the incident's page).
-export function notifyNewSos(incidents: SosIncidentAdminDto[], onOpen: (id: string) => void): void {
+// admin clicks it (the incident's page). `t` comes from the component that calls this (SosAlerts, inside
+// the language provider), so the notification is in the reader's language (spec 0054).
+export function notifyNewSos(
+  incidents: SosIncidentAdminDto[],
+  onOpen: (id: string) => void,
+  t: TFunction,
+): void {
   if (!notificationsAllowed()) return
   const ids = notifiedIds()
   for (const incident of incidents) {
     if (incident.state !== 'ACTIVE' || ids.has(incident.id)) continue
     try {
-      const notification = new Notification(`SOS: ${riderName(incident)}`, {
-        body: 'A rider needs help. Open the admin to see where they are.',
+      const notification = new Notification(t('sos.titleNamed', { name: riderName(incident) }), {
+        body: t('sos.notificationBody'),
         tag: `sos-${incident.id}`,
         requireInteraction: true,
       })

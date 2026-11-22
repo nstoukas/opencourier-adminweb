@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,7 +14,8 @@ import {
 import type { ShiftSlotAdminDto } from '@/backend-admin-sdk'
 import { isShiftSlotConflict, refreshShiftSlots, useRemoveShiftSlotMutation } from '@/api/shiftSlotApi'
 import { useAppDispatch } from '@/ui-shared-utils'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
 import { describeSlot } from './shiftSlotDisplay'
 
 // Asks first, naming the slot (spec 0026, AC-6). The slot leaves the list; it and its record stay.
@@ -26,18 +28,23 @@ export function RemoveShiftSlotDialog({
   onClose: () => void
   onCloseAutoFocus: (event: Event) => void
 }) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  const { language } = useFormat()
+  const { errorText } = useServerText()
   const [removeSlot, { isLoading }] = useRemoveShiftSlotMutation()
   const dispatch = useAppDispatch()
-  const [error, setError] = useState<string | null>(null)
+  // What the server threw, kept as it came: its words are worked out when drawn, in the current language.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
 
   const confirm = async () => {
-    setError(null)
+    setFailure(null)
     try {
       await removeSlot({ id: slot.id }).unwrap()
       onClose()
     } catch (err) {
       if (isShiftSlotConflict(err)) dispatch(refreshShiftSlots())
-      setError(backendMessage(err, 'The slot could not be removed. Try again in a moment.'))
+      setFailure({ error: err })
     }
   }
 
@@ -45,22 +52,22 @@ export function RemoveShiftSlotDialog({
     <AlertDialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
       <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove this slot?</AlertDialogTitle>
+          <AlertDialogTitle>{t('shiftSlots.remove.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            {describeSlot(slot)}. It leaves the list; its record stays, and you can still read it under Show removed slots.
+            {t('shiftSlots.remove.description', { slot: describeSlot(slot, t, language) })}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? (
+        {failure ? (
           <p role="alert" className="text-sm text-destructive">
-            {error}
+            {errorText(failure.error, t('shiftSlots.remove.failed'))}
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t('common.cancel')}</AlertDialogCancel>
           {/* A plain Button, so the dialog stays open until the removal is done. */}
           <Button variant="destructive" onClick={confirm} disabled={isLoading}>
             {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-            Remove
+            {t('common.remove')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -5,15 +5,20 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import type { CourierAdminDto } from '../../backend-admin-sdk'
-import { courierName, deliverySettingLabel, memberSince } from '@/modules/couriers/courierDisplay'
+import { courierName, deliverySettingLabel } from '@/modules/couriers/courierDisplay'
+import { useFormat } from '@/i18n/useFormat'
 import { CouriersListFilters, type CourierListStatus } from '@/modules/couriers/CouriersListFilters'
 import { AddCourierDialog } from '@/modules/couriers/AddCourierDialog'
 import { UserPlus } from '@phosphor-icons/react'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
 import { useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const CouriersPage: NextPage = () => {
+  // useTranslation gives t, which looks a key up in the reader's language; useFormat formats the month.
+  const { t } = useTranslation()
+  const f = useFormat()
   const { goToCourierDetails } = useAdminPageNavigator()
   // The Add courier dialog (spec 0013), and its button, which gets focus back on close.
   const [addOpen, setAddOpen] = useState(false)
@@ -32,22 +37,22 @@ const CouriersPage: NextPage = () => {
     () => [
       {
         id: 'courier',
-        header: 'Courier',
+        header: t('couriers.list.courier'),
         cell: ({ row }) => (
           <div className="flex flex-col">
-            <span className="text-sm font-medium">{courierName(row.original)}</span>
+            <span className="text-sm font-medium">{courierName(row.original, t)}</span>
             <span className="text-xs text-muted-foreground">{row.original.phoneNumber ?? '—'}</span>
           </div>
         ),
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('couriers.list.status'),
         // Spec 0051 (AC-6, cross check 14): a deactivated rider is labelled, never hidden.
         cell: ({ row }) =>
           row.original.deactivatedAt ? (
             <span className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs font-medium">
-              Deactivated
+              {t('couriers.list.deactivated')}
             </span>
           ) : (
             <StatusBadge kind="courier" status={row.original.status} />
@@ -55,22 +60,22 @@ const CouriersPage: NextPage = () => {
       },
       {
         id: 'offers',
-        header: 'Offers',
-        cell: ({ row }) => <span className="text-sm">{deliverySettingLabel(row.original.deliverySetting)}</span>,
+        header: t('couriers.field.deliverySetting'),
+        cell: ({ row }) => <span className="text-sm">{deliverySettingLabel(row.original.deliverySetting, t)}</span>,
       },
       {
         id: 'memberSince',
-        header: 'Member since',
-        cell: ({ row }) => <span className="text-sm">{memberSince(row.original.createdAt)}</span>,
+        header: t('couriers.list.memberSince'),
+        cell: ({ row }) => <span className="text-sm">{f.monthYear(row.original.createdAt)}</span>,
       },
       {
         id: 'action',
-        header: () => <span className="sr-only">Action</span>,
+        header: () => <span className="sr-only">{t('couriers.list.action')}</span>,
         cell: ({ row }) => (
           // The row itself opens the courier; this keeps the click from firing twice.
           <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <Button type="button" variant="outline" size="sm" onClick={() => goToCourierDetails(row.original.id)}>
-              Open
+              {t('common.open')}
             </Button>
           </div>
         ),
@@ -78,8 +83,9 @@ const CouriersPage: NextPage = () => {
     ],
     // goToCourierDetails is left out on purpose. That is safe here only because it calls Next's
     // router, whose push always reaches the one live router, so the first render's copy keeps
-    // working. A function that read state or props could not be left out like this.
-    [],
+    // working. A function that read state or props could not be left out like this. `t` and `f` change
+    // with the language, so the columns are built again then.
+    [t, f],
   )
 
   // Riders go Online and Offline on their own, so the list asks again every 30 s while the tab is
@@ -98,11 +104,11 @@ const CouriersPage: NextPage = () => {
   return (
     <DefaultLayout>
       <PageHeader
-        title="Couriers"
+        title={t('couriers.list.title')}
         action={
           <Button ref={addButtonRef} type="button" onClick={() => setAddOpen(true)}>
             <UserPlus aria-hidden="true" className="mr-2 h-4 w-4" />
-            Add courier
+            {t('couriers.add.title')}
           </Button>
         }
       />
