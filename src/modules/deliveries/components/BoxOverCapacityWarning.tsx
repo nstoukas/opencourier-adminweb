@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 // Spec 0043 (AC-6, AC-8): an admin's assignment that would put a rider past a full box. The backend
 // answers 409 BOX_OVER_CAPACITY with what the rider holds and what the order takes (of 100 units);
@@ -52,6 +53,9 @@ export function BoxOverCapacityWarning({
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
+  // useTranslation gives t, which looks a key up in the reader's language. Called before the early
+  // return below: React needs the same hooks in the same order on every render.
+  const { t } = useTranslation();
   if (!value) return null;
   const total = value.heldUnits + value.deliveryUnits;
   return (
@@ -62,12 +66,13 @@ export function BoxOverCapacityWarning({
       role="alert"
       className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm"
     >
-      <p className="font-medium">This would overfill the rider&apos;s box.</p>
+      <p className="font-medium">{t("deliveries.boxOverCapacity.title")}</p>
       <p className="mt-1">
-        They already hold {value.heldUnits} of 100 box units, and this order
-        takes {value.deliveryUnits}: {total} in all. An overstuffed box is
-        unsafe to ride with. Go ahead only if you have checked with the rider;
-        it is recorded with your name.
+        {t("deliveries.boxOverCapacity.body", {
+          held: value.heldUnits,
+          units: value.deliveryUnits,
+          total,
+        })}
       </p>
       <label className="mt-2 flex items-center gap-2 font-medium">
         <input
@@ -75,7 +80,7 @@ export function BoxOverCapacityWarning({
           checked={checked}
           onChange={(event) => onCheckedChange(event.target.checked)}
         />
-        I checked with the rider that this order fits
+        {t("deliveries.boxOverCapacity.confirm")}
       </label>
     </div>
   );

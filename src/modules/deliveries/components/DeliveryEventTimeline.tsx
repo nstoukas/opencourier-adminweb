@@ -1,10 +1,12 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/admin-web-components'
-import { formatDate, formatDateAsHourAndMinute } from '@/ui-shared-utils'
 import { useGetDeliveryEventsQuery } from '@/api/deliveriesApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
-import { humanizeEventType, describeTransition, lateStepOf } from '@/utils/deliveryEventDisplay'
-import { EVENT_ACTOR_TO_HUMAN, EVENT_SOURCE_TO_HUMAN } from '@/shared-types'
+import { eventTypeLabel, describeTransition, lateStepOf } from '@/utils/deliveryEventDisplay'
+import { enumLabel } from '@/i18n/enumLabel'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
 
 interface DeliveryEventTimelineProps {
   deliveryId: string
@@ -13,14 +15,14 @@ interface DeliveryEventTimelineProps {
   courierNameById?: Map<string, string>
 }
 
-// The words for an actor or a source; a value this copy does not know yet is shown as sent.
-// `Record<string, string | undefined>` lets us look up any string and get undefined back.
-function wordsFor(table: Record<string, string | undefined>, value: string): string {
-  return table[value] ?? value
-}
-
 // Renders the recorded DeliveryEvent history of a delivery, oldest first.
 export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryEventTimelineProps) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Dates and times on Athens time, in the reader's language (spec 0054, AC-3).
+  const f = useFormat()
+  // eventText words each record line in the reader's language from its code (AC-4).
+  const { eventText } = useServerText()
   // Polled every 30 s like the delivery above it, so a new OFFERED, OFFER_EXPIRED or
   // NO_COURIER_AVAILABLE row appears without a reload.
   // Not while the tab is in the background (0 means no polling), like the list.
@@ -39,15 +41,15 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
   return (
     <Card className="mt-4">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">What happened</CardTitle>
+        <CardTitle className="text-lg">{t('deliveries.timeline.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {isLoading ? (
-          <div className="text-muted-foreground">Loading delivery events.</div>
+          <div className="text-muted-foreground">{t('deliveries.timeline.loading')}</div>
         ) : isError || error ? (
-          <div className="text-destructive">Could not load the event history.</div>
+          <div className="text-destructive">{t('deliveries.timeline.loadFailed')}</div>
         ) : !events || events.length === 0 ? (
-          <div className="text-muted-foreground">No DeliveryEvents recorded for this Delivery.</div>
+          <div className="text-muted-foreground">{t('deliveries.timeline.empty')}</div>
         ) : (
           <div className="space-y-3">
             {events.map((event) => {
@@ -55,11 +57,14 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
               // A step a rider sent late from a dead spot (spec 0011, AC-4): shown at the time it
               // happened, with when it arrived under it.
               const late = lateStepOf(event)
-              const sameDay = late !== null && late.occurredAt.toDateString() === late.arrivedAt.toDateString()
+              // The same day on Athens time, where the times are shown.
+              const sameDay = late !== null && f.date(late.occurredAt) === f.date(late.arrivedAt)
               // "Not applied" only for the backend's no transition path (decision 20.13), which is
               // the one failed row stored without a new status; a late step that failed for another
               // reason keeps "Did not take effect" and its message (row 88 review).
               const notApplied = isFailed && late !== null && !event.newStatus
+              // The line in the reader's language, or the stored English of an older row (AC-4).
+              const message = eventText(event)
 
               return (
                 <div
@@ -73,18 +78,20 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{humanizeEventType(event.type)}</span>
+                      <span className="font-semibold">{eventTypeLabel(t, event.type)}</span>
                       {notApplied && (
-                        <Badge variant="destructive">Not applied: the delivery had already changed</Badge>
+                        <Badge variant="destructive">{t('deliveries.timeline.notApplied')}</Badge>
                       )}
-                      {isFailed && !notApplied && <Badge variant="destructive">Did not take effect</Badge>}
+                      {isFailed && !notApplied && <Badge variant="destructive">{t('deliveries.timeline.didNotTakeEffect')}</Badge>}
                     </div>
                     <span className="text-right text-xs text-muted-foreground">
-                      {formatDate(late ? late.occurredAt : event.createdAt)}
+                      {f.dateTime(late ? late.occurredAt : event.createdAt)}
                       {late && (
                         <span data-testid="late-step" className="block text-warning-foreground">
-                          arrived {sameDay ? formatDateAsHourAndMinute(late.arrivedAt) : formatDate(late.arrivedAt)},{' '}
-                          {late.minutesLater} min later
+                          {t('deliveries.timeline.arrived', {
+                            time: sameDay ? f.time(late.arrivedAt) : f.dateTime(late.arrivedAt),
+                            count: late.minutesLater,
+                          })}
                         </span>
                       )}
                     </span>
@@ -92,9 +99,9 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-muted-foreground block">Actor & Source</span>
+                      <span className="text-muted-foreground block">{t('deliveries.timeline.actorAndSource')}</span>
                       <span className="font-medium">
-                        {wordsFor(EVENT_ACTOR_TO_HUMAN, event.actor)} · {wordsFor(EVENT_SOURCE_TO_HUMAN, event.eventSource)}
+                        {`${enumLabel(t, 'eventActor', event.actor)} · ${enumLabel(t, 'eventSource', event.eventSource)}`}
                       </span>
                     </div>
 
@@ -102,7 +109,7 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
                         this delivery's own timeline. Never a count per rider (value 5). */}
                     {event.courierId ? (
                       <div>
-                        <span className="text-muted-foreground block">Rider</span>
+                        <span className="text-muted-foreground block">{t('deliveries.timeline.rider')}</span>
                         {courierNameById?.get(event.courierId) ? (
                           <span className="font-medium">{courierNameById.get(event.courierId)}</span>
                         ) : (
@@ -112,15 +119,23 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
                     ) : null}
 
                     <div>
-                      <span className="text-muted-foreground block">Transition</span>
-                      <span className="font-medium">{describeTransition(event)}</span>
+                      <span className="text-muted-foreground block">{t('deliveries.timeline.transition')}</span>
+                      <span className="font-medium">{describeTransition(event, t)}</span>
                     </div>
                   </div>
 
                   <div>
-                    <span className="text-xs text-muted-foreground block">Message</span>
+                    <span className="text-xs text-muted-foreground block">{t('deliveries.timeline.message')}</span>
                     <p className="text-xs whitespace-pre-wrap break-words mt-0.5">
-                      {event.message ?? '—'}
+                      {message.recordedInEnglish ? (
+                        <>
+                          {/* lang="en": the stored English is read out in English by a screen reader. */}
+                          <span lang="en">{message.text}</span>{' '}
+                          <span className="text-xs text-muted-foreground">({t('common.recordedInEnglish')})</span>
+                        </>
+                      ) : (
+                        (message.text ?? t('common.dash'))
+                      )}
                     </p>
                   </div>
                 </div>
@@ -133,7 +148,7 @@ export function DeliveryEventTimeline({ deliveryId, courierNameById }: DeliveryE
             load error would claim we retrieved something we did not. */}
         {!isLoading && !isError && !error && events && events.length > 0 ? (
           <div className="border-t pt-3 text-xs text-muted-foreground">
-            Recorded DeliveryEvents, in the order the server received them. A step a rider sent late shows the time it happened, and when it arrived. An event the state machine rejects outright is not written, except a rider's late step, which is kept as not applied.
+            {t('deliveries.timeline.footnote')}
           </div>
         ) : null}
       </CardContent>

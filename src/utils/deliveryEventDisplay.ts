@@ -1,10 +1,20 @@
+import type { TFunction } from 'i18next'
 import { statusLabel } from '../admin-web-components/components/atoms/StatusBadge'
 
-// Converts UPPER_SNAKE_CASE event type into Sentence case string for display.
+// Converts UPPER_SNAKE_CASE event type into Sentence case string for display. The English fallback
+// for a type the language files do not name yet (eventTypeLabel below), so it still reads as words.
 export function humanizeEventType(type: string): string {
   if (!type) return '—'
   const formatted = type.replace(/_/g, ' ').toLowerCase()
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+}
+
+// An event type in the reader's language (spec 0054): `deliveries.eventType.<TYPE>`, or the English
+// words above for a type the backend added after this copy. TFunction is the type of i18next's `t`.
+export function eventTypeLabel(t: TFunction, type: string): string {
+  if (!type) return '—'
+  // defaultValue is what i18next returns when the key does not exist.
+  return t(`deliveries.eventType.${type}`, { defaultValue: humanizeEventType(type) })
 }
 
 // The words for a delivery status: the same ones StatusBadge shows (both read STATUS_TO_HUMAN
@@ -15,28 +25,39 @@ export function humanizeStatus(status: string | null | undefined): string {
   return statusLabel(status)
 }
 
+// A delivery status in the reader's language, from the same `enums.deliveryStatus` keys the badge
+// reads; a status this copy does not know yet reads as the badge's English words.
+export function statusText(t: TFunction, status: string | null | undefined): string {
+  if (!status) return '—'
+  return t(`enums.deliveryStatus.${status}`, { defaultValue: humanizeStatus(status) })
+}
+
 // Ignore status fields on failure because backend saveDeliveryEvent swaps oldStatus/newStatus on failure path.
-export function describeTransition(event: {
-  oldStatus: string | null
-  newStatus: string | null
-  transitionSuccessful: boolean
-}): string {
+// Takes `t` because the words are the reader's language (spec 0054).
+export function describeTransition(
+  event: {
+    oldStatus: string | null
+    newStatus: string | null
+    transitionSuccessful: boolean
+  },
+  t: TFunction
+): string {
   if (event.transitionSuccessful === false) {
-    return 'No status change'
+    return t('deliveries.transition.noChange')
   }
   // A record beside the delivery, such as a review request (spec 0038), carries no status at all.
   if (!event.oldStatus && !event.newStatus) {
-    return 'No status change'
+    return t('deliveries.transition.noChange')
   }
 
-  const oldHuman = humanizeStatus(event.oldStatus)
-  const newHuman = humanizeStatus(event.newStatus)
+  const oldHuman = statusText(t, event.oldStatus)
+  const newHuman = statusText(t, event.newStatus)
 
   if (event.oldStatus && event.newStatus && event.oldStatus === event.newStatus) {
-    return `Stayed ${oldHuman}`
+    return t('deliveries.transition.stayed', { status: oldHuman })
   }
 
-  return `${oldHuman} → ${newHuman}`
+  return t('deliveries.transition.changed', { from: oldHuman, to: newHuman })
 }
 
 // A step that reached the server more than this long after it happened is shown as late

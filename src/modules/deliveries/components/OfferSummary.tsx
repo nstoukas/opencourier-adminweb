@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Clock, HourglassMedium } from '@phosphor-icons/react'
 import { describeOffer, deliveryOffer, type DeliveryOfferFields } from '../utils/offer'
 
@@ -14,8 +15,10 @@ interface OfferSummaryProps {
 // looking for a rider. The icon only repeats what the words say, so it is hidden from screen
 // readers (Phosphor icons are aria-hidden by default here) and the text carries the meaning.
 export function OfferSummary({ delivery, now, nameStyle = 'short' }: OfferSummaryProps) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const offer = deliveryOffer(delivery)
-  const text = describeOffer(delivery, now, nameStyle)
+  const text = describeOffer(delivery, now, t, nameStyle)
   if (!offer || !text) return null
   const Icon = offer.kind === 'waiting' ? HourglassMedium : Clock
   return (

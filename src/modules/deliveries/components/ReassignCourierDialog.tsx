@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BOX_OVER_CAPACITY_WARNING_ID,
   BoxOverCapacity,
@@ -30,7 +31,9 @@ import { useReassignDeliveryMutation } from '@/api/deliveriesApi'
 import { useGetAllCouriersQuery } from '@/api/couriersApi'
 import { useGetInstanceConfigQuery } from '@/api/configApi'
 import { listPayoutPolicies, previewReassignmentPayout } from '@/utils/reassignmentPayout'
-import { formatMoney } from '@/utils/formatMoney'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
+import { showMessage } from '@/i18n/shownMessage'
 
 const ONGOING_DELIVERY_STATUSES: string[] = [
   'ACCEPTED',
@@ -70,6 +73,12 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
   const warningForChosen = overCapacity !== null && overCapacity.courierId === newCourierId
 
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Money in the reader's language (spec 0054, AC-3).
+  const f = useFormat()
+  // errorText: the server's refusal in the reader's language, else our own sentence.
+  const { errorText } = useServerText()
   const [reassignDelivery, { isLoading }] = useReassignDeliveryMutation()
 
   const { data: couriers = [], isLoading: couriersLoading } = useGetAllCouriersQuery(undefined, {
@@ -124,8 +133,8 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
   )
 
   const currencyCode = delivery.currencyCode
-  const formattedAmount = formatMoney(preview.ok ? preview.amount : 0, currencyCode) ?? ''
-  const formattedTotal = formatMoney(totalCompensation ?? 0, currencyCode) ?? ''
+  const formattedAmount = f.money(preview.ok ? preview.amount : 0, currencyCode)
+  const formattedTotal = f.money(totalCompensation ?? 0, currencyCode)
 
   const handleReassign = async () => {
     if (!newCourierId || !preview.ok) return
@@ -139,9 +148,8 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
         confirmOverCapacity: overCapacityConfirmed(overCapacity, newCourierId, confirmChecked),
       }).unwrap()
 
-      const amountText = formattedAmount
       toast({
-        title: `Delivery reassigned — ${currentCourierName} awarded ${amountText}`,
+        title: t('deliveries.reassign.done', { name: currentCourierName, amount: formattedAmount }),
       })
 
       setOpen(false)
@@ -154,8 +162,8 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
         return
       }
       toast({
-        title: 'Reassignment failed',
-        description: err?.message || 'An error occurred during rider reassignment.',
+        title: t('deliveries.reassign.failed'),
+        description: errorText(err, t('deliveries.reassign.failedFallback')),
         variant: 'destructive',
       })
     }
@@ -166,25 +174,27 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button type="button" variant="outline" size="sm" className="shrink-0">
-            Reassign Rider
+            {t('deliveries.reassign.button')}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle>Reassign Rider</DialogTitle>
+            <DialogTitle>{t('deliveries.reassign.button')}</DialogTitle>
             <DialogDescription>
-              Reassign delivery <span className="font-mono text-xs">{delivery.id}</span> to another rider and calculate compensation for the dropped rider.
+              {t('deliveries.reassign.descriptionBefore')}{' '}
+              <span className="font-mono text-xs">{delivery.id}</span>{' '}
+              {t('deliveries.reassign.descriptionAfter')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-muted-foreground">Current rider</Label>
+              <Label className="text-xs text-muted-foreground">{t('deliveries.reassign.currentRider')}</Label>
               <div className="font-medium text-sm mt-0.5">{currentCourierName}</div>
             </div>
 
             <div className="space-y-1">
-              <Label>New rider</Label>
+              <Label>{t('deliveries.reassign.newRider')}</Label>
               <Select
                 // Locked while a request runs, so an answer always belongs to the rider on screen.
                 disabled={couriersLoading || isLoading}
@@ -197,7 +207,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={couriersLoading ? 'Loading riders…' : 'Select replacement rider'} />
+                  <SelectValue placeholder={couriersLoading ? t('deliveries.reassign.loadingRiders') : t('deliveries.reassign.selectRider')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableCouriers.map((c) => (
@@ -211,15 +221,16 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
             </div>
 
             <div className="space-y-1">
-              <Label>Payout policy for dropped rider</Label>
+              <Label>{t('deliveries.reassign.policyLabel')}</Label>
               <Select value={selectedPolicy} onValueChange={setSelectedPolicy}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select payout policy" />
+                  <SelectValue placeholder={t('deliveries.reassign.selectPolicy')} />
                 </SelectTrigger>
                 <SelectContent>
                   {policyOptions.map((opt) => (
                     <SelectItem key={opt.key} value={opt.key}>
-                      {opt.key} — {opt.percent}% of piece-rate {opt.isDefault ? '(default)' : ''}
+                      {t('deliveries.reassign.policyOption', { policy: opt.key, percent: opt.percent })}{' '}
+                      {opt.isDefault ? t('deliveries.reassign.default') : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -227,26 +238,27 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
             </div>
 
             <div className="bg-muted/40 p-3 rounded-md text-sm border">
-              <Label className="text-xs text-muted-foreground block mb-1">Compensation Preview</Label>
+              <Label className="text-xs text-muted-foreground block mb-1">{t('deliveries.reassign.previewTitle')}</Label>
               {!preview.ok ? (
-                <div className="text-destructive font-medium">{preview.reason}</div>
+                <div className="text-destructive font-medium">{showMessage(preview.reason, t)}</div>
               ) : totalCompensation === null || totalCompensation === undefined ? (
-                <div>This Delivery has no recorded piece-rate, so the award is 0.</div>
+                <div>{t('deliveries.reassign.noPieceRate')}</div>
               ) : (
                 <div>
-                  {currentCourierName} will be awarded{' '}
-                  <span className="font-semibold">{formattedAmount}</span> ({preview.percent}% of the {formattedTotal} piece-rate).
+                  {t('deliveries.reassign.willBeAwarded', { name: currentCourierName })}{' '}
+                  <span className="font-semibold">{formattedAmount}</span>{' '}
+                  {t('deliveries.reassign.percentOfTotal', { percent: preview.percent, total: formattedTotal })}
                 </div>
               )}
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="reassign-reason">Reason — recorded on the DeliveryEvent</Label>
+              <Label htmlFor="reassign-reason">{t('deliveries.reassign.reasonLabel')}</Label>
               <Input
                 id="reassign-reason"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="e.g. Moped flat tire mid-flight"
+                placeholder={t('deliveries.reassign.reasonPlaceholder')}
               />
             </div>
           </div>
@@ -259,7 +271,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"
@@ -269,7 +281,7 @@ export const ReassignCourierDialog: React.FC<ReassignCourierDialogProps> = ({
               onClick={handleReassign}
             >
               {isLoading ? <Spinner className="mr-2" /> : null}
-              {warningForChosen ? 'Reassign anyway' : 'Reassign rider'}
+              {warningForChosen ? t('deliveries.reassign.anyway') : t('deliveries.reassign.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>

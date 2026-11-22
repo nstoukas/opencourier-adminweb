@@ -1,3 +1,5 @@
+import { keyMessage, type ShownMessage } from '@/i18n/shownMessage'
+
 export type PayoutPolicyOption = {
   key: string
   percent: number
@@ -6,7 +8,9 @@ export type PayoutPolicyOption = {
 
 export type PayoutPreview =
   | { ok: true; policy: string; percent: number; amount: number }
-  | { ok: false; reason: string }
+  // The reason is a translation key with its values (src/i18n/shownMessage.ts), drawn in the reader's
+  // language with showMessage(reason, t).
+  | { ok: false; reason: ShownMessage }
 
 // Formats member-votable reassignment policies into a sorted menu, putting higher percentages first.
 export function listPayoutPolicies(
@@ -48,10 +52,11 @@ export function previewReassignmentPayout(
 ): PayoutPreview {
   const policyKey = requestedPolicy ?? defaultPolicy ?? ''
   if (!policies || !(policyKey in policies)) {
-    const allowed = policies ? Object.keys(policies).join(', ') : 'none'
     return {
       ok: false,
-      reason: `Unknown policy "${policyKey}". Allowed policies: [${allowed}]`,
+      reason: policies
+        ? keyMessage('deliveries.reassign.unknownPolicy', { policy: policyKey, allowed: Object.keys(policies).join(', ') })
+        : keyMessage('deliveries.reassign.unknownPolicyNone', { policy: policyKey }),
     }
   }
 
@@ -59,7 +64,7 @@ export function previewReassignmentPayout(
   if (typeof percent !== 'number' || !Number.isFinite(percent) || percent < 0 || percent > 100) {
     return {
       ok: false,
-      reason: `Policy "${policyKey}" has invalid percentage ${percent}. Allowed range is 0 to 100.`,
+      reason: keyMessage('deliveries.reassign.invalidPercent', { policy: policyKey, percent: String(percent) }),
     }
   }
 

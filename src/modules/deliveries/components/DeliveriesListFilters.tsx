@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { MagnifyingGlass } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/admin-web-components'
 import type { DeliveriesApiGetDeliveriesRequest } from '@/backend-admin-sdk'
 import { useDebouncedValue } from '@/ui-shared-utils'
@@ -11,11 +12,12 @@ import { useDebouncedValue } from '@/ui-shared-utils'
 // `NonNullable<…>` drops `undefined` from the optional field's type.
 export type DeliveryListState = NonNullable<DeliveriesApiGetDeliveriesRequest['state']>
 
-export const DELIVERY_LIST_STATES: { value: DeliveryListState; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'dropped_off', label: 'Dropped off' },
-  { value: 'canceled', label: 'Canceled' },
+// `labelKey` is a translation key, looked up when the buttons are drawn, so a language switch reaches them.
+export const DELIVERY_LIST_STATES: { value: DeliveryListState; labelKey: string }[] = [
+  { value: 'all', labelKey: 'deliveries.filters.all' },
+  { value: 'active', labelKey: 'deliveries.filters.active' },
+  { value: 'dropped_off', labelKey: 'deliveries.filters.droppedOff' },
+  { value: 'canceled', labelKey: 'deliveries.filters.canceled' },
 ]
 
 // How long after the last key the search is sent, so typing a word sends one request, not one per letter.
@@ -42,6 +44,8 @@ export function DeliveriesListFilters({
   restaurants = [],
   onPartnerChange,
 }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   // The text as it was SEARCH_DELAY_MS after the last key (the shared debounce hook).
   const settled = useDebouncedValue(text, SEARCH_DELAY_MS)
@@ -61,7 +65,7 @@ export function DeliveriesListFilters({
   return (
     <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       {/* A segmented control: plain buttons, the pressed one marked with aria-pressed. */}
-      <div role="group" aria-label="Show deliveries" className="inline-flex flex-wrap rounded-md border border-input p-0.5">
+      <div role="group" aria-label={t('deliveries.filters.show')} className="inline-flex flex-wrap rounded-md border border-input p-0.5">
         {DELIVERY_LIST_STATES.map((option) => {
           const pressed = option.value === state
           return (
@@ -74,7 +78,7 @@ export function DeliveriesListFilters({
                 pressed ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           )
         })}
@@ -82,12 +86,12 @@ export function DeliveriesListFilters({
       {onPartnerChange ? (
         // A plain select: one control, keyboard and screen reader friendly as it is.
         <select
-          aria-label="Restaurant"
+          aria-label={t('deliveries.filters.restaurant')}
           value={partnerId}
           onChange={(event) => onPartnerChange(event.target.value)}
           className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm md:max-w-[14rem]"
         >
-          <option value="">All restaurants</option>
+          <option value="">{t('deliveries.filters.allRestaurants')}</option>
           {restaurants.map((restaurant) => (
             <option key={restaurant.id} value={restaurant.id}>
               {restaurant.name}
@@ -106,8 +110,8 @@ export function DeliveriesListFilters({
         />
         <Input
           type="search"
-          aria-label="Search deliveries"
-          placeholder="Order #, customer, restaurant"
+          aria-label={t('deliveries.filters.search')}
+          placeholder={t('deliveries.filters.searchPlaceholder')}
           maxLength={100}
           value={text}
           onChange={(event) => setText(event.target.value)}

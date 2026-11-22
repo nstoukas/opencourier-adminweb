@@ -17,12 +17,13 @@ import { deliveryOffer, isLookingForRider } from '@/modules/deliveries/utils/off
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
 import { Button, DEFAULT_PAGE_SIZE, DataTable, StatusBadge } from '../../admin-web-components'
 import { DeliveryAdminDto } from '../../backend-admin-sdk'
-import { formatMoney } from '@/utils/formatMoney'
 import { shortId } from '@/utils/shortId'
+import { useFormat } from '@/i18n/useFormat'
 import { ColumnDef, PaginationState } from '@tanstack/react-table'
 import type { NextPage } from 'next'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
+import { useTranslation } from 'react-i18next'
 import { useGetPartnersQuery } from '@/api/partnersApi'
 
 function CourierResolvedName({
@@ -44,6 +45,10 @@ const OFFER_REFRESH_MS = 30_000
 
 const OrdersPage: NextPage = () => {
   const { goToDeliveryDetails } = useAdminPageNavigator()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Money in the reader's language (spec 0054, AC-3).
+  const f = useFormat()
   // Which deliveries to show and the search text, both sent to the backend (row 96).
   const [listState, setListState] = useState<DeliveryListState>('all')
   const [search, setSearch] = useState<string | undefined>(undefined)
@@ -110,11 +115,11 @@ const OrdersPage: NextPage = () => {
     () => [
       {
         id: 'order',
-        header: 'Order',
+        header: t('deliveries.list.order'),
         cell: ({ row }) => {
           const d = row.original
           // Spec 0046 (AC-6): one leg of an order sent as several deliveries.
-          const leg = legText(d)
+          const leg = legText(d, t)
           return (
             <div className="flex flex-col">
               <span className="text-sm font-medium">{d.orderReference || '—'}</span>
@@ -129,50 +134,48 @@ const OrdersPage: NextPage = () => {
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('deliveries.list.status'),
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         id: 'restaurant',
-        header: 'Restaurant',
+        header: t('deliveries.list.restaurant'),
         cell: ({ row }) => <span className="text-sm">{row.original.pickupBusinessName || '—'}</span>,
       },
       {
         // Spec 0043 (AC-8): the box size and its units, "assumed" when the restaurant sent none.
         id: 'boxSize',
-        header: 'Size',
-        cell: ({ row }) => <span className="text-sm">{boxSizeText(row.original) ?? '—'}</span>,
+        header: t('deliveries.list.size'),
+        cell: ({ row }) => <span className="text-sm">{boxSizeText(row.original, t) ?? '—'}</span>,
       },
       {
         id: 'deliverTo',
-        header: 'Deliver to',
+        header: t('deliveries.list.deliverTo'),
         cell: ({ row }) => <span className="text-sm">{row.original.dropoffName || '—'}</span>,
       },
       {
         // The rider who accepted; while the delivery is offered, who holds the offer and for how
         // long (spec 0002, AC-11); a dash when neither.
         id: 'courier',
-        header: 'Courier',
+        header: t('deliveries.list.courier'),
         cell: ({ row }) => {
           const d = row.original
           if (d.courierId) return <CourierResolvedName courierId={d.courierId} nameById={courierNameById} />
           if (!isLookingForRider(d)) return <span className="text-muted-foreground">—</span>
           // The offer's own words, or "Looking for a rider" before the first offer goes out.
-          return deliveryOffer(d) ? <OfferSummary delivery={d} now={now} /> : <span>Looking for a rider</span>
+          return deliveryOffer(d) ? <OfferSummary delivery={d} now={now} /> : <span>{t('deliveries.offer.lookingForRider')}</span>
         },
       },
       {
         id: 'price',
-        header: 'Price',
+        header: t('deliveries.list.price'),
         cell: ({ row }) => (
-          <span className="text-sm tabular-nums">
-            {formatMoney(row.original.totalCost, row.original.currencyCode) ?? '—'}
-          </span>
+          <span className="text-sm tabular-nums">{f.money(row.original.totalCost, row.original.currencyCode)}</span>
         ),
       },
       {
         id: 'action',
-        header: () => <span className="sr-only">Action</span>,
+        header: () => <span className="sr-only">{t('deliveries.list.action')}</span>,
         cell: ({ row }) => {
           const d = row.original
           return (
@@ -183,7 +186,7 @@ const OrdersPage: NextPage = () => {
               <div className="flex items-center gap-2">
                 {isLookingForRider(d) ? <AssignCourierCell delivery={d} /> : null}
                 <Button type="button" variant="outline" size="sm" onClick={() => goToDeliveryDetails(d.id)}>
-                  Open
+                  {t('common.open')}
                 </Button>
               </div>
             </div>
@@ -193,13 +196,14 @@ const OrdersPage: NextPage = () => {
     ],
     // goToDeliveryDetails is left out: the navigator builds a new one each render, which would
     // rebuild every column for nothing; the one it closes over always works.
-    [courierNameById, now],
+    // t and f change with the language, so the headers and amounts follow a switch.
+    [courierNameById, now, t, f],
   )
 
   return (
     <DefaultLayout>
       {/* "Deliveries", not "Orders": the co-op's word for the thing a courier moves. */}
-      <PageHeader title="Deliveries" />
+      <PageHeader title={t('deliveries.list.title')} />
 
       {/* Stop dispatch for heat or a storm, and see when it restarts (spec 0014). */}
       <DispatchPanel />

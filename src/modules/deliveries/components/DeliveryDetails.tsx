@@ -1,4 +1,6 @@
 import React from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { boxSizeText } from '@/utils/boxSize'
 import { legText } from '@/utils/legs'
 import { StackedOrderCard } from '@/modules/deliveries/components/StackedOrderCard'
@@ -20,8 +22,11 @@ import { DeliveryRemovalRequests } from '@/modules/deliveries/components/Deliver
 import { ProductReportsCard } from '@/modules/product-reports/ProductReportsCard'
 import { FileComplaintCard } from '@/modules/complaints/FileComplaintCard'
 import { OfferSummary } from '@/modules/deliveries/components/OfferSummary'
-import { deliveryOffer, isLookingForRider, minutesWaiting } from '@/modules/deliveries/utils/offer'
-import { formatMoney } from '@/utils/formatMoney'
+import { deliveryOffer, isLookingForRider, minutesWaiting, riderNameText } from '@/modules/deliveries/utils/offer'
+import { optionalDateTime } from '@/modules/deliveries/utils/optionalDate'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
+import { eventTypeLabel } from '@/utils/deliveryEventDisplay'
 import {
   Accordion,
   AccordionContent,
@@ -44,9 +49,7 @@ import {
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryEventType } from '../../../shared-types'
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
-import { formatDate, formatOptionalDate, formatTimeWithSeconds } from '../../../ui-shared-utils'
 import { shortId } from '@/utils/shortId'
-import capitalize from 'lodash/capitalize'
 import { PageHeader } from '@/components/layouts/PageHeader'
 
 // The server's 3 s grace plus one 30 s refresh of this page.
@@ -59,14 +62,17 @@ function displayText(value: string | object | null | undefined): string {
 }
 
 function OrderItemsSection({ items }: { items: DeliveryAdminDto['orderItems'] }) {
+  // useTranslation gives t, which looks a key up in the reader's language. Called before the early
+  // return: React needs the same hooks in the same order on every render.
+  const { t } = useTranslation()
   if (!items?.length) return null
   return (
     <div className="space-y-2 border-t pt-6">
-      <h3 className="text-sm font-medium">Order items</h3>
+      <h3 className="text-sm font-medium">{t('deliveries.details.orderItems')}</h3>
       <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
         {items.map((item, i) => {
           const row = item as Record<string, unknown>
-          const name = typeof row.name === 'string' ? row.name : `Item ${i + 1}`
+          const name = typeof row.name === 'string' ? row.name : t('deliveries.details.item', { number: i + 1 })
           const qty = typeof row.quantity === 'number' ? row.quantity : null
           const size = typeof row.size === 'string' ? row.size : null
           return (
@@ -87,30 +93,34 @@ function OrderItemsSection({ items }: { items: DeliveryAdminDto['orderItems'] })
 // the rest is written when the delivery is first offered to a rider. The last line is what the
 // customer pays: delivery is charged to the customer, never billed through the restaurant.
 function PriceBreakdownCard({ delivery }: { delivery: DeliveryAdminDto }) {
-  const money = (amount: number | null | undefined) => formatMoney(amount, delivery.currencyCode)
-  const feeLabel = delivery.feePercentage != null ? `Co-op fee (${delivery.feePercentage}%)` : 'Co-op fee'
+  const { t } = useTranslation()
+  // Money in the reader's language (spec 0054, AC-3).
+  const f = useFormat()
+  const money = (amount: number | null | undefined) => f.money(amount, delivery.currencyCode)
+  const feeLabel =
+    delivery.feePercentage != null
+      ? t('deliveries.price.coopFeePercent', { percent: f.number(delivery.feePercentage) })
+      : t('deliveries.price.coopFee')
   const notOfferedYet = delivery.totalCompensation == null
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Price, from the quote</CardTitle>
+        <CardTitle className="text-lg">{t('deliveries.price.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <DetailList
           items={[
-            { label: 'Base fee', value: money(delivery.baseFee) },
-            { label: 'Distance fee', value: money(delivery.distanceFee) },
-            { label: 'Rider gets (base fee + distance fee)', value: money(delivery.totalCompensation) },
+            { label: t('deliveries.price.baseFee'), value: money(delivery.baseFee) },
+            { label: t('deliveries.price.distanceFee'), value: money(delivery.distanceFee) },
+            { label: t('deliveries.price.riderGets'), value: money(delivery.totalCompensation) },
             { label: feeLabel, value: money(delivery.fee) },
-            { label: 'Customer pays', value: money(delivery.totalCost) },
-            { label: 'Currency', value: delivery.currencyCode },
+            { label: t('deliveries.price.customerPays'), value: money(delivery.totalCost) },
+            { label: t('deliveries.price.currency'), value: delivery.currencyCode },
           ]}
         />
         {notOfferedYet ? (
-          <p className="text-muted-foreground">
-            Rider pay, co-op fee and what the customer pays are set when the delivery is first offered to a rider.
-          </p>
+          <p className="text-muted-foreground">{t('deliveries.price.notOfferedYet')}</p>
         ) : null}
       </CardContent>
     </Card>
@@ -122,6 +132,9 @@ function PriceBreakdownCard({ delivery }: { delivery: DeliveryAdminDto }) {
 // Shown only while the delivery is looking for a rider; it names the rider of this one offer,
 // never a history or a count (value 5).
 function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date }) {
+  const { t } = useTranslation()
+  // Times with seconds, on Athens time (spec 0054, AC-3).
+  const f = useFormat()
   const offer = deliveryOffer(delivery)
   if (!offer) return null
 
@@ -135,27 +148,32 @@ function OfferCard({ delivery, now }: { delivery: DeliveryAdminDto; now: Date })
   const items =
     offer.kind === 'offered'
       ? [
-          { label: 'Offered to', value: offer.riderName },
+          { label: t('deliveries.offerCard.offeredTo'), value: riderNameText(offer.riderName, t) },
           {
-            label: 'Offered at',
-            value: offer.since ? `${formatTimeWithSeconds(offer.since)} (${minutesWaiting(offer.since, now)} ago)` : null,
+            label: t('deliveries.offerCard.offeredAt'),
+            value: offer.since
+              ? t('deliveries.offerCard.timeAgo', {
+                  time: f.timeSeconds(offer.since),
+                  ago: minutesWaiting(offer.since, now, t),
+                })
+              : null,
           },
           {
-            label: overdue ? 'Overdue since' : 'Offer ends',
+            label: overdue ? t('deliveries.offerCard.overdueSince') : t('deliveries.offerCard.offerEnds'),
             value: delivery.offerExpiresAt
-              ? formatTimeWithSeconds(delivery.offerExpiresAt)
-              : 'Not on its own: offer expiry is off, or an admin made this offer',
+              ? f.timeSeconds(delivery.offerExpiresAt)
+              : t('deliveries.offerCard.notOnItsOwn'),
           },
         ]
       : [
-          { label: 'No rider free since', value: formatTimeWithSeconds(offer.since) },
-          { label: 'Waiting', value: minutesWaiting(offer.since, now) },
+          { label: t('deliveries.offerCard.noRiderFreeSince'), value: f.timeSeconds(offer.since) },
+          { label: t('deliveries.offerCard.waiting'), value: minutesWaiting(offer.since, now, t) },
         ]
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Offer</CardTitle>
+        <CardTitle className="text-lg">{t('deliveries.offerCard.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <DetailList items={items} />
@@ -182,7 +200,8 @@ function FactsCard({ title, items }: { title: string; items: DetailListItem[] })
   )
 }
 
-const yesNo = (value: boolean) => (value ? 'Yes' : 'No')
+// Takes `t` so "Yes" and "No" are the reader's language.
+const yesNo = (value: boolean, t: TFunction) => (value ? t('common.yes') : t('common.no'))
 const joined = (list: string[], separator = ', ') => (list.length ? list.join(separator) : null)
 
 // A delivery's page in the redesign (spec 0011): breadcrumb, title, status and actions; on the
@@ -190,6 +209,12 @@ const joined = (list: string[], separator = ', ') => (list.length ? list.join(se
 // showed is still here (AC-3).
 export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { goToDeliveries } = useAdminPageNavigator()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Dates and money in the reader's language, on Athens time (spec 0054, AC-3).
+  const f = useFormat()
+  // useServerText's errorText: the server's refusal in the reader's language, else our own sentence.
+  const { errorText } = useServerText()
 
   // Asked again every 30 s, like the list, because an offer can now end or move on its own.
   // Paused while the tab is in the background: 0 means no polling.
@@ -215,7 +240,7 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { toast } = useToast()
 
   const handleEventSubmit = async (eventType: EnumDeliveryEventType) => {
-    if (!delivery || !confirm(`Sure you want to trigger "${eventType}" event?`)) {
+    if (!delivery || !confirm(t('deliveries.details.confirmEvent', { event: eventTypeLabel(t, eventType) }))) {
       return
     }
 
@@ -229,8 +254,8 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       }).unwrap()
     } catch (error) {
       toast({
-        title: 'Delivery status transition failed',
-        description: 'Failed to change delivery status',
+        title: t('deliveries.details.transitionFailed'),
+        description: errorText(error, t('deliveries.details.transitionFailedDescription')),
         variant: 'destructive',
       })
     }
@@ -241,15 +266,15 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   if (getDeliveryResponse.isLoading || (!delivery && !getDeliveryResponse.isError))
     return (
       <>
-        <PageHeader title="Delivery" />
-        <span>Loading delivery data.</span>
+        <PageHeader title={t('deliveries.details.pageTitle')} />
+        <span>{t('deliveries.details.loading')}</span>
       </>
     )
   if (!delivery)
     return (
       <>
-        <PageHeader title="Delivery" />
-        <span>There was a problem loading data.</span>
+        <PageHeader title={t('deliveries.details.pageTitle')} />
+        <span>{t('deliveries.details.loadFailed')}</span>
       </>
     )
 
@@ -260,12 +285,12 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   // The order reference and the end of the id: the legs of one order share a reference (locked
   // design: N legs, one orderReference), so the id is what tells them apart (row 88 review).
   const title = delivery.orderReference
-    ? `Delivery ${delivery.orderReference} · ${shortId(delivery.id)}`
-    : `Delivery ${shortId(delivery.id)}`
+    ? t('deliveries.details.titleWithReference', { reference: delivery.orderReference, id: shortId(delivery.id) })
+    : t('deliveries.details.title', { id: shortId(delivery.id) })
 
   return (
     <>
-      <Breadcrumb steps={[{ label: 'Deliveries', href: '/deliveries', onClick: () => goToDeliveries() }, { label: title }]} />
+      <Breadcrumb steps={[{ label: t('deliveries.list.title'), href: '/deliveries', onClick: () => goToDeliveries() }, { label: title }]} />
       <PageHeader
         title={title}
         action={
@@ -276,11 +301,11 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             {canCancel ? <CancelDeliveryDialog delivery={delivery} /> : null}
             {possibleEvents.length ? (
               <Menu>
-                <MenuTrigger>Change status</MenuTrigger>
+                <MenuTrigger>{t('deliveries.details.changeStatus')}</MenuTrigger>
                 <MenuItems>
                   {possibleEvents.map((eventType) => (
                     <MenuItem key={eventType} onClick={() => handleEventSubmit(eventType)}>
-                      {capitalize(eventType.toLowerCase())}
+                      {eventTypeLabel(t, eventType)}
                     </MenuItem>
                   ))}
                 </MenuItems>
@@ -291,12 +316,12 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       />
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <StatusBadge status={delivery.status} />
-        <span>Created {formatDate(delivery.createdAt)}</span>
+        <span>{t('deliveries.details.created', { date: f.dateTime(delivery.createdAt) })}</span>
         {/* The same words as the list's Courier column while the delivery is offered. */}
         {isLookingForRider(delivery) ? (
           <span>
             <OfferSummary delivery={delivery} now={now} nameStyle="full" />
-            {deliveryOffer(delivery) ? null : 'Looking for a rider'}
+            {deliveryOffer(delivery) ? null : t('deliveries.offer.lookingForRider')}
           </span>
         ) : null}
       </div>
@@ -316,58 +341,58 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
 
         <div className="flex min-w-0 flex-col gap-6">
           <FactsCard
-            title="Pickup"
+            title={t('deliveries.details.pickup')}
             items={[
-              { label: 'Business', value: delivery.pickupBusinessName },
-              { label: 'Name', value: delivery.pickupName },
-              { label: 'Phone', value: delivery.pickupPhoneNumber },
-              { label: 'Ready', value: formatOptionalDate(delivery.pickupReadyAt) },
-              { label: 'Deadline', value: formatOptionalDate(delivery.pickupDeadlineAt) },
-              { label: 'Notes', value: delivery.pickupNotes },
-              { label: 'Verification', value: displayText(delivery.pickupVerification) },
+              { label: t('deliveries.details.business'), value: delivery.pickupBusinessName },
+              { label: t('deliveries.details.name'), value: delivery.pickupName },
+              { label: t('deliveries.details.phone'), value: delivery.pickupPhoneNumber },
+              { label: t('deliveries.details.ready'), value: optionalDateTime(f, delivery.pickupReadyAt) },
+              { label: t('deliveries.details.deadline'), value: optionalDateTime(f, delivery.pickupDeadlineAt) },
+              { label: t('deliveries.details.notes'), value: delivery.pickupNotes },
+              { label: t('deliveries.details.verification'), value: displayText(delivery.pickupVerification) },
             ]}
           />
           <FactsCard
-            title="Drop off"
+            title={t('deliveries.details.dropoff')}
             items={[
-              { label: 'Name', value: delivery.dropoffName },
-              { label: 'Business', value: displayText(delivery.dropoffBusinessName) },
-              { label: 'Phone', value: delivery.dropoffPhoneNumber },
+              { label: t('deliveries.details.name'), value: delivery.dropoffName },
+              { label: t('deliveries.details.business'), value: displayText(delivery.dropoffBusinessName) },
+              { label: t('deliveries.details.phone'), value: delivery.dropoffPhoneNumber },
               // Row 99: their own fields, not only inside the composed note.
-              { label: 'Floor', value: displayText(delivery.dropoffFloor) },
-              { label: 'Doorbell', value: displayText(delivery.dropoffDoorbell) },
-              { label: 'ETA', value: formatOptionalDate(delivery.dropoffEta) },
-              { label: 'Ready', value: formatOptionalDate(delivery.dropoffReadyAt) },
-              { label: 'Deadline', value: formatOptionalDate(delivery.dropoffDeadlineAt) },
-              { label: 'Notes', value: delivery.dropoffNotes },
-              { label: 'Seller notes', value: delivery.dropoffSellerNotes },
-              { label: 'Verification', value: displayText(delivery.dropoffVerification) },
-              { label: 'When delivered', value: delivery.deliverableAction },
-              { label: 'When undeliverable', value: delivery.undeliverableAction },
-              { label: 'Undeliverable reason', value: delivery.undeliverableReason },
+              { label: t('deliveries.details.floor'), value: displayText(delivery.dropoffFloor) },
+              { label: t('deliveries.details.doorbell'), value: displayText(delivery.dropoffDoorbell) },
+              { label: t('deliveries.details.eta'), value: optionalDateTime(f, delivery.dropoffEta) },
+              { label: t('deliveries.details.ready'), value: optionalDateTime(f, delivery.dropoffReadyAt) },
+              { label: t('deliveries.details.deadline'), value: optionalDateTime(f, delivery.dropoffDeadlineAt) },
+              { label: t('deliveries.details.notes'), value: delivery.dropoffNotes },
+              { label: t('deliveries.details.sellerNotes'), value: delivery.dropoffSellerNotes },
+              { label: t('deliveries.details.verification'), value: displayText(delivery.dropoffVerification) },
+              { label: t('deliveries.details.whenDelivered'), value: delivery.deliverableAction },
+              { label: t('deliveries.details.whenUndeliverable'), value: delivery.undeliverableAction },
+              { label: t('deliveries.details.undeliverableReason'), value: delivery.undeliverableReason },
             ]}
           />
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Order</CardTitle>
+              <CardTitle className="text-lg">{t('deliveries.details.order')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <DetailList
                 items={[
-                  { label: 'Order reference', value: delivery.orderReference },
+                  { label: t('deliveries.details.orderReference'), value: delivery.orderReference },
                   // Spec 0046 (AC-6): which leg of a multi leg order this is.
-                  { label: 'Leg', value: legText(delivery) },
+                  { label: t('deliveries.details.leg'), value: legText(delivery, t) },
                   // Spec 0043 (AC-8): "Medium, 50 units", with "assumed" when no size was sent.
-                  { label: 'Box size', value: boxSizeText(delivery) },
-                  { label: 'Customer', value: delivery.customerName },
-                  { label: 'Customer phone', value: delivery.customerPhoneNumber },
-                  { label: 'Order total', value: formatMoney(delivery.orderTotalValue, delivery.currencyCode) },
-                  { label: 'Tips', value: formatMoney(delivery.tips, delivery.currencyCode) },
-                  { label: 'Customer notes', value: joined(delivery.customerNotes, '\n') },
-                  { label: 'Delivery types', value: joined(delivery.deliveryTypes) },
-                  { label: 'Pickup types', value: joined(delivery.pickupTypes) },
-                  { label: 'Drop off signature required', value: yesNo(delivery.requiresDropoffSignature) },
-                  { label: 'ID check required', value: yesNo(delivery.requiresId) },
+                  { label: t('deliveries.details.boxSize'), value: boxSizeText(delivery, t) },
+                  { label: t('deliveries.details.customer'), value: delivery.customerName },
+                  { label: t('deliveries.details.customerPhone'), value: delivery.customerPhoneNumber },
+                  { label: t('deliveries.details.orderTotal'), value: f.money(delivery.orderTotalValue, delivery.currencyCode) },
+                  { label: t('deliveries.details.tips'), value: f.money(delivery.tips, delivery.currencyCode) },
+                  { label: t('deliveries.details.customerNotes'), value: joined(delivery.customerNotes, '\n') },
+                  { label: t('deliveries.details.deliveryTypes'), value: joined(delivery.deliveryTypes) },
+                  { label: t('deliveries.details.pickupTypes'), value: joined(delivery.pickupTypes) },
+                  { label: t('deliveries.details.signatureRequired'), value: yesNo(delivery.requiresDropoffSignature, t) },
+                  { label: t('deliveries.details.idCheckRequired'), value: yesNo(delivery.requiresId, t) },
                 ]}
               />
               <OrderItemsSection items={delivery.orderItems} />
@@ -400,20 +425,20 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
             <CardContent className="pt-2">
               <Accordion type="single" collapsible>
                 <AccordionItem value="technical">
-                  <AccordionTrigger>Technical details</AccordionTrigger>
+                  <AccordionTrigger>{t('deliveries.technical.title')}</AccordionTrigger>
                   <AccordionContent>
                     <DetailList
                       items={[
-                        { label: 'Delivery ID', value: delivery.id, mono: true },
-                        { label: 'Delivery quote ID', value: delivery.deliveryQuoteId, mono: true },
-                        { label: 'Partner ID', value: delivery.partnerId, mono: true },
-                        { label: 'Courier ID', value: delivery.courierId, mono: true },
-                        { label: 'Matched courier ID', value: delivery.matchedCourierId, mono: true },
-                        { label: 'Pickup location ID', value: delivery.pickupLocationId, mono: true },
-                        { label: 'Drop off location ID', value: delivery.dropoffLocationId, mono: true },
-                        { label: 'External ID', value: delivery.externalId, mono: true },
-                        { label: 'External store ID', value: delivery.externalStoreId, mono: true },
-                        { label: 'Idempotency key', value: delivery.idempotencyKey, mono: true },
+                        { label: t('deliveries.technical.deliveryId'), value: delivery.id, mono: true },
+                        { label: t('deliveries.technical.quoteId'), value: delivery.deliveryQuoteId, mono: true },
+                        { label: t('deliveries.technical.partnerId'), value: delivery.partnerId, mono: true },
+                        { label: t('deliveries.technical.courierId'), value: delivery.courierId, mono: true },
+                        { label: t('deliveries.technical.matchedCourierId'), value: delivery.matchedCourierId, mono: true },
+                        { label: t('deliveries.technical.pickupLocationId'), value: delivery.pickupLocationId, mono: true },
+                        { label: t('deliveries.technical.dropoffLocationId'), value: delivery.dropoffLocationId, mono: true },
+                        { label: t('deliveries.technical.externalId'), value: delivery.externalId, mono: true },
+                        { label: t('deliveries.technical.externalStoreId'), value: delivery.externalStoreId, mono: true },
+                        { label: t('deliveries.technical.idempotencyKey'), value: delivery.idempotencyKey, mono: true },
                       ]}
                     />
                   </AccordionContent>

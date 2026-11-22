@@ -21,6 +21,8 @@ import {
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { DeliveryAdminDtoStatusEnum } from '../../../backend-admin-sdk'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useServerText } from '@/i18n/useServerText'
 import {
   BOX_OVER_CAPACITY_WARNING_ID,
   BoxOverCapacity,
@@ -47,6 +49,10 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
   // The admin's tick under the warning; only with it does the next press confirm (review fix).
   const [confirmChecked, setConfirmChecked] = useState(false)
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, else our own sentence.
+  const { errorText } = useServerText()
   const [assignCourier, { isLoading }] = useAssignDeliveryToCourierMutation()
   const { data: couriers = [], isLoading: couriersLoading } = useGetAllCouriersQuery(undefined, {
     skip: !open,
@@ -66,7 +72,7 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
 
   const handleAssign = async () => {
     if (!courierId) {
-      toast({ title: 'Choose a courier', variant: 'destructive' })
+      toast({ title: t('deliveries.assign.chooseCourier'), variant: 'destructive' })
       return
     }
     try {
@@ -75,7 +81,7 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
         courierId,
         confirmOverCapacity: overCapacityConfirmed(overCapacity, courierId, confirmChecked),
       }).unwrap()
-      toast({ title: 'Courier assigned' })
+      toast({ title: t('deliveries.assign.assigned') })
       close()
     } catch (error) {
       // The rider choice is locked while the request runs, so this answer is about `courierId`.
@@ -86,8 +92,8 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
         return
       }
       toast({
-        title: 'Assignment failed',
-        description: 'Ensure the API accepts courierId on admin submit-event (opencourier-backend).',
+        title: t('deliveries.assign.failed'),
+        description: errorText(error, t('deliveries.assign.failedHint')),
         variant: 'destructive',
       })
     }
@@ -108,19 +114,19 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
       >
         <DialogTrigger asChild>
           <Button type="button" variant="outline" size="sm" className="shrink-0 whitespace-normal">
-            Assign courier
+            {t('deliveries.assign.button')}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle>Assign courier</DialogTitle>
+            <DialogTitle>{t('deliveries.assign.button')}</DialogTitle>
             <DialogDescription>
-              Submits an admin ACCEPTED event with this courier for delivery{' '}
+              {t('deliveries.assign.description')}{' '}
               <span className="font-mono text-xs">{delivery.id}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
-            <Label>Courier</Label>
+            <Label>{t('deliveries.assign.courier')}</Label>
             <Select
               // Locked while a request runs, so an answer always belongs to the rider on screen.
               disabled={couriersLoading || isLoading}
@@ -133,7 +139,7 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder={couriersLoading ? 'Loading…' : 'Select courier'} />
+                <SelectValue placeholder={couriersLoading ? t('common.loading') : t('deliveries.assign.selectCourier')} />
               </SelectTrigger>
               <SelectContent>
                 {/* Spec 0051 (cross check 14, row 108 review): a deactivated rider is never offered as a choice. */}
@@ -153,7 +159,7 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
           />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"
@@ -163,7 +169,7 @@ export function AssignCourierCell({ delivery }: { delivery: AssignableDelivery }
               onClick={() => void handleAssign()}
             >
               {isLoading ? <Spinner className="mr-2" /> : null}
-              {warningForChosen ? 'Assign anyway' : 'Assign courier'}
+              {warningForChosen ? t('deliveries.assign.anyway') : t('deliveries.assign.button')}
             </Button>
           </DialogFooter>
         </DialogContent>

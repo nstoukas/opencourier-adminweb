@@ -5,7 +5,8 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { useOrderStatusForm } from '@/modules/deliveries/hooks/form/useOrderStatusForm'
 import { OrderEventFormValues } from '@/modules/deliveries/types'
 import { adminEventsForStatus, courierIdForAdminEvent } from '@/modules/deliveries/utils/adminEvents'
-import { humanizeEventType, humanizeStatus } from '@/utils/deliveryEventDisplay'
+import { eventTypeLabel, statusText } from '@/utils/deliveryEventDisplay'
+import { useServerText } from '@/i18n/useServerText'
 import {
   Button,
   Card,
@@ -31,6 +32,7 @@ import {
 import { omit } from 'lodash'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
+import { useTranslation } from 'react-i18next'
 
 // The admin override: move one delivery by hand by submitting a DeliveryEvent.
 // The backend's state machine decides the resulting status, never this page.
@@ -42,6 +44,10 @@ const DeliveryStatusPage: NextPage = () => {
   const { data } = useGetDeliveryQuery({ id: deliveryId })
   const [submitDeliveryEvent, { isLoading }] = useSubmitDeliveryEventMutation()
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, else our own sentence.
+  const { errorText } = useServerText()
 
   const form = useOrderStatusForm()
 
@@ -51,8 +57,8 @@ const DeliveryStatusPage: NextPage = () => {
     if (!data || !eventType) return
     // People read words, not enum codes: the status in the badge's words, the event in the
     // timeline's words (an event is something that happened, so its name differs from a status).
-    const eventName = humanizeEventType(eventType)
-    if (!confirm(`Submit "${eventName}" for this delivery? Its status is now ${humanizeStatus(data.status)}.`)) return
+    const eventName = eventTypeLabel(t, eventType)
+    if (!confirm(t('deliveries.statusPage.confirm', { event: eventName, status: statusText(t, data.status) }))) return
 
     try {
       const updated = await submitDeliveryEvent({
@@ -64,18 +70,21 @@ const DeliveryStatusPage: NextPage = () => {
       // ignores an event it has no transition for, and still answers with success.
       if (updated.status === data.status) {
         toast({
-          title: 'Nothing changed',
-          description: `The server did not apply "${eventName}". Status is still ${humanizeStatus(updated.status)}.`,
+          title: t('deliveries.statusPage.nothingChanged'),
+          description: t('deliveries.statusPage.notApplied', { event: eventName, status: statusText(t, updated.status) }),
         })
       } else {
-        toast({ title: 'Event submitted', description: `Status is now ${humanizeStatus(updated.status)}.` })
+        toast({
+          title: t('deliveries.statusPage.submitted'),
+          description: t('deliveries.statusPage.statusNow', { status: statusText(t, updated.status) }),
+        })
       }
       form.reset()
     } catch (error: any) {
       toast({
-        title: 'Submit failed',
+        title: t('deliveries.statusPage.submitFailed'),
         // Show the backend's own reason (for example "courierId is required") when there is one.
-        description: error?.message || 'Failed to change delivery status',
+        description: errorText(error, t('deliveries.details.transitionFailedDescription')),
         variant: 'destructive',
       })
     }
@@ -87,37 +96,37 @@ const DeliveryStatusPage: NextPage = () => {
     <DefaultLayout>
       {data ? (
         <Button variant="link" className="p-0" onClick={() => goToDeliveryDetails(data.id)}>
-          Back to delivery
+          {t('deliveries.statusPage.back')}
         </Button>
       ) : null}
       {/* The h1 is there in every state: "Delivery" until the delivery has loaded. */}
-      <PageHeader title={data ? `Delivery ${data.id}` : 'Delivery'} />
+      <PageHeader title={data ? t('deliveries.details.title', { id: data.id }) : t('deliveries.details.pageTitle')} />
       {data ? (
         <>
           <Card className="mb-4">
             <CardHeader>
-              <CardTitle>Delivery Details</CardTitle>
+              <CardTitle>{t('deliveries.statusPage.detailsTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-6">
               <div className="flex flex-col items-start space-y-1">
-                <Label>Status</Label>
+                <Label>{t('deliveries.list.status')}</Label>
                 <StatusBadge status={data.status} />
               </div>
               <Label className="flex flex-col space-y-1">
-                <span>Courier ID</span>
+                <span>{t('deliveries.technical.courierId')}</span>
                 <span className="font-normal leading-snug text-muted-foreground break-all">
                   {data.courierId || '—'}
                 </span>
               </Label>
               <Label className="flex flex-col space-y-1">
-                <span>Customer</span>
+                <span>{t('deliveries.details.customer')}</span>
                 <span className="font-normal leading-snug text-muted-foreground">{data.customerName}</span>
               </Label>
             </CardContent>
           </Card>
           <Card className="my-4">
             <CardHeader>
-              <CardTitle>Change Status</CardTitle>
+              <CardTitle>{t('deliveries.statusPage.changeTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-6">
               {possibleEvents.length ? (
@@ -128,17 +137,17 @@ const DeliveryStatusPage: NextPage = () => {
                       name="eventType"
                       render={({ field }) => (
                         <FormItem className="grid gap-1">
-                          <FormLabel>Transition status by submitting a delivery event</FormLabel>
+                          <FormLabel>{t('deliveries.statusPage.formLabel')}</FormLabel>
                           <Select {...omit(field, ['onChange', 'onBlur', 'ref'])} onValueChange={field.onChange}>
                             <FormControl>
                               <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select delivery event" />
+                                <SelectValue placeholder={t('deliveries.statusPage.selectEvent')} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {possibleEvents.map((eventType) => (
                                 <SelectItem value={eventType} key={eventType}>
-                                  {humanizeEventType(eventType)}
+                                  {eventTypeLabel(t, eventType)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -150,13 +159,15 @@ const DeliveryStatusPage: NextPage = () => {
                     <div>
                       <Button variant="destructive" disabled={isLoading}>
                         {isLoading && <Spinner className="mr-2" />}
-                        Submit event
+                        {t('deliveries.statusPage.submit')}
                       </Button>
                     </div>
                   </form>
                 </Form>
               ) : (
-                <span className="text-muted-foreground">No status change is possible from {humanizeStatus(data.status)}.</span>
+                <span className="text-muted-foreground">
+                  {t('deliveries.statusPage.noChangePossible', { status: statusText(t, data.status) })}
+                </span>
               )}
             </CardContent>
           </Card>

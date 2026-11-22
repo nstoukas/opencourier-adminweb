@@ -1,23 +1,22 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/admin-web-components'
-import { formatDate } from '@/ui-shared-utils'
 import { useGetDeliveryIssuesQuery } from '@/api/deliveriesApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
-import { DELIVERY_ISSUE_REASON_TO_HUMAN } from '@/shared-types'
-import { athensTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { enumLabel } from '@/i18n/enumLabel'
+import { useFormat } from '@/i18n/useFormat'
 
 interface DeliveryIssuesProps {
   deliveryId: string
 }
 
-// The words for a reason; a reason this copy does not know yet is shown as sent.
-function reasonWords(reason: string): string {
-  return (DELIVERY_ISSUE_REASON_TO_HUMAN as Record<string, string | undefined>)[reason] ?? reason
-}
-
 // What riders reported about this one delivery from the app, oldest first (decision 66.11).
 // Shown here only: nothing counts or groups reports by rider (value 5).
 export function DeliveryIssues({ deliveryId }: DeliveryIssuesProps) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Dates and times on Athens time, in the reader's language (spec 0054, AC-3).
+  const f = useFormat()
   // Polled every 30 s like the event history, so a report sent while the page is open appears
   // without a reload; not while the tab is in the background (0 means no polling).
   const pageVisible = usePageVisible()
@@ -33,15 +32,15 @@ export function DeliveryIssues({ deliveryId }: DeliveryIssuesProps) {
   return (
     <Card className="mt-4">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Rider reports</CardTitle>
+        <CardTitle className="text-lg">{t('deliveries.issues.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {isLoading ? (
-          <div className="text-muted-foreground">Loading rider reports.</div>
+          <div className="text-muted-foreground">{t('deliveries.issues.loading')}</div>
         ) : isError || error ? (
-          <div className="text-destructive">Could not load the rider reports.</div>
+          <div className="text-destructive">{t('deliveries.issues.loadFailed')}</div>
         ) : !issues || issues.length === 0 ? (
-          <div className="text-muted-foreground">No rider has reported an issue with this delivery.</div>
+          <div className="text-muted-foreground">{t('deliveries.issues.empty')}</div>
         ) : (
           issues.map((issue) => (
             <div
@@ -50,11 +49,11 @@ export function DeliveryIssues({ deliveryId }: DeliveryIssuesProps) {
               className="p-3 rounded-lg border border-border bg-card space-y-1"
             >
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="font-semibold">{reasonWords(issue.reason)}</span>
-                <span className="text-xs text-muted-foreground">{formatDate(issue.createdAt)}</span>
+                <span className="font-semibold">{enumLabel(t, 'deliveryIssueReason', issue.reason)}</span>
+                <span className="text-xs text-muted-foreground">{f.dateTime(issue.createdAt)}</span>
               </div>
               <div className="text-xs">
-                <span className="text-muted-foreground">From </span>
+                <span className="text-muted-foreground">{t('deliveries.removal.from')} </span>
                 <span className="font-medium">{issue.courierName || issue.courierId}</span>
               </div>
               {issue.note ? (
@@ -62,8 +61,11 @@ export function DeliveryIssues({ deliveryId }: DeliveryIssuesProps) {
               ) : null}
               {issue.handledAt ? (
                 <p className="text-xs text-muted-foreground">
-                  Handled by {issue.handledBy?.username || issue.handledBy?.email || 'an admin'} at{' '}
-                  {athensTime(issue.handledAt.toISOString())}
+                  {t('deliveries.issues.handledBy', {
+                    who: issue.handledBy?.username || issue.handledBy?.email || t('deliveries.removal.anAdmin'),
+                    // "at 13:05", with the right Greek word for "at" at one o'clock.
+                    at: f.atTime(issue.handledAt),
+                  })}
                 </p>
               ) : null}
             </div>

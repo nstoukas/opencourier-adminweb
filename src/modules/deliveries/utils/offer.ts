@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryStatus } from '../../../shared-types'
 
@@ -15,13 +16,19 @@ export type DeliveryOfferFields = Pick<
 
 // A union of two object shapes told apart by `kind`: after `if (offer.kind === 'offered')`
 // TypeScript knows `riderName` exists, and in the other branch that `since` is never null.
+// `riderName` is null when the backend sent no name (riderNameText below words that).
 export type DeliveryOffer =
-  | { kind: 'offered'; riderName: string; since: Date | null }
+  | { kind: 'offered'; riderName: string | null; since: Date | null }
   | { kind: 'waiting'; since: Date }
 
-// Shown when the backend sends no name for the rider holding the offer. It is not a name, so
-// it is never shortened like one ("Unknown r." would read as a real rider).
-export const UNKNOWN_RIDER = 'Unknown rider'
+// The key of the words shown when the backend sends no name for the rider holding the offer. It is
+// not a name, so it is never shortened like one ("Unknown r." would read as a real rider).
+export const UNKNOWN_RIDER_KEY = 'deliveries.offer.unknownRider'
+
+// The rider's name as sent, or "Unknown rider" in the reader's language.
+export function riderNameText(riderName: string | null, t: TFunction): string {
+  return riderName ?? t(UNKNOWN_RIDER_KEY)
+}
 
 // The same test the backend uses: still looking for a rider and nobody has accepted. The
 // delivery page asks it too, so the rule lives in one place.
@@ -35,7 +42,7 @@ export function deliveryOffer(delivery: DeliveryOfferFields): DeliveryOffer | nu
     return {
       kind: 'offered',
       // The backend leaves the name null only if the rider's record is gone.
-      riderName: delivery.matchedCourierName || UNKNOWN_RIDER,
+      riderName: delivery.matchedCourierName || null,
       // null for an offer made before offers were timed: shown without a time.
       since: delivery.offeredAt ?? null,
     }
@@ -60,9 +67,10 @@ export function shortRiderName(fullName: string): string {
 
 // Whole minutes from `since` to `now`, rounded down. Under a minute reads "under 1 min"
 // rather than "0 min", and a `since` slightly ahead of this browser's clock reads the same.
-export function minutesWaiting(since: Date, now: Date): string {
+// Takes `t` (i18next's lookup function) so the words are the reader's language (spec 0054).
+export function minutesWaiting(since: Date, now: Date, t: TFunction): string {
   const minutes = Math.floor((now.getTime() - since.getTime()) / 60_000)
-  return minutes < 1 ? 'under 1 min' : `${minutes} min`
+  return minutes < 1 ? t('deliveries.offer.underOneMinute') : t('common.minutes', { count: minutes })
 }
 
 // The text itself: "Ana P., 2 min", "No rider free, 4 min", or null for an empty cell.
@@ -70,13 +78,18 @@ export function minutesWaiting(since: Date, now: Date): string {
 export function describeOffer(
   delivery: DeliveryOfferFields,
   now: Date,
+  t: TFunction,
   nameStyle: 'short' | 'full' = 'short'
 ): string | null {
   const offer = deliveryOffer(delivery)
   if (!offer) return null
-  if (offer.kind === 'waiting') return `No rider free, ${minutesWaiting(offer.since, now)}`
+  if (offer.kind === 'waiting') return t('deliveries.offer.noRiderFree', { minutes: minutesWaiting(offer.since, now, t) })
   // The fallback is shown as it is: only a real name gets the short form.
-  const shorten = nameStyle === 'short' && offer.riderName !== UNKNOWN_RIDER
-  const name = shorten ? shortRiderName(offer.riderName) : offer.riderName
-  return offer.since ? `${name}, ${minutesWaiting(offer.since, now)}` : name
+  const name =
+    offer.riderName === null
+      ? riderNameText(null, t)
+      : nameStyle === 'short'
+        ? shortRiderName(offer.riderName)
+        : offer.riderName
+  return offer.since ? t('deliveries.offer.nameAndMinutes', { name, minutes: minutesWaiting(offer.since, now, t) }) : name
 }
