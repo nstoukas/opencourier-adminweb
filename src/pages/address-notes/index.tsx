@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { NextPage } from "next";
-import { Button, Input } from "@/admin-web-components";
+import { Button, Input, Skeleton } from "@/admin-web-components";
 import {
   useGetFlaggedAddressNotesQuery,
   useSearchAddressNotesQuery,
@@ -11,22 +11,40 @@ import { AddressNoteRow } from "@/modules/address-notes/AddressNoteRow";
 
 const PER_PAGE = 20;
 
-// Spec 0053 (AC-7): riders' notes about places. Flagged notes first, then every note found by
-// street (or coordinates). No filter, count or list by author (value 5).
+// Two grey bars while a list is read (docs/DESIGN.md: lists load with a Skeleton).
+const ListLoading = () => (
+  <div className="flex flex-col gap-2" aria-label="Loading">
+    <Skeleton className="h-24 w-full" />
+    <Skeleton className="h-24 w-full" />
+  </div>
+);
+
+// Spec 0053 (AC-7): riders' notes about places. Flagged notes first, then the notes found by street
+// (or coordinates). No filter, count or list by author (value 5). Row 82 review: nothing is listed
+// until a street is typed, so the page never pages through every note in town with its author.
 const AddressNotesPage: NextPage = () => {
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  // The last page count the server answered, kept while the next page loads so the pager stays put.
+  const [pageCount, setPageCount] = useState(1);
   const flaggedQuery = useGetFlaggedAddressNotesQuery();
-  const searchQuery = useSearchAddressNotesQuery({
-    search,
-    page,
-    perPage: PER_PAGE,
-  });
-  const flagged = flaggedQuery.currentData ?? [];
-  const found = searchQuery.currentData?.data ?? [];
-  const total = searchQuery.currentData?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
+  // `skip` keeps RTK Query from asking at all while no street has been typed.
+  const searchQuery = useSearchAddressNotesQuery(
+    { search, page, perPage: PER_PAGE },
+    { skip: search === "" }
+  );
+  // `currentData` is undefined while a new page or search loads, so "loaded" means it is defined.
+  const flaggedData = flaggedQuery.currentData;
+  const searchData = searchQuery.currentData;
+
+  useEffect(() => {
+    if (!searchData) return;
+    const count = Math.max(1, Math.ceil(searchData.total / PER_PAGE));
+    setPageCount(count);
+    // Row 82 review: after deleting the only note on the last page, go back to the new last page.
+    if (page > count) setPage(count);
+  }, [searchData, page]);
 
   const runSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,12 +71,11 @@ const AddressNotesPage: NextPage = () => {
               Could not load the flagged notes.
             </p>
           ) : null}
-          {!flaggedQuery.isError &&
-          !flaggedQuery.isLoading &&
-          flagged.length === 0 ? (
+          {!flaggedQuery.isError && !flaggedData ? <ListLoading /> : null}
+          {flaggedData && flaggedData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No flagged notes.</p>
           ) : null}
-          {flagged.map((note) => (
+          {(flaggedData ?? []).map((note) => (
             <AddressNoteRow key={note.id} note={note} />
           ))}
         </section>
@@ -88,17 +105,21 @@ const AddressNotesPage: NextPage = () => {
               Could not load the notes.
             </p>
           ) : null}
-          {!searchQuery.isError &&
-          !searchQuery.isLoading &&
-          found.length === 0 ? (
+          {search === "" ? (
             <p className="text-sm text-muted-foreground">
-              {search ? "No notes match." : "No notes yet."}
+              Type a street, an address or coordinates to see the notes there.
             </p>
           ) : null}
-          {found.map((note) => (
+          {search !== "" && !searchQuery.isError && !searchData ? (
+            <ListLoading />
+          ) : null}
+          {searchData && searchData.data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No notes match.</p>
+          ) : null}
+          {(searchData?.data ?? []).map((note) => (
             <AddressNoteRow key={note.id} note={note} />
           ))}
-          {pageCount > 1 ? (
+          {search !== "" && pageCount > 1 ? (
             <div className="flex items-center gap-2">
               <Button
                 type="button"
