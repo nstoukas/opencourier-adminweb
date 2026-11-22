@@ -51,6 +51,8 @@ export const deliveries = {
     SPLIT_CLOSED: 'Split closed',
     PARTNER_CHARGED_FOR_SPLIT: 'Partner charged for split',
     PARTNER_SPLIT_CHARGE_VOIDED: 'Partner split charge voided',
+    REASSIGNED: 'Reassigned',
+    RETURNED_TO_WAITING: 'Returned to waiting',
   },
   // describeTransition (src/utils/deliveryEventDisplay.ts); {{status}}, {{from}}, {{to}} are status words.
   transition: {
