@@ -1672,6 +1672,11 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(selectEl.value).toBe('SHORTAGE_ONLY')
       expect(within(selectEl).getByText('Only when no free rider is a good fit')).toBeInTheDocument()
       expect(within(selectEl).getByText('Whenever the two orders fit')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /"Whenever the two orders fit": with One more order offered while on a job on, a fitting order goes to a rider already on a job before a free rider, even when a free rider is waiting\./
+        )
+      ).toBeInTheDocument()
       fireEvent.change(selectEl, { target: { value: 'WHENEVER_FITS' } })
       expect(mockSet).toHaveBeenCalledWith('twoOrderPolicy', 'WHENEVER_FITS')
 
@@ -1791,7 +1796,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(addOnSwitch).not.toBeDisabled()
       expect(addOnSwitch).toHaveAttribute('aria-checked', 'false')
 
-      // Check field description covers safety rule, no auto accept, free decline, calm offer with doubled answer time
+      // Check field description covers safety rule, no auto accept, free decline, deadline, calm offer, policy and override
       expect(
         screen.getByText(
           /On: a rider on a job may be offered one more order on the way, showing the km and minutes it adds\./
@@ -1809,7 +1814,22 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       ).toBeInTheDocument()
       expect(
         screen.getByText(
-          /While the rider carries food it never rings insistently and gets twice the time to answer\./
+          /It always ends after Seconds before an unanswered offer ends \(under Offers\), even with Offer expiry off, and goes back to matching\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /While the rider carries food it never rings insistently and gets twice that time\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /Under "Whenever the two orders fit" it goes before a free rider\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /Never while the matcher is Fixed courier \(the override\)\./
         )
       ).toBeInTheDocument()
       expect(

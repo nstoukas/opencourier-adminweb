@@ -898,7 +898,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
       expect(screen.queryByTestId('attention-pair')).toBeNull()
     })
 
-    it('renders "One more order on the way, with the job #REF · shortId" when row.addOn is true and pairedOrderReference is present (spec 0048, row 81, AC-12)', () => {
+    it('renders "One more order on the way, added to the job #REF · shortId" when row.addOn is true and pairedOrderReference is present (spec 0048, row 81, AC-12)', () => {
       const row: DispatchAttentionRowDto = {
         id: 'r-addon',
         kind: 'OFFER_UNANSWERED',
@@ -924,7 +924,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
 
       const pairNotice = screen.getByTestId('attention-pair')
       expect(pairNotice).toBeInTheDocument()
-      expect(pairNotice).toHaveTextContent('One more order on the way, with the job #REF-JOB · 222222')
+      expect(pairNotice).toHaveTextContent('One more order on the way, added to the job #REF-JOB · 222222')
 
       const link = within(pairNotice).getByRole('link', { name: '#REF-JOB · 222222' })
       expect(link).toBeInTheDocument()
@@ -932,7 +932,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
       expect(link).toHaveAttribute('title', pairedDeliveryId)
     })
 
-    it('renders "One more order on the way, with the job delivery shortId" when row.addOn is true and pairedOrderReference is null (spec 0048, row 81, AC-12)', () => {
+    it('renders "One more order on the way, added to the job delivery shortId" when row.addOn is true and pairedOrderReference is null (spec 0048, row 81, AC-12)', () => {
       const row: DispatchAttentionRowDto = {
         id: 'r-addon-noref',
         kind: 'OFFER_UNANSWERED',
@@ -958,7 +958,7 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
 
       const pairNotice = screen.getByTestId('attention-pair')
       expect(pairNotice).toBeInTheDocument()
-      expect(pairNotice).toHaveTextContent('One more order on the way, with the job delivery 222222')
+      expect(pairNotice).toHaveTextContent('One more order on the way, added to the job delivery 222222')
 
       const link = within(pairNotice).getByRole('link', { name: 'delivery 222222' })
       expect(link).toBeInTheDocument()

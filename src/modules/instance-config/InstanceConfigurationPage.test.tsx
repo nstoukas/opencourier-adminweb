@@ -2441,7 +2441,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
           expect.objectContaining({
             title: 'Saved',
             description: expect.stringContaining(
-              'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+              'One more order on a job: applies to the next offer; offers already out and jobs already taken are unchanged.'
             ),
           })
         )

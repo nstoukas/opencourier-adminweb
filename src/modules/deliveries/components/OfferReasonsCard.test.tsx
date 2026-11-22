@@ -951,6 +951,52 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
       ]);
     });
 
+    it("formats notice when a passed over free rider was found under WHENEVER_FITS policy (spec 0048, row 81 review fix)", () => {
+      const addOnReason: OfferReasonAdmin = {
+        id: "reason-addon-free-rider",
+        deliveryEventId: "evt-addon-fr",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          currentDeliveryId: "del-job-111111",
+          freeRiderFound: true,
+        },
+        score: null,
+        candidateCount: 2,
+        ridersInRange: 3,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      const lines = addOnLines(addOnReason);
+      expect(lines).toContain(
+        'A free rider was found, but the co-op\'s policy was "Whenever the two orders fit", so the add on went first'
+      );
+    });
+
+    it("formats notice when no free rider was found for the order (spec 0048, row 81 review fix)", () => {
+      const addOnReason: OfferReasonAdmin = {
+        id: "reason-addon-no-free-rider",
+        deliveryEventId: "evt-addon-nfr",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          currentDeliveryId: "del-job-111111",
+          freeRiderFound: false,
+        },
+        score: null,
+        candidateCount: 2,
+        ridersInRange: 3,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      const lines = addOnLines(addOnReason);
+      expect(lines).toContain("No free rider was found for this order");
+    });
+
     it("omits optional lines when corresponding fields are absent or falsy", () => {
       const minimalAddOnReason: OfferReasonAdmin = {
         id: "reason-addon-min",

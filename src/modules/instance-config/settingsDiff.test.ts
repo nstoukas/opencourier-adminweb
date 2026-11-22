@@ -2393,14 +2393,14 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     })
 
     it('successMessage appends two orders sentence for addOnOffersEnabled and addOnMoment changes', () => {
-      const sentence =
-        'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+      const addOnSentence =
+        'One more order on a job: applies to the next offer; offers already out and jobs already taken are unchanged.'
 
       expect(
         successMessage([
           { key: 'addOnOffersEnabled', label: 'One more order offered while on a job', from: 'Off', to: 'On' },
         ] as any)
-      ).toBe(`Saved: One more order offered while on a job. ${sentence}`)
+      ).toBe(`Saved: One more order offered while on a job. ${addOnSentence}`)
 
       expect(
         successMessage([
@@ -2411,9 +2411,11 @@ describe('settingsDiff unit tests (spec 0010)', () => {
             to: 'BEFORE_DROPOFF',
           },
         ] as any)
-      ).toBe(`Saved: When one more order may be offered. ${sentence}`)
+      ).toBe(`Saved: When one more order may be offered. ${addOnSentence}`)
 
-      // Appended only once when all five two-order settings change
+      // Appended only once when all five two-order settings change, naming both
+      const bothSentence =
+        'Two orders together and one more order on a job: applies to the next offer; offers already out and jobs already taken are unchanged.'
       const allFive = [
         { key: 'stackingEnabled', label: 'Two orders offered together', from: 'Off', to: 'On' },
         { key: 'twoOrderPolicy', label: 'When two orders may go together', from: 'SHORTAGE_ONLY', to: 'WHENEVER_FITS' },
@@ -2422,8 +2424,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         { key: 'addOnMoment', label: 'When one more order may be offered', from: 'BEFORE_PICKUP', to: 'BEFORE_DROPOFF' },
       ]
       const msg = successMessage(allFive as any)
-      const occurrences = msg.split(sentence).length - 1
+      const occurrences = msg.split(bothSentence).length - 1
       expect(occurrences).toBe(1)
+      expect(msg).toContain(bothSentence)
     })
   })
 })

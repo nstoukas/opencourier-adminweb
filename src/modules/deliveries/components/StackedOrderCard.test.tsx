@@ -290,6 +290,12 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
 
   describe('StackedOrderCard for mid-job add-on offers (spec 0048, row 81, AC-12, AC-9)', () => {
     const jobDeliveryId = 'del-job-777777'
+    const addOnStops: StackStopAdmin[] = [
+      { deliveryId: currentDeliveryId, stop: 'PICKUP' },
+      { deliveryId: jobDeliveryId, stop: 'PICKUP' },
+      { deliveryId: currentDeliveryId, stop: 'DROPOFF' },
+      { deliveryId: jobDeliveryId, stop: 'DROPOFF' },
+    ]
     const addOnOfferReason: OfferReasonAdmin = {
       id: 'reason-addon-card',
       deliveryEventId: 'evt-addon-1',
@@ -300,7 +306,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
         currentDeliveryId: jobDeliveryId,
         extraKm: 2.1,
         extraMinutes: 7,
-        sequence: sampleStops,
+        sequence: addOnStops,
         carryingFood: true,
       },
       score: null,
@@ -315,7 +321,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       render(
         <StackedOrderCard
           deliveryId={currentDeliveryId}
-          stackStops={sampleStops}
+          stackStops={addOnStops}
           offerReasons={[addOnOfferReason]}
           addOnExtraKm={2.1}
           addOnExtraMinutes={7}
@@ -331,7 +337,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       render(
         <StackedOrderCard
           deliveryId={currentDeliveryId}
-          stackStops={sampleStops}
+          stackStops={addOnStops}
           offerReasons={[addOnOfferReason]}
           addOnExtraKm={2.1}
           addOnExtraMinutes={7}
@@ -407,7 +413,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       const { rerender } = render(
         <StackedOrderCard
           deliveryId={currentDeliveryId}
-          stackStops={sampleStops}
+          stackStops={addOnStops}
           offerReasons={[addOnOfferReason]}
         />
       )
@@ -415,7 +421,7 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       const listItems = screen.getAllByRole('listitem')
       expect(listItems).toHaveLength(4)
       expect(listItems[0]).toHaveTextContent('Pick up this delivery')
-      expect(listItems[1]).toHaveTextContent('Pick up 222222')
+      expect(listItems[1]).toHaveTextContent('Pick up 777777')
 
       rerender(
         <StackedOrderCard
@@ -428,6 +434,95 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       expect(
         screen.getByText('No stop order now: it is kept only while both orders are open with one rider.')
       ).toBeInTheDocument()
+    })
+  })
+
+  describe('The job an add on joined (spec 0048, row 81 review fix)', () => {
+    it('renders "One more order added" and links partner when delivery has stackStops but no pairing offerReason', () => {
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={[]}
+        />
+      )
+
+      const card = screen.getByTestId('stacked-order')
+      expect(card).toBeInTheDocument()
+      expect(within(card).getByRole('heading', { name: 'One more order added' })).toBeInTheDocument()
+      expect(
+        screen.getByText(/Offered alone\. Later another order,/)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/was added to this job while the rider was on it\. Each is paid in full from its own quote\./)
+      ).toBeInTheDocument()
+
+      const partnerLinks = screen.getAllByRole('link', { name: '222222' })
+      expect(partnerLinks.length).toBeGreaterThan(0)
+      partnerLinks.forEach((link) => {
+        expect(link).toHaveAttribute('href', `/deliveries/${partnerDeliveryId}`)
+      })
+    })
+
+    it('renders "another delivery" when partner cannot be resolved from stackStops', () => {
+      const onlyCurrentDeliveryStops: StackStopAdmin[] = [
+        { deliveryId: currentDeliveryId, stop: 'PICKUP' },
+        { deliveryId: currentDeliveryId, stop: 'DROPOFF' },
+      ]
+
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={onlyCurrentDeliveryStops}
+          offerReasons={[]}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'One more order added' })).toBeInTheDocument()
+      expect(screen.getByText('another delivery')).toBeInTheDocument()
+      expect(screen.getByText('another delivery')).toHaveClass('text-muted-foreground')
+    })
+
+    it('ignores stale ADD_ON reason that names a different partner and renders "One more order added" with stops partner', () => {
+      // Reason was from an older declined add-on offer with a different delivery
+      const staleAddOnReason: OfferReasonAdmin = {
+        id: 'reason-stale',
+        deliveryEventId: 'evt-stale',
+        courierId: 'c1',
+        strategy: 'FAIRNESS',
+        weights: null,
+        values: {
+          currentDeliveryId: 'del-old-job-999999',
+          extraKm: 1.5,
+          extraMinutes: 5,
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: 'ADD_ON',
+        createdAt: '2026-11-22T08:00:00.000Z',
+      }
+
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={[staleAddOnReason]}
+        />
+      )
+
+      // Reason partner (del-old-job-999999) does not match stops partner (del-partner-222222)
+      // So reason is untrusted -> renders "One more order added" linking 222222
+      expect(screen.getByRole('heading', { name: 'One more order added' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'One more order on the way' })).toBeNull()
+      expect(screen.queryByText(/del-old-job-999999/)).toBeNull()
+      expect(screen.queryByText(/999999/)).toBeNull()
+      const partnerLinks = screen.getAllByRole('link', { name: '222222' })
+      expect(partnerLinks.length).toBeGreaterThan(0)
+      partnerLinks.forEach((link) => {
+        expect(link).toHaveAttribute('href', `/deliveries/${partnerDeliveryId}`)
+      })
     })
   })
 })

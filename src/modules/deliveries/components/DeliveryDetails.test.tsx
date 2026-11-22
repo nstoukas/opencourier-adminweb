@@ -1531,6 +1531,22 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
           { deliveryId: 'd100', stop: 'PICKUP' },
           { deliveryId: 'd200', stop: 'PICKUP' },
         ],
+        offerReasons: [
+          {
+            id: 'r-stack-1',
+            deliveryEventId: 'evt-stack-1',
+            courierId: 'c1',
+            strategy: 'FAIRNESS',
+            weights: null,
+            values: { partnerDeliveryId: 'd200' },
+            score: null,
+            candidateCount: 1,
+            ridersInRange: 1,
+            candidates: null,
+            kind: 'STACK',
+            createdAt: '2026-11-22T10:00:00.000Z',
+          },
+        ],
       }
       mockUseGetDeliveryQuery.mockReturnValue({
         data: stackedDelivery,
@@ -1553,6 +1569,28 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       })
       rerender(<DeliveryDetails deliveryId="d100" />)
       expect(screen.queryByTestId('stacked-order')).toBeNull()
+    })
+
+    it('renders StackedOrderCard with "One more order added" for a job joined by an add on (spec 0048, row 81, AC-12)', () => {
+      const joinedJobDelivery = {
+        ...sampleEurDelivery,
+        offerGroupId: 'og-joined-123',
+        stackStops: [
+          { deliveryId: 'd100', stop: 'PICKUP' },
+          { deliveryId: 'd200', stop: 'PICKUP' },
+        ],
+        offerReasons: [],
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: joinedJobDelivery,
+        currentData: joinedJobDelivery,
+        isLoading: false,
+      })
+
+      render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.getByTestId('stacked-order')).toBeInTheDocument()
+      expect(screen.getByText('One more order added')).toBeInTheDocument()
+      expect(screen.getByText(/Offered alone\. Later another order/)).toBeInTheDocument()
     })
 
     it('renders StackedOrderCard for an open add on when addOn is true without offerGroupId (spec 0048, row 81, AC-12)', () => {
