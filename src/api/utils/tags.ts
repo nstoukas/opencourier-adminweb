@@ -26,6 +26,7 @@ const tagTypes = {
   splitRequests: 'SplitRequests',
   settingChanges: 'SettingChanges',
   timeWorked: 'TimeWorked',
+  addressNotes: 'AddressNotes',
 }
 
 export const Tags = {
@@ -54,6 +55,7 @@ export const Tags = {
   splitRequests: tagTypes['splitRequests'],
   settingChanges: tagTypes['settingChanges'],
   timeWorked: tagTypes['timeWorked'],
+  addressNotes: tagTypes['addressNotes'],
   sos: tagTypes['sos'],
   removalRequests: tagTypes['removalRequests'],
   removalReasons: tagTypes['removalReasons'],

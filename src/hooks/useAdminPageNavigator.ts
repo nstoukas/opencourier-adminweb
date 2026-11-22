@@ -31,6 +31,8 @@ export enum EAdminRoutes {
   // Complaints both ways, decided by a person (spec 0052). No rider's count or list anywhere.
   COMPLAINTS = '/complaints',
   COMPLAINT_DETAILS = '/complaints/[complaintId]',
+  // Riders' notes about places: flagged first, a search by street, delete and dismiss (spec 0053).
+  ADDRESS_NOTES = '/address-notes',
   SPLIT_REQUESTS = '/split-requests',
   // The co-op's time worked totals (spec 0040).
   TIME_WORKED = '/time-worked',

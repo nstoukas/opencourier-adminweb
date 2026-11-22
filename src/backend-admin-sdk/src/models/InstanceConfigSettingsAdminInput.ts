@@ -295,6 +295,8 @@ export interface InstanceConfigSettingsAdminInput {
   chatQuickRepliesDispatch?: Array<string>;
   chatQuickRepliesCourier?: Array<string>;
   chatRetentionDays?: number;
+  // Address notes (spec 0053). Without the ToJSON line below a save would drop it silently.
+  addressNoteRetentionDays?: number;
   // Review requests (spec 0038). Without the ToJSON lines below a save would drop them silently.
   reviewAnswerDays?: number;
   reviewCorrectionMaxCents?: number;
@@ -553,6 +555,7 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     chatRetentionDays: !exists(json, "chatRetentionDays")
       ? undefined
       : json["chatRetentionDays"],
+    addressNoteRetentionDays: !exists(json, "addressNoteRetentionDays") ? undefined : json["addressNoteRetentionDays"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? undefined : json["reviewAnswerDays"],
     reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? undefined : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
@@ -641,6 +644,7 @@ export function InstanceConfigSettingsAdminInputToJSON(
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,
     chatRetentionDays: value.chatRetentionDays,
+    addressNoteRetentionDays: value.addressNoteRetentionDays,
     reviewAnswerDays: value.reviewAnswerDays,
     reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     // Without this line a save would drop the cancellation rule before it left the browser.

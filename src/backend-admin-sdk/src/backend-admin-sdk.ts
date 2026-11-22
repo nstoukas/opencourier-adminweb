@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ChatApi, ComplaintApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, StatementApi, SplitRequestApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
+import { AuthApi, ChatApi, ComplaintApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, AddressNoteApi, StatementApi, SplitRequestApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
 import { ApiError } from './errors'
 
 // The answers that are files, not JSON: their bytes must reach the caller untouched.
@@ -110,6 +110,11 @@ export class BackendAdminSdk {
   // Offline during a booked shift, to follow up in person (spec 0049).
   shiftOfflineEvents(): ShiftOfflineEventApi {
     return this.getOrCreateApi(ShiftOfflineEventApi)
+  }
+
+  // Riders' notes about places (spec 0053).
+  addressNotes(): AddressNoteApi {
+    return this.getOrCreateApi(AddressNoteApi)
   }
 
   // Riders' SOS incidents (spec 0022).

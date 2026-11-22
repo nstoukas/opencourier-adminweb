@@ -294,6 +294,8 @@ export interface InstanceConfigSettingsDto {
   chatQuickRepliesDispatch?: Array<string> | null;
   chatQuickRepliesCourier?: Array<string> | null;
   chatRetentionDays?: number | null;
+  // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
+  addressNoteRetentionDays?: number | null;
   // Review requests (spec 0038): whole days to answer, and the largest pay correction in cents.
   reviewAnswerDays?: number | null;
   reviewCorrectionMaxCents?: number | null;
@@ -527,6 +529,7 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     chatRetentionDays: !exists(json, "chatRetentionDays")
       ? null
       : json["chatRetentionDays"],
+    addressNoteRetentionDays: !exists(json, "addressNoteRetentionDays") ? null : json["addressNoteRetentionDays"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? null : json["reviewAnswerDays"],
     reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? null : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
@@ -605,6 +608,7 @@ export function InstanceConfigSettingsDtoToJSON(
     chatQuickRepliesDispatch: value.chatQuickRepliesDispatch,
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,
     chatRetentionDays: value.chatRetentionDays,
+    addressNoteRetentionDays: value.addressNoteRetentionDays,
     reviewAnswerDays: value.reviewAnswerDays,
     reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,

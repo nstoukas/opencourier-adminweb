@@ -18,7 +18,7 @@ import { useAppDispatch } from '../../ui-shared-utils'
 // `import type` brings in only a type (erased at build time); Phosphor's `Icon` is the type of
 // any icon component, renamed so it is not mistaken for a component itself.
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { ArrowsSplit, CalendarBlank, ChatCircle, Coins, GearSix, MapPin, Megaphone, Moped, Package, Scales, SignOut, Siren, Storefront, Timer, WarningCircle } from '@phosphor-icons/react'
+import { ArrowsSplit, CalendarBlank, ChatCircle, Coins, GearSix, MapPin, Megaphone, Moped, NotePencil, Package, Scales, SignOut, Siren, Storefront, Timer, WarningCircle } from '@phosphor-icons/react'
 import { MessagesBadge } from '@/modules/chat/MessagesBadge'
 import { ReviewsBadge } from '@/modules/reviews/ReviewsBadge'
 import { SplitRequestsBadge } from '@/modules/split-requests/SplitRequestsBadge'
@@ -77,6 +77,8 @@ const NAV_GROUPS: NavGroup[] = [
       { title: 'Reviews', icon: Scales, href: EAdminRoutes.REVIEWS, badge: ReviewsBadge },
       // Complaints both ways, each decided by a person (spec 0052). No badge or count.
       { title: 'Complaints', icon: Megaphone, href: EAdminRoutes.COMPLAINTS },
+      // Riders' notes about places, flagged ones first (spec 0053). No badge or count.
+      { title: 'Address notes', icon: NotePencil, href: EAdminRoutes.ADDRESS_NOTES },
       // The co-op's totals only (spec 0040); one rider's time worked is on that rider's page.
       { title: 'Time worked', icon: Timer, href: EAdminRoutes.TIME_WORKED },
     ],

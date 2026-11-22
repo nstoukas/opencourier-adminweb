@@ -64,6 +64,8 @@ export type SettingsForm = {
   chatQuickRepliesDispatch: string
   chatQuickRepliesCourier: string
   chatRetentionDays: string
+  // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
+  addressNoteRetentionDays: string
   // Review requests (spec 0038): the days a person has to answer, and the largest correction in cents.
   reviewAnswerDays: string
   reviewCorrectionMaxCents: string
@@ -150,6 +152,8 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'chatQuickRepliesDispatch', label: 'Dispatch quick replies', kind: 'lines' },
   { key: 'chatQuickRepliesCourier', label: 'Courier quick replies', kind: 'lines' },
   { key: 'chatRetentionDays', label: 'Chat messages kept for (days)', kind: 'number' },
+  // Address notes (spec 0053, AC-6).
+  { key: 'addressNoteRetentionDays', label: 'Address notes kept without an upvote (days)', kind: 'number' },
   // Review requests (spec 0038).
   { key: 'reviewAnswerDays', label: 'Days to answer a review request', kind: 'number' },
   { key: 'reviewCorrectionMaxCents', label: 'Largest review pay correction (cents)', kind: 'number' },
@@ -497,6 +501,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     chatQuickRepliesDispatch: Array.isArray(data.chatQuickRepliesDispatch) ? data.chatQuickRepliesDispatch.join('\n') : '',
     chatQuickRepliesCourier: Array.isArray(data.chatQuickRepliesCourier) ? data.chatQuickRepliesCourier.join('\n') : '',
     chatRetentionDays: text(data.chatRetentionDays),
+    addressNoteRetentionDays: text(data.addressNoteRetentionDays),
     reviewAnswerDays: text(data.reviewAnswerDays),
     reviewCorrectionMaxCents: text(data.reviewCorrectionMaxCents),
     boxUnitsSmall: text(data.boxUnitsSmall),
@@ -568,6 +573,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('chatRetentionDays')) {
     parts.push('The daily job deletes chat messages under the new period from its next run.')
+  }
+  if (keys.has('addressNoteRetentionDays')) {
+    parts.push('The nightly job deletes address notes under the new period from its next run, and riders see the new period in How notes work.')
   }
   if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {
     parts.push('New box units apply to orders made from now on; an order already made keeps its units.')

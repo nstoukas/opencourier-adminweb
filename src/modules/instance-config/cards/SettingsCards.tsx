@@ -1052,6 +1052,17 @@ export function InstanceCard({ form, set, options, loaded, linkLocked }: CardPro
             description="The positions a rider's phone shares during an SOS are deleted this many days after the SOS's last position, at 04:00. The record of each SOS and how it ended stays. Whole days, 1 to 365."
             onChange={(value) => set('sosLocationRetentionDays', value)}
           />
+          {/* Spec 0053 (AC-6): the period row 46's lawyer confirms. Riders see it on How notes work. */}
+          <NumberField
+            id="addressNoteRetentionDays"
+            label={labelOf('addressNoteRetentionDays')}
+            value={form.addressNoteRetentionDays}
+            min={30}
+            max={730}
+            disabled={!loaded}
+            description="A courier note about a place that no other rider upvotes for this many days is deleted, at 03:30. Each upvote restarts the period. Riders are told the period. Whole days, 30 to 730; 182 is about 6 months."
+            onChange={(value) => set('addressNoteRetentionDays', value)}
+          />
           {/* Row 72: the number riders call in one tap from the job screen. */}
           <Field>
             <FieldLabel htmlFor="dispatchPhoneNumber">{labelOf('dispatchPhoneNumber')}</FieldLabel>
