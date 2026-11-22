@@ -617,10 +617,13 @@ export function TwoOrdersCard({ form, set, loaded }: CardProps) {
                 </option>
               ))}
             </NativeSelect>
+            {/* Review fix (row 81, values 1 and 2): the one consequence of this choice that takes work from members
+                who are waiting is said plainly, so a representative carries the assembly's vote knowingly. */}
             <FieldDescription>
               "Only when no free rider is a good fit" pairs an order only with one that already found no free rider,
-              and offers one more order to a rider on a job only when no free rider was found. Used while either
-              switch is on.
+              and offers one more order to a rider on a job only when no free rider was found. "Whenever the two
+              orders fit": with One more order offered while on a job on, a fitting order goes to a rider already on a
+              job before a free rider, even when a free rider is waiting. Used while either switch is on.
             </FieldDescription>
           </Field>
           <NumberField
@@ -648,8 +651,11 @@ export function TwoOrdersCard({ form, set, loaded }: CardProps) {
           <FieldDescription>
             On: a rider on a job may be offered one more order on the way, showing the km and minutes it adds.
             Declining is free and changes nothing about the job, and the phone never accepts it by itself. It pays in
-            full from its own quote, and the limits above apply. While the rider carries food it never rings
-            insistently and gets twice the time to answer. Off: no rider on a job is offered anything.
+            full from its own quote, and the limits above apply. It always ends after Seconds before an unanswered
+            offer ends (under Offers), even with Offer expiry off, and goes back to matching. While the rider carries
+            food it never rings insistently and gets twice that time. Under "Whenever the two orders fit" it goes
+            before a free rider. Never while the matcher is Fixed courier (the override). Off: no rider on a job is
+            offered anything.
           </FieldDescription>
         </Field>
         <Field>
@@ -704,7 +710,7 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             min={20}
             max={300}
             disabled={!loaded || notLoaded}
-            description="Whole seconds, 20 to 300. Used only while Offer expiry is on. An offer an admin makes by hand never ends on its own."
+            description="Whole seconds, 20 to 300. Used while Offer expiry is on, and always for one more order offered while on a job (twice this while the rider carries food). An offer an admin makes by hand never ends on its own."
             onChange={(value) => set('offerExpirySeconds', value)}
           />
           <NumberField
