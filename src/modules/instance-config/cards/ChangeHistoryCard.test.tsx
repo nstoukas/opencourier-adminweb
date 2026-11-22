@@ -2,11 +2,17 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import {
   ChangeHistoryCard,
-  describeSettingValue,
-  settingLabel,
+  describeSettingValue as rawDescribeSettingValue,
+  settingLabel as rawSettingLabel,
   CHANGE_HISTORY_PAGE_SIZE,
 } from './ChangeHistoryCard'
 import type { SettingChangeAdminDto } from '@/backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const describeSettingValue = (value: unknown) => rawDescribeSettingValue(t, value)
+const settingLabel = (change: { key: string; label: string }, language = 'en') =>
+  rawSettingLabel(t, language, change)
 
 const mockUseGetSettingChangesQuery = jest.fn()
 jest.mock('../../../api/reviewRequestApi', () => ({

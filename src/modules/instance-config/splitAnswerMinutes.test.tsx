@@ -1,7 +1,23 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { RestaurantDelaysCard } from './cards/SettingsCards'
-import { EMPTY_FORM, SETTINGS, blockers, formFromSettings, labelOf, pendingChanges, savePayload, type SettingsForm } from './settingsDiff'
+import {
+  EMPTY_FORM,
+  SETTINGS,
+  blockers as rawBlockers,
+  formFromSettings,
+  labelOf as rawLabelOf,
+  pendingChanges as rawPendingChanges,
+  savePayload,
+  type SettingsForm,
+} from './settingsDiff'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const labelOf = (key: any) => rawLabelOf(t, key)
+const pendingChanges = (saved: SettingsForm | null, edited: SettingsForm) =>
+  rawPendingChanges(t, 'en', saved, edited)
+const blockers = (changes: any[], edited: SettingsForm) => rawBlockers(t, changes, edited)
 
 // Spec 0047, AC-2: `splitAnswerMinutes` is a co-op setting (binding value 2: set by representatives in
 // admin), default 10, from 1 to 60: how long a rider waits for dispatch's answer before they may leave.
@@ -58,7 +74,10 @@ describe('the splitAnswerMinutes setting in admin (spec 0047, AC-2)', () => {
 
   describe('the form and what Save sends', () => {
     it('is one of the settings, a number, with its label', () => {
-      expect(SETTINGS.find((setting) => setting.key === 'splitAnswerMinutes')).toMatchObject({ kind: 'number', label: LABEL })
+      expect(SETTINGS.find((setting) => setting.key === 'splitAnswerMinutes')).toMatchObject({
+        kind: 'number',
+        labelKey: 'settings.labels.splitAnswerMinutes',
+      })
       expect(labelOf('splitAnswerMinutes')).toBe(LABEL)
     })
 

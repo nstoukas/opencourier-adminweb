@@ -1,4 +1,7 @@
 import { describeBaseFee, parseBaseFeeInput } from './baseFee'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 describe('baseFee utility (AC-4)', () => {
   describe('parseBaseFeeInput', () => {
@@ -23,20 +26,20 @@ describe('baseFee utility (AC-4)', () => {
 
   describe('describeBaseFee', () => {
     it('formats 200 in EUR as "€2.00 per delivery"', () => {
-      const description = describeBaseFee(200, 'EUR')
+      const description = describeBaseFee(t, 'en', 200, 'EUR')
       expect(description).toContain('€2.00 per delivery')
       expect(description).toContain('paid to the rider in full')
     })
 
     it('handles 0 base fee with warning message for short trips', () => {
-      const description = describeBaseFee(0, 'EUR')
+      const description = describeBaseFee(t, 'en', 0, 'EUR')
       expect(description).toContain('0: no fixed part')
       expect(description).toContain('Riders are paid only the distance part')
     })
 
     it('returns prompt message for null or negative/invalid fee', () => {
-      expect(describeBaseFee(null, 'EUR')).toBe('Enter a whole number of cents, zero or more.')
-      expect(describeBaseFee(-1, 'EUR')).toBe('Enter a whole number of cents, zero or more.')
+      expect(describeBaseFee(t, 'en', null, 'EUR')).toBe('Enter a whole number of cents, zero or more.')
+      expect(describeBaseFee(t, 'en', -1, 'EUR')).toBe('Enter a whole number of cents, zero or more.')
     })
   })
 })

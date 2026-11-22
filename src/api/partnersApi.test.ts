@@ -118,6 +118,8 @@ describe('partnersApi availability endpoints (spec 0029, AC-5 and AC-9)', () => 
       disabledReason: 'Co-op suspension',
       acceptingOrders: false,
       notAcceptingReason: 'The co-op has disabled this restaurant: Co-op suspension',
+      notAcceptingCode: null,
+      notAcceptingParams: null,
     },
   }
 

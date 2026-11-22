@@ -1,21 +1,45 @@
 import {
-  blockers,
-  boxUnitsOutOfOrder,
+  blockers as rawBlockers,
+  boxUnitsOutOfOrder as rawBoxUnitsOutOfOrder,
   EMPTY_FORM,
   feeAboveCeiling,
   formFromSettings,
-  labelOf,
+  labelOf as rawLabelOf,
   normalizeRegion,
-  pendingChanges,
+  pendingChanges as rawPendingChanges,
   sameValue,
   savePayload,
   SETTINGS,
-  successMessage,
-  urlErrorText,
+  successMessage as rawSuccessMessage,
+  urlErrorText as rawUrlErrorText,
+  presetsOf,
+  cleanPresets,
+  incompletePresetRows,
+  presetText,
   type SettingsForm,
+  type SettingKey,
+  type PendingChange,
 } from './settingsDiff'
 import { InstanceConfigSettingsAdminInputToJSON } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsAdminInput'
 import { InstanceConfigSettingsDtoFromJSON } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsDto'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const labelOf = (key: SettingKey, form?: Pick<SettingsForm, 'distanceUnit'>) => rawLabelOf(t, key, form)
+const pendingChanges = (
+  saved: SettingsForm | null,
+  edited: SettingsForm,
+  optionLabel?: (key: SettingKey, option: string) => string
+) => rawPendingChanges(t, 'en', saved, edited, optionLabel)
+const blockers = (
+  changes: PendingChange[],
+  edited: SettingsForm,
+  saved?: SettingsForm | null
+) => rawBlockers(t, changes, edited, saved)
+const successMessage = (changes: PendingChange[]) => rawSuccessMessage(t, changes)
+const urlErrorText = (label: string) => rawUrlErrorText(t, label)
+const boxUnitsOutOfOrder = (form: Pick<SettingsForm, 'boxUnitsSmall' | 'boxUnitsMedium' | 'boxUnitsLarge'>) =>
+  rawBoxUnitsOutOfOrder(t, form)
 
 describe('settingsDiff unit tests (spec 0010)', () => {
   const baseSavedForm: SettingsForm = {
@@ -84,8 +108,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     shiftsEnabled: false,
     shiftDropNoticeHours: '12',
     shiftBreakMinutes: '30',
-    chatQuickRepliesDispatch: 'Line 1\nLine 2',
-    chatQuickRepliesCourier: 'Courier line 1\nCourier line 2',
+    chatQuickRepliesDispatch: presetsOf(['Line 1', 'Line 2']),
+    chatQuickRepliesCourier: presetsOf(['Courier line 1', 'Courier line 2']),
     chatRetentionDays: '90',
     // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
     addressNoteRetentionDays: '182',
@@ -933,51 +957,51 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const setting = SETTINGS.find((s) => s.key === 'sosLocationRetentionDays')
       expect(setting).toBeDefined()
       expect(setting?.kind).toBe('number')
-      expect(setting?.label).toBe('SOS location kept for (days)')
+      expect(setting?.labelKey).toBe('settings.labels.sosLocationRetentionDays')
     })
 
     it('declares timed offers settings (spec 0031, AC-1)', () => {
       const timingEnabled = SETTINGS.find((s) => s.key === 'offerTimingEnabled')
-      expect(timingEnabled).toMatchObject({ key: 'offerTimingEnabled', kind: 'switch', label: 'Timed offers' })
+      expect(timingEnabled).toMatchObject({ key: 'offerTimingEnabled', kind: 'switch', labelKey: 'settings.labels.offerTimingEnabled' })
 
       const leadMinutes = SETTINGS.find((s) => s.key === 'offerLeadMinutes')
       expect(leadMinutes).toMatchObject({
         key: 'offerLeadMinutes',
         kind: 'number',
-        label: 'Lead time before an offer (minutes)',
+        labelKey: 'settings.labels.offerLeadMinutes',
       })
 
       const candidates = SETTINGS.find((s) => s.key === 'offerTimingCandidates')
       expect(candidates).toMatchObject({
         key: 'offerTimingCandidates',
         kind: 'number',
-        label: 'Riders compared by road time',
+        labelKey: 'settings.labels.offerTimingCandidates',
       })
     })
 
     it('declares restaurant delay settings (spec 0033, AC-1)', () => {
       const waitPayEnabled = SETTINGS.find((s) => s.key === 'waitPayEnabled')
-      expect(waitPayEnabled).toMatchObject({ key: 'waitPayEnabled', kind: 'switch', label: 'Delay pay' })
+      expect(waitPayEnabled).toMatchObject({ key: 'waitPayEnabled', kind: 'switch', labelKey: 'settings.labels.waitPayEnabled' })
 
       const freeMinutes = SETTINGS.find((s) => s.key === 'waitPayFreeMinutes')
       expect(freeMinutes).toMatchObject({
         key: 'waitPayFreeMinutes',
         kind: 'number',
-        label: 'Free minutes after the promised time',
+        labelKey: 'settings.labels.waitPayFreeMinutes',
       })
 
       const centsPerMinute = SETTINGS.find((s) => s.key === 'waitPayCentsPerMinute')
       expect(centsPerMinute).toMatchObject({
         key: 'waitPayCentsPerMinute',
         kind: 'number',
-        label: 'Delay pay per minute (cents)',
+        labelKey: 'settings.labels.waitPayCentsPerMinute',
       })
 
       const waitLimit = SETTINGS.find((s) => s.key === 'waitLimitMinutes')
       expect(waitLimit).toMatchObject({
         key: 'waitLimitMinutes',
         kind: 'number',
-        label: 'Minutes before a rider can leave',
+        labelKey: 'settings.labels.waitLimitMinutes',
       })
     })
   })
@@ -1057,10 +1081,10 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
     it('SETTINGS has shiftsEnabled as a switch labelled "Shifts" and shiftDropNoticeHours as a number', () => {
       const enabled = SETTINGS.find((s) => s.key === 'shiftsEnabled')
-      expect(enabled).toMatchObject({ kind: 'switch', label: 'Shifts' })
+      expect(enabled).toMatchObject({ kind: 'switch', labelKey: 'settings.labels.shiftsEnabled' })
       expect(enabled?.details).toBeFalsy()
       const notice = SETTINGS.find((s) => s.key === 'shiftDropNoticeHours')
-      expect(notice).toMatchObject({ kind: 'number', label: 'Notice to drop a shift, in hours' })
+      expect(notice).toMatchObject({ kind: 'number', labelKey: 'settings.labels.shiftDropNoticeHours' })
       expect(notice?.details).toBeFalsy()
       expect(labelOf('shiftDropNoticeHours')).toBe('Notice to drop a shift, in hours')
     })
@@ -1493,7 +1517,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const setting = SETTINGS.find((s) => s.key === 'returnTripPayPercent')
       expect(setting).toBeDefined()
       expect(setting?.kind).toBe('number')
-      expect(setting?.label).toBe('Return trip pay (%)')
+      expect(setting?.labelKey).toBe('settings.labels.returnTripPayPercent')
     })
 
     it('formFromSettings preserves returnTripPayPercent as string and handles 0, null, missing', () => {
@@ -1551,27 +1575,37 @@ describe('settingsDiff unit tests (spec 0010)', () => {
   describe('Chat settings (spec 0034, AC-13, AC-18)', () => {
     const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
 
-    it('formFromSettings joins quick replies lists with newlines and converts retention days to string', () => {
+    it('formFromSettings converts quick replies lists to presets and retention days to string', () => {
       const backendData = {
-        chatQuickRepliesDispatch: ['Wait 5 min', 'Leave at door'],
-        chatQuickRepliesCourier: ['At the door', 'Food not ready'],
+        chatQuickRepliesDispatch: [{ el: 'Wait 5 min', en: 'Wait 5 min' }, { el: 'Leave at door', en: 'Leave at door' }],
+        chatQuickRepliesCourier: [{ el: 'At the door', en: 'At the door' }, { el: 'Food not ready', en: 'Food not ready' }],
         chatRetentionDays: 90,
       }
       const form = formFromSettings(backendData)
-      expect(form.chatQuickRepliesDispatch).toBe('Wait 5 min\nLeave at door')
-      expect(form.chatQuickRepliesCourier).toBe('At the door\nFood not ready')
+      expect(form.chatQuickRepliesDispatch).toEqual([
+        { el: 'Wait 5 min', en: 'Wait 5 min' },
+        { el: 'Leave at door', en: 'Leave at door' },
+      ])
+      expect(form.chatQuickRepliesCourier).toEqual([
+        { el: 'At the door', en: 'At the door' },
+        { el: 'Food not ready', en: 'Food not ready' },
+      ])
       expect(form.chatRetentionDays).toBe('90')
 
-      // Empty or missing falls back to empty strings
-      expect(EMPTY_FORM.chatQuickRepliesDispatch).toBe('')
-      expect(EMPTY_FORM.chatQuickRepliesCourier).toBe('')
+      // Empty or missing falls back to empty arrays
+      expect(EMPTY_FORM.chatQuickRepliesDispatch).toEqual([])
+      expect(EMPTY_FORM.chatQuickRepliesCourier).toEqual([])
       expect(EMPTY_FORM.chatRetentionDays).toBe('')
     })
 
-    it('pendingChanges detects edits to chatQuickRepliesDispatch and chatQuickRepliesCourier as kind "lines"', () => {
+    it('pendingChanges detects edits to chatQuickRepliesDispatch and chatQuickRepliesCourier as kind "presets"', () => {
       const edited: SettingsForm = {
         ...baseSavedForm,
-        chatQuickRepliesDispatch: 'Wait 5 min\nLeave at door\nBring back to store',
+        chatQuickRepliesDispatch: [
+          { el: 'Wait 5 min', en: 'Wait 5 min' },
+          { el: 'Leave at door', en: 'Leave at door' },
+          { el: 'Bring back to store', en: 'Bring back to store' },
+        ],
       }
       const changes = pendingChanges(baseSavedForm, edited)
       expect(changes).toHaveLength(1)
@@ -1581,15 +1615,22 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(changes[0]?.to).toBe('Wait 5 min · Leave at door · Bring back to store')
     })
 
-    it('sameValue ignores blank lines and trailing whitespace on lines kind', () => {
-      const a = 'Line 1\nLine 2'
-      const b = '  Line 1  \n\n  Line 2\n'
+    it('sameValue ignores blank lines and trailing whitespace on presets kind', () => {
+      const a = [
+        { el: 'Line 1', en: 'Line 1' },
+        { el: 'Line 2', en: 'Line 2' },
+      ]
+      const b = [
+        { el: '  Line 1  ', en: '  Line 1  ' },
+        { el: '', en: '' },
+        { el: '  Line 2  ', en: '  Line 2  ' },
+      ]
       expect(sameValue('chatQuickRepliesDispatch', a, b)).toBe(true)
       expect(sameValue('chatQuickRepliesCourier', a, b)).toBe(true)
     })
 
     it('blockers rejects more than 8 lines for dispatch or courier presets, naming the setting', () => {
-      const nineLines = Array.from({ length: 9 }, (_, i) => `Preset ${i + 1}`).join('\n')
+      const nineLines = Array.from({ length: 9 }, (_, i) => ({ el: `Preset ${i + 1}`, en: `Preset ${i + 1}` }))
 
       const editedDispatch: SettingsForm = {
         ...baseSavedForm,
@@ -1597,7 +1638,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       }
       const changesDispatch = pendingChanges(baseSavedForm, editedDispatch)
       const dispatchBlockers = blockers(changesDispatch, editedDispatch)
-      expect(dispatchBlockers).toContain('Dispatch quick replies: at most 8, one per line')
+      expect(dispatchBlockers).toContain('Dispatch quick replies: at most 8 presets')
 
       const editedCourier: SettingsForm = {
         ...baseSavedForm,
@@ -1605,7 +1646,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       }
       const changesCourier = pendingChanges(baseSavedForm, editedCourier)
       const courierBlockers = blockers(changesCourier, editedCourier)
-      expect(courierBlockers).toContain('Courier quick replies: at most 8, one per line')
+      expect(courierBlockers).toContain('Courier quick replies: at most 8 presets')
     })
 
     it('blockers rejects any line over 100 characters in presets, naming the setting', () => {
@@ -1613,21 +1654,100 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
       const editedDispatch: SettingsForm = {
         ...baseSavedForm,
-        chatQuickRepliesDispatch: `Short line\n${longLine}`,
+        chatQuickRepliesDispatch: [
+          { el: 'Short line', en: 'Short line' },
+          { el: longLine, en: longLine },
+        ],
       }
       const changesDispatch = pendingChanges(baseSavedForm, editedDispatch)
       expect(blockers(changesDispatch, editedDispatch)).toContain('Dispatch quick replies: each at most 100 characters')
 
       const editedCourier: SettingsForm = {
         ...baseSavedForm,
-        chatQuickRepliesCourier: longLine,
+        chatQuickRepliesCourier: [{ el: longLine, en: longLine }],
       }
       const changesCourier = pendingChanges(baseSavedForm, editedCourier)
-      expect(courierBlockers(changesCourier, editedCourier)).toContain('Courier quick replies: each at most 100 characters')
+      expect(blockers(changesCourier, editedCourier)).toContain('Courier quick replies: each at most 100 characters')
+    })
 
-      function courierBlockers(c: any, e: any) {
-        return blockers(c, e)
+    describe('incompletePresetRows & cleanPresets (spec 0054, AC-7)', () => {
+      it('cleanPresets trims entries and drops rows empty in both languages', () => {
+        expect(
+          cleanPresets([
+            { el: '  Γεια  ', en: '  Hello  ' },
+            { el: '   ', en: '' },
+            { el: 'Μόνο ελληνικά', en: '' },
+            { el: '', en: 'English only' },
+          ])
+        ).toEqual([
+          { el: 'Γεια', en: 'Hello' },
+          { el: 'Μόνο ελληνικά', en: '' },
+          { el: '', en: 'English only' },
+        ])
+      })
+
+      it('presetText returns reader language or falls back to the other', () => {
+        const bilingual = { el: 'Ελληνικά', en: 'English' }
+        expect(presetText(bilingual, 'el')).toBe('Ελληνικά')
+        expect(presetText(bilingual, 'en')).toBe('English')
+
+        const greekOnly = { el: 'Ελληνικά', en: '' }
+        expect(presetText(greekOnly, 'el')).toBe('Ελληνικά')
+        expect(presetText(greekOnly, 'en')).toBe('Ελληνικά')
+
+        const englishOnly = { el: '', en: 'English' }
+        expect(presetText(englishOnly, 'el')).toBe('English')
+        expect(presetText(englishOnly, 'en')).toBe('English')
+      })
+
+      it('incompletePresetRows flags rows missing either Greek or English when new or edited', () => {
+        const saved = [{ el: 'Saved preset', en: 'Saved preset' }]
+        const rows = [
+          { el: 'Complete', en: 'Complete' },
+          { el: 'Greek only', en: '' },
+          { el: '', en: 'English only' },
+          { el: '', en: '' },
+        ]
+        expect(incompletePresetRows(rows, saved)).toEqual([1, 2])
+      })
+
+      it('incompletePresetRows allows untouched legacy Greek-only preset if present in saved', () => {
+        const saved = [{ el: 'Παλιά απάντηση', en: '' }]
+        const rows = [
+          { el: 'Παλιά απάντηση', en: '' },
+          { el: 'New preset', en: 'New preset' },
+        ]
+        expect(incompletePresetRows(rows, saved)).toEqual([])
+      })
+
+      it('incompletePresetRows flags modified legacy preset if one language is still missing', () => {
+        const saved = [{ el: 'Παλιά απάντηση', en: '' }]
+        const rows = [{ el: 'Παλιά απάντηση τροποποιημένη', en: '' }]
+        expect(incompletePresetRows(rows, saved)).toEqual([0])
+      })
+    })
+
+    it('blockers rejects incomplete preset rows for dispatch or courier presets, naming the setting', () => {
+      const editedDispatch: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesDispatch: [
+          { el: 'Greek only', en: '' },
+          { el: 'Complete', en: 'Complete' },
+        ],
       }
+      const changesDispatch = pendingChanges(baseSavedForm, editedDispatch)
+      expect(blockers(changesDispatch, editedDispatch, baseSavedForm)).toContain(
+        'Dispatch quick replies: fill in both the Greek and the English of each new or changed preset'
+      )
+
+      const editedCourier: SettingsForm = {
+        ...baseSavedForm,
+        chatQuickRepliesCourier: [{ el: '', en: 'English only' }],
+      }
+      const changesCourier = pendingChanges(baseSavedForm, editedCourier)
+      expect(blockers(changesCourier, editedCourier, baseSavedForm)).toContain(
+        'Courier quick replies: fill in both the Greek and the English of each new or changed preset'
+      )
     })
 
     it('blockers rejects empty chatRetentionDays', () => {
@@ -1642,15 +1762,28 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     it('savePayload sends presets as trimmed lists with blank lines dropped, and retention days as a number', () => {
       const edited: SettingsForm = {
         ...baseSavedForm,
-        chatQuickRepliesDispatch: '  First reply  \n\n  Second reply  \n',
-        chatQuickRepliesCourier: 'Courier reply 1\nCourier reply 2',
+        chatQuickRepliesDispatch: [
+          { el: '  First reply  ', en: '  First reply  ' },
+          { el: '', en: '' },
+          { el: '  Second reply  ', en: '  Second reply  ' },
+        ],
+        chatQuickRepliesCourier: [
+          { el: 'Courier reply 1', en: 'Courier reply 1' },
+          { el: 'Courier reply 2', en: 'Courier reply 2' },
+        ],
         chatRetentionDays: '60',
       }
       const changes = pendingChanges(baseSavedForm, edited)
       const payload = savePayload(changes, edited, savedDetails)
 
-      expect(payload.chatQuickRepliesDispatch).toEqual(['First reply', 'Second reply'])
-      expect(payload.chatQuickRepliesCourier).toEqual(['Courier reply 1', 'Courier reply 2'])
+      expect(payload.chatQuickRepliesDispatch).toEqual([
+        { el: 'First reply', en: 'First reply' },
+        { el: 'Second reply', en: 'Second reply' },
+      ])
+      expect(payload.chatQuickRepliesCourier).toEqual([
+        { el: 'Courier reply 1', en: 'Courier reply 1' },
+        { el: 'Courier reply 2', en: 'Courier reply 2' },
+      ])
       expect(payload.chatRetentionDays).toBe(60)
       expect(typeof payload.chatRetentionDays).toBe('number')
       expect(payload).not.toHaveProperty('details')
@@ -1658,23 +1791,23 @@ describe('settingsDiff unit tests (spec 0010)', () => {
 
     it('InstanceConfigSettingsAdminInputToJSON and InstanceConfigSettingsDtoFromJSON carry all three chat keys', () => {
       const input = {
-        chatQuickRepliesDispatch: ['Dispatch reply 1'],
-        chatQuickRepliesCourier: ['Courier reply 1'],
+        chatQuickRepliesDispatch: [{ el: 'Dispatch reply 1', en: 'Reply 1' }],
+        chatQuickRepliesCourier: [{ el: 'Courier reply 1', en: 'Reply 1' }],
         chatRetentionDays: 90,
       }
       const serialized = InstanceConfigSettingsAdminInputToJSON(input as any)
-      expect(serialized.chatQuickRepliesDispatch).toEqual(['Dispatch reply 1'])
-      expect(serialized.chatQuickRepliesCourier).toEqual(['Courier reply 1'])
+      expect(serialized.chatQuickRepliesDispatch).toEqual([{ el: 'Dispatch reply 1', en: 'Reply 1' }])
+      expect(serialized.chatQuickRepliesCourier).toEqual([{ el: 'Courier reply 1', en: 'Reply 1' }])
       expect(serialized.chatRetentionDays).toBe(90)
 
       const dtoData = {
-        chatQuickRepliesDispatch: ['Preset A', 'Preset B'],
-        chatQuickRepliesCourier: ['Rider Preset'],
+        chatQuickRepliesDispatch: [{ el: 'Preset A', en: 'A' }],
+        chatQuickRepliesCourier: [{ el: 'Rider Preset', en: 'Rider' }],
         chatRetentionDays: 45,
       }
       const deserialized = InstanceConfigSettingsDtoFromJSON(dtoData)
-      expect(deserialized.chatQuickRepliesDispatch).toEqual(['Preset A', 'Preset B'])
-      expect(deserialized.chatQuickRepliesCourier).toEqual(['Rider Preset'])
+      expect(deserialized.chatQuickRepliesDispatch).toEqual([{ el: 'Preset A', en: 'A' }])
+      expect(deserialized.chatQuickRepliesCourier).toEqual([{ el: 'Rider Preset', en: 'Rider' }])
       expect(deserialized.chatRetentionDays).toBe(45)
     })
   })
@@ -1686,12 +1819,12 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const answerDays = SETTINGS.find((s) => s.key === 'reviewAnswerDays')
       expect(answerDays).toBeDefined()
       expect(answerDays?.kind).toBe('number')
-      expect(answerDays?.label).toBe('Days to answer a review request')
+      expect(answerDays?.labelKey).toBe('settings.labels.reviewAnswerDays')
 
       const maxCents = SETTINGS.find((s) => s.key === 'reviewCorrectionMaxCents')
       expect(maxCents).toBeDefined()
       expect(maxCents?.kind).toBe('number')
-      expect(maxCents?.label).toBe('Largest review pay correction (cents)')
+      expect(maxCents?.labelKey).toBe('settings.labels.reviewCorrectionMaxCents')
     })
 
     it('formFromSettings converts reviewAnswerDays and reviewCorrectionMaxCents numbers to strings', () => {
@@ -1799,7 +1932,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const definition = SETTINGS.find((s) => s.key === 'shiftBreakMinutes')
       expect(definition).toBeDefined()
       expect(definition?.kind).toBe('number')
-      expect(definition?.label).toBe('Longest break inside a worked shift, in minutes')
+      expect(definition?.labelKey).toBe('settings.labels.shiftBreakMinutes')
       expect(definition?.details).toBeUndefined()
     })
 
@@ -1880,7 +2013,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const setting = SETTINGS.find((s) => s.key === 'feePercentageCeiling')
       expect(setting).toBeDefined()
       expect(setting?.kind).toBe('number')
-      expect(setting?.label).toBe('Co-op fee ceiling (%)')
+      expect(setting?.labelKey).toBe('settings.labels.feePercentageCeiling')
       expect(labelOf('feePercentageCeiling')).toBe('Co-op fee ceiling (%)')
     })
 
@@ -2148,7 +2281,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const setting = SETTINGS.find((s) => s.key === 'addressNoteRetentionDays')
       expect(setting).toBeDefined()
       expect(setting?.kind).toBe('number')
-      expect(setting?.label).toBe('Address notes kept without an upvote (days)')
+      expect(setting?.labelKey).toBe('settings.labels.addressNoteRetentionDays')
     })
 
     it('formFromSettings converts addressNoteRetentionDays to string and does not read chatRetentionDays', () => {
@@ -2172,17 +2305,17 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const stacking = SETTINGS.find((s) => s.key === 'stackingEnabled')
       expect(stacking).toBeDefined()
       expect(stacking?.kind).toBe('switch')
-      expect(stacking?.label).toBe('Two orders offered together')
+      expect(stacking?.labelKey).toBe('settings.labels.stackingEnabled')
 
       const policy = SETTINGS.find((s) => s.key === 'twoOrderPolicy')
       expect(policy).toBeDefined()
       expect(policy?.kind).toBe('select')
-      expect(policy?.label).toBe('When two orders may go together')
+      expect(policy?.labelKey).toBe('settings.labels.twoOrderPolicy')
 
       const delay = SETTINGS.find((s) => s.key === 'twoOrderDelayLimitMinutes')
       expect(delay).toBeDefined()
       expect(delay?.kind).toBe('number')
-      expect(delay?.label).toBe('Most minutes a pair may delay a customer')
+      expect(delay?.labelKey).toBe('settings.labels.twoOrderDelayLimitMinutes')
     })
 
     it('formFromSettings maps stacking fields from backend data, with null and empty string fallbacks', () => {

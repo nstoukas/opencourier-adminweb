@@ -1,4 +1,12 @@
-import { describeQuoteRate, isValidQuoteRate, parseQuoteRateInput } from './quoteRate'
+import { describeQuoteRate as rawDescribeQuoteRate, isValidQuoteRate, parseQuoteRateInput } from './quoteRate'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const describeQuoteRate = (
+  rate: number,
+  currencyCode: string | null | undefined,
+  distanceUnit: string | null | undefined
+) => rawDescribeQuoteRate(t, 'en', rate, currencyCode, distanceUnit)
 
 describe('quoteRate utility', () => {
   describe('isValidQuoteRate', () => {

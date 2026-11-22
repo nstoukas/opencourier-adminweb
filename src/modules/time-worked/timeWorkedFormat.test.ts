@@ -9,14 +9,18 @@ import {
   formatShare,
   TOTALS_MAX_DAYS,
   RIDER_MAX_DAYS,
-  STATUS_LABELS,
-  CAUSE_LABELS,
-  END_LABELS,
+  CAUSE_KEYS,
+  END_KEYS,
   formatKm,
   jobMinutes,
   isUnderAMinute,
 } from './timeWorkedFormat'
 import type { JobEndLabel } from '../../backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
+import { showMessage } from '@/i18n/shownMessage'
+import { enumLabel } from '@/i18n/enumLabel'
+
+const t = createI18n('en').t
 
 describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)', () => {
   describe('isDay', () => {
@@ -75,18 +79,18 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
 
     it('falls back to last N days with a sentence for a malformed day', () => {
       const res1 = rangeFromQuery('bad-date', '2026-11-20', 92, 28, fixedNow)
-      expect(res1.problem).toBe('The dates must be days written as YYYY-MM-DD.')
+      expect(res1.problem && showMessage(res1.problem, t)).toBe('The dates must be days written as YYYY-MM-DD.')
       expect(res1.range.to).toBe('2026-11-20')
       expect(daysInRange(res1.range.from, res1.range.to)).toBe(28)
 
       const res2 = rangeFromQuery('2026-11-20', '2026-02-30', 92, 28, fixedNow)
-      expect(res2.problem).toBe('The dates must be days written as YYYY-MM-DD.')
+      expect(res2.problem && showMessage(res2.problem, t)).toBe('The dates must be days written as YYYY-MM-DD.')
       expect(res2.range.to).toBe('2026-11-20')
     })
 
     it('falls back to last N days with a sentence when from is after to', () => {
       const res = rangeFromQuery('2026-11-25', '2026-11-20', 92, 28, fixedNow)
-      expect(res.problem).toBe('The first day must be on or before the last day.')
+      expect(res.problem && showMessage(res.problem, t)).toBe('The first day must be on or before the last day.')
       expect(res.range.to).toBe('2026-11-20')
       expect(daysInRange(res.range.from, res.range.to)).toBe(28)
     })
@@ -97,7 +101,7 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
       expect(daysInRange(from, to)).toBe(93)
 
       const res = rangeFromQuery(from, to, 92, 28, fixedNow)
-      expect(res.problem).toBe('A range may cover at most 92 days.')
+      expect(res.problem && showMessage(res.problem, t)).toBe('A range may cover at most 92 days.')
       expect(res.range.to).toBe('2026-11-20')
       expect(daysInRange(res.range.from, res.range.to)).toBe(28)
     })
@@ -113,7 +117,7 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
 
       const to93 = '2026-04-03' // 93 days
       const rejected = rangeFromQuery(from, to93, TOTALS_MAX_DAYS, 28, fixedNow)
-      expect(rejected.problem).toBe('A range may cover at most 92 days.')
+      expect(rejected.problem && showMessage(rejected.problem, t)).toBe('A range may cover at most 92 days.')
       expect(rejected.range.to).toBe('2026-11-20')
     })
 
@@ -128,28 +132,29 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
 
       const to32 = '2026-02-01' // 32 days
       const rejected = rangeFromQuery(from, to32, RIDER_MAX_DAYS, 7, fixedNow)
-      expect(rejected.problem).toBe('A range may cover at most 31 days.')
+      expect(rejected.problem).not.toBeNull()
+      expect(rejected.problem && showMessage(rejected.problem, t)).toBe('A range may cover at most 31 days.')
       expect(rejected.range.to).toBe('2026-11-20')
     })
   })
 
   describe('formatDuration', () => {
     it('formats seconds into minutes when under one hour', () => {
-      expect(formatDuration(0)).toBe('0 min')
-      expect(formatDuration(59)).toBe('0 min')
-      expect(formatDuration(60)).toBe('1 min')
-      expect(formatDuration(48 * 60)).toBe('48 min')
-      expect(formatDuration(48 * 60 + 45)).toBe('48 min')
+      expect(formatDuration(0, t)).toBe('0 min')
+      expect(formatDuration(59, t)).toBe('0 min')
+      expect(formatDuration(60, t)).toBe('1 min')
+      expect(formatDuration(48 * 60, t)).toBe('48 min')
+      expect(formatDuration(48 * 60 + 45, t)).toBe('48 min')
     })
 
     it('formats seconds into hours and minutes when one hour or more', () => {
-      expect(formatDuration(3600)).toBe('1 h 00 min')
-      expect(formatDuration(3 * 3600 + 12 * 60)).toBe('3 h 12 min')
-      expect(formatDuration(2 * 3600 + 5 * 60)).toBe('2 h 05 min')
+      expect(formatDuration(3600, t)).toBe('1 h 00 min')
+      expect(formatDuration(3 * 3600 + 12 * 60, t)).toBe('3 h 12 min')
+      expect(formatDuration(2 * 3600 + 5 * 60, t)).toBe('2 h 05 min')
     })
 
     it('clamps negative values to 0 min', () => {
-      expect(formatDuration(-120)).toBe('0 min')
+      expect(formatDuration(-120, t)).toBe('0 min')
     })
   })
 
@@ -169,36 +174,35 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
 
   describe('formatDay', () => {
     it('formats day with weekday by default, matching previous dayTitle text', () => {
-      expect(formatDay('2026-11-19')).toBe('Thu, 19 Nov 2026')
-      expect(formatDay('2026-11-19', true)).toBe('Thu, 19 Nov 2026')
+      expect(formatDay('2026-11-19', true, 'en')).toBe('Thu, 19 Nov 2026')
     })
 
     it('formats day without weekday for weeks, matching previous periodLabel text', () => {
-      expect(formatDay('2026-11-19', false)).toBe('19 Nov 2026')
+      expect(formatDay('2026-11-19', false, 'en')).toBe('19 Nov 2026')
     })
   })
 
   describe('weekPart (decision 36.49)', () => {
     it('returns part of the week naming Sat 24 Oct to Sun 25 Oct when cut at start', () => {
-      expect(weekPart('2026-10-19', { from: '2026-10-24', to: '2026-11-20' })).toBe(
+      expect(weekPart('2026-10-19', { from: '2026-10-24', to: '2026-11-20' }, t, 'en')).toBe(
         'part of the week: Sat 24 Oct to Sun 25 Oct'
       )
     })
 
     it('returns null when the week is fully inside the range', () => {
       // 2026-10-26 (Mon) to 2026-11-01 (Sun) fully inside 2026-10-24 to 2026-11-20
-      expect(weekPart('2026-10-26', { from: '2026-10-24', to: '2026-11-20' })).toBeNull()
+      expect(weekPart('2026-10-26', { from: '2026-10-24', to: '2026-11-20' }, t, 'en')).toBeNull()
     })
 
     it('names both days when cut at both ends', () => {
       // 2026-10-19 Monday week, range from Tue 20 Oct to Fri 23 Oct
-      expect(weekPart('2026-10-19', { from: '2026-10-20', to: '2026-10-23' })).toBe(
+      expect(weekPart('2026-10-19', { from: '2026-10-20', to: '2026-10-23' }, t, 'en')).toBe(
         'part of the week: Tue 20 Oct to Fri 23 Oct'
       )
     })
 
     it('names single day when cut to one day only', () => {
-      expect(weekPart('2026-10-19', { from: '2026-10-25', to: '2026-11-20' })).toBe(
+      expect(weekPart('2026-10-19', { from: '2026-10-25', to: '2026-11-20' }, t, 'en')).toBe(
         'part of the week: Sun 25 Oct only'
       )
     })
@@ -206,20 +210,20 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
 
   describe('domain labels (spec 0040 AC-15; spec 0042 AC-8)', () => {
     it('maps all status codes to human labels', () => {
-      expect(STATUS_LABELS.ONLINE).toBe('Online')
-      expect(STATUS_LABELS.OFFLINE).toBe('Offline')
-      expect(STATUS_LABELS.LAST_CALL).toBe('Last Call')
+      expect(enumLabel(t, 'courierStatus', 'ONLINE')).toBe('Online')
+      expect(enumLabel(t, 'courierStatus', 'OFFLINE')).toBe('Offline')
+      expect(enumLabel(t, 'courierStatus', 'LAST_CALL')).toBe('Last Call')
     })
 
     it('maps all status change causes to human labels', () => {
-      expect(CAUSE_LABELS.RIDER).toBe('by the rider')
-      expect(CAUSE_LABELS.ADMIN).toBe('by an admin')
-      expect(CAUSE_LABELS.CUT_OFF).toBe('by a password change')
-      expect(CAUSE_LABELS.LAST_CALL_ACCEPTED).toBe('on accepting their last job')
-      expect(CAUSE_LABELS.SYSTEM_START).toBe('when recording began')
+      expect(t(CAUSE_KEYS.RIDER)).toBe('by the rider')
+      expect(t(CAUSE_KEYS.ADMIN)).toBe('by an admin')
+      expect(t(CAUSE_KEYS.CUT_OFF)).toBe('by a password change')
+      expect(t(CAUSE_KEYS.LAST_CALL_ACCEPTED)).toBe('on accepting their last job')
+      expect(t(CAUSE_KEYS.SYSTEM_START)).toBe('when recording began')
     })
 
-    it('maps every JobEndLabel to human text in END_LABELS (spec 0042 AC-8)', () => {
+    it('maps every JobEndLabel to human text in END_KEYS (spec 0042 AC-8)', () => {
       const expected: Record<JobEndLabel, string> = {
         CANCELLED_AFTER_PICKUP: 'Cancelled after pickup',
         CANCELLED: 'Cancelled',
@@ -231,25 +235,23 @@ describe('timeWorkedFormat (spec 0040 AC-14, AC-15, AC-18; spec 0042 AC-1, AC-8)
         IN_PROGRESS: 'In progress',
       }
       const keys = Object.keys(expected) as JobEndLabel[]
-      expect(Object.keys(END_LABELS)).toHaveLength(keys.length)
+      expect(Object.keys(END_KEYS)).toHaveLength(keys.length)
       for (const key of keys) {
-        expect(END_LABELS[key]).toBe(expected[key])
-        expect(typeof END_LABELS[key]).toBe('string')
-        expect(END_LABELS[key].length).toBeGreaterThan(0)
+        expect(t(END_KEYS[key])).toBe(expected[key])
       }
     })
   })
 
   describe('formatKm (spec 0042 AC-1, AC-3)', () => {
     it('formats km to exactly one decimal with "km" suffix', () => {
-      expect(formatKm(0)).toBe('0.0 km')
-      expect(formatKm(1)).toBe('1.0 km')
-      expect(formatKm(1.2)).toBe('1.2 km')
-      expect(formatKm(1.24)).toBe('1.2 km')
-      expect(formatKm(1.25)).toBe('1.3 km')
-      expect(formatKm(2.482)).toBe('2.5 km')
-      expect(formatKm(10.04)).toBe('10.0 km')
-      expect(formatKm(10.06)).toBe('10.1 km')
+      expect(formatKm(0, 'en')).toBe('0.0 km')
+      expect(formatKm(1, 'en')).toBe('1.0 km')
+      expect(formatKm(1.2, 'en')).toBe('1.2 km')
+      expect(formatKm(1.24, 'en')).toBe('1.2 km')
+      expect(formatKm(1.25, 'en')).toBe('1.3 km')
+      expect(formatKm(2.482, 'en')).toBe('2.5 km')
+      expect(formatKm(10.04, 'en')).toBe('10.0 km')
+      expect(formatKm(10.06, 'en')).toBe('10.1 km')
     })
   })
 

@@ -58,6 +58,8 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
       disabledReason: null,
       acceptingOrders: true,
       notAcceptingReason: null,
+      notAcceptingCode: null,
+      notAcceptingParams: null,
     },
   }
 
@@ -103,6 +105,8 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
           disabledReason: 'Health inspection pending',
           acceptingOrders: false,
           notAcceptingReason: 'The co-op has disabled this restaurant: Health inspection pending',
+          notAcceptingCode: null,
+          notAcceptingParams: null,
         },
       }
 
@@ -122,6 +126,8 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
           disabledReason: null,
           acceptingOrders: false,
           notAcceptingReason: 'Ordering is paused until 14:30.',
+          notAcceptingCode: null,
+          notAcceptingParams: null,
         },
       }
 
@@ -141,6 +147,8 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
           disabledReason: null,
           acceptingOrders: true,
           notAcceptingReason: null,
+          notAcceptingCode: null,
+          notAcceptingParams: null,
         },
       }
 
@@ -278,7 +286,7 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
 
     it('displays error in dialog when disable mutation fails', async () => {
       mockDisableTrigger.mockReturnValue({
-        unwrap: jest.fn().mockRejectedValue(new Error('Server failed to disable restaurant')),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 500, message: 'Server failed to disable restaurant' }),
       })
 
       render(<PartnerAvailabilityCard partner={samplePartner} />)
@@ -344,6 +352,8 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
         disabledReason: 'Health inspection pending',
         acceptingOrders: false,
         notAcceptingReason: 'The co-op has disabled this restaurant: Health inspection pending',
+        notAcceptingCode: null,
+        notAcceptingParams: null,
       },
     }
 
@@ -374,7 +384,7 @@ describe('PartnerAvailabilityCard (spec 0029, AC-9)', () => {
 
     it('toasts error with destructive variant when enable mutation fails', async () => {
       mockEnableTrigger.mockReturnValue({
-        unwrap: jest.fn().mockRejectedValue(new Error('Enable failed')),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 500, message: 'Enable failed' }),
       })
 
       render(<PartnerAvailabilityCard partner={disabledPartner} />)

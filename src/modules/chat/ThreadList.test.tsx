@@ -3,6 +3,9 @@ import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { ThreadList, THREAD_LIST_POLL_MS, withKeptThread } from './ThreadList'
 import type { ChatThreadRowAdminDto } from '../../backend-admin-sdk'
 import { initials, orderLabel, roleLabel, threadTime } from './chatDisplay'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 const mockUseGetChatThreadsQuery = jest.fn()
 const mockUseGetChatUnreadCountQuery = jest.fn()
@@ -200,10 +203,10 @@ describe('ThreadList (spec 0034, AC-2, AC-20, decision 111.7)', () => {
     let nonDataText = unreadRow.textContent || ''
     nonDataText = nonDataText.replace(first.name, '')
     nonDataText = nonDataText.replace(initials(first.name), '')
-    nonDataText = nonDataText.replace(threadTime(first.lastMessageAt), '')
-    nonDataText = nonDataText.replace(roleLabel(first.kind), '')
-    nonDataText = nonDataText.replace(orderLabel(first.linkedOrderReference, first.linkedDeliveryId)!, '')
-    nonDataText = nonDataText.replace(first.lastMessage!.body, '')
+    nonDataText = nonDataText.replace(threadTime(first.lastMessageAt, new Date(), 'en'), '')
+    nonDataText = nonDataText.replace(roleLabel(first.kind, t), '')
+    nonDataText = nonDataText.replace(orderLabel(first.linkedOrderReference, first.linkedDeliveryId) ?? '', '')
+    nonDataText = nonDataText.replace(first.lastMessage?.body ?? '', '')
     nonDataText = nonDataText.replace('Unread', '')
 
     expect(nonDataText).not.toMatch(/\d/)
@@ -372,7 +375,7 @@ describe('withKeptThread (row 115 pure logic)', () => {
 
     const result = withKeptThread([t1, t2], kept)
 
-    expect(result.map((t) => t.id)).toEqual(['kept-newest', 't1', 't2'])
+    expect(result.map((item) => item.id)).toEqual(['kept-newest', 't1', 't2'])
     expect(result[0]?.unread).toBe(false)
   })
 
@@ -383,7 +386,7 @@ describe('withKeptThread (row 115 pure logic)', () => {
 
     const result = withKeptThread([t1, t2], kept)
 
-    expect(result.map((t) => t.id)).toEqual(['t1', 'kept-middle', 't2'])
+    expect(result.map((item) => item.id)).toEqual(['t1', 'kept-middle', 't2'])
     expect(result[1]?.unread).toBe(false)
   })
 
@@ -394,7 +397,7 @@ describe('withKeptThread (row 115 pure logic)', () => {
 
     const result = withKeptThread([t1, t2], kept)
 
-    expect(result.map((t) => t.id)).toEqual(['t1', 't2', 'kept-oldest'])
+    expect(result.map((item) => item.id)).toEqual(['t1', 't2', 'kept-oldest'])
     expect(result[2]?.unread).toBe(false)
   })
 
@@ -402,7 +405,7 @@ describe('withKeptThread (row 115 pure logic)', () => {
     const kept = makeThread({ id: 'kept-single', lastMessageAt: '2026-11-17T10:00:00.000Z', unread: true })
     const result = withKeptThread([], kept)
 
-    expect(result.map((t) => t.id)).toEqual(['kept-single'])
+    expect(result.map((item) => item.id)).toEqual(['kept-single'])
     expect(result[0]?.unread).toBe(false)
   })
 
@@ -419,7 +422,7 @@ describe('withKeptThread (row 115 pure logic)', () => {
 
     const result = withKeptThread([t1], kept)
 
-    expect(result.map((t) => t.id)).toEqual(['t1', 'kept-null-time'])
+    expect(result.map((item) => item.id)).toEqual(['t1', 'kept-null-time'])
     expect(result[1]?.unread).toBe(false)
   })
 

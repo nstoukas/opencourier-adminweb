@@ -1,4 +1,8 @@
-import { boxSizeText } from './boxSize'
+import { boxSizeText as rawBoxSizeText } from './boxSize'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const boxSizeText = (delivery: Parameters<typeof rawBoxSizeText>[0]) => rawBoxSizeText(delivery, t)
 
 describe('boxSizeText (spec 0043, AC-8)', () => {
   it('formats size and units without assumed when boxSizeAssumed is false', () => {

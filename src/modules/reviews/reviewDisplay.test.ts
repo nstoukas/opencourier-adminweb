@@ -1,30 +1,36 @@
 import {
-  REVIEW_TOPIC_TO_HUMAN,
-  REVIEW_OUTCOME_TO_HUMAN,
+  topicText as rawTopicText,
+  outcomeText as rawOutcomeText,
   REVIEW_TABS,
   REVIEW_ANSWER_MAX,
-  dueText,
+  dueText as rawDueText,
   parseCorrectionCents,
 } from './reviewDisplay'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const topicText = (topic: any) => rawTopicText(t, topic)
+const outcomeText = (outcome: any) => rawOutcomeText(t, outcome)
+const dueText = (dueAt: string, overdue: boolean, now?: Date) => rawDueText(t, dueAt, overdue, now)
 
 describe('reviewDisplay utils (spec 0038, AC-5, AC-6, AC-7)', () => {
   describe('labels and constants', () => {
     it('maps every topic to honest human words (AC-5)', () => {
-      expect(REVIEW_TOPIC_TO_HUMAN.OFFER).toBe('An offer')
-      expect(REVIEW_TOPIC_TO_HUMAN.PAY).toBe('Pay')
-      expect(REVIEW_TOPIC_TO_HUMAN.OTHER).toBe('Something else')
+      expect(topicText('OFFER')).toBe('An offer')
+      expect(topicText('PAY')).toBe('Pay')
+      expect(topicText('OTHER')).toBe('Something else')
     })
 
     it('maps every outcome to honest human words (AC-6)', () => {
-      expect(REVIEW_OUTCOME_TO_HUMAN.STANDS).toBe('The decision stands')
-      expect(REVIEW_OUTCOME_TO_HUMAN.CHANGED).toBe('Changed and put right')
+      expect(outcomeText('STANDS')).toBe('The decision stands')
+      expect(outcomeText('CHANGED')).toBe('Changed and put right')
     })
 
     it('declares tabs for Open, Answered, and Withdrawn requests (AC-5)', () => {
       expect(REVIEW_TABS).toEqual([
-        { value: 'OPEN', label: 'Open' },
-        { value: 'ANSWERED', label: 'Answered' },
-        { value: 'WITHDRAWN', label: 'Withdrawn' },
+        { value: 'OPEN', labelKey: 'reviews.tabs.OPEN' },
+        { value: 'ANSWERED', labelKey: 'reviews.tabs.ANSWERED' },
+        { value: 'WITHDRAWN', labelKey: 'reviews.tabs.WITHDRAWN' },
       ])
     })
 

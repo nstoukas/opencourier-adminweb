@@ -4,6 +4,7 @@ import {
   buildPartnerUpdateInput,
   parseUsualPrepMinutes,
   PickupAddressFormValues,
+  type BuildResult,
 } from './partnerFormInput'
 import { mapLocationToPickupFormValues } from './partnerPickupAddress'
 import {
@@ -11,6 +12,12 @@ import {
   PartnerCreateAdminInputToJSON,
   PartnerUpdateAdminInputToJSON,
 } from '@/backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
+import { showMessage } from '@/i18n/shownMessage'
+
+const t = createI18n('en').t
+const errorStrings = (result: BuildResult<unknown>) =>
+  result.ok ? [] : result.errors.map((err) => showMessage(err, t))
 
 // Spec 0023 (AC-9): the sentence shown when the usual prep time is not a whole number from 0 to 90.
 const PREP_SENTENCE = 'The usual prep time is a whole number of minutes from 0 to 90.'
@@ -78,11 +85,12 @@ describe('partnerFormInput utilities', () => {
       const res = buildPickupAddressInput(partialFormValues)
       expect(res.ok).toBe(false)
       if (!res.ok) {
-        expect(res.errors.length).toBe(4)
-        expect(res.errors[0]).toContain('City')
-        expect(res.errors[1]).toContain('Country code')
-        expect(res.errors[2]).toContain('Latitude')
-        expect(res.errors[3]).toContain('Longitude')
+        const errs = errorStrings(res)
+        expect(errs.length).toBe(4)
+        expect(errs[0]).toContain('City')
+        expect(errs[1]).toContain('Country code')
+        expect(errs[2]).toContain('Latitude')
+        expect(errs[3]).toContain('Longitude')
       }
     })
 
@@ -129,7 +137,7 @@ describe('partnerFormInput utilities', () => {
       const resLat = buildPickupAddressInput(invalidLat)
       expect(resLat.ok).toBe(false)
       if (!resLat.ok) {
-        expect(resLat.errors[0]).toContain('Latitude')
+        expect(errorStrings(resLat)[0]).toContain('Latitude')
       }
 
       const invalidLng: PickupAddressFormValues = {
@@ -145,7 +153,7 @@ describe('partnerFormInput utilities', () => {
       const resLng = buildPickupAddressInput(invalidLng)
       expect(resLng.ok).toBe(false)
       if (!resLng.ok) {
-        expect(resLng.errors[0]).toContain('Longitude')
+        expect(errorStrings(resLng)[0]).toContain('Longitude')
       }
     })
 
@@ -164,7 +172,7 @@ describe('partnerFormInput utilities', () => {
       const res = buildPickupAddressInput(invalidCountry)
       expect(res.ok).toBe(false)
       if (!res.ok) {
-        expect(res.errors[0]).toContain('Invalid country code "FR"')
+        expect(errorStrings(res)[0]).toContain('Invalid country code "FR"')
       }
     })
   })
@@ -239,10 +247,9 @@ describe('partnerFormInput utilities', () => {
 
     it('refuses an emptied usual prep time with the sentence, the same as on edit', () => {
       for (const usualPrepMinutes of ['', '   ']) {
-        expect(buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })).toEqual({
-          ok: false,
-          errors: [PREP_SENTENCE],
-        })
+        const res = buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })
+        expect(res.ok).toBe(false)
+        expect(errorStrings(res)).toEqual([PREP_SENTENCE])
       }
     })
 
@@ -258,10 +265,9 @@ describe('partnerFormInput utilities', () => {
     })
 
     it.each(['', '   ', '91', '-1', '1.5', '15 min', 'abc'])('refuses %j with the sentence', (usualPrepMinutes) => {
-      expect(buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })).toEqual({
-        ok: false,
-        errors: [PREP_SENTENCE],
-      })
+      const res = buildPartnerCreateInput({ ...validCreate, usualPrepMinutes })
+      expect(res.ok).toBe(false)
+      expect(errorStrings(res)).toEqual([PREP_SENTENCE])
     })
   })
 
@@ -280,15 +286,16 @@ describe('partnerFormInput utilities', () => {
 
     it('refuses an emptied box with the sentence, never saving it as 0', () => {
       for (const usualPrepMinutes of ['', '   ']) {
-        expect(buildPartnerUpdateInput({ usualPrepMinutes })).toEqual({ ok: false, errors: [PREP_SENTENCE] })
+        const res = buildPartnerUpdateInput({ usualPrepMinutes })
+        expect(res.ok).toBe(false)
+        expect(errorStrings(res)).toEqual([PREP_SENTENCE])
       }
     })
 
     it.each(['91', '-1', '1.5', '15 min', 'abc'])('refuses %j with the sentence', (usualPrepMinutes) => {
-      expect(buildPartnerUpdateInput({ name: 'X', usualPrepMinutes })).toEqual({
-        ok: false,
-        errors: [PREP_SENTENCE],
-      })
+      const res = buildPartnerUpdateInput({ name: 'X', usualPrepMinutes })
+      expect(res.ok).toBe(false)
+      expect(errorStrings(res)).toEqual([PREP_SENTENCE])
     })
   })
 

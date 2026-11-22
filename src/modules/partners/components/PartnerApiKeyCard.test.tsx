@@ -2,7 +2,20 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { PartnerApiKeyCard, formatKeyMade, NO_LOGIN_NO_KEY } from './PartnerApiKeyCard'
+import {
+  PartnerApiKeyCard,
+  formatKeyMade as rawFormatKeyMade,
+  NO_LOGIN_NO_KEY,
+} from './PartnerApiKeyCard'
+import { createI18n } from '@/i18n/createI18n'
+import { formatDateTime } from '@/i18n/format'
+import type { Formats } from '@/i18n/useFormat'
+
+const t = createI18n('en').t
+const f = {
+  dateTime: (date: Date) => formatDateTime(date, 'en'),
+} as Formats
+const formatKeyMade = (date: Date) => rawFormatKeyMade(date, t, f)
 import {
   partnersApi,
   useCreatePartnerApiKeyMutation,
@@ -100,11 +113,11 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
     it('formats UTC instant into Europe/Athens time where Athens hour differs from UTC', () => {
       // Winter time in Greece: UTC+2. 20:15 UTC is 22:15 Athens.
       const winterUtc = new Date('2026-11-18T20:15:00.000Z')
-      expect(formatKeyMade(winterUtc)).toBe('Key made 18 Nov 2026, 22:15')
+      expect(formatKeyMade(winterUtc)).toBe('Key made 18/11/2026, 22:15')
 
       // Summer time (EEST) in Greece: UTC+3. 11:00 UTC is 14:00 Athens.
       const summerUtc = new Date('2026-06-10T11:00:00.000Z')
-      expect(formatKeyMade(summerUtc)).toBe('Key made 10 Jun 2026, 14:00')
+      expect(formatKeyMade(summerUtc)).toBe('Key made 10/06/2026, 14:00')
     })
   })
 
@@ -119,7 +132,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       render(<PartnerApiKeyCard partner={partnerWithoutLogin} />)
 
       const stateElem = screen.getByTestId('api-key-state')
-      expect(stateElem).toHaveTextContent(NO_LOGIN_NO_KEY)
+      expect(stateElem).toHaveTextContent(t(NO_LOGIN_NO_KEY))
       expect(stateElem).toHaveTextContent('No login, so no API key.')
 
       const reasonId = stateElem.getAttribute('id')
@@ -169,7 +182,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       render(<PartnerApiKeyCard partner={partnerWithKey} />)
 
       const stateElem = screen.getByTestId('api-key-state')
-      expect(stateElem).toHaveTextContent('Key made 18 Nov 2026, 22:15')
+      expect(stateElem).toHaveTextContent('Key made 18/11/2026, 22:15')
 
       const newKeyBtn = screen.getByRole('button', { name: /^new api key$/i })
       const removeKeyBtn = screen.getByRole('button', { name: /^remove key$/i })
@@ -376,7 +389,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
   describe('Error handling (openRef, minor 5)', () => {
     it('shows destructive toast and calls request.reset() when direct makeKey fails without open dialog', async () => {
       mockCreateApiKey.mockReturnValue({
-        unwrap: () => Promise.reject({ message: 'Server error creating key' }),
+        unwrap: () => Promise.reject({ statusCode: 500, message: 'Server error creating key' }),
         reset: mockCreateRequestReset,
       })
 
@@ -402,7 +415,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
 
     it('shows inline error and calls request.reset() when makeKey fails with confirmation dialog open', async () => {
       mockCreateApiKey.mockReturnValue({
-        unwrap: () => Promise.reject({ message: 'Server error replacing key' }),
+        unwrap: () => Promise.reject({ statusCode: 500, message: 'Server error replacing key' }),
         reset: mockCreateRequestReset,
       })
 
@@ -454,7 +467,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
       // Now the in-flight request fails
-      rejectPromise({ message: 'Network lost during key creation' })
+      rejectPromise({ statusCode: 500, message: 'Network lost during key creation' })
 
       await waitFor(() => {
         expect(mockCreateRequestReset).toHaveBeenCalledTimes(1)
@@ -468,7 +481,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
 
     it('displays inline error in dialog when removeApiKey fails while dialog is open', async () => {
       mockRemoveApiKey.mockReturnValue({
-        unwrap: () => Promise.reject({ message: 'Failed to delete key from database' }),
+        unwrap: () => Promise.reject({ statusCode: 500, message: 'Failed to delete key from database' }),
       })
 
       const partnerWithKey: PartnerAdminDto = {
@@ -513,7 +526,7 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
       // Now the in-flight request fails
-      rejectPromise({ message: 'Network lost during remove' })
+      rejectPromise({ statusCode: 500, message: 'Network lost during remove' })
 
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith({

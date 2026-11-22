@@ -3,7 +3,13 @@ import {
   normalizePolicyKey,
   policiesToRows,
 } from './payoutPolicyForm'
-import type { PayoutPolicyFormState } from './payoutPolicyForm'
+import type { PayoutPolicyFormState, BuiltPayoutPolicies } from './payoutPolicyForm'
+import { createI18n } from '@/i18n/createI18n'
+import { showMessage } from '@/i18n/shownMessage'
+
+const t = createI18n('en').t
+const errorStrings = (result: BuiltPayoutPolicies) =>
+  result.ok ? [] : result.errors.map((err) => showMessage(err, t))
 
 describe('payoutPolicyForm utility', () => {
   describe('normalizePolicyKey', () => {
@@ -86,7 +92,7 @@ describe('payoutPolicyForm utility', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.errors).toContain('Add at least one payout policy. Reassignment cannot run without one.')
+        expect(errorStrings(result)).toContain('Add at least one payout policy. Reassignment cannot run without one.')
       }
     })
 
@@ -99,7 +105,7 @@ describe('payoutPolicyForm utility', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.errors).toContain('Row 1: policy name is required.')
+        expect(errorStrings(result)).toContain('Row 1: policy name is required.')
       }
     })
 
@@ -112,7 +118,7 @@ describe('payoutPolicyForm utility', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.errors).toContain('Row 1: use only letters, numbers and underscores in a policy name.')
+        expect(errorStrings(result)).toContain('Row 1: use only letters, numbers and underscores in a policy name.')
       }
     })
 
@@ -124,7 +130,7 @@ describe('payoutPolicyForm utility', () => {
       })
       expect(resOver.ok).toBe(false)
       if (!resOver.ok) {
-        expect(resOver.errors).toContain('Row 1: percentage must be a number between 0 and 100.')
+        expect(errorStrings(resOver)).toContain('Row 1: percentage must be a number between 0 and 100.')
       }
 
       // Negative < 0
@@ -134,7 +140,7 @@ describe('payoutPolicyForm utility', () => {
       })
       expect(resNeg.ok).toBe(false)
       if (!resNeg.ok) {
-        expect(resNeg.errors).toContain('Row 1: percentage must be a number between 0 and 100.')
+        expect(errorStrings(resNeg)).toContain('Row 1: percentage must be a number between 0 and 100.')
       }
 
       // Empty string (must not be silently coerced to 0 via Number(''))
@@ -144,7 +150,7 @@ describe('payoutPolicyForm utility', () => {
       })
       expect(resEmpty.ok).toBe(false)
       if (!resEmpty.ok) {
-        expect(resEmpty.errors).toContain('Row 1: percentage is required.')
+        expect(errorStrings(resEmpty)).toContain('Row 1: percentage is required.')
       }
 
       // Whitespace string (must not be silently coerced to 0 via Number('   '))
@@ -154,7 +160,7 @@ describe('payoutPolicyForm utility', () => {
       })
       expect(resSpace.ok).toBe(false)
       if (!resSpace.ok) {
-        expect(resSpace.errors).toContain('Row 1: percentage is required.')
+        expect(errorStrings(resSpace)).toContain('Row 1: percentage is required.')
       }
     })
 
@@ -170,7 +176,7 @@ describe('payoutPolicyForm utility', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.errors).toContain('Two policies are both named FULL. Policy names must be unique.')
+        expect(errorStrings(result)).toContain('Two policies are both named FULL. Policy names must be unique.')
       }
     })
 
@@ -183,7 +189,7 @@ describe('payoutPolicyForm utility', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.errors).toContain('Choose which policy is the default.')
+        expect(errorStrings(result)).toContain('Choose which policy is the default.')
       }
     })
 
@@ -200,9 +206,9 @@ describe('payoutPolicyForm utility', () => {
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.errors.length).toBeGreaterThanOrEqual(3)
-        expect(result.errors).toContain('Row 1: policy name is required.')
-        expect(result.errors).toContain('Row 1: percentage must be a number between 0 and 100.')
-        expect(result.errors).toContain('Choose which policy is the default.')
+        expect(errorStrings(result)).toContain('Row 1: policy name is required.')
+        expect(errorStrings(result)).toContain('Row 1: percentage must be a number between 0 and 100.')
+        expect(errorStrings(result)).toContain('Choose which policy is the default.')
       }
     })
 

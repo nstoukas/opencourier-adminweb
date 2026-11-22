@@ -1,5 +1,9 @@
 // Spec 0046 (row 10, AC-6): "Leg 1 of 2" on a leg of a multi leg order, nothing on a single delivery.
-import { legText } from './legs'
+import { legText as rawLegText } from './legs'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const legText = (delivery: Parameters<typeof rawLegText>[0]) => rawLegText(delivery, t)
 
 describe('legText (spec 0046, AC-6)', () => {
   it('reads "Leg 1 of 2" when both labels are set', () => {

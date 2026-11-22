@@ -192,7 +192,7 @@ describe('ProductReportsCard component (spec 0032, AC-6, AC-9)', () => {
       expect(screen.getByRole('button', { name: 'Save report' })).toBeInTheDocument()
     })
 
-    it('refuses to save when neither item nor note is provided, showing destructive toast (AC-1, AC-9)', async () => {
+    it('refuses to save when neither item nor note is provided, showing destructive toast (AC-1, AC-9)', () => {
       render(<ProductReportsCard deliveryId="del-1" />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Add report' }))
@@ -207,7 +207,7 @@ describe('ProductReportsCard component (spec 0032, AC-6, AC-9)', () => {
       expect(mockCreateReport).not.toHaveBeenCalled()
     })
 
-    it('refuses to save when item and note contain only whitespace', async () => {
+    it('refuses to save when item and note contain only whitespace', () => {
       render(<ProductReportsCard deliveryId="del-1" />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Add report' }))
@@ -301,7 +301,7 @@ describe('ProductReportsCard component (spec 0032, AC-6, AC-9)', () => {
 
     it('shows destructive toast when report submission fails', async () => {
       mockCreateReport.mockReturnValue({
-        unwrap: jest.fn().mockRejectedValue(new Error('Backend rejected report')),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 400, message: 'Backend rejected report' }),
       })
 
       render(<ProductReportsCard deliveryId="del-1" />)

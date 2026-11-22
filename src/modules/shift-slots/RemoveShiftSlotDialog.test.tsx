@@ -77,7 +77,7 @@ describe('RemoveShiftSlotDialog (spec 0026, AC-6)', () => {
   })
 
   it('shows the backend sentence when the removal fails, and stays open', async () => {
-    mockRemoveSlot.mockReturnValue({ unwrap: () => Promise.reject({ message: 'This slot just changed. Look again.' }) })
+    mockRemoveSlot.mockReturnValue({ unwrap: () => Promise.reject({ statusCode: 400, message: 'This slot just changed. Look again.' }) })
     renderWithStore(<RemoveShiftSlotDialog slot={slot} onClose={onClose} onCloseAutoFocus={onCloseAutoFocus} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
@@ -99,12 +99,21 @@ describe('RemoveShiftSlotDialog (spec 0026, AC-6)', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it.each([404, 500, undefined])('does not read the slots again for a non-409 error (status %p)', async (statusCode) => {
+  it.each([400, 404, 500])('does not read the slots again for a non-409 error (status %p)', async (statusCode) => {
     mockRemoveSlot.mockReturnValue({ unwrap: () => Promise.reject({ statusCode, message: 'Something else went wrong.' }) })
     renderWithStore(<RemoveShiftSlotDialog slot={slot} onClose={onClose} onCloseAutoFocus={onCloseAutoFocus} />)
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Something else went wrong.')
+    expect(refreshDispatched()).toBe(false)
+  })
+
+  it('does not read the slots again and shows caller sentence when error has no statusCode', async () => {
+    mockRemoveSlot.mockReturnValue({ unwrap: () => Promise.reject({ message: 'Something else went wrong.' }) })
+    renderWithStore(<RemoveShiftSlotDialog slot={slot} onClose={onClose} onCloseAutoFocus={onCloseAutoFocus} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The slot could not be removed. Try again in a moment.')
     expect(refreshDispatched()).toBe(false)
   })
 

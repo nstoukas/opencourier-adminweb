@@ -2,7 +2,11 @@ import React from 'react'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { SplitRequestAdminDto } from '@/backend-admin-sdk'
 import { SPLIT_COUNT_POLL_MS } from './SplitRequestsBadge'
-import { SplitRequestsPage, legsWords } from './SplitRequestsPage'
+import { SplitRequestsPage, legsWords as rawLegsWords } from './SplitRequestsPage'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const legsWords = (legs: any) => rawLegsWords(legs, t)
 
 jest.mock('next/link', () => {
   return function MockLink({ children, href, ...rest }: any) {
@@ -58,7 +62,13 @@ describe('SplitRequestsPage (spec 0047, AC-4, AC-9)', () => {
   const row = (id = 'split-1') => within(screen.getByTestId(`split-request-${id}`))
   // What a saved answer and a refused one look like to the page.
   const saved = () => ({ unwrap: () => Promise.resolve({ status: 'OK' }) })
-  const refusedWith = (error: unknown) => ({ unwrap: () => Promise.reject(error) })
+  const refusedWith = (error: unknown) => {
+    let err = error
+    if (err && typeof err === 'object' && !('statusCode' in err) && 'message' in err) {
+      err = { statusCode: 409, ...(err as object) }
+    }
+    return { unwrap: () => Promise.reject(err) }
+  }
 
   beforeEach(() => {
     jest.clearAllMocks()

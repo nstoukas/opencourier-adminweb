@@ -188,7 +188,7 @@ describe('ProductReportRow component (spec 0032, AC-6, AC-7)', () => {
 
     it('displays destructive toast when resolution save fails and leaves form open', async () => {
       mockResolveReport.mockReturnValue({
-        unwrap: jest.fn().mockRejectedValue(new Error('Resolve permission denied')),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 400, message: 'Resolve permission denied' }),
       })
 
       render(<ProductReportRow report={openReport} />)

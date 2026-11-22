@@ -1,14 +1,27 @@
 import {
-  bannerText,
-  closedByName,
-  riderEnd,
+  bannerText as rawBannerText,
+  closedByName as rawClosedByName,
+  riderEnd as rawRiderEnd,
   SOS_NOTE_MAX,
   SOS_OUTCOMES,
-  SOS_OUTCOME_LABELS,
-  STATE_LABELS,
-  timeAgo,
+  outcomeLabel,
+  stateLabel,
+  timeAgo as rawTimeAgo,
 } from './sosDisplay'
 import type { SosIncidentAdminDto } from '@/backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
+import { formatTime, formatWeekdayDate } from '@/i18n/format'
+import type { Formats } from '@/i18n/useFormat'
+
+const t = createI18n('en').t
+const f = {
+  weekdayDate: (iso: any) => formatWeekdayDate(iso, 'en'),
+  time: (iso: any) => formatTime(iso, 'en'),
+} as Formats
+const timeAgo = (iso: string, now: Date) => rawTimeAgo(iso, now, t)
+const bannerText = (incident: any, now: Date) => rawBannerText(incident, now, t)
+const riderEnd = (incident: any) => rawRiderEnd(incident, t, f)
+const closedByName = (incident: any) => rawClosedByName(incident, t)
 
 describe('sosDisplay (spec 0022, AC-8, AC-9, AC-10)', () => {
   const baseIncident: SosIncidentAdminDto = {
@@ -144,10 +157,10 @@ describe('sosDisplay (spec 0022, AC-8, AC-9, AC-10)', () => {
     })
 
     it('maps outcome enum values to human labels', () => {
-      expect(SOS_OUTCOME_LABELS.RIDER_SAFE).toBe('Rider safe')
-      expect(SOS_OUTCOME_LABELS.HELP_ARRIVED).toBe('Help arrived')
-      expect(SOS_OUTCOME_LABELS.FALSE_ALARM).toBe('False alarm')
-      expect(SOS_OUTCOME_LABELS.OTHER).toBe('Other')
+      expect(outcomeLabel('RIDER_SAFE', t)).toBe('Rider safe')
+      expect(outcomeLabel('HELP_ARRIVED', t)).toBe('Help arrived')
+      expect(outcomeLabel('FALSE_ALARM', t)).toBe('False alarm')
+      expect(outcomeLabel('OTHER', t)).toBe('Other')
     })
 
     it('defines SOS_NOTE_MAX as 500', () => {
@@ -155,9 +168,9 @@ describe('sosDisplay (spec 0022, AC-8, AC-9, AC-10)', () => {
     })
 
     it('maps state labels', () => {
-      expect(STATE_LABELS.ACTIVE).toBe('Active')
-      expect(STATE_LABELS.AWAITING_CLOSE).toBe('Awaiting close')
-      expect(STATE_LABELS.CLOSED).toBe('Closed')
+      expect(stateLabel('ACTIVE', t)).toBe('Active')
+      expect(stateLabel('AWAITING_CLOSE', t)).toBe('Awaiting close')
+      expect(stateLabel('CLOSED', t)).toBe('Closed')
     })
   })
 })

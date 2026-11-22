@@ -88,8 +88,13 @@ describe('athensMonth (spec 0036, AC-1, AC-2)', () => {
 
   describe('monthTitle', () => {
     it('formats month as English month and year: "November 2026"', () => {
-      expect(monthTitle('2026-11')).toBe('November 2026')
-      expect(monthTitle('2025-01')).toBe('January 2025')
+      expect(monthTitle('2026-11', 'en')).toBe('November 2026')
+      expect(monthTitle('2025-01', 'en')).toBe('January 2025')
+    })
+
+    it('formats month as Greek month and year: "Νοέμβριος 2026"', () => {
+      expect(monthTitle('2026-11', 'el')).toBe('Νοέμβριος 2026')
+      expect(monthTitle('2025-01', 'el')).toBe('Ιανουάριος 2025')
     })
   })
 

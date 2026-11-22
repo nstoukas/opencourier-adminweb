@@ -1,12 +1,16 @@
 import {
   humanizeEventType,
   humanizeStatus,
-  describeTransition,
+  describeTransition as rawDescribeTransition,
   lateStepOf,
   LATE_STEP_THRESHOLD_MS,
 } from './deliveryEventDisplay'
 import { EnumDeliveryStatus } from '../shared-types/delivery-events'
 import { STATUS_TO_HUMAN } from '../shared-types/state-machine'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const describeTransition = (event: Parameters<typeof rawDescribeTransition>[0]) => rawDescribeTransition(event, t)
 
 describe('deliveryEventDisplay utils', () => {
   it('humanizes UPPER_SNAKE_CASE event types to sentence case', () => {

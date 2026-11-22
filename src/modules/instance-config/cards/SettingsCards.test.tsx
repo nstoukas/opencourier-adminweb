@@ -15,11 +15,35 @@ import {
   TimeWorkedCard,
   PUBLIC_PAGES,
   SECTIONS,
-  MATCHER_COPY,
-  TWO_ORDER_POLICY_LABELS,
-  ADD_ON_MOMENT_LABELS,
+  optionLabel,
 } from './SettingsCards'
-import { EMPTY_FORM, blockers, pendingChanges, type SettingsForm } from '../settingsDiff'
+import {
+  EMPTY_FORM,
+  blockers as rawBlockers,
+  pendingChanges as rawPendingChanges,
+  type SettingsForm,
+} from '../settingsDiff'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const blockers = (changes: any[], form: SettingsForm) => rawBlockers(t, changes, form)
+const pendingChanges = (saved: SettingsForm, form: SettingsForm) => rawPendingChanges(t, 'en', saved, form)
+
+const TWO_ORDER_POLICY_LABELS = {
+  SHORTAGE_ONLY: optionLabel(t, 'twoOrderPolicy', 'SHORTAGE_ONLY'),
+  WHENEVER_FITS: optionLabel(t, 'twoOrderPolicy', 'WHENEVER_FITS'),
+}
+const ADD_ON_MOMENT_LABELS = {
+  BEFORE_PICKUP: optionLabel(t, 'addOnMoment', 'BEFORE_PICKUP'),
+  BEFORE_DROPOFF: optionLabel(t, 'addOnMoment', 'BEFORE_DROPOFF'),
+  SAME_RESTAURANT: optionLabel(t, 'addOnMoment', 'SAME_RESTAURANT'),
+}
+const MATCHER_COPY = {
+  FAIRNESS: {
+    title: t('settings.matcher.FAIRNESS.title'),
+    description: t('settings.matcher.FAIRNESS.description'),
+  },
+}
 
 describe('SettingsCards components (row 87 review fixes)', () => {
   const dummyForm: SettingsForm = {
@@ -624,7 +648,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
     it('SECTIONS includes restaurant-delays with title "Restaurant delays"', () => {
       const section = SECTIONS.find((s) => s.id === 'restaurant-delays')
       expect(section).toBeDefined()
-      expect(section?.title).toBe('Restaurant delays')
+      expect(section?.titleKey).toBe('settings.sections.restaurantDelays')
     })
 
     it('renders the Restaurant delays card title and description', () => {
@@ -1268,7 +1292,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       render(<PublicPagesCard onEdit={mockOnEdit} />)
 
       PUBLIC_PAGES.forEach((page) => {
-        const editBtn = screen.getByRole('button', { name: new RegExp(`Edit ${page.title}`, 'i') })
+        const editBtn = screen.getByRole('button', { name: new RegExp(`Edit ${t(page.titleKey)}`, 'i') })
         expect(editBtn).toBeInTheDocument()
         fireEvent.click(editBtn)
         expect(mockOnEdit).toHaveBeenCalledWith(page.view)
@@ -1480,7 +1504,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
     it('defines SECTIONS entry with id "box" and title "Box"', () => {
       const boxSection = SECTIONS.find((s) => s.id === 'box')
       expect(boxSection).toBeDefined()
-      expect(boxSection?.title).toBe('Box')
+      expect(boxSection?.titleKey).toBe('settings.sections.box')
     })
   })
 
@@ -1586,13 +1610,13 @@ describe('SettingsCards components (row 87 review fixes)', () => {
     it('defines SECTIONS entry with id "fairness" and title "Fairness"', () => {
       const fairnessSection = SECTIONS.find((s) => s.id === 'fairness')
       expect(fairnessSection).toBeDefined()
-      expect(fairnessSection?.title).toBe('Fairness')
+      expect(fairnessSection?.titleKey).toBe('settings.sections.fairness')
     })
 
     it('includes Fairness in MATCHER_COPY with honest copy', () => {
       expect(MATCHER_COPY.FAIRNESS).toBeDefined()
-      expect(MATCHER_COPY.FAIRNESS?.title).toBe('Fairness')
-      expect(MATCHER_COPY.FAIRNESS?.description).toContain('Fairness card')
+      expect(MATCHER_COPY.FAIRNESS.title).toBe('Fairness')
+      expect(MATCHER_COPY.FAIRNESS.description).toContain('Fairness card')
     })
 
     it('renders Fairness as a choice of the matcher in MatchingCard and calls set on change', () => {
@@ -1629,7 +1653,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
     it('defines SECTIONS entry with id "two-orders" and title "Two orders"', () => {
       const section = SECTIONS.find((s) => s.id === 'two-orders')
       expect(section).toBeDefined()
-      expect(section?.title).toBe('Two orders')
+      expect(section?.titleKey).toBe('settings.sections.twoOrders')
     })
 
     it('exports TWO_ORDER_POLICY_LABELS with plain language labels for each policy', () => {

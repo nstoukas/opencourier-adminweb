@@ -185,7 +185,7 @@ describe('CancelDeliveryDialog component (spec 0015, AC-5)', () => {
 
   it('error stays in the dialog as an alert role on failure', async () => {
     mockSubmitDeliveryEvent.mockReturnValue({
-      unwrap: () => Promise.reject({ message: 'Delivery cannot be cancelled in this status' }),
+      unwrap: () => Promise.reject({ statusCode: 400, message: 'Delivery cannot be cancelled in this status' }),
     })
 
     render(<CancelDeliveryDialog delivery={sampleHeldDelivery} />)

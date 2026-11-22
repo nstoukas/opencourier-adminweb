@@ -362,7 +362,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
     it('shows server reason in destructive toast and keeps changes in the bar', async () => {
       const serverErrorMessage = 'maxAssignmentDistance must be 50 or less'
       mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.reject({ message: serverErrorMessage }),
+        unwrap: () => Promise.reject({ statusCode: 400, message: serverErrorMessage }),
       })
 
       render(<InstanceConfigurationPage />)
@@ -1468,7 +1468,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       it('shows backend refusal sentence in destructive toast when backend rejects value and keeps change in bar', async () => {
         const serverErrorMessage = 'arrivalRadiusMetres must be 20 or more, or 0 to switch detection off'
         mockSetInstanceConfig.mockReturnValue({
-          unwrap: () => Promise.reject({ message: serverErrorMessage }),
+          unwrap: () => Promise.reject({ statusCode: 400, message: serverErrorMessage }),
         })
 
         render(<InstanceConfigurationPage />)
@@ -2364,7 +2364,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       withTwoOrders(false, 'SHORTAGE_ONLY', 10)
       const serverErrorMessage = 'twoOrderDelayLimitMinutes must be between 0 and 30'
       mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.reject({ message: serverErrorMessage }),
+        unwrap: () => Promise.reject({ statusCode: 400, message: serverErrorMessage }),
       })
 
       render(<InstanceConfigurationPage />)
@@ -2396,7 +2396,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       withTwoOrders(false, 'SHORTAGE_ONLY', 10)
       const serverErrorMessage = 'twoOrderDelayLimitMinutes must be 0 or more'
       mockSetInstanceConfig.mockReturnValue({
-        unwrap: () => Promise.reject({ message: serverErrorMessage }),
+        unwrap: () => Promise.reject({ statusCode: 400, message: serverErrorMessage }),
       })
 
       render(<InstanceConfigurationPage />)

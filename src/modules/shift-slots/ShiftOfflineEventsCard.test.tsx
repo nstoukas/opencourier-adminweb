@@ -90,7 +90,7 @@ describe('ShiftOfflineEventsCard (spec 0049, AC-6)', () => {
   describe('the items', () => {
     it('shows each item with the rider, the shift, the time and the cause, in the order the backend sent', async () => {
       sdk.list.mockResolvedValue([
-        item({ id: 'event-2', courierName: 'Nikos Georgiou', offlineTime: '22:05', causeText: "A password change ended the rider's sessions" }),
+        item({ id: 'event-2', courierName: 'Nikos Georgiou', offlineTime: '22:05', cause: 'CUT_OFF', causeText: "A password change ended the rider's sessions" }),
         item(),
       ])
       renderCard()

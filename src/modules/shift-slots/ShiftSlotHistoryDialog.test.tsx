@@ -1,8 +1,10 @@
 import React from 'react'
 import { render, screen, within } from '@testing-library/react'
 import type { ShiftSlotAdminDto, ShiftSlotChangeAdminDto } from '@/backend-admin-sdk'
-import { athensDateTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { formatTime, formatWeekdayDate } from '@/i18n/format'
 import { ShiftSlotHistoryDialog } from './ShiftSlotHistoryDialog'
+
+const slotDateTime = (iso: string) => `${formatWeekdayDate(iso, 'en')}, ${formatTime(iso, 'en')}`
 
 const mockUseChanges = jest.fn()
 
@@ -83,13 +85,13 @@ describe('ShiftSlotHistoryDialog (spec 0026, AC-3)', () => {
     renderIt()
     const items = within(screen.getByRole('list')).getAllByRole('listitem')
 
-    expect(items[0]).toHaveTextContent(`Removed · ${athensDateTime('2026-11-03T08:00:00.000Z')} · by`)
+    expect(items[0]).toHaveTextContent(`Removed · ${slotDateTime('2026-11-03T08:00:00.000Z')} · by`)
     expect(items[0]).toHaveTextContent('Friday 19:00 to 23:00, 8 riders')
 
-    expect(items[1]).toHaveTextContent(`Changed · ${athensDateTime('2026-11-02T10:00:00.000Z')} · by`)
+    expect(items[1]).toHaveTextContent(`Changed · ${slotDateTime('2026-11-02T10:00:00.000Z')} · by`)
     expect(items[1]).toHaveTextContent('Friday 19:00 to 23:00, 6 riders → Friday 19:00 to 24:00, 8 riders')
 
-    expect(items[2]).toHaveTextContent(`Added · ${athensDateTime('2026-11-01T10:00:00.000Z')} · by`)
+    expect(items[2]).toHaveTextContent(`Added · ${slotDateTime('2026-11-01T10:00:00.000Z')} · by`)
     expect(items[2]).toHaveTextContent('Friday 19:00 to 23:00, 6 riders')
     expect(items[2]).not.toHaveTextContent('→')
   })

@@ -1,13 +1,18 @@
 import {
   enableSosAlerts,
   notificationsBlocked,
-  notifyNewSos,
+  notifyNewSos as rawNotifyNewSos,
   riderName,
   sosAlertsChosen,
   startSosTicker,
   soundUnlocked,
 } from './sosAlerts'
 import type { SosIncidentAdminDto } from '@/backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const notifyNewSos = (incidents: SosIncidentAdminDto[], onOpen: (id: string) => void) =>
+  rawNotifyNewSos(incidents, onOpen, t)
 
 describe('sosAlerts (spec 0022, AC-8)', () => {
   const originalLocalStorage = window.localStorage

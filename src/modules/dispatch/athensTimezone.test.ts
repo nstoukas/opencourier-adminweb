@@ -1,4 +1,7 @@
-import { athensTime, athensEnd } from '../dispatch-stop/dispatchStopDisplay'
+import { athensTime as rawAthensTime, athensEnd as rawAthensEnd } from '../dispatch-stop/dispatchStopDisplay'
+
+const athensTime = (iso: string) => rawAthensTime(iso, 'en')
+const athensEnd = (from: string, to: string) => rawAthensEnd(from, to, 'en')
 
 describe('Athens timezone formatting invariant (spec 0034, AC-4, spec 0014)', () => {
   const originalTz = process.env.TZ

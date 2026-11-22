@@ -142,7 +142,7 @@ describe('RotateCourierPasswordDialog component (spec 0013, AC-4 to AC-6)', () =
 
   it('failure shows the backend message and does not close (AC-6)', async () => {
     mockRotateCourierPassword.mockReturnValue({
-      unwrap: () => Promise.reject({ message: 'This rider has no login.' }),
+      unwrap: () => Promise.reject({ statusCode: 400, message: 'This rider has no login.' }),
     })
 
     render(

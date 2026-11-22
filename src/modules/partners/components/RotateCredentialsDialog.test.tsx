@@ -167,7 +167,7 @@ describe('RotateCredentialsDialog component', () => {
 
   it('calls request.reset() on failure and displays error message in dialog', async () => {
     mockRotatePasswordMutation.mockReturnValue({
-      unwrap: () => Promise.reject({ message: 'Server error updating password' }),
+      unwrap: () => Promise.reject({ statusCode: 400, message: 'Server error updating password' }),
       reset: mockRequestReset,
     })
 

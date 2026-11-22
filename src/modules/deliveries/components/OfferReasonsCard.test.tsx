@@ -2,14 +2,52 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import {
   OfferReasonsCard,
-  durationText,
-  perHourText,
-  reasonLines,
-  stackLines,
-  addOnLines,
+  durationText as rawDurationText,
+  perHourText as rawPerHourText,
+  reasonLines as rawReasonLines,
+  stackLines as rawStackLines,
+  addOnLines as rawAddOnLines,
 } from "./OfferReasonsCard";
 import type { OfferReasonAdmin } from "../../../backend-admin-sdk/src/models/DeliveryAdminDto";
 import { formatOptionalDate } from "../../../ui-shared-utils";
+import { createI18n } from "../../../i18n/createI18n";
+import {
+  formatDate,
+  formatDateTime,
+  formatDateTimeSeconds,
+  formatDistance,
+  formatMoney,
+  formatMonthYear,
+  formatNumber,
+  formatTime,
+  formatTimeSeconds,
+  formatWeekdayDate,
+} from "../../../i18n/format";
+import type { Formats } from "../../../i18n/useFormat";
+
+const i18n = createI18n("en");
+const t = i18n.t;
+const makeFormats = (language: "en" | "el" = "en"): Formats => ({
+  language,
+  money: (cents, currency) => formatMoney(cents, currency, language),
+  number: (value, max) => formatNumber(value, language, max),
+  dateTime: (value) => formatDateTime(value, language),
+  dateTimeSeconds: (value) => formatDateTimeSeconds(value, language),
+  date: (value) => formatDate(value, language),
+  time: (value) => formatTime(value, language),
+  timeSeconds: (value) => formatTimeSeconds(value, language),
+  monthYear: (value) => formatMonthYear(value, language),
+  weekdayDate: (value) => formatWeekdayDate(value, language),
+  atTime: (value) => `${formatTime(value, language)}`,
+  distance: (value, unit) => formatDistance(value, unit, language),
+});
+const f = makeFormats("en");
+
+const durationText = (seconds: unknown) => rawDurationText(seconds, t);
+const perHourText = (cents: unknown) => rawPerHourText(cents, t, f);
+const reasonLines = (reason: OfferReasonAdmin) => rawReasonLines(reason, t, f);
+const stackLines = (reason: OfferReasonAdmin) => rawStackLines(reason, t);
+const addOnLines = (reason: OfferReasonAdmin) => rawAddOnLines(reason, t, f);
 
 describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () => {
   describe("durationText", () => {

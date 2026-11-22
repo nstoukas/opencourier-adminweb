@@ -288,6 +288,7 @@ describe('AddCourierDialog component (spec 0013, AC-1 to AC-3)', () => {
     mockCreateCourier.mockReturnValue({
       unwrap: () =>
         Promise.reject({
+          statusCode: 400,
           message: 'That phone is already used by another rider.',
         }),
     })

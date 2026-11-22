@@ -1,5 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import { I18nextProvider } from 'react-i18next'
+import { createI18n } from '../../../i18n/createI18n'
 import { DeliveryEventTimeline } from './DeliveryEventTimeline'
 import { useGetDeliveryEventsQuery } from '../../../api/deliveriesApi'
 import type { DeliveryEventAdminDto } from '../../../backend-admin-sdk'
@@ -324,9 +326,7 @@ describe('DeliveryEventTimeline component', () => {
       expect(screen.getByText('Database connection failed during state update')).toBeInTheDocument()
     })
 
-    it('pins Fix 7: compares same day by calendar day (cross midnight shows arrival date, within same day shows only time) and verifies calendar day comparison', () => {
-      const toDateStringSpy = jest.spyOn(Date.prototype, 'toDateString')
-
+    it('pins Fix 7: compares same day by calendar day (cross midnight shows arrival date, within same day shows only time)', () => {
       // Case A: Within same calendar day (e.g. 14:00 to 14:05 on same day) -> shows only time
       const sameDayEvent: DeliveryEventAdminDto = {
         id: 'ev-same-day-cal',
@@ -364,9 +364,6 @@ describe('DeliveryEventTimeline component', () => {
 
       render(<DeliveryEventTimeline deliveryId="d100" />)
 
-      // Calendar day comparison method must be invoked (not string slicing)
-      expect(toDateStringSpy).toHaveBeenCalled()
-
       const lateNotes = screen.getAllByTestId('late-step')
       expect(lateNotes).toHaveLength(2)
 
@@ -379,8 +376,6 @@ describe('DeliveryEventTimeline component', () => {
 
       // Cross midnight event note: includes full arrival date DD/MM/YYYY
       expect(note1).toHaveTextContent(/arrived \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}, 5 min later/)
-
-      toDateStringSpy.mockRestore()
     })
 
     it('shows createdAt without late note when event has no occurredAt or gap is exactly 60 seconds', () => {
@@ -742,6 +737,125 @@ describe('DeliveryEventTimeline component', () => {
       )
 
       visibilitySpy.mockRestore()
+    })
+
+    describe('spec 0054 AC-4: message codes and recorded in English fallback', () => {
+      it('renders known messageCode in reader language without recorded in English note', () => {
+        const codedEvent: DeliveryEventAdminDto = {
+          id: 'ev-coded-1',
+          type: 'CREATED',
+          actor: 'PARTNER',
+          eventSource: 'OPENCOURIER',
+          oldStatus: null,
+          newStatus: 'CREATED',
+          transitionSuccessful: true,
+          message: 'Delivery was created delivery del-100 from partner p-1, ready at 12:00',
+          messageCode: 'CREATED',
+          messageParams: { deliveryId: 'del-100', partnerId: 'p-1', readyAt: '2026-11-20T10:00:00Z' },
+          createdAt: new Date('2026-11-20T10:00:00Z'),
+        }
+
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [codedEvent],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        // In Greek
+        const i18nEl = createI18n('el')
+        const { unmount } = render(
+          <I18nextProvider i18n={i18nEl}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+        expect(screen.getByText(/δημιουργήθηκε/)).toBeInTheDocument()
+        expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
+        unmount()
+
+        // In English
+        const i18nEn = createI18n('en')
+        render(
+          <I18nextProvider i18n={i18nEn}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+        expect(screen.getByText(/Delivery was created/)).toBeInTheDocument()
+        expect(screen.queryByText(/recorded in English/)).toBeNull()
+      })
+
+      it('renders stored English message with "(recorded in English)" note for old rows when reading in Greek', () => {
+        const legacyEvent: DeliveryEventAdminDto = {
+          id: 'ev-legacy-1',
+          type: 'CONFIRMED',
+          actor: 'ADMIN',
+          eventSource: 'OPENCOURIER',
+          oldStatus: 'CREATED',
+          newStatus: 'ACCEPTED',
+          transitionSuccessful: true,
+          message: 'Order confirmed by telephone by admin user',
+          createdAt: new Date('2026-07-30T10:05:00Z'),
+        }
+
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [legacyEvent],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        // In Greek: shows stored message and note
+        const i18nEl = createI18n('el')
+        const { unmount } = render(
+          <I18nextProvider i18n={i18nEl}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+        expect(screen.getByText('Order confirmed by telephone by admin user')).toBeInTheDocument()
+        expect(screen.getByText('(καταγράφηκε στα αγγλικά)')).toBeInTheDocument()
+        unmount()
+
+        // In English: shows stored message without note
+        const i18nEn = createI18n('en')
+        render(
+          <I18nextProvider i18n={i18nEn}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+        expect(screen.getByText('Order confirmed by telephone by admin user')).toBeInTheDocument()
+        expect(screen.queryByText(/recorded in English|καταγράφηκε στα αγγλικά/)).toBeNull()
+      })
+
+      it('omits "(recorded in English)" note for partner integrations (eventSource other than OPENCOURIER)', () => {
+        const partnerEvent: DeliveryEventAdminDto = {
+          id: 'ev-partner-1',
+          type: 'CREATED',
+          actor: 'PARTNER',
+          eventSource: 'PARTNER_APP',
+          oldStatus: null,
+          newStatus: 'CREATED',
+          transitionSuccessful: true,
+          message: 'Custom note from POS: order #4492 placed',
+          createdAt: new Date('2026-07-30T10:00:00Z'),
+        }
+
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [partnerEvent],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        // In Greek: shows partner's own words with NO note (cross check 5)
+        const i18nEl = createI18n('el')
+        render(
+          <I18nextProvider i18n={i18nEl}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+        expect(screen.getByText('Custom note from POS: order #4492 placed')).toBeInTheDocument()
+        expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
+      })
     })
   })
 })

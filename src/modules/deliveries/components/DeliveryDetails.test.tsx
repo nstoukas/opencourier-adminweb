@@ -361,7 +361,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       // Open Change status menu
       fireEvent.click(screen.getByText('Change status'))
-      fireEvent.click(screen.getByText(/Arrived_at_pickup_location/i))
+      fireEvent.click(screen.getByText(/Arrived at pickup location/i))
 
       await waitFor(() => {
         // Assert event is submitted for del-next-leg-999, NOT del-previous-leg-111
@@ -524,12 +524,12 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
     it('Case 3: USD delivery renders $ amounts proving currency comes from the Delivery record', () => {
       const usdDelivery = { ...sampleEurDelivery, currencyCode: 'USD' }
-      mockUseGetDeliveryQuery.mockReturnValue({ data: usdDelivery, isLoading: false })
+      mockUseGetDeliveryQuery.mockReturnValue({ data: usdDelivery, currentData: usdDelivery, isLoading: false })
 
       render(<DeliveryDetails deliveryId="d100" />)
 
-      expect(screen.getByText('$112.04')).toBeInTheDocument()
-      expect(screen.getByText('$5.00')).toBeInTheDocument()
+      expect(screen.getByText('US$112.04')).toBeInTheDocument()
+      expect(screen.getByText('US$5.00')).toBeInTheDocument()
     })
 
     it('Case 4: missing currencyCode prints a bare number with no currency symbol ($ or €)', () => {
@@ -714,7 +714,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       fireEvent.click(triggerBtn)
 
       // Click event item
-      const menuItem = screen.getByText(/Arrived_at_pickup_location/i)
+      const menuItem = screen.getByText(/Arrived at pickup location/i)
       fireEvent.click(menuItem)
 
       await waitFor(() => {
@@ -786,7 +786,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       )
 
       fireEvent.click(screen.getByText('Change status'))
-      fireEvent.click(screen.getByText(/Arrived_at_pickup_location/i))
+      fireEvent.click(screen.getByText(/Arrived at pickup location/i))
 
       expect(await screen.findByText('Delivery status transition failed')).toBeInTheDocument()
       expect(screen.getByText('Failed to change delivery status')).toBeInTheDocument()
@@ -806,7 +806,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       // CANCELED must NOT be an option in the menu
       expect(screen.queryByText(/^Canceled$/i)).toBeNull()
       // Other events like ARRIVED_AT_PICKUP_LOCATION remain in the menu
-      expect(screen.getByText(/Arrived_at_pickup_location/i)).toBeInTheDocument()
+      expect(screen.getByText(/Arrived at pickup location/i)).toBeInTheDocument()
     })
 
     it('shows Cancel delivery button exactly when adminEventsForStatus allows CANCELED (spec 0015, AC-5)', () => {

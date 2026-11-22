@@ -317,7 +317,7 @@ describe('PartnerWaitRecordCard (spec 0030, AC-7)', () => {
   })
 
   describe('Adopting real prep time action (AC-7)', () => {
-    it('saves through partner update with ONLY usualPrepMinutes in the payload', async () => {
+    it('saves through partner update with ONLY usualPrepMinutes in the payload', () => {
       render(<PartnerWaitRecordCard partnerId="p-1" partnerName="Taqueria Volos" />)
 
       const adoptButton = screen.getByRole('button', { name: 'Use 22 min as the usual prep time' })
@@ -345,7 +345,7 @@ describe('PartnerWaitRecordCard (spec 0030, AC-7)', () => {
 
     it('displays a destructive toast when the partner update mutation fails', async () => {
       mockUpdateTrigger.mockReturnValue({
-        unwrap: jest.fn().mockRejectedValue({ message: 'Database lock timeout' }),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 400, message: 'Database lock timeout' }),
       })
 
       render(<PartnerWaitRecordCard partnerId="p-1" partnerName="Taqueria Volos" />)

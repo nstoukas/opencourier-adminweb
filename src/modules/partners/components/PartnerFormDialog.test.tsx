@@ -554,7 +554,7 @@ describe('PartnerFormDialog (spec 0024, AC-7 to AC-9)', () => {
 
     it('keeps the form and toasts the failure when the create fails', async () => {
       mockCreatePartnerMutation.mockReturnValue({
-        unwrap: () => Promise.reject({ message: 'Email already taken' }),
+        unwrap: () => Promise.reject({ statusCode: 400, message: 'Email already taken' }),
       })
       render(<PartnerFormDialog open={true} onOpenChange={jest.fn()} mode="create" />)
 

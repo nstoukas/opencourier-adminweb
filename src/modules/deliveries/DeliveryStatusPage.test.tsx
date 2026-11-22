@@ -458,7 +458,7 @@ describe('DeliveryStatusPage (src/pages/deliveries/[deliveryId]/status.tsx)', ()
     it('displays destructive toast with backend error message on mutation failure', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
       mockSubmitDeliveryEvent.mockReturnValue({
-        unwrap: () => Promise.reject(new Error('Server error')),
+        unwrap: () => Promise.reject({ statusCode: 400, message: 'Server error' }),
       })
 
       render(<DeliveryStatusPage />)

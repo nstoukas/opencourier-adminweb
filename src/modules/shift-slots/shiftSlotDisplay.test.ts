@@ -1,4 +1,15 @@
-import { WEEKDAYS, clockToMinutes, describeSlot, minutesToClock, weekdayLabel } from './shiftSlotDisplay'
+import {
+  WEEKDAYS,
+  clockToMinutes,
+  describeSlot as rawDescribeSlot,
+  minutesToClock,
+  weekdayLabel as rawWeekdayLabel,
+} from './shiftSlotDisplay'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const weekdayLabel = (weekday: number) => rawWeekdayLabel(weekday, t, 'en')
+const describeSlot = (slot: any) => rawDescribeSlot(slot, t, 'en')
 
 // Spec 0026 (row 77): how slot times and days read in admin, and how a typed time becomes minutes.
 describe('shiftSlotDisplay (spec 0026)', () => {
@@ -53,15 +64,7 @@ describe('shiftSlotDisplay (spec 0026)', () => {
 
   describe('weekdays', () => {
     it('WEEKDAYS is ISO, Monday first: 1 Monday to 7 Sunday', () => {
-      expect(WEEKDAYS).toEqual([
-        { value: 1, label: 'Monday' },
-        { value: 2, label: 'Tuesday' },
-        { value: 3, label: 'Wednesday' },
-        { value: 4, label: 'Thursday' },
-        { value: 5, label: 'Friday' },
-        { value: 6, label: 'Saturday' },
-        { value: 7, label: 'Sunday' },
-      ])
+      expect(WEEKDAYS).toEqual([1, 2, 3, 4, 5, 6, 7])
     })
 
     it('weekdayLabel names each ISO day, and an unknown one as "Day N"', () => {

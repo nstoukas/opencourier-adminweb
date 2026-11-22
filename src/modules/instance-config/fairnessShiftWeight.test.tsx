@@ -4,10 +4,10 @@ import { FairnessCard } from './cards/SettingsCards'
 import {
   EMPTY_FORM,
   SETTINGS,
-  blockers,
+  blockers as rawBlockers,
   formFromSettings,
-  labelOf,
-  pendingChanges,
+  labelOf as rawLabelOf,
+  pendingChanges as rawPendingChanges,
   savePayload,
   type SettingsForm,
 } from './settingsDiff'
@@ -16,6 +16,13 @@ import {
   InstanceConfigSettingsDtoFromJSON,
   InstanceConfigSettingsDtoToJSON,
 } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsDto'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const labelOf = (key: any) => rawLabelOf(t, key)
+const pendingChanges = (saved: SettingsForm | null, edited: SettingsForm) =>
+  rawPendingChanges(t, 'en', saved, edited)
+const blockers = (changes: any[], edited: SettingsForm) => rawBlockers(t, changes, edited)
 
 // Spec 0049 (row 79; AC-1, cross check 5): the fourth fairness weight, "Weight of being on a booked
 // shift", 0 to 100, on the Fairness card. It reads the saved value, saves through the SDK, and never
@@ -101,7 +108,7 @@ describe('the shift weight on Instance configuration (spec 0049, AC-1)', () => {
       const definition = SETTINGS.find((setting) => setting.key === 'fairnessWeightShift')
       expect(definition).toBeDefined()
       expect(definition?.kind).toBe('number')
-      expect(definition?.label).toBe(LABEL)
+      expect(definition?.labelKey).toBe('settings.labels.fairnessWeightShift')
       expect(labelOf('fairnessWeightShift')).toBe(LABEL)
     })
 

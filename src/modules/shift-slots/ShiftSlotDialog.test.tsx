@@ -238,7 +238,7 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
 
   describe('backend errors', () => {
     it('shows the backend sentence and stays open', async () => {
-      mockUpdateSlot.mockReturnValue(rejected({ message: 'This slot just changed. Look again.' }))
+      mockUpdateSlot.mockReturnValue(rejected({ statusCode: 400, message: 'This slot just changed. Look again.' }))
       renderEdit()
       type('shift-slot-cap', '8')
       fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
@@ -270,13 +270,23 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
       expect(refreshDispatched()).toBe(true)
     })
 
-    it.each([400, 404, 500, undefined])('does not read the slots again for a non-409 error (status %p)', async (statusCode) => {
+    it.each([400, 404, 500])('does not read the slots again for a non-409 error (status %p)', async (statusCode) => {
       mockUpdateSlot.mockReturnValue(rejected({ statusCode, message: 'Something else went wrong.' }))
       renderEdit()
       type('shift-slot-cap', '8')
       fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Something else went wrong.')
+      expect(refreshDispatched()).toBe(false)
+    })
+
+    it('does not read the slots again and shows caller sentence when error has no statusCode', async () => {
+      mockUpdateSlot.mockReturnValue(rejected({ message: 'Something else went wrong.' }))
+      renderEdit()
+      type('shift-slot-cap', '8')
+      fireEvent.click(screen.getByRole('button', { name: 'Save slot' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('The slot could not be saved. Try again in a moment.')
       expect(refreshDispatched()).toBe(false)
     })
 
@@ -289,7 +299,7 @@ describe('ShiftSlotDialog (spec 0026, AC-6)', () => {
     })
 
     it('shows a validation list from the backend as one sentence', async () => {
-      mockCreateSlot.mockReturnValue(rejected({ message: ['The rider cap must be a whole number from 1 to 50.'] }))
+      mockCreateSlot.mockReturnValue(rejected({ statusCode: 400, message: 'The rider cap must be a whole number from 1 to 50.' }))
       renderAdd()
       type('shift-slot-start', '19:00')
       type('shift-slot-end', '23:00')

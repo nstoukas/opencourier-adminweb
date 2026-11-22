@@ -342,9 +342,9 @@ describe('PartnerMonthPage (spec 0036, AC-3 to AC-8, AC-10)', () => {
     renderPage()
 
     const totalsSection = screen.getByRole('region', { name: 'Totals' })
-    expect(within(totalsSection).getByText('€35.00 · $50.00')).toBeInTheDocument()
-    expect(within(totalsSection).getByText('€15.00 · $20.00')).toBeInTheDocument()
-    expect(within(totalsSection).getByText('€20.00 · $30.00')).toBeInTheDocument()
+    expect(within(totalsSection).getByText('€35.00 · US$50.00')).toBeInTheDocument()
+    expect(within(totalsSection).getByText('€15.00 · US$20.00')).toBeInTheDocument()
+    expect(within(totalsSection).getByText('€20.00 · US$30.00')).toBeInTheDocument()
 
     // Never a single summed figure across currencies
     expect(within(totalsSection).queryByText(/85/)).toBeNull()

@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CourierTimeWorkedCard } from './CourierTimeWorkedCard'
 import { useGetCourierTimeWorkedQuery } from '../../api/timeWorkedApi'
-import { athensDateTime, athensToday } from '../dispatch-stop/dispatchStopDisplay'
+import { athensToday } from '../dispatch-stop/dispatchStopDisplay'
 import { addDays } from './timeWorkedFormat'
 import type {
   CourierTimeWorkedDto,
@@ -1024,7 +1024,7 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
       render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
       expect(screen.getByText('Thu, 19 Nov 2026')).toBeInTheDocument()
-      expect(screen.getByText(/Thu 19 Nov, 00:30 to 01:30/)).toBeInTheDocument()
+      expect(screen.getByText(/Thu 19\/11, 00:30 to 01:30/)).toBeInTheDocument()
       expect(screen.queryByText('Began before these days')).toBeNull()
     })
 
@@ -1056,9 +1056,9 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
       render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
-      expect(screen.getByText('Began before these days')).toBeInTheDocument()
-      const text18 = screen.getByText(/Wed 18 Nov, 12:00 to 14:00/)
-      const text17 = screen.getByText(/Tue 17 Nov, 12:00 to 14:00/)
+      expect(screen.getByRole('heading', { name: 'Began before these days' })).toBeInTheDocument()
+      const text18 = screen.getByText(/Wed 18\/11, 12:00 to 14:00/)
+      const text17 = screen.getByText(/Tue 17\/11, 12:00 to 14:00/)
       expect(text18.compareDocumentPosition(text17) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
@@ -1090,8 +1090,8 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
       const d18 = screen.getByText('Wed, 18 Nov 2026')
       expect(d19.compareDocumentPosition(d18) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-      const sNewer = screen.getByText(/Thu 19 Nov, 16:00 to 17:00/)
-      const sOlder = screen.getByText(/Thu 19 Nov, 10:00 to 11:00/)
+      const sNewer = screen.getByText(/Thu 19\/11, 16:00 to 17:00/)
+      const sOlder = screen.getByText(/Thu 19\/11, 10:00 to 11:00/)
       expect(sNewer.compareDocumentPosition(sOlder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
@@ -1147,8 +1147,8 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
       render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
-      expect(screen.getByText(/Thu 19 Nov, 22:00 to Sat 21 Nov, 09:00/)).toBeInTheDocument()
-      expect(screen.getByText(/Thu 19 Nov, 12:00 to 14:00/)).toBeInTheDocument()
+      expect(screen.getByText(/Thu 19\/11, 22:00 to Sat 21\/11, 09:00/)).toBeInTheDocument()
+      expect(screen.getByText(/Thu 19\/11, 12:00 to 14:00/)).toBeInTheDocument()
     })
 
     it('polls with pollingInterval when range includes today, and sets pollingInterval 0 when range ends before today', () => {
@@ -1464,9 +1464,8 @@ describe('CourierTimeWorkedCard (spec 0040 AC-15; spec 0042 AC-1, AC-8, AC-15, A
 
       render(<CourierTimeWorkedCard courierId="courier-c1" />)
 
-      // Expected format: "Break at Fri 20 Nov, 00:20, under a minute"
-      const expectedText = `Break at ${athensDateTime(breakStartedAt)}, under a minute`
-      expect(expectedText).toBe('Break at Fri 20 Nov, 00:20, under a minute')
+      // Expected format: "Break at Fri 20/11, 00:20, under a minute"
+      const expectedText = 'Break at Fri 20/11, 00:20, under a minute'
       expect(screen.getByText(expectedText)).toBeInTheDocument()
 
       // Must not render as a range break ("Break ... to ...")

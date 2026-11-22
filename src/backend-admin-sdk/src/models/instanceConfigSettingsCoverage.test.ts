@@ -124,7 +124,7 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
     const setting = SETTINGS.find((s) => s.key === 'feePercentageCeiling')
     expect(setting).toBeDefined()
     expect(setting?.kind).toBe('number')
-    expect(setting?.label).toBe('Co-op fee ceiling (%)')
+    expect(setting?.labelKey).toBe('settings.labels.feePercentageCeiling')
   })
 
   // Check that each non-excluded backend setting is bound to an input value, select, editor component in an input tag

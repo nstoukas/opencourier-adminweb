@@ -50,7 +50,7 @@ describe('Phosphor icon accessibility defaults and IconContext.Provider in App (
     // public = true avoids triggering AuthGuard redirects
     TestComponent.public = true
 
-    render(<App Component={TestComponent} pageProps={{}} router={{} as any} />)
+    render(<App Component={TestComponent} language="en" pageProps={{}} router={{} as any} />)
 
     await waitFor(() => {
       expect(screen.getByTestId('test-caret')).toBeInTheDocument()

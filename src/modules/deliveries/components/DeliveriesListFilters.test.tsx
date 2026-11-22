@@ -7,6 +7,9 @@ import {
   SEARCH_DELAY_MS,
   type DeliveryListState,
 } from './DeliveriesListFilters'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 describe('DeliveriesListFilters (row 96: filter and search controls)', () => {
   beforeEach(() => {
@@ -41,8 +44,8 @@ describe('DeliveriesListFilters (row 96: filter and search controls)', () => {
   })
 
   it.each(DELIVERY_LIST_STATES)(
-    'sets aria-pressed="true" on exactly one button ($label) when state is "$value"',
-    ({ value, label }) => {
+    'sets aria-pressed="true" on exactly one button ($labelKey) when state is "$value"',
+    ({ value, labelKey }) => {
       render(
         <DeliveriesListFilters
           state={value}
@@ -54,14 +57,14 @@ describe('DeliveriesListFilters (row 96: filter and search controls)', () => {
       // Exactly one button across the group must have aria-pressed="true"
       const pressedButtons = screen.getAllByRole('button', { pressed: true })
       expect(pressedButtons).toHaveLength(1)
-      expect(pressedButtons[0]).toHaveTextContent(label)
+      expect(pressedButtons[0]).toHaveTextContent(t(labelKey))
 
       // The other three buttons must have aria-pressed="false"
       const unpressedButtons = screen.getAllByRole('button', { pressed: false })
       expect(unpressedButtons).toHaveLength(3)
 
       for (const option of DELIVERY_LIST_STATES) {
-        const btn = screen.getByRole('button', { name: option.label })
+        const btn = screen.getByRole('button', { name: t(option.labelKey) })
         expect(btn).toHaveAttribute('aria-pressed', option.value === value ? 'true' : 'false')
       }
     }

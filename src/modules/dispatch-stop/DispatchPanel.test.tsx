@@ -291,7 +291,7 @@ describe('DispatchPanel (spec 0014, AC-3, AC-8, AC-9)', () => {
 
     it('shows destructive toast when restart mutation fails', async () => {
       mockEndStopMutation.mockReturnValue({
-        unwrap: () => Promise.reject({ message: 'Stop has already ended.' }),
+        unwrap: () => Promise.reject({ statusCode: 400, message: 'Stop has already ended.' }),
       })
       mockUseGetDispatchStopsQuery.mockReturnValue({
         data: { current: sampleActiveStop, scheduled: [], history: [] },

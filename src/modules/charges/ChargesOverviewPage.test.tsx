@@ -272,9 +272,9 @@ describe('ChargesOverviewPage (spec 0036, AC-1, AC-2, AC-4, AC-10)', () => {
 
     render(<ChargesOverviewPage />)
 
-    expect(screen.getByText('€35.00 · $50.00')).toBeInTheDocument()
-    expect(screen.getByText('€15.00 · $20.00')).toBeInTheDocument()
-    expect(screen.getByText('€20.00 · $30.00')).toBeInTheDocument()
+    expect(screen.getByText('€35.00 · US$50.00')).toBeInTheDocument()
+    expect(screen.getByText('€15.00 · US$20.00')).toBeInTheDocument()
+    expect(screen.getByText('€20.00 · US$30.00')).toBeInTheDocument()
 
     // Never a single summed figure across currencies (e.g. 85, 35+50, etc.)
     expect(screen.queryByText(/85/)).toBeNull()

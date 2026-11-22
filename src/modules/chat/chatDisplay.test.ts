@@ -9,6 +9,9 @@ import {
   threadTime,
   CHAT_MESSAGE_MAX_LENGTH,
 } from './chatDisplay'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 describe('chatDisplay (spec 0034, AC-2, AC-3, AC-4, AC-19)', () => {
   describe('initials', () => {
@@ -31,8 +34,8 @@ describe('chatDisplay (spec 0034, AC-2, AC-3, AC-4, AC-19)', () => {
 
   describe('roleLabel', () => {
     it('maps COURIER to Courier and PARTNER to Restaurant', () => {
-      expect(roleLabel('COURIER')).toBe('Courier')
-      expect(roleLabel('PARTNER')).toBe('Restaurant')
+      expect(roleLabel('COURIER', t)).toBe('Courier')
+      expect(roleLabel('PARTNER', t)).toBe('Restaurant')
     })
   })
 
@@ -56,56 +59,48 @@ describe('chatDisplay (spec 0034, AC-2, AC-3, AC-4, AC-19)', () => {
     it('formats time as 24-hour clock HH:mm in Europe/Athens timezone', () => {
       // 14:30 UTC is 16:30 in Greece (UTC+2 in winter)
       const iso = '2026-11-17T14:30:00.000Z'
-      expect(messageTime(iso)).toBe('16:30')
+      expect(messageTime(iso, 'en')).toBe('16:30')
     })
 
     it('threadTime shows HH:mm for today, and day month for earlier days', () => {
       const todayIso = '2026-11-17T14:30:00.000Z'
       const nowDate = new Date('2026-11-17T18:00:00.000Z')
-      expect(threadTime(todayIso, nowDate)).toBe('16:30')
+      expect(threadTime(todayIso, nowDate, 'en')).toBe('16:30')
 
       const earlierIso = '2026-11-15T10:00:00.000Z'
-      expect(threadTime(earlierIso, nowDate)).toBe('15 Nov')
+      expect(threadTime(earlierIso, nowDate, 'en')).toBe('15 Nov')
 
-      expect(threadTime(null)).toBe('')
+      expect(threadTime(null, nowDate, 'en')).toBe('')
     })
   })
 
   describe('messageStamp (Minor 3, Athens Europe/Athens timezone)', () => {
-    beforeEach(() => {
-      jest.useFakeTimers()
-      // Fix system time to 2026-11-18 10:00:00 UTC (12:00 Athens time, UTC+2)
-      jest.setSystemTime(new Date('2026-11-18T10:00:00.000Z'))
-    })
-
-    afterEach(() => {
-      jest.useRealTimers()
-    })
+    const fixedNow = new Date('2026-11-18T10:00:00.000Z')
 
     it('gives "HH:mm" for a message from today (Europe/Athens)', () => {
       // 08:15 UTC is 10:15 Athens time today
       const todayIso = '2026-11-18T08:15:00.000Z'
-      expect(messageStamp(todayIso)).toBe('10:15')
+      expect(messageStamp(todayIso, fixedNow, 'en')).toBe('10:15')
     })
 
     it('gives day plus time ("d MMM, HH:mm") for a message from an earlier day', () => {
       // 14:05 UTC on Nov 17 is 16:05 Athens time yesterday
       const earlierIso = '2026-11-17T14:05:00.000Z'
-      expect(messageStamp(earlierIso)).toBe('17 Nov, 16:05')
+      expect(messageStamp(earlierIso, fixedNow, 'en')).toBe('17 Nov, 16:05')
 
       // Older message
       const olderIso = '2026-11-10T07:30:00.000Z'
-      expect(messageStamp(olderIso)).toBe('10 Nov, 09:30')
+      expect(messageStamp(olderIso, fixedNow, 'en')).toBe('10 Nov, 09:30')
     })
 
     it('respects midnight boundary in Europe/Athens timezone', () => {
       // 2026-11-17T21:59:00.000Z is 2026-11-17 23:59:00 Athens time (yesterday)
       const yesterdayNight = '2026-11-17T21:59:00.000Z'
-      expect(messageStamp(yesterdayNight)).toBe('17 Nov, 23:59')
+      expect(messageStamp(yesterdayNight, fixedNow, 'en')).toBe('17 Nov, 23:59')
 
       // 2026-11-17T22:01:00.000Z is 2026-11-18 00:01:00 Athens time (today)
       const todayMidnight = '2026-11-17T22:01:00.000Z'
-      expect(messageStamp(todayMidnight)).toBe('00:01')
+      expect(messageStamp(todayMidnight, fixedNow, 'en')).toBe('00:01')
     })
   })
 

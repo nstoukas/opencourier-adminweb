@@ -1,4 +1,9 @@
-import { describeOfferExpiry } from './offerExpiry'
+import { describeOfferExpiry as rawDescribeOfferExpiry } from './offerExpiry'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const describeOfferExpiry = (enabled: boolean | null, secondsText: string) =>
+  rawDescribeOfferExpiry(enabled, secondsText, t)
 
 describe('describeOfferExpiry (spec 0002, AC-10)', () => {
   it('returns loading message when enabled is null (before setting has loaded)', () => {

@@ -240,7 +240,7 @@ describe('FileComplaintCard (spec 0052, AC-3; cross check 3)', () => {
 
   it('displays destructive error toast when complaint filing fails', async () => {
     mockFileComplaint.mockReturnValue({
-      unwrap: () => Promise.reject(new Error('This order had no rider')),
+      unwrap: () => Promise.reject({ statusCode: 400, message: 'This order had no rider' }),
     })
 
     render(<FileComplaintCard deliveryId="del-10" />)

@@ -1,13 +1,23 @@
 import {
   deliveryOffer,
   shortRiderName,
-  minutesWaiting,
-  describeOffer,
+  minutesWaiting as rawMinutesWaiting,
+  describeOffer as rawDescribeOffer,
   isLookingForRider,
-  UNKNOWN_RIDER,
+  UNKNOWN_RIDER_KEY,
+  riderNameText,
   type DeliveryOfferFields,
 } from './offer'
 import { EnumDeliveryStatus } from '../../../shared-types'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const minutesWaiting = (since: Date, now: Date) => rawMinutesWaiting(since, now, t)
+const describeOffer = (
+  delivery: DeliveryOfferFields,
+  now: Date,
+  nameStyle: 'short' | 'full' = 'short'
+) => rawDescribeOffer(delivery, now, t, nameStyle)
 
 describe('offer utilities (spec 0002, AC-11)', () => {
   const fixedNow = new Date('2026-10-26T12:10:00.000Z')
@@ -90,9 +100,12 @@ describe('offer utilities (spec 0002, AC-11)', () => {
       const offer = deliveryOffer(delivery)
       expect(offer).toEqual({
         kind: 'offered',
-        riderName: 'Unknown rider',
+        riderName: null,
         since: new Date(fixedNow.getTime() - 30_000),
       })
+      if (offer?.kind === 'offered') {
+        expect(riderNameText(offer.riderName, t)).toBe('Unknown rider')
+      }
     })
 
     it('handles pre-migration untimed offers with offeredAt: null', () => {
@@ -354,8 +367,9 @@ describe('offer utilities (spec 0002, AC-11)', () => {
       }
     })
 
-    it('exports UNKNOWN_RIDER constant as "Unknown rider"', () => {
-      expect(UNKNOWN_RIDER).toBe('Unknown rider')
+    it('defines UNKNOWN_RIDER_KEY and riderNameText', () => {
+      expect(UNKNOWN_RIDER_KEY).toBe('deliveries.offer.unknownRider')
+      expect(riderNameText(null, t)).toBe('Unknown rider')
     })
   })
 })

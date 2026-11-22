@@ -7,6 +7,9 @@ import {
   SEARCH_DELAY_MS,
   type CourierListStatus,
 } from './CouriersListFilters'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 describe('CouriersListFilters (row 97: filter and search controls)', () => {
   beforeEach(() => {
@@ -43,8 +46,8 @@ describe('CouriersListFilters (row 97: filter and search controls)', () => {
   })
 
   it.each(COURIER_LIST_STATUSES)(
-    'sets aria-pressed="true" on exactly one button ($label) when status is "$value"',
-    ({ value, label }) => {
+    'sets aria-pressed="true" on exactly one button ($labelKey) when status is "$value"',
+    ({ value, labelKey }) => {
       render(
         <CouriersListFilters
           status={value}
@@ -56,14 +59,14 @@ describe('CouriersListFilters (row 97: filter and search controls)', () => {
       // Exactly one button across the group must have aria-pressed="true"
       const pressedButtons = screen.getAllByRole('button', { pressed: true })
       expect(pressedButtons).toHaveLength(1)
-      expect(pressedButtons[0]).toHaveTextContent(label)
+      expect(pressedButtons[0]).toHaveTextContent(t(labelKey))
 
       // The other three buttons must have aria-pressed="false"
       const unpressedButtons = screen.getAllByRole('button', { pressed: false })
       expect(unpressedButtons).toHaveLength(3)
 
       for (const option of COURIER_LIST_STATUSES) {
-        const btn = screen.getByRole('button', { name: option.label })
+        const btn = screen.getByRole('button', { name: t(option.labelKey) })
         expect(btn).toHaveAttribute('aria-pressed', option.value === value ? 'true' : 'false')
       }
     }

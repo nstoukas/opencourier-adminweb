@@ -351,7 +351,7 @@ describe('ReassignCourierDialog component', () => {
 
   it('shows error toast and keeps dialog open when backend mutation fails', async () => {
     mockReassignDeliveryMutation.mockReturnValue({
-      unwrap: () => Promise.reject({ message: 'Delivery is already assigned to this courier' }),
+      unwrap: () => Promise.reject({ statusCode: 400, message: 'Delivery is already assigned to this courier' }),
     })
 
     render(

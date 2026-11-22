@@ -1,4 +1,8 @@
 import { listPayoutPolicies, previewReassignmentPayout } from './reassignmentPayout'
+import { createI18n } from '@/i18n/createI18n'
+import { showMessage } from '@/i18n/shownMessage'
+
+const t = createI18n('en').t
 
 // Fixture menu with non-seeded keys to ensure no policy names are hard-coded in the implementation
 const fixtureMenu: Record<string, number> = {
@@ -101,11 +105,12 @@ describe('reassignmentPayout utilities', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.reason).toContain('MADE_UP_KEY')
-        expect(result.reason).toContain('FULL_COMPENSATION')
-        expect(result.reason).toContain('HALF_COMPENSATION')
-        expect(result.reason).toContain('QUARTER_COMPENSATION')
-        expect(result.reason).toContain('NO_COMPENSATION')
+        const reasonText = showMessage(result.reason, t)
+        expect(reasonText).toContain('MADE_UP_KEY')
+        expect(reasonText).toContain('FULL_COMPENSATION')
+        expect(reasonText).toContain('HALF_COMPENSATION')
+        expect(reasonText).toContain('QUARTER_COMPENSATION')
+        expect(reasonText).toContain('NO_COMPENSATION')
       }
     })
 
@@ -114,7 +119,7 @@ describe('reassignmentPayout utilities', () => {
       const overResult = previewReassignmentPayout(overMenu, 'BAD', undefined, 800)
       expect(overResult.ok).toBe(false)
       if (!overResult.ok) {
-        expect(overResult.reason).toContain('150')
+        expect(showMessage(overResult.reason, t)).toContain('150')
       }
 
       const nanMenu = { BAD: NaN }

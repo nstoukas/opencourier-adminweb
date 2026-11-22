@@ -1,15 +1,20 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
+import { I18nextProvider } from 'react-i18next'
+import { createI18n } from '../../../i18n/createI18n'
+import { markChosenBeforeSignIn, wasChosenBeforeSignIn } from '../../../i18n/languageChoice'
 import { makeStore } from '../../../redux/store'
 import { SignInScreen, signInErrorMessage } from './SignInScreen'
 import { setAccessToken } from '../slices/authSlice'
 
 // Mock RTK Query authApi hook
 const mockLogin = jest.fn()
+const mockSaveLanguage = jest.fn()
 let mockIsLoading = false
 jest.mock('../../../api/authApi', () => ({
   useLoginMutation: () => [mockLogin, { isLoading: mockIsLoading }],
+  useSetLanguageMutation: () => [mockSaveLanguage, { isLoading: false }],
 }))
 
 // Mock admin page navigator
@@ -24,62 +29,74 @@ describe('SignInScreen and signInErrorMessage (row 86)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockIsLoading = false
+    mockSaveLanguage.mockReturnValue({ unwrap: () => Promise.resolve() })
   })
 
   describe('signInErrorMessage mapping', () => {
+    const t = createI18n('en').t
+
     it('maps 400, 401, 403, and 404 to wrong details in plain words without HTTP code or backend text', () => {
+      const expectedKey = 'auth.wrongLogin'
       const expected = "That email and password don't match. Check for typos and try again."
 
       // Both SDK ApiError (statusCode) and raw response (response.status) shapes must work
-      expect(signInErrorMessage({ statusCode: 400 })).toBe(expected)
-      expect(signInErrorMessage({ statusCode: 401 })).toBe(expected)
-      expect(signInErrorMessage({ statusCode: 403 })).toBe(expected)
-      expect(signInErrorMessage({ statusCode: 404 })).toBe(expected)
-      expect(signInErrorMessage({ response: { status: 403 } })).toBe(expected)
+      expect(signInErrorMessage({ statusCode: 400 })).toBe(expectedKey)
+      expect(signInErrorMessage({ statusCode: 401 })).toBe(expectedKey)
+      expect(signInErrorMessage({ statusCode: 403 })).toBe(expectedKey)
+      expect(signInErrorMessage({ statusCode: 404 })).toBe(expectedKey)
+      expect(signInErrorMessage({ response: { status: 403 } })).toBe(expectedKey)
+
+      // Translated message matches expected English
+      expect(t(signInErrorMessage({ statusCode: 400 }))).toBe(expected)
 
       // Must never leak HTTP code digits into the user-facing text
       ;[400, 401, 403, 404].forEach((code) => {
-        const msg = signInErrorMessage({ statusCode: code })
+        const msg = t(signInErrorMessage({ statusCode: code }))
         expect(msg).not.toMatch(new RegExp(String(code)))
         expect(msg).not.toMatch(/unauthorized|forbidden|not found|bad request/i)
       })
     })
 
     it('maps 429 to rate limit wording in plain words without HTTP code digits', () => {
-      const msg = signInErrorMessage({ statusCode: 429 })
+      expect(signInErrorMessage({ statusCode: 429 })).toBe('auth.tooMany')
+      const msg = t(signInErrorMessage({ statusCode: 429 }))
       expect(msg).toBe('Too many tries in a row. Wait a minute, then try again.')
       expect(msg).not.toMatch(/429/)
       expect(msg).not.toMatch(/rate limit/i)
     })
 
     it('maps 500, network errors, and undefined to server down wording', () => {
+      const expectedKey = 'auth.noAnswer'
       const expected = "The co-op's server didn't answer. Check your internet connection and try again in a minute."
 
-      expect(signInErrorMessage({ statusCode: 500 })).toBe(expected)
-      expect(signInErrorMessage({ statusCode: 502 })).toBe(expected)
-      expect(signInErrorMessage({ statusCode: 503 })).toBe(expected)
-      expect(signInErrorMessage(new Error('Failed to fetch'))).toBe(expected)
-      expect(signInErrorMessage(undefined)).toBe(expected)
-      expect(signInErrorMessage(null)).toBe(expected)
-      expect(signInErrorMessage('unknown string error')).toBe(expected)
+      expect(signInErrorMessage({ statusCode: 500 })).toBe(expectedKey)
+      expect(signInErrorMessage({ statusCode: 502 })).toBe(expectedKey)
+      expect(signInErrorMessage({ statusCode: 503 })).toBe(expectedKey)
+      expect(signInErrorMessage(new Error('Failed to fetch'))).toBe(expectedKey)
+      expect(signInErrorMessage(undefined)).toBe(expectedKey)
+      expect(signInErrorMessage(null)).toBe(expectedKey)
+      expect(signInErrorMessage('unknown string error')).toBe(expectedKey)
+
+      expect(t(signInErrorMessage({ statusCode: 500 }))).toBe(expected)
 
       // Must not leak 500 digits
-      expect(signInErrorMessage({ statusCode: 500 })).not.toMatch(/500/)
+      expect(t(signInErrorMessage({ statusCode: 500 }))).not.toMatch(/500/)
     })
   })
 
   describe('SignInScreen UI and interactions', () => {
-    const renderSignInScreen = (initialState?: any) => {
+    const renderSignInScreen = (initialState?: any, lang: 'en' | 'el' = 'en') => {
       const store = makeStore()
-      if (initialState) {
-        // Allow pre-populating store if needed
-      }
+      const i18n = createI18n(lang)
       return {
         store,
+        i18n,
         ...render(
-          <Provider store={store}>
-            <SignInScreen />
-          </Provider>
+          <I18nextProvider i18n={i18n}>
+            <Provider store={store}>
+              <SignInScreen />
+            </Provider>
+          </I18nextProvider>
         ),
       }
     }
@@ -224,7 +241,7 @@ describe('SignInScreen and signInErrorMessage (row 86)', () => {
       mockIsLoading = true
       renderSignInScreen()
 
-      const button = screen.getByRole('button')
+      const button = screen.getByRole('button', { name: /Signing in…/ })
       expect(button).toBeDisabled()
       expect(button).toHaveTextContent('Signing in…')
       // Spinner must be rendered inside button
@@ -258,6 +275,48 @@ describe('SignInScreen and signInErrorMessage (row 86)', () => {
       // Navigates home and Alert remains absent
       expect(mockGoHome).toHaveBeenCalledTimes(1)
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('applies stored account language at sign in when language was not chosen on the card (cross check 2)', async () => {
+      mockLogin.mockReturnValueOnce({
+        unwrap: () => Promise.resolve({ session: { accessToken: 'token-xyz' }, language: 'el' }),
+      })
+
+      const { i18n } = renderSignInScreen(undefined, 'en')
+
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'admin@coop.gr' } })
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correctpassword' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalled()
+      })
+
+      // The account's language 'el' was applied to i18n and saved in document.documentElement.lang
+      await waitFor(() => {
+        expect(i18n.language).toBe('el')
+      })
+      expect(mockSaveLanguage).not.toHaveBeenCalled()
+    })
+
+    it('saves language to account when admin explicitly chose language before sign in (decision 47.32)', async () => {
+      mockLogin.mockReturnValueOnce({
+        unwrap: () => Promise.resolve({ session: { accessToken: 'token-xyz' }, language: 'el' }),
+      })
+
+      markChosenBeforeSignIn()
+
+      renderSignInScreen(undefined, 'en')
+
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'admin@coop.gr' } })
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correctpassword' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+
+      await waitFor(() => {
+        expect(mockSaveLanguage).toHaveBeenCalledWith('en')
+      })
+      // wasChosenBeforeSignIn is reset
+      expect(wasChosenBeforeSignIn()).toBe(false)
     })
   })
 })

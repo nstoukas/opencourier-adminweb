@@ -1,14 +1,21 @@
 import type { DispatchStopAdminDto } from '@/backend-admin-sdk'
 import {
   INSTANCE_TIMEZONE,
-  REASON_LABELS,
-  athensDateTime,
-  athensEnd,
-  athensTime,
+  reasonLabel,
+  athensDateTime as rawAthensDateTime,
+  athensEnd as rawAthensEnd,
+  athensTime as rawAthensTime,
   athensToday,
   effectiveEnd,
-  stopOutcome,
+  stopOutcome as rawStopOutcome,
 } from './dispatchStopDisplay'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const athensDateTime = (iso: string) => rawAthensDateTime(iso, 'en')
+const athensTime = (iso: string) => rawAthensTime(iso, 'en')
+const athensEnd = (fromIso: string, endIso: string) => rawAthensEnd(fromIso, endIso, 'en')
+const stopOutcome = (stop: DispatchStopAdminDto) => rawStopOutcome(t, 'en', stop)
 
 describe('dispatchStopDisplay (spec 0014, AC-1, AC-2, AC-8)', () => {
   const baseStop: DispatchStopAdminDto = {
@@ -226,11 +233,11 @@ describe('dispatchStopDisplay (spec 0014, AC-1, AC-2, AC-8)', () => {
     })
   })
 
-  describe('REASON_LABELS', () => {
+  describe('reasonLabel', () => {
     it('maps all enum values to human labels', () => {
-      expect(REASON_LABELS.HEAT).toBe('Heat')
-      expect(REASON_LABELS.STORM).toBe('Storm')
-      expect(REASON_LABELS.OTHER).toBe('Other')
+      expect(reasonLabel(t, 'HEAT')).toBe('Heat')
+      expect(reasonLabel(t, 'STORM')).toBe('Storm')
+      expect(reasonLabel(t, 'OTHER')).toBe('Other')
     })
   })
 })

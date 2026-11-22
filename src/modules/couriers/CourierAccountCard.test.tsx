@@ -2,6 +2,9 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { CourierAccountCard, accountChangeText, REASON_MAX } from './CourierAccountCard'
 import type { CourierAccountChangeAdminDto, CourierAdminDto } from '@/backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 // Spec 0051 (row 108, AC-6): the Account card on a rider's page. Written from the spec's acceptance
 // criteria and its cross check: the login email and emergency contact, Deactivate or Reactivate with a
@@ -30,7 +33,16 @@ jest.mock('../../admin-web-components', () => {
 
 // What a mutation trigger returns: an object whose unwrap() resolves, or rejects with the backend's error.
 const succeeds = () => ({ unwrap: () => Promise.resolve(null) })
-const refusesWith = (error: unknown) => ({ unwrap: () => Promise.reject(error) })
+const refusesWith = (error: unknown) => {
+  let err = error
+  if (err && typeof err === 'object') {
+    const anyErr = err as Record<string, unknown>
+    const statusCode = anyErr.statusCode ?? anyErr.status ?? 409
+    const message = Array.isArray(anyErr.message) ? anyErr.message.join(', ') : anyErr.message
+    err = { ...anyErr, statusCode, message }
+  }
+  return { unwrap: () => Promise.reject(err) }
+}
 
 const courier = (overrides: Partial<CourierAdminDto> = {}): CourierAdminDto =>
   ({
@@ -615,28 +627,28 @@ describe('CourierAccountCard (spec 0051, AC-6)', () => {
       ],
       [{ kind: 'FIELD_EDITED', field: 'deliverySetting', oldValue: 'MANUAL', newValue: 'AUTO_ACCEPT' }, 'Offers: MANUAL → AUTO_ACCEPT'],
     ] as Array<[Partial<CourierAccountChangeAdminDto>, string]>)('%j reads "%s"', (overrides, expected) => {
-      expect(accountChangeText(change(overrides))).toBe(expected)
+      expect(accountChangeText(change(overrides), t)).toBe(expected)
     })
 
     it('a field this page has no words for is shown as sent, and a kind it does not know as its name', () => {
-      expect(accountChangeText(change({ kind: 'FIELD_EDITED', field: 'vehiclePlate', oldValue: 'A', newValue: 'B' }))).toBe(
+      expect(accountChangeText(change({ kind: 'FIELD_EDITED', field: 'vehiclePlate', oldValue: 'A', newValue: 'B' }), t)).toBe(
         'vehiclePlate: A → B'
       )
-      expect(accountChangeText(change({ kind: 'SOMETHING_NEW' }))).toBe('SOMETHING_NEW')
+      expect(accountChangeText(change({ kind: 'SOMETHING_NEW' }), t)).toBe('SOMETHING_NEW')
     })
 
     // Spec 0050 (cross check 14): an admin downloaded the rider's monthly statement.
     it('a statement download reads "Statement downloaded:" with the month and the format', () => {
       expect(
-        accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-10 PDF' }))
+        accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-10 PDF' }), t)
       ).toBe('Statement downloaded: 2026-10 PDF')
       expect(
-        accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-09 CSV' }))
+        accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-09 CSV' }), t)
       ).toBe('Statement downloaded: 2026-09 CSV')
     })
 
     it('a statement download never reads as an edited detail or as a bare kind name', () => {
-      const line = accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-10 PDF' }))
+      const line = accountChangeText(change({ kind: 'STATEMENT_DOWNLOADED', field: 'statement', newValue: '2026-10 PDF' }), t)
 
       expect(line).not.toContain('→')
       expect(line).not.toContain('empty')
@@ -644,7 +656,7 @@ describe('CourierAccountCard (spec 0051, AC-6)', () => {
     })
 
     it('a password change never shows a value', () => {
-      expect(accountChangeText(change({ kind: 'PASSWORD_CHANGED', oldValue: 'leaked-old', newValue: 'leaked-new' }))).toBe(
+      expect(accountChangeText(change({ kind: 'PASSWORD_CHANGED', oldValue: 'leaked-old', newValue: 'leaked-new' }), t)).toBe(
         'Password changed'
       )
     })

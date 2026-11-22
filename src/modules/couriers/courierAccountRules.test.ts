@@ -8,6 +8,9 @@ import {
   passwordProblem,
   phoneWithoutSpaces,
 } from './courierAccountRules'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
 
 describe('courierAccountRules (spec 0013, AC-3)', () => {
   describe('phoneWithoutSpaces', () => {
@@ -96,24 +99,24 @@ describe('courierAccountRules (spec 0013, AC-3)', () => {
 
   describe('passwordProblem (three messages)', () => {
     it('returns "At least 8 characters." when password length is between 1 and 7', () => {
-      expect(passwordProblem('short', '')).toBe(`At least ${PASSWORD_MIN} characters.`)
-      expect(passwordProblem('1234567', '1234567')).toBe(`At least ${PASSWORD_MIN} characters.`)
+      expect(passwordProblem('short', '', t)).toBe(`At least ${PASSWORD_MIN} characters.`)
+      expect(passwordProblem('1234567', '1234567', t)).toBe(`At least ${PASSWORD_MIN} characters.`)
     })
 
     it('returns "At most 72 characters." when password length exceeds 72', () => {
       const longPw = 'x'.repeat(PASSWORD_MAX + 1)
-      expect(passwordProblem(longPw, longPw)).toBe(`At most ${PASSWORD_MAX} characters.`)
+      expect(passwordProblem(longPw, longPw, t)).toBe(`At most ${PASSWORD_MAX} characters.`)
     })
 
     it('returns "The two passwords do not match." when confirm is entered and differs', () => {
-      expect(passwordProblem('validPassword123', 'mismatch')).toBe('The two passwords do not match.')
+      expect(passwordProblem('validPassword123', 'mismatch', t)).toBe('The two passwords do not match.')
     })
 
     it('returns null when valid and matching, or when both are empty', () => {
-      expect(passwordProblem('', '')).toBeNull()
-      expect(passwordProblem('validPassword123', 'validPassword123')).toBeNull()
+      expect(passwordProblem('', '', t)).toBeNull()
+      expect(passwordProblem('validPassword123', 'validPassword123', t)).toBeNull()
       // Password valid length, confirm not typed yet: no error yet
-      expect(passwordProblem('validPassword123', '')).toBeNull()
+      expect(passwordProblem('validPassword123', '', t)).toBeNull()
     })
   })
 

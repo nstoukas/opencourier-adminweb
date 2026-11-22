@@ -1,5 +1,14 @@
 import { csvText, buildChargesCsv, downloadCsv, CsvChargeLine } from './chargesCsv'
-import { GREEK } from './greek'
+import { createI18n } from '@/i18n/createI18n'
+
+const tGreek = createI18n('el').getFixedT('el')
+
+const GREEK = {
+  csvHeader:
+    'Κατάστημα;Ημερομηνία και ώρα;Παραγγελία;Αιτία;Λεπτά μετά τη συμφωνημένη ώρα;Ποσό;Νόμισμα;Τιμολογήθηκε;Χρέωση;Κωδικός διανομής',
+  yes: 'ναι',
+  no: 'όχι',
+}
 
 describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
   describe('csvText', () => {
@@ -48,9 +57,9 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
         currencyCode: 'EUR',
         deliveryId: 'del-abcdef123456',
         orderReference: 'R32-1',
-        billId: 'b-1',
+        billId: 'bill-1',
         bill: {
-          id: 'b-1',
+          id: 'bill-1',
           reference: 'INV-001',
           createdAt: '2026-12-01T10:00:00Z',
         },
@@ -58,15 +67,15 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
       {
         id: 'c-2',
         partnerId: 'p-2',
-        partnerName: '=SUM(A1)',
-        createdAt: '2026-11-20T10:00:00Z',
-        happenedAt: '2026-11-20T10:00:00Z',
+        partnerName: '=UnsafePartner',
+        createdAt: '2026-11-15T10:00:00Z',
+        happenedAt: '2026-11-15T10:00:00Z',
         reason: 'CANCELLATION',
         waitMinutes: null,
         removalLabel: null,
         amount: 0,
         currencyCode: 'EUR',
-        deliveryId: 'del-xyz987654321',
+        deliveryId: 'del-123456789012',
         orderReference: null,
         billId: null,
         bill: null,
@@ -74,18 +83,18 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
     ]
 
     it('starts with BOM character U+FEFF', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       expect(csv.charCodeAt(0)).toBe(0xfeff)
       expect(csv.startsWith('\uFEFF')).toBe(true)
     })
 
     it('includes exact Greek header from spec Wording table', () => {
-      const csv = buildChargesCsv([])
+      const csv = buildChargesCsv(tGreek, [])
       expect(csv).toBe(`\uFEFF${GREEK.csvHeader}\r\n`)
     })
 
     it('uses semicolon (;) delimiter and CRLF (\\r\\n) line endings', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       expect(csv).not.toContain('\r\r')
       const lines = csv.split('\r\n')
       expect(lines.length).toBe(4) // BOM+Header, Line 1, Line 2, empty string after trailing CRLF
@@ -97,7 +106,7 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
     })
 
     it('formats amounts with decimal comma and no currency sign', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       const lines = csv.split('\r\n')
       const row1Columns = (lines[1] ?? '').split(';')
       const row2Columns = (lines[2] ?? '').split(';')
@@ -110,7 +119,7 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
     })
 
     it('converts happenedAt time to YYYY-MM-DD HH:mm in Athens time', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       const lines = csv.split('\r\n')
       const row1Columns = (lines[1] ?? '').split(';')
 
@@ -119,7 +128,7 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
     })
 
     it('marks billed as "ναι" with bill label and unbilled as "όχι" with empty bill label', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       const lines = csv.split('\r\n')
       const row1Columns = (lines[1] ?? '').split(';')
       const row2Columns = (lines[2] ?? '').split(';')
@@ -134,16 +143,16 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
     })
 
     it('protects formula injection in restaurant name', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       const lines = csv.split('\r\n')
       const row2Columns = (lines[2] ?? '').split(';')
 
-      // Column 0: Restaurant name '=SUM(A1)' is shielded with leading quote
-      expect(row2Columns[0]).toBe("\"'=SUM(A1)\"")
+      // Partner name '=UnsafePartner' must be protected
+      expect(row2Columns[0]).toBe("\"'=UnsafePartner\"")
     })
 
     it('includes wait minutes only for WAITING with minutes', () => {
-      const csv = buildChargesCsv(sampleLines)
+      const csv = buildChargesCsv(tGreek, sampleLines)
       const lines = csv.split('\r\n')
       const row1Columns = (lines[1] ?? '').split(';')
       const row2Columns = (lines[2] ?? '').split(';')
@@ -152,43 +161,70 @@ describe('chargesCsv (spec 0036, AC-10, decision 109.5)', () => {
       expect(row1Columns[4]).toBe('12')
       expect(row2Columns[4]).toBe('')
     })
+
+    it('includes full delivery ID in the last column (Column 9)', () => {
+      const csv = buildChargesCsv(tGreek, sampleLines)
+      const lines = csv.split('\r\n')
+      const row1Columns = (lines[1] ?? '').split(';')
+
+      expect(row1Columns[9]).toBe('"del-abcdef123456"')
+    })
   })
 
   describe('downloadCsv', () => {
-    it('creates an anchor, clicks it, and revokes the object URL', () => {
+    let originalCreateObjectURL: typeof window.URL.createObjectURL
+    let originalRevokeObjectURL: typeof window.URL.revokeObjectURL
+    let createObjectURLMock: jest.Mock
+    let revokeObjectURLMock: jest.Mock
+
+    beforeEach(() => {
       jest.useFakeTimers()
-      const originalCreateObjectURL = URL.createObjectURL
-      const originalRevokeObjectURL = URL.revokeObjectURL
-      const mockCreateObjectURL = jest.fn().mockReturnValue('blob:http://localhost/test-uuid')
-      const mockRevokeObjectURL = jest.fn()
-      URL.createObjectURL = mockCreateObjectURL
-      URL.revokeObjectURL = mockRevokeObjectURL
+      originalCreateObjectURL = window.URL.createObjectURL
+      originalRevokeObjectURL = window.URL.revokeObjectURL
+      createObjectURLMock = jest.fn(() => 'blob:mock-url')
+      revokeObjectURLMock = jest.fn()
+      window.URL.createObjectURL = createObjectURLMock
+      window.URL.revokeObjectURL = revokeObjectURLMock
+    })
 
+    afterEach(() => {
+      jest.useRealTimers()
+      window.URL.createObjectURL = originalCreateObjectURL
+      window.URL.revokeObjectURL = originalRevokeObjectURL
+    })
+
+    it('creates a Blob with text/csv;charset=utf-8 type and triggers link click', () => {
       const appendChildSpy = jest.spyOn(document.body, 'appendChild')
-      const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      const removeChildSpy = jest.spyOn(document.body, 'removeChild')
+      const clickMock = jest.fn()
 
-      try {
-        downloadCsv('charges-test.csv', '\uFEFFheader;\r\n')
+      const originalCreateElement = document.createElement.bind(document)
+      const createElementSpy = jest.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+        const element = originalCreateElement(tagName)
+        if (tagName === 'a') {
+          element.click = clickMock
+        }
+        return element
+      })
 
-        expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
-        expect(appendChildSpy).toHaveBeenCalled()
-        expect(clickSpy).toHaveBeenCalledTimes(1)
+      downloadCsv('test-charges.csv', 'sample csv content')
 
-        // The object URL is not revoked before 1000 ms (Safari deferred download fix)
-        expect(mockRevokeObjectURL).not.toHaveBeenCalled()
-        jest.advanceTimersByTime(999)
-        expect(mockRevokeObjectURL).not.toHaveBeenCalled()
+      expect(createObjectURLMock).toHaveBeenCalledTimes(1)
+      const blobPassed = createObjectURLMock.mock.calls[0][0]
+      expect(blobPassed).toBeInstanceOf(Blob)
+      expect(blobPassed.type).toBe('text/csv;charset=utf-8')
 
-        // Revocation occurs after 1000 ms
-        jest.advanceTimersByTime(1)
-        expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/test-uuid')
-      } finally {
-        jest.useRealTimers()
-        URL.createObjectURL = originalCreateObjectURL
-        URL.revokeObjectURL = originalRevokeObjectURL
-        appendChildSpy.mockRestore()
-        clickSpy.mockRestore()
-      }
+      expect(clickMock).toHaveBeenCalledTimes(1)
+      // The object URL is not revoked before 1000 ms (Safari deferred download fix)
+      expect(revokeObjectURLMock).not.toHaveBeenCalled()
+      jest.advanceTimersByTime(999)
+      expect(revokeObjectURLMock).not.toHaveBeenCalled()
+      jest.advanceTimersByTime(1)
+      expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:mock-url')
+
+      appendChildSpy.mockRestore()
+      removeChildSpy.mockRestore()
+      createElementSpy.mockRestore()
     })
   })
 })

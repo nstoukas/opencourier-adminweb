@@ -159,6 +159,7 @@ describe('CloseSosDialog (spec 0022, AC-10)', () => {
 
   it('a backend error (409 "This SOS has already been closed.") is shown in an alert and the dialog stays open', async () => {
     mockUnwrap.mockRejectedValueOnce({
+      statusCode: 409,
       message: 'This SOS has already been closed.',
     })
     const focusRef = { current: returnFocusButton }

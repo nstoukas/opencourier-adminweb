@@ -285,6 +285,7 @@ describe('StopDispatchDialog (spec 0014, AC-1, AC-2, AC-9, AC-12)', () => {
       mockCreateStopMutation.mockReturnValue({
         unwrap: () =>
           Promise.reject({
+            statusCode: 400,
             message: 'Another dispatch stop already covers part of that time.',
           }),
       })

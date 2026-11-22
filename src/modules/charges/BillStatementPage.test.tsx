@@ -1,9 +1,19 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { I18nextProvider } from 'react-i18next'
+import { createI18n } from '@/i18n/createI18n'
 import { BillStatementPage } from './BillStatementPage'
 import { useGetPartnerBillStatementQuery } from '@/api/partnerChargeApi'
-import { GREEK } from './greek'
+import { el } from '@/i18n/resources/el'
 import type { PartnerBillStatementDto } from '@/backend-admin-sdk'
+
+const GREEK = {
+  statementTitle: el.charges.statement.title,
+  total: el.charges.statement.total,
+  notATaxDocument: el.charges.statement.notATaxDocument,
+  deliveryFeeNote: el.charges.statement.customerPaysDelivery,
+  undoneBanner: el.charges.statement.undoneBanner,
+}
 
 let mockRouter = {
   pathname: '/charges/statement/[billId]',
@@ -193,11 +203,31 @@ describe('BillStatementPage (spec 0036, AC-9)', () => {
     expect(window.print).toHaveBeenCalledTimes(1)
   })
 
-  it('the Print button has lang="en"', () => {
-    render(<BillStatementPage />)
+  it('the Print button follows the reader language while statement body stays Greek (cross check 11)', () => {
+    // With English reader
+    const i18nEn = createI18n('en')
+    const { unmount } = render(
+      <I18nextProvider i18n={i18nEn}>
+        <BillStatementPage />
+      </I18nextProvider>
+    )
 
-    const printButton = screen.getByRole('button', { name: /Print/i })
-    expect(printButton).toHaveAttribute('lang', 'en')
+    const printButtonEn = screen.getByRole('button', { name: 'Print' })
+    expect(printButtonEn).toHaveAttribute('lang', 'en')
+    expect(screen.getByText(GREEK.statementTitle)).toBeInTheDocument()
+    unmount()
+
+    // With Greek reader
+    const i18nEl = createI18n('el')
+    render(
+      <I18nextProvider i18n={i18nEl}>
+        <BillStatementPage />
+      </I18nextProvider>
+    )
+
+    const printButtonEl = screen.getByRole('button', { name: 'Εκτύπωση' })
+    expect(printButtonEl).toHaveAttribute('lang', 'el')
+    expect(screen.getByText(GREEK.statementTitle)).toBeInTheDocument()
   })
 
   it('shows error state "This bill was not found." on 404 error', () => {

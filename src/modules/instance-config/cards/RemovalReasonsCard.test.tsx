@@ -30,6 +30,7 @@ const sampleReasons: RemovalReasonAdminDto[] = [
   {
     id: 'reason-1',
     label: 'Moped breakdown or accident',
+    labelEl: 'Βλάβη ή ατύχημα μηχανής',
     paidToRider: true,
     chargedToRestaurant: false,
     needsNote: false,
@@ -39,6 +40,7 @@ const sampleReasons: RemovalReasonAdminDto[] = [
   {
     id: 'reason-2',
     label: 'Other',
+    labelEl: 'Άλλο',
     paidToRider: false,
     chargedToRestaurant: true,
     needsNote: true,
@@ -166,28 +168,68 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
       expect(screen.getByText('A new reason goes to the end of the list.')).toBeInTheDocument()
     })
 
-    it('refuses empty or spaces-only label with a message and sends nothing', async () => {
+    it('refuses empty or spaces-only label with a message and sends nothing (requires both English and Greek)', async () => {
       renderCard()
 
       fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
 
       const labelInput = document.getElementById('removal-reason-label') as HTMLInputElement
+      const labelElInput = document.getElementById('removal-reason-label-el') as HTMLInputElement
       fireEvent.change(labelInput, { target: { value: '   ' } })
+      fireEvent.change(labelElInput, { target: { value: '   ' } })
 
       const submitBtn = screen.getByRole('button', { name: 'Add reason' })
       fireEvent.click(submitBtn)
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Type what the rider reads for this reason.')
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Type what the rider reads for this reason, in Greek and in English.'
+      )
       expect(mockCreateReason).not.toHaveBeenCalled()
     })
 
-    it('sends trimmed label, paidToRider, chargedToRestaurant, needsNote without position key', async () => {
+    it('refuses when English is provided but Greek is empty', async () => {
       renderCard()
 
       fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
 
       const labelInput = document.getElementById('removal-reason-label') as HTMLInputElement
+      fireEvent.change(labelInput, { target: { value: 'Customer emergency' } })
+
+      const submitBtn = screen.getByRole('button', { name: 'Add reason' })
+      fireEvent.click(submitBtn)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Type what the rider reads for this reason, in Greek and in English.'
+      )
+      expect(mockCreateReason).not.toHaveBeenCalled()
+    })
+
+    it('refuses when Greek is provided but English is empty', async () => {
+      renderCard()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
+
+      const labelElInput = document.getElementById('removal-reason-label-el') as HTMLInputElement
+      fireEvent.change(labelElInput, { target: { value: 'Επείγον περιστατικό' } })
+
+      const submitBtn = screen.getByRole('button', { name: 'Add reason' })
+      fireEvent.click(submitBtn)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Type what the rider reads for this reason, in Greek and in English.'
+      )
+      expect(mockCreateReason).not.toHaveBeenCalled()
+    })
+
+    it('sends trimmed label, labelEl, paidToRider, chargedToRestaurant, needsNote without position key', async () => {
+      renderCard()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
+
+      const labelInput = document.getElementById('removal-reason-label') as HTMLInputElement
+      const labelElInput = document.getElementById('removal-reason-label-el') as HTMLInputElement
       fireEvent.change(labelInput, { target: { value: '  Customer unreachable  ' } })
+      fireEvent.change(labelElInput, { target: { value: '  Πελάτης μη διαθέσιμος  ' } })
 
       // Toggle charged to on
       const chargedSwitch = document.getElementById('removal-reason-charged') as HTMLButtonElement
@@ -199,6 +241,7 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
       await waitFor(() => {
         expect(mockCreateReason).toHaveBeenCalledWith({
           label: 'Customer unreachable',
+          labelEl: 'Πελάτης μη διαθέσιμος',
           paidToRider: true,
           chargedToRestaurant: true,
           needsNote: false,
@@ -216,7 +259,9 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
 
       const labelInput = document.getElementById('removal-reason-label') as HTMLInputElement
+      const labelElInput = document.getElementById('removal-reason-label-el') as HTMLInputElement
       fireEvent.change(labelInput, { target: { value: 'Customer emergency' } })
+      fireEvent.change(labelElInput, { target: { value: 'Επείγον πελάτη' } })
 
       // Turn paid off (defaults to true, clicking toggles to false)
       const paidSwitch = document.getElementById('removal-reason-paid') as HTMLButtonElement
@@ -232,6 +277,7 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
       await waitFor(() => {
         expect(mockCreateReason).toHaveBeenCalledWith({
           label: 'Customer emergency',
+          labelEl: 'Επείγον πελάτη',
           paidToRider: false,
           chargedToRestaurant: false,
           needsNote: true,
@@ -244,13 +290,15 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
     })
 
     it('shows backend sentence inside dialog when create fails and keeps dialog open', async () => {
-      mockCreateReason.mockReturnValue(rejected({ message: 'A reason with this label already exists' }))
+      mockCreateReason.mockReturnValue(rejected({ statusCode: 400, message: 'A reason with this label already exists' }))
 
       renderCard()
 
       fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
       const labelInput = document.getElementById('removal-reason-label') as HTMLInputElement
+      const labelElInput = document.getElementById('removal-reason-label-el') as HTMLInputElement
       fireEvent.change(labelInput, { target: { value: 'Duplicate reason' } })
+      fireEvent.change(labelElInput, { target: { value: 'Διπλή αιτία' } })
 
       fireEvent.click(screen.getByRole('button', { name: 'Add reason' }))
 
@@ -289,6 +337,7 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
           id: 'reason-1',
           input: {
             label: 'Moped breakdown (severe)',
+            labelEl: 'Βλάβη ή ατύχημα μηχανής',
             paidToRider: true,
             chargedToRestaurant: false,
             needsNote: false,
@@ -331,7 +380,7 @@ describe('RemovalReasonsCard (spec 0035, AC-2, decision 24.29)', () => {
     })
 
     it('shows backend sentence inside dialog when update fails and keeps dialog open', async () => {
-      mockUpdateReason.mockReturnValue(rejected({ message: 'Position is out of bounds' }))
+      mockUpdateReason.mockReturnValue(rejected({ statusCode: 400, message: 'Position is out of bounds' }))
 
       renderCard()
 

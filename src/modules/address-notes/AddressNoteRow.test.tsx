@@ -215,7 +215,7 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
 
     it('handles delete mutation error, shows destructive toast, and resets confirmation state', async () => {
       mockDeleteNote.mockReturnValueOnce({
-        unwrap: jest.fn().mockRejectedValue({ message: 'Server rejected deletion.' }),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 400, message: 'Server rejected deletion.' }),
       })
 
       render(<AddressNoteRow note={sampleNote} />)
@@ -344,7 +344,7 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
 
     it('handles dismiss mutation error, shows destructive toast, and resets confirmation state', async () => {
       mockDismissFlags.mockReturnValueOnce({
-        unwrap: jest.fn().mockRejectedValue({ message: 'Flags already dismissed.' }),
+        unwrap: jest.fn().mockRejectedValue({ statusCode: 400, message: 'Flags already dismissed.' }),
       })
 
       render(<AddressNoteRow note={sampleNote} />)

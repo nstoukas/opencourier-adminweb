@@ -19,6 +19,7 @@ jest.mock('next/router', () => ({
 const mockLogin = jest.fn()
 jest.mock('../../api/authApi', () => ({
   useLoginMutation: () => [mockLogin, { isLoading: false }],
+  useSetLanguageMutation: () => [jest.fn(), { isLoading: false }],
 }))
 
 // Mock admin page navigator

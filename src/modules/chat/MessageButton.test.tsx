@@ -125,7 +125,7 @@ describe('MessageButton (spec 0034, AC-15)', () => {
 
     const button = screen.getByRole('button', { name: /Message/i })
     expect(button).toBeDisabled()
-    expect(button).toHaveAttribute('title', NO_LOGIN_REASON)
+    expect(button).toHaveAttribute('title', 'This restaurant has no sign in, so it could never read a reply.')
 
     const describedById = button.getAttribute('aria-describedby')
     expect(describedById).toBeTruthy()
@@ -133,7 +133,7 @@ describe('MessageButton (spec 0034, AC-15)', () => {
     const reasonEl = describedById ? document.getElementById(describedById) : null
     expect(reasonEl).not.toBeNull()
     if (!reasonEl) throw new Error('Expected reasonEl')
-    expect(reasonEl).toHaveTextContent(NO_LOGIN_REASON)
+    expect(reasonEl).toHaveTextContent('This restaurant has no sign in, so it could never read a reply.')
     expect(reasonEl).not.toHaveClass('sr-only')
     expect(reasonEl).toHaveClass('text-sm', 'text-muted-foreground')
 

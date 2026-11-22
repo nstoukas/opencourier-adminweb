@@ -1,16 +1,23 @@
 import {
-  cancelledByText,
+  cancelledByText as rawCancelledByText,
   wasAcceptedWhenCancelled,
-  foodOutcomeText,
-  CANCELLED_BY_TO_HUMAN,
+  foodOutcomeText as rawFoodOutcomeText,
 } from './cancellationDisplay'
+import { createI18n } from '@/i18n/createI18n'
+
+const t = createI18n('en').t
+const cancelledByText = (value: string | null | undefined) => rawCancelledByText(value, t)
+const foodOutcomeText = (
+  cancelledFromStatus: string | null | undefined,
+  foodOutcome: string | null | undefined
+) => rawFoodOutcomeText(cancelledFromStatus, foodOutcome, t)
 
 describe('cancellationDisplay utils (spec 0015, AC-5, AC-13)', () => {
-  describe('CANCELLED_BY_TO_HUMAN mapping', () => {
+  describe('cancellation labels', () => {
     it('defines human readable labels for all CancelledBy enum keys', () => {
-      expect(CANCELLED_BY_TO_HUMAN.COOP).toBe('The co-op')
-      expect(CANCELLED_BY_TO_HUMAN.RESTAURANT).toBe('The restaurant')
-      expect(CANCELLED_BY_TO_HUMAN.CUSTOMER).toBe('The customer')
+      expect(cancelledByText('COOP')).toBe('The co-op')
+      expect(cancelledByText('RESTAURANT')).toBe('The restaurant')
+      expect(cancelledByText('CUSTOMER')).toBe('The customer')
     })
   })
 

@@ -94,7 +94,7 @@ describe('WaitChargesCard component (spec 0033, AC-10, decision 23.20)', () => {
     expect(screen.getByText(formatOptionalDate(chargeTime))).toBeInTheDocument()
   })
 
-  it('falls back to String(amount) when formatMoney returns null for non-finite amount', () => {
+  it('renders em-dash when formatMoney encounters non-finite amount', () => {
     const chargeTime = '2026-11-09T12:00:00.000Z'
     const delivery = {
       ...baseDelivery,
@@ -109,7 +109,7 @@ describe('WaitChargesCard component (spec 0033, AC-10, decision 23.20)', () => {
 
     render(<WaitChargesCard delivery={delivery} />)
 
-    expect(screen.getByText('NaN')).toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.getByText(formatOptionalDate(chargeTime))).toBeInTheDocument()
   })
 })
