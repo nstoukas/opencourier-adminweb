@@ -1349,6 +1349,51 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(json.cancelledAt).toBeNull()
       expect(json.foodOutcomeAt).toBeNull()
     })
+
+    it('preserves addOn, addOnExtraKm, addOnExtraMinutes in DeliveryAdminDto FromJSON and ToJSON (spec 0048, row 81, AC-12)', () => {
+      const jsonInput = {
+        id: 'del-addon',
+        status: 'ASSIGNING_COURIER',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-11-22T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-22T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-22T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-22T10:45:00.000Z',
+        createdAt: '2026-11-22T10:00:00.000Z',
+        updatedAt: '2026-11-22T10:00:00.000Z',
+        addOn: true,
+        addOnExtraKm: 2.1,
+        addOnExtraMinutes: 7,
+      }
+
+      const dto = DeliveryAdminDtoFromJSON(jsonInput)
+      expect(dto.addOn).toBe(true)
+      expect(dto.addOnExtraKm).toBe(2.1)
+      expect(dto.addOnExtraMinutes).toBe(7)
+
+      const serialized = DeliveryAdminDtoToJSON(dto)
+      expect(serialized.addOn).toBe(true)
+      expect(serialized.addOnExtraKm).toBe(2.1)
+      expect(serialized.addOnExtraMinutes).toBe(7)
+
+      // When absent: addOn defaults to false, addOnExtraKm and addOnExtraMinutes default to null
+      const missingDto = DeliveryAdminDtoFromJSON({
+        id: 'del-plain',
+        status: 'ASSIGNING_COURIER',
+        currencyCode: 'EUR',
+        pickupReadyAt: '2026-11-22T10:00:00.000Z',
+        pickupDeadlineAt: '2026-11-22T10:30:00.000Z',
+        dropoffReadyAt: '2026-11-22T10:15:00.000Z',
+        dropoffEta: null,
+        dropoffDeadlineAt: '2026-11-22T10:45:00.000Z',
+        createdAt: '2026-11-22T10:00:00.000Z',
+        updatedAt: '2026-11-22T10:00:00.000Z',
+      })
+      expect(missingDto.addOn).toBe(false)
+      expect(missingDto.addOnExtraKm).toBeNull()
+      expect(missingDto.addOnExtraMinutes).toBeNull()
+    })
   })
 
   describe('DeliveryEventAdminDto (rider serializer guard - AC-11, Value 5)', () => {
@@ -1740,6 +1785,50 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
         expect(dto.twoOrderDelayLimitMinutes).toBe(val)
         expect(InstanceConfigSettingsDtoToJSON(dto).twoOrderDelayLimitMinutes).toBe(val)
       }
+    })
+
+    it('preserves addOnOffersEnabled and addOnMoment in InstanceConfigSettingsAdminInputToJSON and Dto (spec 0048, row 81, AC-1)', () => {
+      // Load-bearing test guard: without these fields in ToJSON, saving instance settings silently drops them.
+      for (const moment of ['BEFORE_PICKUP', 'BEFORE_DROPOFF', 'SAME_RESTAURANT']) {
+        const input = {
+          addOnOffersEnabled: true,
+          addOnMoment: moment,
+        }
+        const json = InstanceConfigSettingsAdminInputToJSON(input)
+        expect(json.addOnOffersEnabled).toBe(true)
+        expect(json.addOnMoment).toBe(moment)
+
+        const from = InstanceConfigSettingsAdminInputFromJSON({ addOnOffersEnabled: true, addOnMoment: moment })
+        expect(from.addOnOffersEnabled).toBe(true)
+        expect(from.addOnMoment).toBe(moment)
+
+        const dto = InstanceConfigSettingsDtoFromJSON({ addOnOffersEnabled: true, addOnMoment: moment })
+        expect(dto.addOnOffersEnabled).toBe(true)
+        expect(dto.addOnMoment).toBe(moment)
+        expect(InstanceConfigSettingsDtoToJSON(dto).addOnOffersEnabled).toBe(true)
+        expect(InstanceConfigSettingsDtoToJSON(dto).addOnMoment).toBe(moment)
+      }
+
+      // Disabled switch (false) is preserved, not dropped
+      const inputFalse = {
+        addOnOffersEnabled: false,
+        addOnMoment: 'BEFORE_PICKUP',
+      }
+      const jsonFalse = InstanceConfigSettingsAdminInputToJSON(inputFalse)
+      expect(jsonFalse.addOnOffersEnabled).toBe(false)
+      expect(jsonFalse.addOnMoment).toBe('BEFORE_PICKUP')
+
+      // Missing fields
+      const missingInput = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(missingInput.addOnOffersEnabled).toBeUndefined()
+      expect(missingInput.addOnMoment).toBeUndefined()
+      const jsonMissing = InstanceConfigSettingsAdminInputToJSON(missingInput)
+      expect(jsonMissing.addOnOffersEnabled).toBeUndefined()
+      expect(jsonMissing.addOnMoment).toBeUndefined()
+
+      const missingDto = InstanceConfigSettingsDtoFromJSON({})
+      expect(missingDto.addOnOffersEnabled).toBeNull()
+      expect(missingDto.addOnMoment).toBeNull()
     })
   })
 })

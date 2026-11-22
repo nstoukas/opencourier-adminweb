@@ -897,5 +897,73 @@ describe('AttentionList (spec 0034, AC-3 to AC-9)', () => {
 
       expect(screen.queryByTestId('attention-pair')).toBeNull()
     })
+
+    it('renders "One more order on the way, with the job #REF · shortId" when row.addOn is true and pairedOrderReference is present (spec 0048, row 81, AC-12)', () => {
+      const row: DispatchAttentionRowDto = {
+        id: 'r-addon',
+        kind: 'OFFER_UNANSWERED',
+        since: '2026-11-09T14:20:00.000Z',
+        deliveryId: 'del-addon-1',
+        sosId: null,
+        issueId: null,
+        threadId: null,
+        status: DeliveryAdminDtoStatusEnum.AssigningCourier,
+        courierId: 'c1',
+        orderReference: 'REF-ADDON',
+        restaurantName: 'Souvlaki Bar',
+        riderName: 'Nikos',
+        customerLabel: 'Maria P.',
+        detail: 'Offered to Nikos',
+        held: false,
+        pairedDeliveryId,
+        pairedOrderReference: 'REF-JOB',
+        addOn: true,
+      }
+
+      render(<AttentionList rows={[row]} more={0} nowMs={nowMs} />)
+
+      const pairNotice = screen.getByTestId('attention-pair')
+      expect(pairNotice).toBeInTheDocument()
+      expect(pairNotice).toHaveTextContent('One more order on the way, with the job #REF-JOB · 222222')
+
+      const link = within(pairNotice).getByRole('link', { name: '#REF-JOB · 222222' })
+      expect(link).toBeInTheDocument()
+      expect(link).toHaveAttribute('href', `/deliveries/${pairedDeliveryId}`)
+      expect(link).toHaveAttribute('title', pairedDeliveryId)
+    })
+
+    it('renders "One more order on the way, with the job delivery shortId" when row.addOn is true and pairedOrderReference is null (spec 0048, row 81, AC-12)', () => {
+      const row: DispatchAttentionRowDto = {
+        id: 'r-addon-noref',
+        kind: 'OFFER_UNANSWERED',
+        since: '2026-11-09T14:20:00.000Z',
+        deliveryId: 'del-addon-2',
+        sosId: null,
+        issueId: null,
+        threadId: null,
+        status: DeliveryAdminDtoStatusEnum.AssigningCourier,
+        courierId: 'c1',
+        orderReference: null,
+        restaurantName: 'Souvlaki Bar',
+        riderName: 'Nikos',
+        customerLabel: 'Maria P.',
+        detail: 'Offered to Nikos',
+        held: false,
+        pairedDeliveryId,
+        pairedOrderReference: null,
+        addOn: true,
+      }
+
+      render(<AttentionList rows={[row]} more={0} nowMs={nowMs} />)
+
+      const pairNotice = screen.getByTestId('attention-pair')
+      expect(pairNotice).toBeInTheDocument()
+      expect(pairNotice).toHaveTextContent('One more order on the way, with the job delivery 222222')
+
+      const link = within(pairNotice).getByRole('link', { name: 'delivery 222222' })
+      expect(link).toBeInTheDocument()
+      expect(link).toHaveAttribute('href', `/deliveries/${pairedDeliveryId}`)
+      expect(link).toHaveAttribute('title', pairedDeliveryId)
+    })
   })
 })

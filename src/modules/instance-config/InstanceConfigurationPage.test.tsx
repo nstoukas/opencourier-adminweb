@@ -526,11 +526,13 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       // Offer switch & inputs disabled
       const offerSwitch = document.getElementById('offerExpiryEnabled')
       expect(offerSwitch).toBeDisabled()
-      // Five switches now: Offer expiry, Timed offers (spec 0031), Shifts (spec 0026), Delay pay (spec 0033), and Stacking (spec 0048), each unknown until loaded.
-      expect(screen.getAllByText('Not loaded yet')).toHaveLength(5)
+      // Six switches now: Offer expiry, Timed offers (spec 0031), Shifts (spec 0026), Delay pay (spec 0033), Stacking (spec 0048, row 80), and Add-ons (spec 0048, row 81), each unknown until loaded.
+      expect(screen.getAllByText('Not loaded yet')).toHaveLength(6)
       expect(document.getElementById('stackingEnabled')).toBeDisabled()
       expect(document.getElementById('twoOrderPolicy')).toBeDisabled()
       expect(document.getElementById('twoOrderDelayLimitMinutes')).toBeDisabled()
+      expect(document.getElementById('addOnOffersEnabled')).toBeDisabled()
+      expect(document.getElementById('addOnMoment')).toBeDisabled()
       expect(document.getElementById('shiftsEnabled')).toBeDisabled()
       expect(document.getElementById('shiftDropNoticeHours')).toBeDisabled()
       expect(document.getElementById('offerTimingEnabled')).toBeDisabled()
@@ -2154,7 +2156,9 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
     const withTwoOrders = (
       stackingEnabled = false,
       twoOrderPolicy = 'SHORTAGE_ONLY',
-      twoOrderDelayLimitMinutes = 10
+      twoOrderDelayLimitMinutes = 10,
+      addOnOffersEnabled = false,
+      addOnMoment = 'BEFORE_PICKUP'
     ) => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
@@ -2162,6 +2166,8 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
           stackingEnabled,
           twoOrderPolicy,
           twoOrderDelayLimitMinutes,
+          addOnOffersEnabled,
+          addOnMoment,
         },
         isLoading: false,
       })
@@ -2194,6 +2200,18 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(delayInput.value).toBe('10')
       expect(delayInput).toHaveAttribute('min', '0')
       expect(delayInput).toHaveAttribute('max', '30')
+
+      const addOnSwitch = document.getElementById('addOnOffersEnabled') as HTMLElement
+      expect(addOnSwitch).toBeInTheDocument()
+      expect(addOnSwitch).toHaveAttribute('role', 'switch')
+      expect(addOnSwitch).toHaveAttribute('aria-checked', 'false')
+
+      const momentSelect = document.getElementById('addOnMoment') as HTMLSelectElement
+      expect(momentSelect).toBeInTheDocument()
+      expect(momentSelect.value).toBe('BEFORE_PICKUP')
+      expect(within(momentSelect).getByText('Before the rider picks up the first order')).toBeInTheDocument()
+      expect(within(momentSelect).getByText('Any time before the first drop off')).toBeInTheDocument()
+      expect(within(momentSelect).getByText('Only at the same restaurant, before the pickup')).toBeInTheDocument()
     })
 
     it('shows the switch on when the saved setting is true', () => {
@@ -2403,6 +2421,90 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       const saveBar = screen.getByTestId('save-bar')
       expect(within(saveBar).getByText('Most minutes a pair may delay a customer')).toBeInTheDocument()
       expect(within(saveBar).getByText(/-5/)).toBeInTheDocument()
+    })
+
+    it('switching addOnOffersEnabled on puts it on the save bar and Save sends addOnOffersEnabled: true with success message', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, false, 'BEFORE_PICKUP')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('addOnOffersEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^One more order offered while on a job Off →\s*(?:changes to )?On$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ addOnOffersEnabled: true })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Saved',
+            description: expect.stringContaining(
+              'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+            ),
+          })
+        )
+      })
+    })
+
+    it('switching addOnOffersEnabled off sends addOnOffersEnabled: false', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, true, 'BEFORE_PICKUP')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('addOnOffersEnabled') as HTMLElement)
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ addOnOffersEnabled: false })
+      })
+    })
+
+    it('changing addOnMoment puts it on the save bar in words from ADD_ON_MOMENT_LABELS and Save sends new value', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, true, 'BEFORE_PICKUP')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const momentSelect = document.getElementById('addOnMoment') as HTMLSelectElement
+      fireEvent.change(momentSelect, { target: { value: 'BEFORE_DROPOFF' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      const item = within(saveBar).getByRole('listitem')
+      // Spec 0048 (row 81): save bar names addOnMoment in card's words, not raw enum codes
+      expect(item).toHaveTextContent(
+        /When one more order may be offered.*Before the rider picks up the first order.*→.*Any time before the first drop off/
+      )
+      expect(item).not.toHaveTextContent('BEFORE_PICKUP')
+      expect(item).not.toHaveTextContent('BEFORE_DROPOFF')
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ addOnMoment: 'BEFORE_DROPOFF' })
+      })
+    })
+
+    it('changing addOnMoment to SAME_RESTAURANT shows words on save bar and Save sends value', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, true, 'BEFORE_PICKUP')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const momentSelect = document.getElementById('addOnMoment') as HTMLSelectElement
+      fireEvent.change(momentSelect, { target: { value: 'SAME_RESTAURANT' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      const item = within(saveBar).getByRole('listitem')
+      expect(item).toHaveTextContent(
+        /When one more order may be offered.*Before the rider picks up the first order.*→.*Only at the same restaurant, before the pickup/
+      )
+      expect(item).not.toHaveTextContent('SAME_RESTAURANT')
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ addOnMoment: 'SAME_RESTAURANT' })
+      })
     })
   })
 })

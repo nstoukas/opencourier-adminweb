@@ -239,7 +239,45 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
       ).toBeNull()
     })
 
-    it('returns null when neither stackStops nor STACK reasons have partnerId', () => {
+    it('extracts partner deliveryId from latest ADD_ON reason using currentDeliveryId (spec 0048, row 81, AC-12)', () => {
+      const addOnReason: OfferReasonAdmin = {
+        ...stackOfferReason,
+        id: 'reason-addon-1',
+        kind: 'ADD_ON',
+        values: { currentDeliveryId: 'del-job-888888' },
+      }
+      expect(
+        stackPartnerId({
+          deliveryId: currentDeliveryId,
+          stackStops: null,
+          offerReasons: [addOnReason],
+        })
+      ).toBe('del-job-888888')
+    })
+
+    it('prefers newest pairing reason when both STACK and ADD_ON reasons exist (spec 0048, row 81, AC-12)', () => {
+      const olderStackReason: OfferReasonAdmin = {
+        ...stackOfferReason,
+        id: 'reason-stack-old',
+        kind: 'STACK',
+        values: { partnerDeliveryId: 'del-partner-old' },
+      }
+      const newerAddOnReason: OfferReasonAdmin = {
+        ...stackOfferReason,
+        id: 'reason-addon-new',
+        kind: 'ADD_ON',
+        values: { currentDeliveryId: 'del-job-new' },
+      }
+      expect(
+        stackPartnerId({
+          deliveryId: currentDeliveryId,
+          stackStops: null,
+          offerReasons: [olderStackReason, newerAddOnReason],
+        })
+      ).toBe('del-job-new')
+    })
+
+    it('returns null when neither stackStops nor STACK/ADD_ON reasons have partnerId', () => {
       expect(
         stackPartnerId({
           deliveryId: currentDeliveryId,
@@ -247,6 +285,149 @@ describe('StackedOrderCard (spec 0048, AC-12, AC-9)', () => {
           offerReasons: [],
         })
       ).toBeNull()
+    })
+  })
+
+  describe('StackedOrderCard for mid-job add-on offers (spec 0048, row 81, AC-12, AC-9)', () => {
+    const jobDeliveryId = 'del-job-777777'
+    const addOnOfferReason: OfferReasonAdmin = {
+      id: 'reason-addon-card',
+      deliveryEventId: 'evt-addon-1',
+      courierId: 'c1',
+      strategy: 'FAIRNESS',
+      weights: null,
+      values: {
+        currentDeliveryId: jobDeliveryId,
+        extraKm: 2.1,
+        extraMinutes: 7,
+        sequence: sampleStops,
+        carryingFood: true,
+      },
+      score: null,
+      candidateCount: 2,
+      ridersInRange: 3,
+      candidates: null,
+      kind: 'ADD_ON',
+      createdAt: '2026-11-22T10:00:00.000Z',
+    }
+
+    it('renders "One more order on the way" card header with data-testid="stacked-order"', () => {
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={[addOnOfferReason]}
+          addOnExtraKm={2.1}
+          addOnExtraMinutes={7}
+        />
+      )
+
+      const card = screen.getByTestId('stacked-order')
+      expect(card).toBeInTheDocument()
+      expect(within(card).getByRole('heading', { name: 'One more order on the way' })).toBeInTheDocument()
+    })
+
+    it('asserts the safety rule: each delivery is paid in full from its own quote', () => {
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={[addOnOfferReason]}
+          addOnExtraKm={2.1}
+          addOnExtraMinutes={7}
+        />
+      )
+
+      expect(
+        screen.getByText(/Each is paid in full from its own quote\./)
+      ).toBeInTheDocument()
+    })
+
+    it('renders added distance and time and links the job delivery', () => {
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={null}
+          offerReasons={[addOnOfferReason]}
+          addOnExtraKm={2.1}
+          addOnExtraMinutes={7}
+        />
+      )
+
+      const paragraph = screen.getByText(/Offered to a rider on a job, added to/)
+      expect(paragraph).toHaveTextContent(
+        'Offered to a rider on a job, added to 777777, adding +2.1 km, +7 min. Each is paid in full from its own quote.'
+      )
+
+      const jobLink = screen.getByRole('link', { name: '777777' })
+      expect(jobLink).toBeInTheDocument()
+      expect(jobLink).toHaveAttribute('href', `/deliveries/${jobDeliveryId}`)
+    })
+
+    it('omits added km and min when they are null or undefined', () => {
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={null}
+          offerReasons={[addOnOfferReason]}
+          addOnExtraKm={null}
+          addOnExtraMinutes={null}
+        />
+      )
+
+      const paragraph = screen.getByText(/Offered to a rider on a job, added to/)
+      expect(paragraph).toHaveTextContent(
+        'Offered to a rider on a job, added to 777777. Each is paid in full from its own quote.'
+      )
+      expect(screen.queryByText(/adding \+/)).toBeNull()
+    })
+
+    it('renders "their job" when partner job cannot be resolved', () => {
+      const addOnNoJobReason: OfferReasonAdmin = {
+        ...addOnOfferReason,
+        values: {},
+      }
+
+      render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={null}
+          offerReasons={[addOnNoJobReason]}
+        />
+      )
+
+      expect(screen.getByText('their job')).toBeInTheDocument()
+      expect(screen.getByText('their job')).toHaveClass('text-muted-foreground')
+      expect(screen.getByText(/Offered to a rider on a job, added to/)).toHaveTextContent(
+        'Offered to a rider on a job, added to their job. Each is paid in full from its own quote.'
+      )
+    })
+
+    it('renders the ordered list of stops when pair is with rider, and empty notice when stops absent', () => {
+      const { rerender } = render(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={sampleStops}
+          offerReasons={[addOnOfferReason]}
+        />
+      )
+
+      const listItems = screen.getAllByRole('listitem')
+      expect(listItems).toHaveLength(4)
+      expect(listItems[0]).toHaveTextContent('Pick up this delivery')
+      expect(listItems[1]).toHaveTextContent('Pick up 222222')
+
+      rerender(
+        <StackedOrderCard
+          deliveryId={currentDeliveryId}
+          stackStops={null}
+          offerReasons={[addOnOfferReason]}
+        />
+      )
+
+      expect(
+        screen.getByText('No stop order now: it is kept only while both orders are open with one rider.')
+      ).toBeInTheDocument()
     })
   })
 })

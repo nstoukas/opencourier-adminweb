@@ -17,6 +17,7 @@ import {
   SECTIONS,
   MATCHER_COPY,
   TWO_ORDER_POLICY_LABELS,
+  ADD_ON_MOMENT_LABELS,
 } from './SettingsCards'
 import { EMPTY_FORM, blockers, pendingChanges, type SettingsForm } from '../settingsDiff'
 
@@ -1714,7 +1715,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '35')
     })
 
-    it('disables all three inputs and displays "Not loaded yet" when stackingEnabled is null', () => {
+    it('disables all five inputs and displays "Not loaded yet" for both switches when stackingEnabled and addOnOffersEnabled are null', () => {
       render(
         <TwoOrdersCard
           form={{
@@ -1722,6 +1723,8 @@ describe('SettingsCards components (row 87 review fixes)', () => {
             stackingEnabled: null,
             twoOrderPolicy: '',
             twoOrderDelayLimitMinutes: '',
+            addOnOffersEnabled: null,
+            addOnMoment: '',
           }}
           set={jest.fn()}
           options={dummyOptions}
@@ -1729,13 +1732,15 @@ describe('SettingsCards components (row 87 review fixes)', () => {
         />
       )
 
-      expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
+      expect(screen.getAllByText('Not loaded yet')).toHaveLength(2)
       expect(screen.getByLabelText('Two orders offered together')).toBeDisabled()
       expect(screen.getByLabelText('When two orders may go together')).toBeDisabled()
       expect(screen.getByLabelText('Most minutes a pair may delay a customer')).toBeDisabled()
+      expect(screen.getByLabelText('One more order offered while on a job')).toBeDisabled()
+      expect(screen.getByLabelText('When one more order may be offered')).toBeDisabled()
     })
 
-    it('disables all three inputs when loaded is false', () => {
+    it('disables all five inputs when loaded is false', () => {
       render(
         <TwoOrdersCard
           form={{
@@ -1743,6 +1748,8 @@ describe('SettingsCards components (row 87 review fixes)', () => {
             stackingEnabled: false,
             twoOrderPolicy: 'SHORTAGE_ONLY',
             twoOrderDelayLimitMinutes: '10',
+            addOnOffersEnabled: false,
+            addOnMoment: 'BEFORE_PICKUP',
           }}
           set={jest.fn()}
           options={dummyOptions}
@@ -1753,6 +1760,150 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(screen.getByLabelText('Two orders offered together')).toBeDisabled()
       expect(screen.getByLabelText('When two orders may go together')).toBeDisabled()
       expect(screen.getByLabelText('Most minutes a pair may delay a customer')).toBeDisabled()
+      expect(screen.getByLabelText('One more order offered while on a job')).toBeDisabled()
+      expect(screen.getByLabelText('When one more order may be offered')).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // TwoOrdersCard: add-on offers (spec 0048, row 81, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('TwoOrdersCard add-on offers (spec 0048, row 81, AC-1)', () => {
+    it('renders add-on switch and moment select with labels, description and options', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: false,
+            twoOrderPolicy: 'SHORTAGE_ONLY',
+            twoOrderDelayLimitMinutes: '10',
+            addOnOffersEnabled: false,
+            addOnMoment: 'BEFORE_PICKUP',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const addOnSwitch = screen.getByLabelText('One more order offered while on a job')
+      expect(addOnSwitch).toBeInTheDocument()
+      expect(addOnSwitch).not.toBeDisabled()
+      expect(addOnSwitch).toHaveAttribute('aria-checked', 'false')
+
+      // Check field description covers safety rule, no auto accept, free decline, calm offer with doubled answer time
+      expect(
+        screen.getByText(
+          /On: a rider on a job may be offered one more order on the way, showing the km and minutes it adds\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /Declining is free and changes nothing about the job, and the phone never accepts it by itself\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /It pays in full from its own quote, and the limits above apply\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /While the rider carries food it never rings insistently and gets twice the time to answer\./
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Off: no rider on a job is offered anything\./)
+      ).toBeInTheDocument()
+
+      const momentSelect = screen.getByLabelText('When one more order may be offered') as HTMLSelectElement
+      expect(momentSelect).toBeInTheDocument()
+      expect(momentSelect).not.toBeDisabled()
+      expect(momentSelect.value).toBe('BEFORE_PICKUP')
+
+      // Verify all 3 options with ADD_ON_MOMENT_LABELS
+      expect(within(momentSelect).getByRole('option', { name: ADD_ON_MOMENT_LABELS.BEFORE_PICKUP })).toHaveValue('BEFORE_PICKUP')
+      expect(within(momentSelect).getByRole('option', { name: ADD_ON_MOMENT_LABELS.BEFORE_DROPOFF })).toHaveValue('BEFORE_DROPOFF')
+      expect(within(momentSelect).getByRole('option', { name: ADD_ON_MOMENT_LABELS.SAME_RESTAURANT })).toHaveValue('SAME_RESTAURANT')
+    })
+
+    it('calls set("addOnOffersEnabled", true/false) when toggle is clicked', () => {
+      const mockSet = jest.fn()
+      const { rerender } = render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            addOnOffersEnabled: false,
+            addOnMoment: 'BEFORE_PICKUP',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const addOnSwitch = screen.getByLabelText('One more order offered while on a job')
+      fireEvent.click(addOnSwitch)
+      expect(mockSet).toHaveBeenCalledWith('addOnOffersEnabled', true)
+
+      rerender(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            addOnOffersEnabled: true,
+            addOnMoment: 'BEFORE_PICKUP',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+      expect(screen.getByLabelText('One more order offered while on a job')).toHaveAttribute('aria-checked', 'true')
+      fireEvent.click(screen.getByLabelText('One more order offered while on a job'))
+      expect(mockSet).toHaveBeenCalledWith('addOnOffersEnabled', false)
+    })
+
+    it('calls set("addOnMoment", value) when moment selection changes', () => {
+      const mockSet = jest.fn()
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            addOnOffersEnabled: true,
+            addOnMoment: 'BEFORE_PICKUP',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const momentSelect = screen.getByLabelText('When one more order may be offered')
+      fireEvent.change(momentSelect, { target: { value: 'BEFORE_DROPOFF' } })
+      expect(mockSet).toHaveBeenCalledWith('addOnMoment', 'BEFORE_DROPOFF')
+
+      fireEvent.change(momentSelect, { target: { value: 'SAME_RESTAURANT' } })
+      expect(mockSet).toHaveBeenCalledWith('addOnMoment', 'SAME_RESTAURANT')
+    })
+
+    it('renders "Not set" disabled option when addOnMoment is empty string', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            addOnOffersEnabled: true,
+            addOnMoment: '',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const momentSelect = screen.getByLabelText('When one more order may be offered') as HTMLSelectElement
+      expect(momentSelect.value).toBe('')
+      const notSetOption = within(momentSelect).getByRole('option', { name: 'Not set' })
+      expect(notSetOption).toBeDisabled()
     })
   })
 })

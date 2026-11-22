@@ -2330,5 +2330,100 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const occurrences = msg.split(sentence).length - 1
       expect(occurrences).toBe(1)
     })
+
+    it('formFromSettings maps addOnOffersEnabled and addOnMoment (spec 0048, row 81, AC-1)', () => {
+      const fromBackend = {
+        addOnOffersEnabled: true,
+        addOnMoment: 'BEFORE_DROPOFF',
+      }
+      const form = formFromSettings(fromBackend)
+      expect(form.addOnOffersEnabled).toBe(true)
+      expect(form.addOnMoment).toBe('BEFORE_DROPOFF')
+
+      const missing = formFromSettings({})
+      expect(missing.addOnOffersEnabled).toBeNull()
+      expect(missing.addOnMoment).toBe('')
+    })
+
+    it('pendingChanges detects changes to addOnOffersEnabled and addOnMoment (spec 0048, row 81, AC-1)', () => {
+      const saved: SettingsForm = {
+        ...baseSavedForm,
+        addOnOffersEnabled: false,
+        addOnMoment: 'BEFORE_PICKUP',
+      }
+      const edited: SettingsForm = {
+        ...saved,
+        addOnOffersEnabled: true,
+        addOnMoment: 'SAME_RESTAURANT',
+      }
+      const changes = pendingChanges(saved, edited)
+      expect(changes).toEqual([
+        {
+          key: 'addOnOffersEnabled',
+          label: 'One more order offered while on a job',
+          from: 'Off',
+          to: 'On',
+        },
+        {
+          key: 'addOnMoment',
+          label: 'When one more order may be offered',
+          from: 'BEFORE_PICKUP',
+          to: 'SAME_RESTAURANT',
+        },
+      ])
+    })
+
+    it('savePayload includes addOnOffersEnabled and addOnMoment when changed (spec 0048, row 81, AC-1)', () => {
+      const saved: SettingsForm = {
+        ...baseSavedForm,
+        addOnOffersEnabled: false,
+        addOnMoment: 'BEFORE_PICKUP',
+      }
+      const edited: SettingsForm = {
+        ...saved,
+        addOnOffersEnabled: true,
+        addOnMoment: 'BEFORE_DROPOFF',
+      }
+      const changes = pendingChanges(saved, edited)
+      const savedDetails = { name: 'Volos' }
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.addOnOffersEnabled).toBe(true)
+      expect(payload.addOnMoment).toBe('BEFORE_DROPOFF')
+    })
+
+    it('successMessage appends two orders sentence for addOnOffersEnabled and addOnMoment changes', () => {
+      const sentence =
+        'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+
+      expect(
+        successMessage([
+          { key: 'addOnOffersEnabled', label: 'One more order offered while on a job', from: 'Off', to: 'On' },
+        ] as any)
+      ).toBe(`Saved: One more order offered while on a job. ${sentence}`)
+
+      expect(
+        successMessage([
+          {
+            key: 'addOnMoment',
+            label: 'When one more order may be offered',
+            from: 'BEFORE_PICKUP',
+            to: 'BEFORE_DROPOFF',
+          },
+        ] as any)
+      ).toBe(`Saved: When one more order may be offered. ${sentence}`)
+
+      // Appended only once when all five two-order settings change
+      const allFive = [
+        { key: 'stackingEnabled', label: 'Two orders offered together', from: 'Off', to: 'On' },
+        { key: 'twoOrderPolicy', label: 'When two orders may go together', from: 'SHORTAGE_ONLY', to: 'WHENEVER_FITS' },
+        { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', from: '10', to: '15' },
+        { key: 'addOnOffersEnabled', label: 'One more order offered while on a job', from: 'Off', to: 'On' },
+        { key: 'addOnMoment', label: 'When one more order may be offered', from: 'BEFORE_PICKUP', to: 'BEFORE_DROPOFF' },
+      ]
+      const msg = successMessage(allFive as any)
+      const occurrences = msg.split(sentence).length - 1
+      expect(occurrences).toBe(1)
+    })
   })
 })

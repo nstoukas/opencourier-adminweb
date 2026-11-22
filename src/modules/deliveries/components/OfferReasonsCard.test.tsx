@@ -6,6 +6,7 @@ import {
   perHourText,
   reasonLines,
   stackLines,
+  addOnLines,
 } from "./OfferReasonsCard";
 import type { OfferReasonAdmin } from "../../../backend-admin-sdk/src/models/DeliveryAdminDto";
 import { formatOptionalDate } from "../../../ui-shared-utils";
@@ -856,6 +857,182 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
       expect(
         screen.getByText("Each customer's extra wait over a single trip: 333333 45 s")
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("reasonLines with ADD_ON kind (spec 0048, row 81, AC-12)", () => {
+    it("returns empty array for ADD_ON kind so matcher figures are not shown", () => {
+      const addOnReason: OfferReasonAdmin = {
+        id: "reason-addon-lines",
+        deliveryEventId: "evt-addon",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: { roadTime: 50, earnings: 30, waiting: 20 },
+        values: {
+          roadSeconds: 120,
+          centsPerHour: 800,
+          currentDeliveryId: "del-job-111111",
+        },
+        score: 0.1,
+        candidateCount: 2,
+        ridersInRange: 3,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      expect(reasonLines(addOnReason)).toEqual([]);
+    });
+  });
+
+  describe("addOnLines helper (spec 0048, row 81, AC-12)", () => {
+    it("returns empty array when reason.kind is not ADD_ON", () => {
+      const stackReason: OfferReasonAdmin = {
+        id: "reason-st",
+        deliveryEventId: "evt-st",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: { currentDeliveryId: "del-job-111" },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "STACK",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      expect(addOnLines(stackReason)).toEqual([]);
+
+      const singleReason: OfferReasonAdmin = {
+        ...stackReason,
+        kind: "SINGLE",
+      };
+      expect(addOnLines(singleReason)).toEqual([]);
+    });
+
+    it("formats full add-on reason lines including job id, added km/min, stops, extra waits, calm food delivery notice, and candidate count", () => {
+      const addOnReason: OfferReasonAdmin = {
+        id: "reason-addon-full",
+        deliveryEventId: "evt-addon-full",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          currentDeliveryId: "del-job-999999",
+          extraKm: 1.8,
+          extraMinutes: 6,
+          sequence: [
+            { deliveryId: "del-job-999999", stop: "PICKUP" },
+            { deliveryId: "del-addon-888888", stop: "PICKUP" },
+            { deliveryId: "del-job-999999", stop: "DROPOFF" },
+            { deliveryId: "del-addon-888888", stop: "DROPOFF" },
+          ],
+          delaySeconds: {
+            "del-job-999999": 90,
+            "del-addon-888888": 150,
+          },
+          carryingFood: true,
+        },
+        score: null,
+        candidateCount: 4,
+        ridersInRange: 5,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      const lines = addOnLines(addOnReason);
+      expect(lines).toEqual([
+        "Added to the rider's job, delivery 999999",
+        "Adds +1.8 km, +6 min to that job",
+        "Stops: 1 pick up 999999, 2 pick up 888888, 3 drop off 999999, 4 drop off 888888",
+        "Each customer's extra wait over a single trip: 999999 1 min 30 s, 888888 2 min 30 s",
+        "The rider was carrying food: twice the time to answer, never an insistent ring",
+        "Fewest extra minutes of 4 riders on a job compared",
+      ]);
+    });
+
+    it("omits optional lines when corresponding fields are absent or falsy", () => {
+      const minimalAddOnReason: OfferReasonAdmin = {
+        id: "reason-addon-min",
+        deliveryEventId: "evt-addon-min",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {},
+        score: null,
+        candidateCount: undefined as any,
+        ridersInRange: 0,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      expect(addOnLines(minimalAddOnReason)).toEqual([]);
+
+      const notCarryingFoodReason: OfferReasonAdmin = {
+        ...minimalAddOnReason,
+        values: {
+          currentDeliveryId: "del-job-111111",
+          carryingFood: false,
+        },
+      };
+      expect(addOnLines(notCarryingFoodReason)).toEqual([
+        "Added to the rider's job, delivery 111111",
+      ]);
+    });
+  });
+
+  describe("OfferReasonsCard rendering of ADD_ON reason (spec 0048, row 81, AC-12)", () => {
+    it("renders ' · One more order on the way' in header and shows add-on lines in list", () => {
+      const courierNames = new Map([["c-1", "Yannis M."]]);
+      const addOnReason: OfferReasonAdmin = {
+        id: "reason-addon-render",
+        deliveryEventId: "evt-addon-render",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          currentDeliveryId: "del-job-123456",
+          extraKm: 0.5,
+          extraMinutes: 2,
+          sequence: [
+            { deliveryId: "del-job-123456", stop: "PICKUP" },
+            { deliveryId: "del-addon-654321", stop: "PICKUP" },
+          ],
+          delaySeconds: {
+            "del-job-123456": 30,
+          },
+          carryingFood: true,
+        },
+        score: null,
+        candidateCount: 3,
+        ridersInRange: 4,
+        candidates: null,
+        kind: "ADD_ON",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[addOnReason]}
+          courierNameById={courierNames}
+        />
+      );
+
+      // Header indicates add-on offer
+      expect(screen.getByText(/Yannis M\. · Fairness \(co-op weights\) · One more order on the way/)).toBeInTheDocument();
+
+      // Add-on lines rendered in list
+      expect(screen.getByText("Added to the rider's job, delivery 123456")).toBeInTheDocument();
+      expect(screen.getByText("Adds +0.5 km, +2 min to that job")).toBeInTheDocument();
+      expect(screen.getByText("Stops: 1 pick up 123456, 2 pick up 654321")).toBeInTheDocument();
+      expect(screen.getByText("Each customer's extra wait over a single trip: 123456 30 s")).toBeInTheDocument();
+      expect(
+        screen.getByText("The rider was carrying food: twice the time to answer, never an insistent ring")
+      ).toBeInTheDocument();
+      expect(screen.getByText("Fewest extra minutes of 3 riders on a job compared")).toBeInTheDocument();
+
+      // Candidate table is not rendered
+      expect(screen.queryByRole("table")).toBeNull();
     });
   });
 });
