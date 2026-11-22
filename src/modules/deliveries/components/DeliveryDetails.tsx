@@ -197,6 +197,10 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
     { id: props.deliveryId },
     { pollingInterval: pageVisible ? 30_000 : 0 }
   )
+  // `currentData` is the answer for THIS id only. `data` keeps the previous delivery while the next
+  // one loads, so after a click on another leg its Assign, Reassign, Cancel and status buttons would
+  // act on the previous leg (agy's review of row 10). A poll of the same id keeps `currentData`.
+  const delivery = getDeliveryResponse.currentData
   const now = useNow(30_000)
   // Every rider's name by id, so the event timeline can say who an offer went to.
   const { data: couriers = [] } = useGetAllCouriersQuery()
@@ -210,15 +214,15 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   const { toast } = useToast()
 
   const handleEventSubmit = async (eventType: EnumDeliveryEventType) => {
-    if (!getDeliveryResponse.data || !confirm(`Sure you want to trigger "${eventType}" event?`)) {
+    if (!delivery || !confirm(`Sure you want to trigger "${eventType}" event?`)) {
       return
     }
 
-    const courierId = courierIdForAdminEvent(eventType, getDeliveryResponse.data)
+    const courierId = courierIdForAdminEvent(eventType, delivery)
 
     try {
       await submitDeliveryEvent({
-        deliveryId: getDeliveryResponse.data.id,
+        deliveryId: delivery.id,
         eventType: eventType,
         courierId,
       }).unwrap()
@@ -232,14 +236,15 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
   }
 
   // The h1 is there in every state ("Delivery" while loading or on an error).
-  if (getDeliveryResponse.isLoading)
+  // Loading also while a new id's answer is on its way (no `currentData` yet and no error).
+  if (getDeliveryResponse.isLoading || (!delivery && !getDeliveryResponse.isError))
     return (
       <>
         <PageHeader title="Delivery" />
         <span>Loading delivery data.</span>
       </>
     )
-  if (!getDeliveryResponse.data)
+  if (!delivery)
     return (
       <>
         <PageHeader title="Delivery" />
@@ -247,7 +252,6 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
       </>
     )
 
-  const { data: delivery } = getDeliveryResponse
   const allowedEvents = adminEventsForStatus(delivery.status, delivery)
   // A cancel has its own button and dialog, which asks who asked for it (spec 0015, AC-5).
   const canCancel = allowedEvents.includes(EnumDeliveryEventType.CANCELED)
