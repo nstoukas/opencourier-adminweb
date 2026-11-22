@@ -33,6 +33,10 @@ export interface DispatchAttentionRowDto {
     customerLabel: string | null;
     // The sentence the row reads. A report's note follows on a second line.
     detail: string;
+    // Spec 0054 (AC-2): `detail` by code (a key of `server.board`) with its values, so the page says it in
+    // the reader's language. Optional and nullable: an older backend sends none, a chat or SOS row null.
+    detailCode?: string | null;
+    detailParams?: Record<string, string | number | null> | null;
     held: boolean;
     // Spec 0035, only on a REMOVAL_REQUEST row. The approve sends `pickedUp` back as read here.
     removalRequestId?: string;

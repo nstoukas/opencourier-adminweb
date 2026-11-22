@@ -59,7 +59,7 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
   // useTranslation gives t, which looks a key up in the reader's language.
   const { t } = useTranslation()
   // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
-  const { errorText } = useServerText()
+  const { errorText, sentenceText } = useServerText()
   // Dates in the reader's language, on Athens time.
   const f = useFormat()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -111,8 +111,15 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p data-testid="availability-state">
-          {/* The server's own sentence for why it is not taking orders, shown as it came. */}
-          {availability?.acceptingOrders === false ? availability.notAcceptingReason : t('partners.availability.accepting')}
+          {/* Why it is not taking orders, in the reader's language from its code, else the server's English. */}
+          {availability?.acceptingOrders === false
+            ? sentenceText(
+                'error',
+                availability.notAcceptingCode,
+                availability.notAcceptingParams,
+                availability.notAcceptingReason ?? '',
+              )
+            : t('partners.availability.accepting')}
         </p>
         {availability?.busyExtraMinutes ? (
           <p>{t('partners.availability.busyMode', { minutes: availability.busyExtraMinutes })}</p>

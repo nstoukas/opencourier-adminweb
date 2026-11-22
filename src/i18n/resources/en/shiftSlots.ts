@@ -68,5 +68,15 @@ export const shiftSlots = {
     followedUp: 'Followed up',
     followedUpBy: 'Followed up by {{email}}',
     markLabel: 'Mark followed up: {{name}}, Offline at {{time}}',
+    // Why the rider went Offline (the backend's EnumCourierStatusChangeCause; NONE when not recorded).
+    cause: {
+      RIDER: 'The rider switched to Offline',
+      ADMIN: 'An admin set the rider Offline',
+      CUT_OFF: "A password change ended the rider's sessions",
+      LAST_CALL_ACCEPTED: 'Offline after a Last Call job',
+      SYSTEM_START: 'Set Offline by the system',
+      DEACTIVATED: "An admin deactivated the rider's account",
+      NONE: 'Cause not recorded',
+    },
   },
 }

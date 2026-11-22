@@ -7,6 +7,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@/ad
 import type { DispatchAttentionRowDto } from '@/backend-admin-sdk'
 import { AssignCourierCell } from '@/modules/deliveries/components/AssignCourierCell'
 import { shortId } from '@/utils/shortId'
+import { useServerText } from '@/i18n/useServerText'
 import { isRedRow, minutesSince, rowHref } from './dispatchDisplay'
 import { ApproveRemovalButton, DeclineRemovalButton } from './RemovalRequestActions'
 
@@ -81,7 +82,12 @@ function RowActions({ row }: { row: DispatchAttentionRowDto }) {
 
 function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: number }) {
   const { t } = useTranslation()
-  const [headline, ...rest] = row.detail.split('\n')
+  const { sentenceText } = useServerText()
+  // The row's sentence in the reader's language from its code, else the server's English (spec 0054,
+  // review of 2026-11-22). After the first line `detail` holds only a note, the person's own words, which
+  // stays the second line as written.
+  const [englishHeadline, ...rest] = row.detail.split('\n')
+  const headline = sentenceText('board', row.detailCode, row.detailParams, englishHeadline ?? '')
   const reference = row.orderReference ? `#${row.orderReference} · ` : ''
   // The offer row is the one kind that can arrive with no time (spec 0034, AC-5).
   const minutes = row.since === null ? null : minutesSince(row.since, nowMs)

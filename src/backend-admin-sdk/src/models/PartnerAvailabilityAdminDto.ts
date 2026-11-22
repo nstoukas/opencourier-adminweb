@@ -9,6 +9,10 @@ export interface PartnerAvailabilityAdminDto {
     disabledReason: string | null;
     acceptingOrders: boolean;
     notAcceptingReason: string | null;
+    // Spec 0054 (AC-6): the same sentence by code (a key of `server.error`) with its values; null while the
+    // restaurant takes orders, and from an older backend.
+    notAcceptingCode: string | null;
+    notAcceptingParams: Record<string, string | number | null> | null;
 }
 
 export function PartnerAvailabilityAdminDtoFromJSON(json: any): PartnerAvailabilityAdminDto {
@@ -19,6 +23,8 @@ export function PartnerAvailabilityAdminDtoFromJSON(json: any): PartnerAvailabil
         'disabledReason': json['disabledReason'] ?? null,
         'acceptingOrders': json['acceptingOrders'],
         'notAcceptingReason': json['notAcceptingReason'] ?? null,
+        'notAcceptingCode': json['notAcceptingCode'] ?? null,
+        'notAcceptingParams': json['notAcceptingParams'] ?? null,
     };
 }
 

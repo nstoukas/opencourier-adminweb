@@ -64,7 +64,8 @@ export function ShiftOfflineEventsCard() {
                     {t('shiftSlots.offline.line', {
                       shift: event.shiftText,
                       time: event.offlineTime ?? t('shiftSlots.offline.unknownTime'),
-                      cause: event.causeText,
+                      // The cause in the reader's language from its enum value, else the server's English.
+                      cause: t(`shiftSlots.offline.cause.${event.cause ?? 'NONE'}`, { defaultValue: event.causeText }),
                     })}
                   </p>
                 </div>
