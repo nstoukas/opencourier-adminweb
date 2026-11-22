@@ -68,4 +68,56 @@ describe('DispatchBoardApi (spec 0034, AC-1, AC-17)', () => {
     expect(requestInit.headers['Authorization']).toBe('Bearer test-admin-bearer-token')
     expect(result).toEqual(sampleBoardDto)
   })
+
+  it('getBoard: parses pairedDeliveryId and pairedOrderReference on attention rows, and paired on map courier carrying jobs (spec 0048, AC-12)', async () => {
+    const boardWithPairs: DispatchBoardDto = {
+      ...sampleBoardDto,
+      attention: [
+        {
+          id: 'att-1',
+          kind: 'OFFER_UNANSWERED',
+          since: '2026-11-22T10:00:00.000Z',
+          deliveryId: 'del-1',
+          sosId: null,
+          issueId: null,
+          threadId: null,
+          status: 'ASSIGNING_COURIER',
+          courierId: 'c-1',
+          orderReference: 'REF1',
+          restaurantName: 'Grill',
+          riderName: 'Nikos',
+          customerLabel: 'Maria',
+          detail: 'Offered',
+          held: false,
+          pairedDeliveryId: 'del-2',
+          pairedOrderReference: 'REF2',
+        },
+      ],
+      map: {
+        couriers: [
+          {
+            id: 'c-1',
+            name: 'Nikos',
+            latitude: 39.36,
+            longitude: 22.94,
+            state: 'BUSY',
+            carrying: [
+              { deliveryId: 'del-1', orderReference: 'REF1', offered: false, paired: true },
+              { deliveryId: 'del-2', orderReference: 'REF2', offered: true, paired: true },
+            ],
+          },
+        ],
+        waitingDeliveries: [],
+      },
+    }
+
+    mockFetch.mockResolvedValueOnce(createMockResponse(boardWithPairs, 200))
+
+    const result = await api.getBoard()
+
+    expect(result.attention[0]?.pairedDeliveryId).toBe('del-2')
+    expect(result.attention[0]?.pairedOrderReference).toBe('REF2')
+    expect(result.map.couriers[0]?.carrying[0]?.paired).toBe(true)
+    expect(result.map.couriers[0]?.carrying[1]?.paired).toBe(true)
+  })
 })

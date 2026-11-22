@@ -5,6 +5,7 @@ import {
   durationText,
   perHourText,
   reasonLines,
+  stackLines,
 } from "./OfferReasonsCard";
 import type { OfferReasonAdmin } from "../../../backend-admin-sdk/src/models/DeliveryAdminDto";
 import { formatOptionalDate } from "../../../ui-shared-utils";
@@ -719,6 +720,142 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
       expect(firstSection).toBeInTheDocument();
       expect(secondSection).toBeInTheDocument();
       expect(firstSection).not.toBe(secondSection);
+    });
+  });
+
+  describe("stackLines helper (spec 0048, AC-12)", () => {
+    it("returns empty array when reason.kind is not STACK", () => {
+      const singleReason: OfferReasonAdmin = {
+        id: "reason-single",
+        deliveryEventId: "evt-single",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: { partnerDeliveryId: "del-partner-99" },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "SINGLE",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      expect(stackLines(singleReason)).toEqual([]);
+    });
+
+    it("extracts partnerDeliveryId, sequence stops, and delaySeconds when kind is STACK", () => {
+      const stackReason: OfferReasonAdmin = {
+        id: "reason-stack",
+        deliveryEventId: "evt-stack",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          partnerDeliveryId: "delivery-partner-222222",
+          sequence: [
+            { deliveryId: "delivery-this-111111", stop: "PICKUP" },
+            { deliveryId: "delivery-partner-222222", stop: "PICKUP" },
+            { deliveryId: "delivery-this-111111", stop: "DROPOFF" },
+            { deliveryId: "delivery-partner-222222", stop: "DROPOFF" },
+          ],
+          delaySeconds: {
+            "delivery-this-111111": 64,
+            "delivery-partner-222222": 130,
+          },
+        },
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "STACK",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      const lines = stackLines(stackReason);
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toBe("Offered together with delivery 222222");
+      expect(lines[1]).toBe(
+        "Stops: 1 pick up 111111, 2 pick up 222222, 3 drop off 111111, 4 drop off 222222"
+      );
+      expect(lines[2]).toBe(
+        "Each customer's extra wait over a single trip: 111111 1 min 04 s, 222222 2 min 10 s"
+      );
+    });
+
+    it("gracefully omits missing or malformed values", () => {
+      const emptyValuesReason: OfferReasonAdmin = {
+        id: "reason-empty",
+        deliveryEventId: "evt-empty",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {},
+        score: null,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "STACK",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+      expect(stackLines(emptyValuesReason)).toEqual([]);
+
+      const malformedReason: OfferReasonAdmin = {
+        ...emptyValuesReason,
+        values: {
+          partnerDeliveryId: 12345, // not a string
+          sequence: [{ notDeliveryId: true }], // invalid stop items
+          delaySeconds: "not-an-object",
+        },
+      };
+      expect(stackLines(malformedReason)).toEqual([]);
+    });
+  });
+
+  describe("OfferReasonsCard rendering of STACK reason (spec 0048, AC-12)", () => {
+    it("renders ' · Two orders together' in header and shows stack lines in list", () => {
+      const courierNames = new Map([["c-1", "Alex Rider"]]);
+      const stackReason: OfferReasonAdmin = {
+        id: "reason-stack-render",
+        deliveryEventId: "evt-stack-render",
+        courierId: "c-1",
+        strategy: "FAIRNESS",
+        weights: null,
+        values: {
+          roadSeconds: 120,
+          centsPerHour: 800,
+          waitingSeconds: 300,
+          partnerDeliveryId: "del-partner-444444",
+          sequence: [
+            { deliveryId: "del-this-333333", stop: "PICKUP" },
+            { deliveryId: "del-partner-444444", stop: "PICKUP" },
+          ],
+          delaySeconds: {
+            "del-this-333333": 45,
+          },
+        },
+        score: 0.1,
+        candidateCount: 1,
+        ridersInRange: 1,
+        candidates: null,
+        kind: "STACK",
+        createdAt: "2026-11-20T10:00:00.000Z",
+      };
+
+      render(
+        <OfferReasonsCard
+          reasons={[stackReason]}
+          courierNameById={courierNames}
+        />
+      );
+
+      // Header indicates stack offer
+      expect(screen.getByText(/· Two orders together/)).toBeInTheDocument();
+
+      // Stack lines rendered in list
+      expect(screen.getByText("Offered together with delivery 444444")).toBeInTheDocument();
+      expect(screen.getByText("Stops: 1 pick up 333333, 2 pick up 444444")).toBeInTheDocument();
+      expect(
+        screen.getByText("Each customer's extra wait over a single trip: 333333 45 s")
+      ).toBeInTheDocument();
     });
   });
 });

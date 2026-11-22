@@ -235,3 +235,67 @@ describe('DeliveryAdminDto box fields (spec 0043, AC-1, AC-8)', () => {
     expect(second.boxSizeAssumed).toBe(false)
   })
 })
+
+// Spec 0048 (AC-12, row 80): offerGroupId and stackStops for two deliveries offered together (a stack).
+describe('DeliveryAdminDto offerGroupId and stackStops (spec 0048, row 80)', () => {
+  const baseJson = {
+    id: 'd-stack-1',
+    pickupReadyAt: '2026-11-22T10:00:00.000Z',
+    pickupDeadlineAt: '2026-11-22T10:30:00.000Z',
+    dropoffReadyAt: '2026-11-22T10:15:00.000Z',
+    dropoffEta: null,
+    dropoffDeadlineAt: '2026-11-22T10:45:00.000Z',
+    createdAt: '2026-11-22T09:55:00.000Z',
+  }
+
+  const sampleStops = [
+    { deliveryId: 'd-stack-1', stop: 'PICKUP' as const },
+    { deliveryId: 'd-stack-2', stop: 'PICKUP' as const },
+    { deliveryId: 'd-stack-1', stop: 'DROPOFF' as const },
+    { deliveryId: 'd-stack-2', stop: 'DROPOFF' as const },
+  ]
+
+  it('DeliveryAdminDtoFromJSON reads offerGroupId and stackStops when provided', () => {
+    const dto = DeliveryAdminDtoFromJSON({
+      ...baseJson,
+      offerGroupId: 'og-stack-123',
+      stackStops: sampleStops,
+    })
+
+    expect(dto.offerGroupId).toBe('og-stack-123')
+    expect(dto.stackStops).toEqual(sampleStops)
+  })
+
+  it('DeliveryAdminDtoFromJSON defaults offerGroupId and stackStops to null when omitted', () => {
+    const dto = DeliveryAdminDtoFromJSON(baseJson)
+
+    expect(dto.offerGroupId).toBeNull()
+    expect(dto.stackStops).toBeNull()
+  })
+
+  it('DeliveryAdminDtoToJSON writes offerGroupId and stackStops', () => {
+    const dto = DeliveryAdminDtoFromJSON({
+      ...baseJson,
+      offerGroupId: 'og-stack-456',
+      stackStops: sampleStops,
+    })
+
+    const json = DeliveryAdminDtoToJSON(dto)
+
+    expect(json.offerGroupId).toBe('og-stack-456')
+    expect(json.stackStops).toEqual(sampleStops)
+  })
+
+  it('round-trips offerGroupId and stackStops through ToJSON and FromJSON unchanged', () => {
+    const first = DeliveryAdminDtoFromJSON({
+      ...baseJson,
+      offerGroupId: 'og-stack-789',
+      stackStops: sampleStops,
+    })
+
+    const second = DeliveryAdminDtoFromJSON(DeliveryAdminDtoToJSON(first))
+
+    expect(second.offerGroupId).toBe('og-stack-789')
+    expect(second.stackStops).toEqual(sampleStops)
+  })
+})

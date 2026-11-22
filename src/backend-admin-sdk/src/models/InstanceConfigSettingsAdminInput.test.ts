@@ -1648,5 +1648,79 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       const missing = InstanceConfigSettingsDtoFromJSON({})
       expect(missing.addressNoteRetentionDays).toBeNull()
     })
+
+    it('preserves stackingEnabled, twoOrderPolicy, and twoOrderDelayLimitMinutes in InstanceConfigSettingsAdminInputToJSON (spec 0048, row 80, AC-1)', () => {
+      // Load-bearing test guard: without these fields in ToJSON, the SDK silently drops them
+      // when saving instance settings.
+      const input = {
+        stackingEnabled: true,
+        twoOrderPolicy: 'SHORTAGE_ONLY',
+        twoOrderDelayLimitMinutes: 10,
+      }
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.stackingEnabled).toBe(true)
+      expect(json.twoOrderPolicy).toBe('SHORTAGE_ONLY')
+      expect(json.twoOrderDelayLimitMinutes).toBe(10)
+
+      // 0 minutes is valid (only pairs that delay nobody) and must not be dropped
+      const inputZero = {
+        stackingEnabled: false,
+        twoOrderPolicy: 'WHENEVER_FITS',
+        twoOrderDelayLimitMinutes: 0,
+      }
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.stackingEnabled).toBe(false)
+      expect(jsonZero.twoOrderPolicy).toBe('WHENEVER_FITS')
+      expect(jsonZero.twoOrderDelayLimitMinutes).toBe(0)
+    })
+
+    it('round-trips stacking settings through InstanceConfigSettingsAdminInput FromJSON and ToJSON', () => {
+      const original = {
+        stackingEnabled: true,
+        twoOrderPolicy: 'WHENEVER_FITS',
+        twoOrderDelayLimitMinutes: 15,
+      }
+      const model = InstanceConfigSettingsAdminInputFromJSON(original)
+      expect(model.stackingEnabled).toBe(true)
+      expect(model.twoOrderPolicy).toBe('WHENEVER_FITS')
+      expect(model.twoOrderDelayLimitMinutes).toBe(15)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.stackingEnabled).toBe(true)
+      expect(serialized.twoOrderPolicy).toBe('WHENEVER_FITS')
+      expect(serialized.twoOrderDelayLimitMinutes).toBe(15)
+
+      const missing = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(missing.stackingEnabled).toBeUndefined()
+      expect(missing.twoOrderPolicy).toBeUndefined()
+      expect(missing.twoOrderDelayLimitMinutes).toBeUndefined()
+
+      const serializedMissing = InstanceConfigSettingsAdminInputToJSON(missing)
+      expect(serializedMissing.stackingEnabled).toBeUndefined()
+      expect(serializedMissing.twoOrderPolicy).toBeUndefined()
+      expect(serializedMissing.twoOrderDelayLimitMinutes).toBeUndefined()
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON and ToJSON handle stacking settings (spec 0048, row 80, AC-1)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        stackingEnabled: true,
+        twoOrderPolicy: 'SHORTAGE_ONLY',
+        twoOrderDelayLimitMinutes: 10,
+      })
+      expect(dto.stackingEnabled).toBe(true)
+      expect(dto.twoOrderPolicy).toBe('SHORTAGE_ONLY')
+      expect(dto.twoOrderDelayLimitMinutes).toBe(10)
+
+      const serialized = InstanceConfigSettingsDtoToJSON(dto)
+      expect(serialized.stackingEnabled).toBe(true)
+      expect(serialized.twoOrderPolicy).toBe('SHORTAGE_ONLY')
+      expect(serialized.twoOrderDelayLimitMinutes).toBe(10)
+
+      const missing = InstanceConfigSettingsDtoFromJSON({})
+      expect(missing.stackingEnabled).toBeNull()
+      expect(missing.twoOrderPolicy).toBeNull()
+      expect(missing.twoOrderDelayLimitMinutes).toBeNull()
+    })
   })
 })

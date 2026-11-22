@@ -2164,4 +2164,119 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(EMPTY_FORM.addressNoteRetentionDays).toBe('')
     })
   })
+
+  describe('Two orders at once settings (spec 0048, row 80, AC-1)', () => {
+    it('declares stackingEnabled, twoOrderPolicy, and twoOrderDelayLimitMinutes in SETTINGS with expected kinds and labels', () => {
+      const stacking = SETTINGS.find((s) => s.key === 'stackingEnabled')
+      expect(stacking).toBeDefined()
+      expect(stacking?.kind).toBe('switch')
+      expect(stacking?.label).toBe('Two orders offered together')
+
+      const policy = SETTINGS.find((s) => s.key === 'twoOrderPolicy')
+      expect(policy).toBeDefined()
+      expect(policy?.kind).toBe('select')
+      expect(policy?.label).toBe('When two orders may go together')
+
+      const delay = SETTINGS.find((s) => s.key === 'twoOrderDelayLimitMinutes')
+      expect(delay).toBeDefined()
+      expect(delay?.kind).toBe('number')
+      expect(delay?.label).toBe('Most minutes a pair may delay a customer')
+    })
+
+    it('formFromSettings maps stacking fields from backend data, with null and empty string fallbacks', () => {
+      const backendData = {
+        stackingEnabled: true,
+        twoOrderPolicy: 'WHENEVER_FITS',
+        twoOrderDelayLimitMinutes: 15,
+      }
+      const form = formFromSettings(backendData)
+      expect(form.stackingEnabled).toBe(true)
+      expect(form.twoOrderPolicy).toBe('WHENEVER_FITS')
+      expect(form.twoOrderDelayLimitMinutes).toBe('15')
+
+      const empty = formFromSettings({})
+      expect(empty.stackingEnabled).toBeNull()
+      expect(empty.twoOrderPolicy).toBe('')
+      expect(empty.twoOrderDelayLimitMinutes).toBe('')
+      expect(EMPTY_FORM.stackingEnabled).toBeNull()
+      expect(EMPTY_FORM.twoOrderPolicy).toBe('')
+      expect(EMPTY_FORM.twoOrderDelayLimitMinutes).toBe('')
+    })
+
+    it('pendingChanges tracks changes to stacking settings', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        stackingEnabled: true,
+        twoOrderPolicy: 'WHENEVER_FITS',
+        twoOrderDelayLimitMinutes: '20',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const keys = changes.map((c) => c.key)
+      expect(keys).toContain('stackingEnabled')
+      expect(keys).toContain('twoOrderPolicy')
+      expect(keys).toContain('twoOrderDelayLimitMinutes')
+
+      const stackingChange = changes.find((c) => c.key === 'stackingEnabled')
+      expect(stackingChange?.from).toBe('Off')
+      expect(stackingChange?.to).toBe('On')
+
+      const policyChange = changes.find((c) => c.key === 'twoOrderPolicy')
+      expect(policyChange?.from).toBe('SHORTAGE_ONLY')
+      expect(policyChange?.to).toBe('WHENEVER_FITS')
+
+      const delayChange = changes.find((c) => c.key === 'twoOrderDelayLimitMinutes')
+      expect(delayChange?.from).toBe('10')
+      expect(delayChange?.to).toBe('20')
+    })
+
+    it('savePayload converts twoOrderDelayLimitMinutes to number (including 0) and preserves boolean and string types', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        stackingEnabled: true,
+        twoOrderPolicy: 'WHENEVER_FITS',
+        twoOrderDelayLimitMinutes: '0',
+      }
+      const savedDetails = { name: 'Volos' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.stackingEnabled).toBe(true)
+      expect(typeof payload.stackingEnabled).toBe('boolean')
+      expect(payload.twoOrderPolicy).toBe('WHENEVER_FITS')
+      expect(typeof payload.twoOrderPolicy).toBe('string')
+      expect(payload.twoOrderDelayLimitMinutes).toBe(0)
+      expect(typeof payload.twoOrderDelayLimitMinutes).toBe('number')
+    })
+
+    it('successMessage appends two orders sentence when any stacking setting changes, and only once if all change', () => {
+      const sentence =
+        'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+
+      expect(
+        successMessage([{ key: 'stackingEnabled', label: 'Two orders offered together', from: 'Off', to: 'On' }] as any)
+      ).toBe(`Saved: Two orders offered together. ${sentence}`)
+
+      expect(
+        successMessage([
+          { key: 'twoOrderPolicy', label: 'When two orders may go together', from: 'SHORTAGE_ONLY', to: 'WHENEVER_FITS' },
+        ] as any)
+      ).toBe(`Saved: When two orders may go together. ${sentence}`)
+
+      expect(
+        successMessage([
+          { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', from: '10', to: '15' },
+        ] as any)
+      ).toBe(`Saved: Most minutes a pair may delay a customer. ${sentence}`)
+
+      // Appended only once when all three change
+      const allThree = [
+        { key: 'stackingEnabled', label: 'Two orders offered together', from: 'Off', to: 'On' },
+        { key: 'twoOrderPolicy', label: 'When two orders may go together', from: 'SHORTAGE_ONLY', to: 'WHENEVER_FITS' },
+        { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', from: '10', to: '15' },
+      ]
+      const msg = successMessage(allThree as any)
+      const occurrences = msg.split(sentence).length - 1
+      expect(occurrences).toBe(1)
+    })
+  })
 })

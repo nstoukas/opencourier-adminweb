@@ -250,4 +250,46 @@ describe('DispatchMap (spec 0034, AC-11, AC-13, AC-18)', () => {
 
     setItemSpy.mockRestore()
   })
+
+  it('renders "(two orders together)" in courier popup when carrying job has paired: true (spec 0048, AC-12)', () => {
+    const mapWithPaired: DispatchMapDto = {
+      couriers: [
+        {
+          id: 'c-paired',
+          name: 'Yannis Paired',
+          latitude: 39.362,
+          longitude: 22.942,
+          state: 'BUSY',
+          carrying: [
+            { deliveryId: 'del-p1', orderReference: 'ORD-P1', offered: false, paired: true },
+            { deliveryId: 'del-p2', orderReference: 'ORD-P2', offered: true, paired: true },
+          ],
+        },
+        {
+          id: 'c-single',
+          name: 'Eleni Single',
+          latitude: 39.37,
+          longitude: 22.95,
+          state: 'BUSY',
+          carrying: [
+            { deliveryId: 'del-s1', orderReference: 'ORD-S1', offered: false },
+          ],
+        },
+      ],
+      waitingDeliveries: [],
+    }
+
+    render(<DispatchMap map={mapWithPaired} region={sampleRegion} />)
+
+    const popups = screen.getAllByTestId('popup')
+    expect(popups).toHaveLength(2)
+
+    // Yannis has both jobs marked with "(two orders together)"
+    expect(popups[0]).toHaveTextContent('#ORD-P1 (two orders together)')
+    expect(popups[0]).toHaveTextContent('#ORD-P2 offered (two orders together)')
+
+    // Eleni has single job without "(two orders together)"
+    expect(popups[1]).toHaveTextContent('#ORD-S1')
+    expect(popups[1]).not.toHaveTextContent('(two orders together)')
+  })
 })

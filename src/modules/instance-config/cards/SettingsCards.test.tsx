@@ -6,6 +6,7 @@ import {
   BoxCard,
   FairnessCard,
   OffersCard,
+  TwoOrdersCard,
   RestaurantDelaysCard,
   RiderPayCard,
   InstanceCard,
@@ -1616,6 +1617,102 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       const fairnessRadio = screen.getByRole('radio', { name: /Fairness/i })
       fireEvent.click(fairnessRadio)
       expect(mockSet).toHaveBeenCalledWith('courierMatcherType', 'FAIRNESS')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // TwoOrdersCard (spec 0048, row 80, AC-1)
+  // ---------------------------------------------------------------------------
+  describe('TwoOrdersCard (spec 0048, row 80, AC-1)', () => {
+    it('defines SECTIONS entry with id "two-orders" and title "Two orders"', () => {
+      const section = SECTIONS.find((s) => s.id === 'two-orders')
+      expect(section).toBeDefined()
+      expect(section?.title).toBe('Two orders')
+    })
+
+    it('renders Two orders section heading, description and binds switch, select and number field', () => {
+      const mockSet = jest.fn()
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: false,
+            twoOrderPolicy: 'SHORTAGE_ONLY',
+            twoOrderDelayLimitMinutes: '10',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByRole('heading', { name: 'Two orders' })).toBeInTheDocument()
+      expect(
+        screen.getByText('Whether one rider may be offered two orders at once, and within which limits.')
+      ).toBeInTheDocument()
+
+      const switchEl = screen.getByLabelText('Two orders offered together')
+      expect(switchEl).toBeInTheDocument()
+      expect(switchEl).toHaveAttribute('aria-checked', 'false')
+      fireEvent.click(switchEl)
+      expect(mockSet).toHaveBeenCalledWith('stackingEnabled', true)
+
+      const selectEl = screen.getByLabelText('When two orders may go together') as HTMLSelectElement
+      expect(selectEl).toBeInTheDocument()
+      expect(selectEl.value).toBe('SHORTAGE_ONLY')
+      expect(within(selectEl).getByText('Only when no free rider is a good fit')).toBeInTheDocument()
+      expect(within(selectEl).getByText('Whenever the two orders fit')).toBeInTheDocument()
+      fireEvent.change(selectEl, { target: { value: 'WHENEVER_FITS' } })
+      expect(mockSet).toHaveBeenCalledWith('twoOrderPolicy', 'WHENEVER_FITS')
+
+      const delayEl = screen.getByLabelText('Most minutes a pair may delay a customer') as HTMLInputElement
+      expect(delayEl).toBeInTheDocument()
+      expect(delayEl.value).toBe('10')
+      expect(delayEl).toHaveAttribute('min', '0')
+      expect(delayEl).toHaveAttribute('max', '30')
+      fireEvent.change(delayEl, { target: { value: '15' } })
+      expect(mockSet).toHaveBeenCalledWith('twoOrderDelayLimitMinutes', '15')
+    })
+
+    it('disables all three inputs and displays "Not loaded yet" when stackingEnabled is null', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: null,
+            twoOrderPolicy: '',
+            twoOrderDelayLimitMinutes: '',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      expect(screen.getByText('Not loaded yet')).toBeInTheDocument()
+      expect(screen.getByLabelText('Two orders offered together')).toBeDisabled()
+      expect(screen.getByLabelText('When two orders may go together')).toBeDisabled()
+      expect(screen.getByLabelText('Most minutes a pair may delay a customer')).toBeDisabled()
+    })
+
+    it('disables all three inputs when loaded is false', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: false,
+            twoOrderPolicy: 'SHORTAGE_ONLY',
+            twoOrderDelayLimitMinutes: '10',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      expect(screen.getByLabelText('Two orders offered together')).toBeDisabled()
+      expect(screen.getByLabelText('When two orders may go together')).toBeDisabled()
+      expect(screen.getByLabelText('Most minutes a pair may delay a customer')).toBeDisabled()
     })
   })
 })

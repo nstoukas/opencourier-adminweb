@@ -213,7 +213,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(h1).toHaveTextContent('Co-op settings')
     })
 
-    it('renders fifteen pills in exact order linking to the fifteen card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035, Time worked added by spec 0040, Review requests and Change history added by spec 0038, Box added by spec 0043, Fairness added by spec 0044)', () => {
+    it('renders sixteen pills in exact order linking to the sixteen card anchors (AC-1; Shifts added by spec 0026, Restaurant delays added by spec 0033, Removal reasons added by spec 0035, Time worked added by spec 0040, Review requests and Change history added by spec 0038, Box added by spec 0043, Fairness added by spec 0044, Two orders added by spec 0048)', () => {
       render(<InstanceConfigurationPage />)
       const nav = screen.getByRole('navigation', { name: /Settings sections/i })
       const links = nav.querySelectorAll('a')
@@ -224,6 +224,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
         { title: 'Box', href: '#box' },
         { title: 'Fairness', href: '#fairness' },
         { title: 'Offers', href: '#offers' },
+        { title: 'Two orders', href: '#two-orders' },
         { title: 'Rider pay', href: '#rider-pay' },
         { title: 'Removal reasons', href: '#removal-reasons' },
         { title: 'Restaurant delays', href: '#restaurant-delays' },
@@ -525,8 +526,11 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       // Offer switch & inputs disabled
       const offerSwitch = document.getElementById('offerExpiryEnabled')
       expect(offerSwitch).toBeDisabled()
-      // Four switches now: Offer expiry, Timed offers (spec 0031), Shifts (spec 0026) and Delay pay (spec 0033), each unknown until loaded.
-      expect(screen.getAllByText('Not loaded yet')).toHaveLength(4)
+      // Five switches now: Offer expiry, Timed offers (spec 0031), Shifts (spec 0026), Delay pay (spec 0033), and Stacking (spec 0048), each unknown until loaded.
+      expect(screen.getAllByText('Not loaded yet')).toHaveLength(5)
+      expect(document.getElementById('stackingEnabled')).toBeDisabled()
+      expect(document.getElementById('twoOrderPolicy')).toBeDisabled()
+      expect(document.getElementById('twoOrderDelayLimitMinutes')).toBeDisabled()
       expect(document.getElementById('shiftsEnabled')).toBeDisabled()
       expect(document.getElementById('shiftDropNoticeHours')).toBeDisabled()
       expect(document.getElementById('offerTimingEnabled')).toBeDisabled()
@@ -2140,6 +2144,141 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
 
       const waitLimit = document.getElementById('waitLimitMinutes') as HTMLInputElement
       expect(waitLimit).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Two orders card (spec 0048, row 80, AC-1, AC-12)
+  // ---------------------------------------------------------------------------
+  describe('Two orders card (spec 0048, row 80, AC-1, AC-12)', () => {
+    const withTwoOrders = (
+      stackingEnabled = false,
+      twoOrderPolicy = 'SHORTAGE_ONLY',
+      twoOrderDelayLimitMinutes = 10
+    ) => {
+      mockUseGetInstanceConfigQuery.mockReturnValue({
+        data: {
+          ...baseMockConfigData,
+          stackingEnabled,
+          twoOrderPolicy,
+          twoOrderDelayLimitMinutes,
+        },
+        isLoading: false,
+      })
+    }
+
+    it('renders a "Two orders" section with description and controls', () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10)
+      render(<InstanceConfigurationPage />)
+
+      const section = document.getElementById('two-orders') as HTMLElement
+      expect(section).toBeInTheDocument()
+      expect(within(section).getByRole('heading', { name: 'Two orders' })).toBeInTheDocument()
+      expect(
+        within(section).getByText('Whether one rider may be offered two orders at once, and within which limits.')
+      ).toBeInTheDocument()
+
+      const switchEl = document.getElementById('stackingEnabled') as HTMLElement
+      expect(switchEl).toBeInTheDocument()
+      expect(switchEl).toHaveAttribute('role', 'switch')
+      expect(switchEl).toHaveAttribute('aria-checked', 'false')
+
+      const policySelect = document.getElementById('twoOrderPolicy') as HTMLSelectElement
+      expect(policySelect).toBeInTheDocument()
+      expect(policySelect.value).toBe('SHORTAGE_ONLY')
+      expect(within(policySelect).getByText('Only when no free rider is a good fit')).toBeInTheDocument()
+      expect(within(policySelect).getByText('Whenever the two orders fit')).toBeInTheDocument()
+
+      const delayInput = document.getElementById('twoOrderDelayLimitMinutes') as HTMLInputElement
+      expect(delayInput).toBeInTheDocument()
+      expect(delayInput.value).toBe('10')
+      expect(delayInput).toHaveAttribute('min', '0')
+      expect(delayInput).toHaveAttribute('max', '30')
+    })
+
+    it('shows the switch on when the saved setting is true', () => {
+      withTwoOrders(true, 'WHENEVER_FITS', 15)
+      render(<InstanceConfigurationPage />)
+
+      const switchEl = document.getElementById('stackingEnabled') as HTMLElement
+      expect(switchEl).toHaveAttribute('aria-checked', 'true')
+      const policySelect = document.getElementById('twoOrderPolicy') as HTMLSelectElement
+      expect(policySelect.value).toBe('WHENEVER_FITS')
+      const delayInput = document.getElementById('twoOrderDelayLimitMinutes') as HTMLInputElement
+      expect(delayInput.value).toBe('15')
+    })
+
+    it('switching Stacking on puts it on the save bar and Save sends stackingEnabled: true with the two orders success message', async () => {
+      withTwoOrders(false)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('stackingEnabled') as HTMLElement)
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(/^Two orders offered together Off →\s*(?:changes to )?On$/)
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ stackingEnabled: true })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Saved',
+            description: expect.stringContaining(
+              'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+            ),
+          })
+        )
+      })
+    })
+
+    it('switching Stacking off sends stackingEnabled: false (not dropped)', async () => {
+      withTwoOrders(true)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      fireEvent.click(document.getElementById('stackingEnabled') as HTMLElement)
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ stackingEnabled: false })
+      })
+    })
+
+    it('changing twoOrderPolicy to WHENEVER_FITS puts it on the save bar and Save sends the new value', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY')
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const policySelect = document.getElementById('twoOrderPolicy') as HTMLSelectElement
+      fireEvent.change(policySelect, { target: { value: 'WHENEVER_FITS' } })
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(within(saveBar).getByRole('listitem')).toHaveTextContent(
+        /When two orders may go together.*SHORTAGE_ONLY.*WHENEVER_FITS/
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderPolicy: 'WHENEVER_FITS' })
+      })
+    })
+
+    it('editing twoOrderDelayLimitMinutes sends the number, 0 included', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const delayInput = document.getElementById('twoOrderDelayLimitMinutes') as HTMLInputElement
+      fireEvent.change(delayInput, { target: { value: '0' } })
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ twoOrderDelayLimitMinutes: 0 })
+      })
     })
   })
 })

@@ -1522,5 +1522,37 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       expect(screen.getByText('External store ID').nextElementSibling?.textContent).toBe('ext-store-55')
       expect(screen.getByText('Idempotency key').nextElementSibling?.textContent).toBe('idemp-key-abc-123')
     })
+
+    it('renders StackedOrderCard when offerGroupId is set, and omits it when null (spec 0048, AC-12)', () => {
+      const stackedDelivery = {
+        ...sampleEurDelivery,
+        offerGroupId: 'og-123456',
+        stackStops: [
+          { deliveryId: 'd100', stop: 'PICKUP' },
+          { deliveryId: 'd200', stop: 'PICKUP' },
+        ],
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: stackedDelivery,
+        currentData: stackedDelivery,
+        isLoading: false,
+      })
+
+      const { rerender } = render(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.getByTestId('stacked-order')).toBeInTheDocument()
+      expect(screen.getByText('Two orders together')).toBeInTheDocument()
+
+      const singleDelivery = {
+        ...sampleEurDelivery,
+        offerGroupId: null,
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: singleDelivery,
+        currentData: singleDelivery,
+        isLoading: false,
+      })
+      rerender(<DeliveryDetails deliveryId="d100" />)
+      expect(screen.queryByTestId('stacked-order')).toBeNull()
+    })
   })
 })
