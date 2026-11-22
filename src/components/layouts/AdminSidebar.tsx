@@ -26,6 +26,7 @@ import { disconnectChatLive } from '@/modules/chat/chatLive'
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitch } from '@/i18n/LanguageSwitch'
+import { forgetChosenBeforeSignIn } from '@/i18n/languageChoice'
 import { usePathname } from 'next/navigation'
 
 type NavItem = {
@@ -130,6 +131,8 @@ export function AdminSidebar() {
     dispatch(closeAllSheets())
     // The chat's live connection would keep receiving messages on the sign in page (spec 0034).
     disconnectChatLive()
+    // A language picked on the sign in card belongs to the admin who signed in with it, not the next one.
+    forgetChosenBeforeSignIn()
   }
 
   return (

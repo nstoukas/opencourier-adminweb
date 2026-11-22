@@ -15,6 +15,12 @@ export function wasChosenBeforeSignIn(): boolean {
   return chosenBeforeSignIn
 }
 
+// Forgets the choice once a sign in has used it, and on sign out: signing out does not reload the page, so
+// without this the next admin to sign in on the same tab would have their stored language overwritten.
+export function forgetChosenBeforeSignIn(): void {
+  chosenBeforeSignIn = false
+}
+
 /** Shows the page in `language` now and remembers it in this browser (cookie and <html lang>). */
 export function applyLanguage(i18n: I18n, language: Language): void {
   saveLanguageCookie(language)

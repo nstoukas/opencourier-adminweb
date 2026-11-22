@@ -1,6 +1,6 @@
 import { useLoginMutation, useSetLanguageMutation } from '@/api/authApi'
 import { LanguageSwitch } from '@/i18n/LanguageSwitch'
-import { applyLanguage, wasChosenBeforeSignIn } from '@/i18n/languageChoice'
+import { applyLanguage, forgetChosenBeforeSignIn, wasChosenBeforeSignIn } from '@/i18n/languageChoice'
 import { toLanguage } from '@/i18n/language'
 import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { setAccessToken } from '@/modules/auth/slices/authSlice'
@@ -18,6 +18,7 @@ import {
   FieldLabel,
   Input,
   Spinner,
+  toast,
 } from '../../../admin-web-components'
 import { useAppDispatch } from '../../../ui-shared-utils'
 import { XCircle } from '@phosphor-icons/react'
@@ -89,10 +90,15 @@ export function SignInScreen() {
       // The language (spec 0054, cross check 2): the one stored on the account wins at sign in, unless the
       // admin picked one on this card just now, which is then saved to the account (decision 47.32).
       if (wasChosenBeforeSignIn()) {
-        saveLanguage(toLanguage(i18n.language)).catch(() => undefined)
+        // `unwrap()` makes a failed save reject, so the admin is told; the page keeps the chosen language
+        // either way (it is in the cookie), only the account keeps its old one.
+        saveLanguage(toLanguage(i18n.language))
+          .unwrap()
+          .catch(() => toast({ title: t('language.saveFailed'), variant: 'destructive' }))
       } else if (userInfo.language) {
         applyLanguage(i18n, toLanguage(userInfo.language))
       }
+      forgetChosenBeforeSignIn()
       await goHome()
     } catch (err) {
       setError(signInErrorMessage(err))
