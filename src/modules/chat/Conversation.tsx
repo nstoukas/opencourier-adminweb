@@ -1,6 +1,8 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, PhoneCall, WarningCircle } from '@phosphor-icons/react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import type { ChatMessageAdminDto, ChatThreadAdminDto } from '../../backend-admin-sdk'
 import {
   useGetChatMessagesQuery,
@@ -10,6 +12,8 @@ import {
   useSendChatMessageMutation,
 } from '@/api/chatApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
+import { useFormat } from '@/i18n/useFormat'
+import type { Language } from '@/i18n/language'
 import { Avatar, AvatarFallback, Button, StatusBadge, Textarea, statusLabel } from '../../admin-web-components'
 import { cn } from '../../ui-shared-utils'
 import { useChatLive } from './ChatLive'
@@ -25,6 +29,8 @@ type Outgoing = { clientMessageId: string; body: string; state: 'sending' | 'fai
 // One conversation: who it is with and what they have going now (AC-3), the messages (AC-5, AC-6), and
 // the box to answer in with dispatch's presets (AC-4, AC-13).
 export function Conversation({ threadId }: { threadId: string }) {
+  const { t } = useTranslation()
+  const f = useFormat()
   const pageVisible = usePageVisible()
   const live = useChatLive()
   const poll = !live && pageVisible ? CONVERSATION_POLL_MS : 0
@@ -75,14 +81,16 @@ export function Conversation({ threadId }: { threadId: string }) {
   // A screen reader hears a new message from the rider or restaurant that arrives while the thread is
   // open, through the status line below, instead of the whole list being read out on every load.
   // `undefined` means the first page has not loaded yet: what is there on opening is not announced.
+  // The state keeps who and when, not words: the sentence is made when it draws, in the reader's
+  // current language (spec 0054).
   const newestFromParty = newest?.filter((message) => message.senderKind === 'COURIER' || message.senderKind === 'PARTNER').at(-1)
   const lastFromParty = useRef<string | null | undefined>(undefined)
-  const [announcement, setAnnouncement] = useState('')
+  const [announced, setAnnounced] = useState<{ name: string | null; at: string } | null>(null)
   useEffect(() => {
     if (!newest) return
     const id = newestFromParty?.id ?? null
     if (lastFromParty.current !== undefined && newestFromParty && id !== lastFromParty.current) {
-      setAnnouncement(`New message from ${newestFromParty.senderName ?? 'them'}, ${messageTime(newestFromParty.createdAt)}`)
+      setAnnounced({ name: newestFromParty.senderName ?? null, at: newestFromParty.createdAt })
     }
     lastFromParty.current = id
   }, [newest, newestFromParty])
@@ -155,15 +163,15 @@ export function Conversation({ threadId }: { threadId: string }) {
   if (threadQuery.isError && !thread) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">This conversation can&apos;t be shown. It may not exist, or the server can&apos;t be reached.</p>
+        <p className="text-sm text-muted-foreground">{t('chat.conversation.notShown')}</p>
         <Button asChild variant="outline">
-          <Link href="/chat">Back to Messages</Link>
+          <Link href="/chat">{t('chat.conversation.backToMessages')}</Link>
         </Button>
       </div>
     )
   }
   if (!thread) {
-    return <p className="p-6 text-sm text-muted-foreground">Loading the conversation…</p>
+    return <p className="p-6 text-sm text-muted-foreground">{t('chat.conversation.loading')}</p>
   }
 
   return (
@@ -172,28 +180,33 @@ export function Conversation({ threadId }: { threadId: string }) {
 
       {/* role="status" is a polite live region: a screen reader reads out what is put in it. */}
       <p role="status" className="sr-only">
-        {announcement}
+        {announced
+          ? t('chat.conversation.newMessage', {
+              name: announced.name ?? t('chat.conversation.them'),
+              time: messageTime(announced.at, f.language),
+            })
+          : ''}
       </p>
 
       <div ref={listRef} onScroll={onListScroll} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         {messagesQuery.isError ? (
           <p role="status" className="text-sm text-destructive">
-            Messages can&apos;t be reached right now. They will load again on their own.
+            {t('chat.conversation.unreachable')}
           </p>
         ) : null}
         {messages.length >= 50 && !noMoreOlder ? (
           <div className="flex justify-center">
             <Button variant="ghost" size="sm" onClick={() => void showOlder()} disabled={olderQuery.isFetching}>
-              {olderQuery.isFetching ? 'Loading…' : 'Show earlier messages'}
+              {olderQuery.isFetching ? t('common.loading') : t('chat.conversation.showEarlier')}
             </Button>
           </div>
         ) : null}
         {messagesQuery.isSuccess && messages.length === 0 && pending.length === 0 ? (
-          <p className="text-center text-sm text-muted-foreground">No messages yet. Write the first one below.</p>
+          <p className="text-center text-sm text-muted-foreground">{t('chat.conversation.empty')}</p>
         ) : null}
-        <ol ref={contentRef} className="space-y-4" aria-label={`Messages with ${thread.name}`}>
+        <ol ref={contentRef} className="space-y-4" aria-label={t('chat.conversation.messagesWith', { name: thread.name })}>
           {messages.map((message) => (
-            <MessageItem key={message.id} message={message} partyName={thread.name} />
+            <MessageItem key={message.id} message={message} partyName={thread.name} language={f.language} />
           ))}
           {pending.map((item) => (
             <li key={item.clientMessageId} className="flex flex-col items-end gap-1">
@@ -204,10 +217,10 @@ export function Conversation({ threadId }: { threadId: string }) {
                   onClick={() => void deliver(item)}
                   className="text-xs font-medium text-destructive underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  Not sent, click to retry
+                  {t('chat.conversation.retry')}
                 </button>
               ) : (
-                <span className="text-xs text-muted-foreground">Sending…</span>
+                <span className="text-xs text-muted-foreground">{t('chat.conversation.sending')}</span>
               )}
             </li>
           ))}
@@ -220,6 +233,7 @@ export function Conversation({ threadId }: { threadId: string }) {
 }
 
 function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
+  const { t } = useTranslation()
   const firstName = thread.name.split(' ')[0] || thread.name
   const offline = thread.kind === 'COURIER' && thread.courierStatus === 'OFFLINE'
   return (
@@ -227,7 +241,7 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
       <div className="flex flex-wrap items-center gap-3 p-4">
         <Link href="/chat" className="rounded-md p-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden">
           <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-          <span className="sr-only">Back to all conversations</span>
+          <span className="sr-only">{t('chat.conversation.backToAll')}</span>
         </Link>
         <Avatar className="h-10 w-10">
           <AvatarFallback className="text-sm">{initials(thread.name)}</AvatarFallback>
@@ -239,7 +253,7 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
           </div>
           {/* The number never breaks or cuts: in a narrow pane it moves whole to its own line. */}
           <p className="text-sm text-muted-foreground">
-            {roleLabel(thread.kind)}
+            {roleLabel(thread.kind, t)}
             {thread.phoneNumber ? (
               <>
                 {' · '}
@@ -252,7 +266,7 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
           <Button asChild variant="outline">
             <a href={`tel:${thread.phoneNumber}`}>
               <PhoneCall aria-hidden="true" className="mr-2 h-4 w-4" />
-              Call {firstName}
+              {t('chat.conversation.call', { name: firstName })}
             </a>
           </Button>
         ) : null}
@@ -261,13 +275,13 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
       {/* AC-10: a rider's time off stays off. The message is kept and no alert goes to the phone. */}
       {offline ? (
         <p className="mx-4 mb-3 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-          {firstName} is Offline. A message waits until they next open the app, with no alert. Call if it can&apos;t wait.
+          {t('chat.conversation.offline', { name: firstName })}
         </p>
       ) : null}
 
       {/* AC-3: what they have going now, so dispatch can open it. No minutes and no position. */}
       {thread.activeDeliveries.length > 0 ? (
-        <ul className="space-y-2 px-4 pb-4" aria-label="Active deliveries">
+        <ul className="space-y-2 px-4 pb-4" aria-label={t('chat.conversation.activeDeliveries')}>
           {thread.activeDeliveries.map((delivery) => (
             <li
               key={delivery.id}
@@ -276,15 +290,15 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
               <span className="flex items-center gap-2 text-sm">
                 <WarningCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
                 <span className="font-medium">{orderLabel(delivery.orderReference, delivery.id)}</span>
-                <span>· {statusLabel(delivery.status, 'delivery')}</span>
+                <span>{`· ${statusLabel(delivery.status, 'delivery', t)}`}</span>
               </span>
               <Button asChild size="sm">
-                <Link href={`/deliveries/${delivery.id}`}>Open Delivery</Link>
+                <Link href={`/deliveries/${delivery.id}`}>{t('chat.conversation.openDelivery')}</Link>
               </Button>
             </li>
           ))}
           {thread.moreActiveDeliveries > 0 ? (
-            <li className="text-sm text-muted-foreground">and {thread.moreActiveDeliveries} more</li>
+            <li className="text-sm text-muted-foreground">{t('chat.conversation.more', { number: thread.moreActiveDeliveries })}</li>
           ) : null}
         </ul>
       ) : null}
@@ -292,7 +306,8 @@ function ConversationHeader({ thread }: { thread: ChatThreadAdminDto }) {
   )
 }
 
-function MessageItem({ message, partyName }: { message: ChatMessageAdminDto; partyName: string }) {
+function MessageItem({ message, partyName, language }: { message: ChatMessageAdminDto; partyName: string; language: Language }) {
+  const { t } = useTranslation()
   const order = orderLabel(message.orderReference, message.deliveryId)
   const orderLink = order && message.deliveryId ? (
     <Link href={`/deliveries/${message.deliveryId}`} className="underline-offset-2 hover:underline">
@@ -304,15 +319,22 @@ function MessageItem({ message, partyName }: { message: ChatMessageAdminDto; par
     return (
       <li className="flex justify-center">
         <p className="max-w-[90%] whitespace-pre-wrap break-words rounded-full bg-destructive-soft px-3 py-1 text-center text-xs font-medium">
-          {messageStamp(message.createdAt)} · {message.body}
-          {orderLink ? <> · {orderLink}</> : null}
+          {messageStamp(message.createdAt, new Date(), language)}
+          {' · '}
+          {message.body}
+          {orderLink ? (
+            <>
+              {' · '}
+              {orderLink}
+            </>
+          ) : null}
         </p>
       </li>
     )
   }
 
   const fromDispatch = message.senderKind === 'DISPATCH'
-  const who = fromDispatch ? message.senderName ?? 'Dispatch' : message.senderName ?? partyName
+  const who = fromDispatch ? message.senderName ?? t('chat.conversation.dispatch') : message.senderName ?? partyName
   return (
     <li className={cn('flex flex-col gap-1', fromDispatch ? 'items-end' : 'items-start')}>
       <p
@@ -324,16 +346,36 @@ function MessageItem({ message, partyName }: { message: ChatMessageAdminDto; par
         {message.body}
       </p>
       <span className="text-xs text-muted-foreground">
-        {who} · {messageStamp(message.createdAt)}
-        {orderLink ? <> · {orderLink}</> : null}
+        {who}
+        {' · '}
+        {messageStamp(message.createdAt, new Date(), language)}
+        {orderLink ? (
+          <>
+            {' · '}
+            {orderLink}
+          </>
+        ) : null}
         {/* "Sent" means the server stored it. Dispatch never sees whether a rider read it (AC-6). */}
-        {fromDispatch ? ' · Sent' : ''}
+        {fromDispatch ? ` · ${t('chat.conversation.sent')}` : ''}
       </span>
     </li>
   )
 }
 
+// The quick replies to offer, in the reader's current language (spec 0054, AC-7, decision 47.26): each
+// preset's Greek or English, falling back to the other language when one is empty. An older backend sends
+// no presets, only `quickReplies` (already in the admin's stored language), which are used as they are.
+export function quickReplyTexts(thread: Pick<ChatThreadAdminDto, 'quickReplies' | 'quickReplyPresets'>, language: Language): string[] {
+  if (!thread.quickReplyPresets) return thread.quickReplies
+  return thread.quickReplyPresets
+    .map((preset) => (language === 'el' ? preset.el || preset.en : preset.en || preset.el))
+    .filter((text) => text !== '')
+}
+
 function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (text: string) => boolean }) {
+  const { t } = useTranslation()
+  const f = useFormat()
+  const quickReplies = quickReplyTexts(thread, f.language)
   const [text, setText] = useState('')
   const boxRef = useRef<HTMLTextAreaElement>(null)
   const firstName = thread.name.split(' ')[0] || thread.name
@@ -366,11 +408,11 @@ function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (tex
       {/* AC-13: dispatch's presets. A tap puts the words in the box, to send as they are or edit first
           (decision 111.6). One row that scrolls sideways inside itself, so the presets never take the
           messages' room however many the co-op saves (verify run, 2026-11-18). */}
-      {thread.quickReplies.length > 0 ? (
-        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Quick replies" role="group">
+      {quickReplies.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1" aria-label={t('chat.composer.quickReplies')} role="group">
           {/* The index in the key too: the co-op may save the same preset twice. A long preset wraps inside
               a button at most 16rem wide instead of spilling out of it (presets may be 100 characters). */}
-          {thread.quickReplies.map((reply, index) => (
+          {quickReplies.map((reply, index) => (
             <Button
               key={`${index}-${reply}`}
               type="button"
@@ -389,7 +431,7 @@ function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (tex
       ) : null}
       <div className="rounded-md border focus-within:ring-2 focus-within:ring-ring">
         <label htmlFor="chat-message" className="sr-only">
-          Message to {thread.name}
+          {t('chat.composer.messageTo', { name: thread.name })}
         </label>
         <Textarea
           id="chat-message"
@@ -397,15 +439,15 @@ function Composer({ thread, onSend }: { thread: ChatThreadAdminDto; onSend: (tex
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={`Write to ${firstName}`}
+          placeholder={t('chat.composer.placeholder', { name: firstName })}
           maxLength={CHAT_MESSAGE_MAX_LENGTH}
           rows={3}
           className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3">
-          <span className="text-xs text-muted-foreground">Text only. Enter sends, Shift and Enter starts a new line.</span>
+          <span className="text-xs text-muted-foreground">{t('chat.composer.hint')}</span>
           <Button type="submit" disabled={!canSend}>
-            Send
+            {t('chat.composer.send')}
           </Button>
         </div>
       </div>

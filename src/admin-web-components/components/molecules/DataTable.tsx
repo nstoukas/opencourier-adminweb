@@ -8,6 +8,8 @@ import {
   type PaginationState,
   type TableOptions,
 } from '@tanstack/react-table'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 
 import {
   Table,
@@ -50,6 +52,7 @@ export function DataTable<TData extends ObjectWithId>({
   hideHeader = false,
   ...props
 }: DataTableProps<TData>) {
+  const { t } = useTranslation()
   const options: TableOptions<TData> = {
     data,
     columns,
@@ -124,7 +127,7 @@ export function DataTable<TData extends ObjectWithId>({
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
+                {t('components.dataTable.noResults')}
               </TableCell>
             </TableRow>
           )}

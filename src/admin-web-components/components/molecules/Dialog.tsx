@@ -3,6 +3,8 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from '@phosphor-icons/react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '../../../ui-shared-utils'
 
@@ -32,7 +34,9 @@ const DialogContent = React.forwardRef<
   // `hideCloseButton` leaves out the corner X, for a step only its own button may close (spec 0037:
   // a new API key is shown once, so only Done closes that panel).
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideCloseButton?: boolean }
->(({ className, children, hideCloseButton = false, ...props }, ref) => (
+>(({ className, children, hideCloseButton = false, ...props }, ref) => {
+  const { t } = useTranslation()
+  return (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -47,12 +51,13 @@ const DialogContent = React.forwardRef<
       {hideCloseButton ? null : (
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('common.close')}</span>
         </DialogPrimitive.Close>
       )}
     </DialogPrimitive.Content>
   </DialogPortal>
-))
+  )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

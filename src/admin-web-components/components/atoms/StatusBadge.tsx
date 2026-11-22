@@ -1,4 +1,7 @@
 import * as React from 'react'
+import type { TFunction } from 'i18next'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '../../../ui-shared-utils'
 import { COURIER_STATUS_TO_HUMAN, EnumCourierStatus } from '../../../shared-types/delivery'
@@ -66,10 +69,15 @@ function fallbackLabel(status: string) {
 /**
  * The words for a status, for places that need text rather than a badge (a sentence, a toast).
  * Same words as the badge; an unknown value reads as words, never raw caps.
+ * Pass `t` for the reader's language (spec 0054): the words then come from the `enums` texts
+ * (deliveryStatus, courierStatus). Without it they stay the English of the tables above.
  */
-export function statusLabel(status: string, kind: 'delivery' | 'courier' = 'delivery'): string {
+export function statusLabel(status: string, kind: 'delivery' | 'courier' = 'delivery', t?: TFunction): string {
   const table: Record<string, StatusEntry | undefined> = kind === 'courier' ? COURIER_STATUSES : DELIVERY_STATUSES
-  return table[status]?.label ?? fallbackLabel(status)
+  const english = table[status]?.label ?? fallbackLabel(status)
+  if (!t) return english
+  // defaultValue: a status the language files do not know yet still reads as words.
+  return t(`enums.${kind === 'courier' ? 'courierStatus' : 'deliveryStatus'}.${status}`, { defaultValue: english })
 }
 
 export interface StatusBadgeProps {
@@ -85,6 +93,7 @@ export interface StatusBadgeProps {
  * everywhere. Never format a status yourself; pass the enum here.
  */
 function StatusBadge({ status, kind = 'delivery', className }: StatusBadgeProps) {
+  const { t } = useTranslation()
   // The tables are keyed by the enums, but the API hands us a plain string, so we read them
   // as string keyed maps and fall back when the string is not one we know.
   const table: Record<string, StatusEntry | undefined> = kind === 'courier' ? COURIER_STATUSES : DELIVERY_STATUSES
@@ -99,7 +108,7 @@ function StatusBadge({ status, kind = 'delivery', className }: StatusBadgeProps)
       data-status={status}
     >
       {kind === 'courier' && <span aria-hidden="true" className={cn('size-1.5 rounded-full', dot)} />}
-      {entry.label}
+      {statusLabel(status, kind, t)}
     </Badge>
   )
 }

@@ -64,6 +64,9 @@ export interface ChatThreadAdminDto {
     activeDeliveries: ChatActiveDeliveryAdminDto[];
     moreActiveDeliveries: number;
     quickReplies: string[];
+    // Spec 0054 AC-7 (decision 47.26): each preset in both languages, so the composer can show the
+    // reader's current one. Optional: an older backend sends only `quickReplies`.
+    quickReplyPresets?: { el: string; en: string }[];
     dispatchLastReadAt: string | null;
 }
 

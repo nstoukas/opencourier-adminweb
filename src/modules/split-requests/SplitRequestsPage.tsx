@@ -1,5 +1,8 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
+import type { TFunction } from 'i18next'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Table,
@@ -18,23 +21,26 @@ import {
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { shortId } from '@/utils/shortId'
-import { athensTime } from '@/modules/dispatch-stop/dispatchStopDisplay'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
 import { SPLIT_COUNT_POLL_MS } from './SplitRequestsBadge'
 
-const SIZE_WORDS: Record<string, string> = { SMALL: 'Small', MEDIUM: 'Medium', LARGE: 'Large' }
 const SIZES: SplitBoxSize[] = ['SMALL', 'MEDIUM', 'LARGE']
 
-// "2 boxes: Large and Small".
-export function legsWords(legs: SplitLegAdmin[]): string {
-  const words = legs.map((leg) => SIZE_WORDS[leg.boxSize] ?? leg.boxSize)
-  const list = words.length > 1 ? `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}` : words.join('')
-  return `${legs.length} boxes: ${list}`
+// A box size in the reader's language ("Large", "Μεγάλη"); a size the backend added later reads as it came.
+function sizeWord(t: TFunction, size: string): string {
+  return t(`splitRequests.size.${size}`, { defaultValue: size })
 }
 
-// The backend's own sentence for a refused answer (a 409 "already answered"), else a general one.
-function problemText(error: unknown): string {
-  const message = (error as { message?: unknown } | undefined)?.message
-  return typeof message === 'string' && message ? message : 'The answer could not be saved. Try again.'
+// "2 boxes: Large and Small". Takes `t` (i18next's translate function) because the words carry values.
+export function legsWords(legs: SplitLegAdmin[], t: TFunction): string {
+  const words = legs.map((leg) => sizeWord(t, leg.boxSize))
+  const list =
+    words.length > 1
+      ? t('splitRequests.listAnd', { first: words.slice(0, -1).join(', '), last: words[words.length - 1] })
+      : words.join('')
+  // `count` picks the plural form (Greek says "1 κουτί", "2 κουτιά").
+  return t('splitRequests.legs', { count: legs.length, list })
 }
 
 // Spec 0047 (AC-4): the Split requests queue. A rider at a restaurant found an order that does not fit one box
@@ -42,6 +48,7 @@ function problemText(error: unknown): string {
 // every other box becomes a new delivery paid in full, charged to the restaurant. The rider is paid while
 // waiting, so the oldest request leads.
 export function SplitRequestsPage() {
+  const { t } = useTranslation()
   const pageVisible = usePageVisible()
   const { data, isError, isLoading } = useGetSplitRequestsQuery(undefined, {
     pollingInterval: pageVisible ? SPLIT_COUNT_POLL_MS : 0,
@@ -51,21 +58,21 @@ export function SplitRequestsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Split requests"
-        description="Riders at a restaurant whose order does not fit one box. The rider keeps the first box; each other box goes as its own delivery, paid in full and charged to the restaurant."
+        title={t('splitRequests.title')}
+        description={t('splitRequests.description')}
       />
-      {isLoading ? <p className="text-sm text-muted-foreground">Loading split requests…</p> : null}
-      {isError && !data ? <p className="text-sm text-destructive">The split requests could not be loaded.</p> : null}
-      {data && rows.length === 0 ? <p className="text-sm text-muted-foreground">No rider is waiting for a split.</p> : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">{t('splitRequests.loading')}</p> : null}
+      {isError && !data ? <p className="text-sm text-destructive">{t('splitRequests.loadFailed')}</p> : null}
+      {data && rows.length === 0 ? <p className="text-sm text-muted-foreground">{t('splitRequests.empty')}</p> : null}
       {rows.length > 0 ? (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Restaurant</TableHead>
-              <TableHead>Rider</TableHead>
-              <TableHead>Proposed</TableHead>
-              <TableHead>Waiting</TableHead>
-              <TableHead>Answer</TableHead>
+              <TableHead>{t('splitRequests.columns.restaurant')}</TableHead>
+              <TableHead>{t('splitRequests.columns.rider')}</TableHead>
+              <TableHead>{t('splitRequests.columns.proposed')}</TableHead>
+              <TableHead>{t('splitRequests.columns.waiting')}</TableHead>
+              <TableHead>{t('splitRequests.columns.answer')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -80,13 +87,18 @@ export function SplitRequestsPage() {
 }
 
 function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
+  const { t } = useTranslation()
+  const f = useFormat()
+  // errorText: the server's refusal (a 409 "already answered") in the reader's language, else the fallback.
+  const { errorText } = useServerText()
   const [confirm, { isLoading: confirming }] = useConfirmSplitRequestMutation()
   const [refuse, { isLoading: refusing }] = useRefuseSplitRequestMutation()
   // Editing the boxes before confirming (AC-4), and the refusal's optional sentence.
   const [legs, setLegs] = useState<SplitLegAdmin[] | null>(null)
   const [refusing_, setRefusingOpen] = useState(false)
   const [note, setNote] = useState('')
-  const [problem, setProblem] = useState<string | null>(null)
+  // The refusal itself, not its words: they are made when it draws, so a language switch reaches it.
+  const [problem, setProblem] = useState<{ error: unknown } | null>(null)
   const busy = confirming || refusing
 
   const answer = async (run: () => Promise<unknown>) => {
@@ -94,7 +106,7 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
     try {
       await run()
     } catch (error) {
-      setProblem(problemText(error))
+      setProblem({ error })
     }
   }
   const sendConfirm = () =>
@@ -110,19 +122,21 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
         </Link>
         {request.legNumber && request.legCount ? (
           <div className="text-xs text-muted-foreground">
-            Leg {request.legNumber} of {request.legCount}
+            {t('splitRequests.leg', { number: request.legNumber, total: request.legCount })}
           </div>
         ) : null}
       </TableCell>
       <TableCell>{request.courierName || '—'}</TableCell>
       <TableCell>
-        <div>{legsWords(request.proposedLegs)}</div>
-        <div className="text-xs text-muted-foreground">Sent as {SIZE_WORDS[request.currentBoxSize] ?? request.currentBoxSize}</div>
+        <div>{legsWords(request.proposedLegs, t)}</div>
+        <div className="text-xs text-muted-foreground">
+          {t('splitRequests.sentAs', { size: sizeWord(t, request.currentBoxSize) })}
+        </div>
         {legs ? (
-          <fieldset className="mt-2 space-y-1" aria-label="Boxes to confirm">
+          <fieldset className="mt-2 space-y-1" aria-label={t('splitRequests.boxesToConfirm')}>
             {legs.map((leg, index) => (
               <label key={index} className="flex items-center gap-2 text-sm">
-                Box {index + 1}
+                {t('splitRequests.box', { number: index + 1 })}
                 <select
                   className="rounded border px-1 py-0.5"
                   value={leg.boxSize}
@@ -132,7 +146,7 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
                 >
                   {SIZES.map((size) => (
                     <option key={size} value={size}>
-                      {SIZE_WORDS[size]}
+                      {sizeWord(t, size)}
                     </option>
                   ))}
                 </select>
@@ -146,7 +160,7 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
                 disabled={legs.length >= 4}
                 onClick={() => setLegs([...legs, { boxSize: 'SMALL' }])}
               >
-                Add a box
+                {t('splitRequests.addBox')}
               </Button>
               <Button
                 type="button"
@@ -155,37 +169,39 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
                 disabled={legs.length <= 2}
                 onClick={() => setLegs(legs.slice(0, -1))}
               >
-                Remove the last box
+                {t('splitRequests.removeBox')}
               </Button>
             </div>
           </fieldset>
         ) : null}
       </TableCell>
       <TableCell>
-        {request.waitedMinutes} min
+        {t('common.minutes', { count: request.waitedMinutes })}
         {/* Row 11 review: when the rider may leave the order unsplit, in Athens time. */}
         {request.leaveFrom ? (
-          <span className="block text-xs text-muted-foreground">May leave at {athensTime(request.leaveFrom)}</span>
+          <span className="block text-xs text-muted-foreground">
+            {t('splitRequests.mayLeave', { time: f.time(request.leaveFrom) })}
+          </span>
         ) : null}
       </TableCell>
       <TableCell className="space-y-2">
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={sendConfirm}>
-            {legs ? `Split into ${legs.length}` : 'Confirm'}
+            {legs ? t('splitRequests.splitInto', { number: legs.length }) : t('common.confirm')}
           </Button>
           {legs ? null : (
             <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setLegs(request.proposedLegs)}>
-              Change boxes
+              {t('splitRequests.changeBoxes')}
             </Button>
           )}
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setRefusingOpen(!refusing_)}>
-            It fits
+            {t('splitRequests.itFits')}
           </Button>
         </div>
         {refusing_ ? (
           <div className="space-y-1">
             <label className="block text-xs text-muted-foreground" htmlFor={`note-${request.id}`}>
-              A sentence for the rider (optional)
+              {t('splitRequests.noteLabel')}
             </label>
             <input
               id={`note-${request.id}`}
@@ -195,13 +211,13 @@ function SplitRequestRow({ request }: { request: SplitRequestAdminDto }) {
               onChange={(event) => setNote(event.target.value)}
             />
             <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={sendRefuse}>
-              Refuse the split
+              {t('splitRequests.refuse')}
             </Button>
           </div>
         ) : null}
         {problem ? (
           <p role="alert" className="text-sm text-destructive">
-            {problem}
+            {errorText(problem.error, t('splitRequests.saveFailed'))}
           </p>
         ) : null}
       </TableCell>

@@ -2,6 +2,8 @@ import * as React from 'react'
 import * as ToastPrimitives from '@radix-ui/react-toast'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { X } from '@phosphor-icons/react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../../../ui-shared-utils'
 
 const ToastProvider = ToastPrimitives.Provider
@@ -62,7 +64,9 @@ ToastAction.displayName = ToastPrimitives.Action.displayName
 const ToastClose = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Close>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>
->(({ className, ...props }, ref) => (
+>(({ className, ...props }, ref) => {
+  const { t } = useTranslation()
+  return (
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
@@ -74,9 +78,10 @@ const ToastClose = React.forwardRef<
   >
     <X className="h-4 w-4" />
     {/* The icon is hidden from screen readers, so the button needs words of its own. */}
-    <span className="sr-only">Close</span>
+    <span className="sr-only">{t('common.close')}</span>
   </ToastPrimitives.Close>
-))
+  )
+})
 ToastClose.displayName = ToastPrimitives.Close.displayName
 
 const ToastTitle = React.forwardRef<

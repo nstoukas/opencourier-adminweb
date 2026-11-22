@@ -1,4 +1,6 @@
 import * as React from 'react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '../../../ui-shared-utils'
 
@@ -7,8 +9,9 @@ import { cn } from '../../../ui-shared-utils'
 export type BreadcrumbStep = { label: string; href?: string; onClick?: () => void }
 
 export function Breadcrumb({ steps, className }: { steps: BreadcrumbStep[]; className?: string }) {
+  const { t } = useTranslation()
   return (
-    <nav aria-label="Breadcrumb" className={cn('mb-2 text-sm text-muted-foreground', className)}>
+    <nav aria-label={t('components.breadcrumb.label')} className={cn('mb-2 text-sm text-muted-foreground', className)}>
       <ol className="flex flex-wrap items-center gap-1.5">
         {steps.map((step, index) => {
           const last = index === steps.length - 1

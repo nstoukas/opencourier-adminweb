@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import { useGetSplitRequestCountQuery } from '@/api/splitRequestApi'
 import { playChatSound } from '@/modules/chat/chatSound'
 
@@ -9,6 +11,7 @@ export const SPLIT_COUNT_POLL_MS = 15_000
 // chat's quiet sound when it goes up, so a rider flagging an order is not missed for ten minutes. One count
 // for the whole co-op, never per rider (binding value 5).
 export function SplitRequestsBadge() {
+  const { t } = useTranslation()
   // Row 11 review: asked whether or not the tab is in front, or the sound never plays in exactly the case it
   // exists for (an admin on another tab). A hidden tab may slow this to once a minute, well inside the limit.
   const { data, isError } = useGetSplitRequestCountQuery(undefined, {
@@ -27,16 +30,16 @@ export function SplitRequestsBadge() {
     return (
       <span
         role="img"
-        aria-label="Open split requests could not be counted"
+        aria-label={t('splitRequests.badge.countFailed')}
         className="ml-auto rounded-full bg-secondary px-1.5 py-0.5 text-xs font-semibold leading-none text-secondary-foreground"
-        title="Open split requests could not be counted"
+        title={t('splitRequests.badge.countFailed')}
       >
         ?
       </span>
     )
   }
   if (open === 0) return null
-  const label = `${open} waiting for an answer`
+  const label = t('splitRequests.badge.waiting', { number: open })
   // Always red: a rider is standing at a restaurant until someone answers.
   return (
     <span

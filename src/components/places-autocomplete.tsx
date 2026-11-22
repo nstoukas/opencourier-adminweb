@@ -1,5 +1,7 @@
 import usePlacesAutocomplete, { getDetails, Suggestion } from 'use-places-autocomplete'
 import React, { useEffect } from 'react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import {
 	Command,
 	CommandEmpty,
@@ -15,6 +17,7 @@ interface PlacesAutocompleteProps {
 }
 
 export const PlacesAutocomplete = ({ defaultValue, setSelected }: PlacesAutocompleteProps) => {
+  const { t } = useTranslation()
   const {
     ready,
     value,
@@ -37,8 +40,8 @@ export const PlacesAutocomplete = ({ defaultValue, setSelected }: PlacesAutocomp
 
   return (
     <Command>
-      <CommandInput value={value} onValueChange={setValue} disabled={!ready} placeholder="Search an address" />
-      <CommandEmpty>No address found.</CommandEmpty>
+      <CommandInput value={value} onValueChange={setValue} disabled={!ready} placeholder={t('components.placesAutocomplete.placeholder')} />
+      <CommandEmpty>{t('components.placesAutocomplete.empty')}</CommandEmpty>
       <CommandList>
         <CommandGroup>
           {status === 'OK' &&

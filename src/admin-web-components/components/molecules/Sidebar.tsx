@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { List } from '@phosphor-icons/react'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '../../../ui-shared-utils'
 import { Button } from '../atoms/Button'
@@ -78,6 +80,7 @@ function SidebarProvider({ className, style, children, ...props }: React.Compone
 
 function Sidebar({ className, children, ...props }: React.ComponentProps<'div'>) {
   const { openMobile, setOpenMobile } = useSidebar()
+  const { t } = useTranslation()
 
   return (
     <>
@@ -98,9 +101,9 @@ function Sidebar({ className, children, ...props }: React.ComponentProps<'div'>)
           data-slot="sidebar"
           className="flex w-[--sidebar-width-mobile] flex-col gap-0 bg-sidebar p-0 text-sidebar-foreground lg:hidden"
         >
-          <SheetTitle className="sr-only">Menu</SheetTitle>
+          <SheetTitle className="sr-only">{t('components.sidebar.menu')}</SheetTitle>
           {/* Read by screen readers when the sheet opens; Radix ties it to the sheet by aria-describedby. */}
-          <SheetDescription className="sr-only">Links to every admin page.</SheetDescription>
+          <SheetDescription className="sr-only">{t('components.sidebar.description')}</SheetDescription>
           {children}
         </SheetContent>
       </Sheet>
@@ -111,13 +114,14 @@ function Sidebar({ className, children, ...props }: React.ComponentProps<'div'>)
 // The button that opens the sheet below 1024px. Hidden on wider screens, where the sidebar shows.
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
   const { setOpenMobile } = useSidebar()
+  const { t } = useTranslation()
 
   return (
     <Button
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      aria-label="Open menu"
+      aria-label={t('components.sidebar.openMenu')}
       className={cn('h-9 w-9 lg:hidden', className)}
       onClick={(event) => {
         onClick?.(event)

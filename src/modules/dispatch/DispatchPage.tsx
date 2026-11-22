@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import { useGetInstanceConfigQuery } from '@/api/configApi'
 import { useGetDispatchBoardQuery } from '@/api/dispatchBoardApi'
 import {
@@ -17,6 +19,7 @@ import {
 import type { DispatchBoardDto } from '@/backend-admin-sdk'
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { usePageVisible } from '@/hooks/usePageVisible'
+import { useFormat } from '@/i18n/useFormat'
 import { athensEnd } from '@/modules/dispatch-stop/dispatchStopDisplay'
 import { AttentionList } from './AttentionList'
 import { BUSY_COLOR, FREE_COLOR, STALE_AFTER_SECONDS, WAITING_COLOR } from './dispatchDisplay'
@@ -29,10 +32,11 @@ const DispatchMap = dynamic(() => import('./DispatchMap'), {
   loading: () => <Skeleton className="h-[420px] w-full" />,
 })
 
+// Each item's words are a translation key, looked up when the legend draws.
 const LEGEND = [
-  { label: 'Free', swatch: 'rounded-full', color: FREE_COLOR },
-  { label: 'Busy', swatch: 'rounded-full', color: BUSY_COLOR },
-  { label: 'Waiting', swatch: 'rounded-sm', color: WAITING_COLOR },
+  { label: 'dispatch.map.free', swatch: 'rounded-full', color: FREE_COLOR },
+  { label: 'dispatch.map.busy', swatch: 'rounded-full', color: BUSY_COLOR },
+  { label: 'dispatch.map.waiting', swatch: 'rounded-sm', color: WAITING_COLOR },
 ]
 
 function StatCard({
@@ -58,29 +62,38 @@ function StatCard({
 }
 
 function Cards({ cards }: { cards: DispatchBoardDto['cards'] }) {
+  const { t } = useTranslation()
   const { active, waiting, couriers, deliveredToday } = cards
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
-        label="Active deliveries"
+        label={t('dispatch.cards.active')}
         value={active.total}
-        line={`${active.toPickup} to pickup · ${active.toDropoff} to dropoff`}
+        line={t('dispatch.cards.activeLine', { toPickup: active.toPickup, toDropoff: active.toDropoff })}
       />
       <StatCard
-        label="Waiting for a courier"
+        label={t('dispatch.cards.waiting')}
         value={waiting.total}
-        line={waiting.oldestWaitingMinutes === null ? 'Nothing waiting' : `Oldest waiting ${waiting.oldestWaitingMinutes} min`}
+        line={
+          waiting.oldestWaitingMinutes === null
+            ? t('dispatch.cards.nothingWaiting')
+            : t('dispatch.cards.oldestWaiting', { minutes: waiting.oldestWaitingMinutes })
+        }
         warning={waiting.total > 0}
       />
       <StatCard
-        label="Couriers online"
+        label={t('dispatch.cards.couriers')}
         value={couriers.total}
-        line={`${couriers.busy} busy · ${couriers.free} free · ${couriers.lastCall} on Last Call`}
+        line={t('dispatch.cards.couriersLine', { busy: couriers.busy, free: couriers.free, lastCall: couriers.lastCall })}
       />
       <StatCard
-        label="Delivered today"
+        label={t('dispatch.cards.delivered')}
         value={deliveredToday.total}
-        line={deliveredToday.medianMinutes === null ? 'No deliveries yet' : `Median ${deliveredToday.medianMinutes} min door to door`}
+        line={
+          deliveredToday.medianMinutes === null
+            ? t('dispatch.cards.noDeliveries')
+            : t('dispatch.cards.median', { minutes: deliveredToday.medianMinutes })
+        }
       />
     </div>
   )
@@ -102,6 +115,8 @@ function DispatchSkeleton() {
 // Spec 0034: what is waiting, what is stuck and where working riders are, from one answer asked
 // every 10 s. Nothing here times, counts or ranks a rider (AC-10).
 export function DispatchPage() {
+  const { t } = useTranslation()
+  const f = useFormat()
   const pageVisible = usePageVisible()
   // RTK Query keeps the last good `data` when a poll fails, so the page stays on screen (AC-15).
   // `refetchOnMountOrArgChange`: coming back to this page asks at once, instead of showing the
@@ -133,36 +148,36 @@ export function DispatchPage() {
   const secondsAgo = lastGoodAt === null ? null : Math.max(0, Math.floor((nowMs - lastGoodAt) / 1000))
   const unreachable = isError && (secondsAgo === null || secondsAgo > STALE_AFTER_SECONDS)
   const description = unreachable
-    ? "Can't reach the server"
+    ? t('dispatch.unreachable')
     : secondsAgo === null
-      ? 'live'
-      : `live, updated ${secondsAgo} s ago`
+      ? t('dispatch.live')
+      : t('dispatch.liveUpdated', { seconds: secondsAgo })
 
   return (
     <>
       <PageHeader
-        title="Dispatch"
+        title={t('dispatch.title')}
         description={description}
         action={
           <Button asChild variant="outline">
-            <Link href="/deliveries">All Deliveries</Link>
+            <Link href="/deliveries">{t('dispatch.allDeliveries')}</Link>
           </Button>
         }
       />
       {data?.dispatchStop.active ? (
         <Alert variant="warning" className="mb-4">
-          <AlertTitle>Dispatch is stopped</AlertTitle>
+          <AlertTitle>{t('dispatch.stopped')}</AlertTitle>
           <AlertDescription>
             {data.dispatchStop.until
-              ? `Until ${athensEnd(data.generatedAt, data.dispatchStop.until)}.`
-              : 'Until an admin restarts it.'}
+              ? t('dispatch.until', { time: athensEnd(data.generatedAt, data.dispatchStop.until, f.language) })
+              : t('dispatch.untilRestart')}
           </AlertDescription>
         </Alert>
       ) : null}
       {!data && isError ? (
         <Alert variant="destructive">
-          <AlertTitle>Can&apos;t reach the server</AlertTitle>
-          <AlertDescription>Trying again every 10 seconds.</AlertDescription>
+          <AlertTitle>{t('dispatch.unreachable')}</AlertTitle>
+          <AlertDescription>{t('dispatch.retrying')}</AlertDescription>
         </Alert>
       ) : !data ? (
         <DispatchSkeleton />
@@ -173,8 +188,8 @@ export function DispatchPage() {
             <AttentionList rows={data.attention} more={data.attentionMore} nowMs={nowMs} />
             <Card>
               <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-                <CardTitle className="text-lg">Live map</CardTitle>
-                <ul className="flex items-center gap-3 text-xs text-muted-foreground" aria-label="Map legend">
+                <CardTitle className="text-lg">{t('dispatch.map.title')}</CardTitle>
+                <ul className="flex items-center gap-3 text-xs text-muted-foreground" aria-label={t('dispatch.map.legendLabel')}>
                   {LEGEND.map((item) => (
                     <li key={item.label} className="flex items-center gap-1">
                       <span
@@ -182,7 +197,7 @@ export function DispatchPage() {
                         className={`inline-block size-2.5 ${item.swatch}`}
                         style={{ backgroundColor: item.color }}
                       />
-                      {item.label}
+                      {t(item.label)}
                     </li>
                   ))}
                 </ul>
@@ -190,7 +205,7 @@ export function DispatchPage() {
               <CardContent className="space-y-2">
                 <DispatchMap map={data.map} region={region} />
                 {data.map.couriers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No riders working right now</p>
+                  <p className="text-sm text-muted-foreground">{t('dispatch.map.noRiders')}</p>
                 ) : null}
               </CardContent>
             </Card>

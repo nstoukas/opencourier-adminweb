@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import { useMarkDeliveryIssueHandledMutation } from '@/api/deliveriesApi'
 import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@/admin-web-components'
 import type { DispatchAttentionRowDto } from '@/backend-admin-sdk'
@@ -9,14 +11,16 @@ import { isRedRow, minutesSince, rowHref } from './dispatchDisplay'
 import { ApproveRemovalButton, DeclineRemovalButton } from './RemovalRequestActions'
 
 function OpenButton({ row }: { row: DispatchAttentionRowDto }) {
+  const { t } = useTranslation()
   return (
     <Button asChild size="sm" variant="outline">
-      <Link href={rowHref(row)}>Open</Link>
+      <Link href={rowHref(row)}>{t('common.open')}</Link>
     </Button>
   )
 }
 
 function MarkHandledButton({ row }: { row: DispatchAttentionRowDto }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [markHandled, { isLoading }] = useMarkDeliveryIssueHandledMutation()
   // Stays true until the board's refresh removes this row, so the button cannot be pressed again.
@@ -27,12 +31,12 @@ function MarkHandledButton({ row }: { row: DispatchAttentionRowDto }) {
       await markHandled({ deliveryId: row.deliveryId, issueId: row.issueId }).unwrap()
       setSaved(true)
     } catch {
-      toast({ title: 'Could not mark the report handled', variant: 'destructive' })
+      toast({ title: t('dispatch.attention.markFailed'), variant: 'destructive' })
     }
   }
   return (
     <Button type="button" size="sm" disabled={isLoading || saved} onClick={onClick}>
-      Mark Handled
+      {t('dispatch.attention.markHandled')}
     </Button>
   )
 }
@@ -40,6 +44,7 @@ function MarkHandledButton({ row }: { row: DispatchAttentionRowDto }) {
 // The buttons a row offers. One `switch` for every kind; a kind this page does not know yet (a
 // newer backend, rows 24 and 111) falls through to a plain Open, so an older tab never breaks.
 function RowActions({ row }: { row: DispatchAttentionRowDto }) {
+  const { t } = useTranslation()
   switch (row.kind) {
     case 'WAITING_FOR_RIDER':
     case 'OFFER_UNANSWERED':
@@ -66,7 +71,7 @@ function RowActions({ row }: { row: DispatchAttentionRowDto }) {
     case 'UNREAD_MESSAGE':
       return (
         <Button asChild size="sm" variant="outline">
-          <Link href={rowHref(row)}>Open Chat</Link>
+          <Link href={rowHref(row)}>{t('dispatch.attention.openChat')}</Link>
         </Button>
       )
     default:
@@ -75,11 +80,12 @@ function RowActions({ row }: { row: DispatchAttentionRowDto }) {
 }
 
 function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: number }) {
+  const { t } = useTranslation()
   const [headline, ...rest] = row.detail.split('\n')
   const reference = row.orderReference ? `#${row.orderReference} · ` : ''
   // The offer row is the one kind that can arrive with no time (spec 0034, AC-5).
   const minutes = row.since === null ? null : minutesSince(row.since, nowMs)
-  const whoAndWhere = [row.customerLabel, row.restaurantName ? `from ${row.restaurantName}` : null]
+  const whoAndWhere = [row.customerLabel, row.restaurantName ? t('dispatch.attention.fromRestaurant', { name: row.restaurantName }) : null]
     .filter(Boolean)
     .join(' · ')
   // A report's note is its second line; a delivery still looking for a rider says who it is for.
@@ -98,27 +104,27 @@ function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: num
           className={`mt-1.5 size-2.5 shrink-0 rounded-full ${isRedRow(row.kind) ? 'bg-destructive' : 'bg-warning'}`}
         />
         {/* The dot's meaning for anyone who cannot see its colour. */}
-        <span className="sr-only">{isRedRow(row.kind) ? 'Nobody has taken this.' : 'Running.'}</span>
+        <span className="sr-only">{isRedRow(row.kind) ? t('dispatch.attention.red') : t('dispatch.attention.yellow')}</span>
         <div className="min-w-0 space-y-0.5 text-sm">
           <p className="break-words font-medium">
             <Link href={rowHref(row)} className="hover:underline">
               {reference}
               {headline}
             </Link>
-            {minutes !== null ? <span className="font-normal text-muted-foreground"> · {minutes} min</span> : null}
+            {minutes !== null ? <span className="font-normal text-muted-foreground">{t('dispatch.attention.minutes', { minutes })}</span> : null}
           </p>
           {second ? <p className="whitespace-pre-wrap break-words text-muted-foreground">{second}</p> : null}
           {/* Spec 0048 (AC-12): one of two orders offered together to one rider, answered together. */}
           {row.pairedDeliveryId ? (
             <p className="text-muted-foreground" data-testid="attention-pair">
               {/* Row 81: an add on names the job it would ride with. */}
-              {row.addOn ? 'One more order on the way, added to the job' : 'Two orders together, with'}{' '}
+              {row.addOn ? t('dispatch.attention.addOn') : t('dispatch.attention.pair')}{' '}
               {/* agy review of row 80: the short id beside the reference (this repo's AGENTS.md), and the short id
                   alone when the other order has no reference. */}
               <Link href={`/deliveries/${row.pairedDeliveryId}`} className="underline" title={row.pairedDeliveryId}>
                 {row.pairedOrderReference
                   ? `#${row.pairedOrderReference} · ${shortId(row.pairedDeliveryId)}`
-                  : `delivery ${shortId(row.pairedDeliveryId)}`}
+                  : t('dispatch.attention.pairDelivery', { id: shortId(row.pairedDeliveryId) })}
               </Link>
             </p>
           ) : null}
@@ -139,14 +145,15 @@ type Props = {
 
 // Everything that needs a person, SOS first and then the oldest, in the order the backend sends.
 export function AttentionList({ rows, more, nowMs }: Props) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Needs attention · {rows.length + more}</CardTitle>
+        <CardTitle className="text-lg">{t('dispatch.attention.title', { number: rows.length + more })}</CardTitle>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Nothing needs attention</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t('dispatch.attention.nothing')}</p>
         ) : (
           <ul className="space-y-2">
             {rows.map((row) => (
@@ -154,7 +161,7 @@ export function AttentionList({ rows, more, nowMs }: Props) {
             ))}
           </ul>
         )}
-        {more > 0 ? <p className="mt-3 text-sm text-muted-foreground">and {more} more</p> : null}
+        {more > 0 ? <p className="mt-3 text-sm text-muted-foreground">{t('dispatch.attention.more', { number: more })}</p> : null}
       </CardContent>
     </Card>
   )

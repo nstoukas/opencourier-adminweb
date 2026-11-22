@@ -1,5 +1,7 @@
 import { memo, useEffect, useRef } from 'react'
 import Link from 'next/link'
+// useTranslation gives t, which looks a key up in the reader's language.
+import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -31,17 +33,18 @@ function FitToRegion({ region }: { region: unknown }) {
 }
 
 function CourierPopup({ courier }: { courier: DispatchMapCourierDto }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-1 text-sm">
       <p className="font-medium">{courier.name}</p>
       {courier.carrying.map((job) => (
         <p key={job.deliveryId}>
           <Link className="underline" href={`/deliveries/${job.deliveryId}`}>
-            {job.orderReference ? `#${job.orderReference}` : 'Delivery'}
+            {job.orderReference ? `#${job.orderReference}` : t('dispatch.map.delivery')}
           </Link>
-          {job.offered ? ' offered' : ''}
+          {job.offered ? t('dispatch.map.offered') : ''}
           {/* Spec 0048 (AC-12): one of two orders offered or carried together. */}
-          {job.paired ? ' (two orders together)' : ''}
+          {job.paired ? t('dispatch.map.paired') : ''}
         </p>
       ))}
     </div>
@@ -58,6 +61,7 @@ type Props = {
 // redraw when the props have not changed, so the page's one second clock does not redraw the map.
 // Loaded only in the browser (the page imports it with `ssr: false`), because Leaflet needs `window`.
 function DispatchMap({ map, region }: Props) {
+  const { t } = useTranslation()
   return (
     <div className="relative z-0 h-[420px] w-full overflow-hidden rounded-lg border" data-testid="dispatch-map">
       <MapContainer center={[39.3622, 22.9425]} zoom={13} style={{ height: '100%', width: '100%' }}>
@@ -86,7 +90,7 @@ function DispatchMap({ map, region }: Props) {
           <Marker key={delivery.deliveryId} position={[delivery.latitude, delivery.longitude]} icon={waitingIcon}>
             <Popup>
               <Link className="underline" href={`/deliveries/${delivery.deliveryId}`}>
-                {delivery.orderReference ? `#${delivery.orderReference}` : 'Delivery'}
+                {delivery.orderReference ? `#${delivery.orderReference}` : t('dispatch.map.delivery')}
               </Link>
             </Popup>
           </Marker>

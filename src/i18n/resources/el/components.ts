@@ -4,4 +4,30 @@ import type { Translations } from '../en'
 
 // `: Translations['components']` makes TypeScript refuse a key missing here or added only here.
 export const components: Translations['components'] = {
+  dataTable: {
+    noResults: 'Κανένα αποτέλεσμα.',
+  },
+  pagination: {
+    label: 'σελίδες',
+    previousLabel: 'Μετάβαση στην προηγούμενη σελίδα',
+    previous: 'Προηγούμενη',
+    nextLabel: 'Μετάβαση στην επόμενη σελίδα',
+    next: 'Επόμενη',
+    morePages: 'Περισσότερες σελίδες',
+  },
+  sidebar: {
+    menu: 'Μενού',
+    description: 'Σύνδεσμοι προς κάθε σελίδα της διαχείρισης.',
+    openMenu: 'Άνοιγμα μενού',
+  },
+  spinner: {
+    loading: 'Φόρτωση',
+  },
+  breadcrumb: {
+    label: 'Διαδρομή',
+  },
+  placesAutocomplete: {
+    placeholder: 'Αναζήτηση διεύθυνσης',
+    empty: 'Δεν βρέθηκε διεύθυνση.',
+  },
 }
