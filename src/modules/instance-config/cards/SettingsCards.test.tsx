@@ -1045,7 +1045,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       const mockSet = jest.fn()
       render(
         <InstanceCard
-          form={{ ...dummyForm, addressNoteRetentionDays: '182' }}
+          form={{ ...dummyForm, addressNoteRetentionDays: '182', chatRetentionDays: '90' }}
           set={mockSet}
           options={dummyOptions}
           loaded={true}
@@ -1061,7 +1061,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(input).not.toBeDisabled()
       expect(
         screen.getByText(
-          'A courier note about a place that no other rider upvotes for this many days is deleted, at 03:30. Each upvote restarts the period. Riders are told the period. Whole days, 30 to 730; 182 is about 6 months.'
+          'A note about a place (by a rider, an admin or a restaurant) that no rider other than its author upvotes for this many days is deleted, at 03:30. Each such upvote restarts the period. Riders are told the period. Whole days, 30 to 730; 182 is about 6 months.'
         )
       ).toBeInTheDocument()
 

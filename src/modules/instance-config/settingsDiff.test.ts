@@ -2137,4 +2137,28 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(typeof payload.boxDefaultSize).toBe('string')
     })
   })
+
+  describe('Address notes settings (spec 0053, AC-6)', () => {
+    it('declares addressNoteRetentionDays in SETTINGS with kind number and label', () => {
+      const setting = SETTINGS.find((s) => s.key === 'addressNoteRetentionDays')
+      expect(setting).toBeDefined()
+      expect(setting?.kind).toBe('number')
+      expect(setting?.label).toBe('Address notes kept without an upvote (days)')
+    })
+
+    it('formFromSettings converts addressNoteRetentionDays to string and does not read chatRetentionDays', () => {
+      // Differing fixture values (182 vs 90) guard against reading chatRetentionDays into addressNoteRetentionDays
+      const backendData = {
+        addressNoteRetentionDays: 182,
+        chatRetentionDays: 90,
+      }
+      const form = formFromSettings(backendData)
+      expect(form.addressNoteRetentionDays).toBe('182')
+      expect(form.chatRetentionDays).toBe('90')
+
+      const empty = formFromSettings({})
+      expect(empty.addressNoteRetentionDays).toBe('')
+      expect(EMPTY_FORM.addressNoteRetentionDays).toBe('')
+    })
+  })
 })

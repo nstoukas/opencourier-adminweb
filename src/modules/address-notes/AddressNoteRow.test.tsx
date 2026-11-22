@@ -172,7 +172,7 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
     })
   })
 
-  describe('Delete action with two-step confirmation (AC-7, decision 82.7)', () => {
+  describe('Delete action with two-step confirmation (AC-7, decision 82.7, row 82 review)', () => {
     it('shows Delete button initially; clicking it shows "Yes, delete this note" and "Keep it"', () => {
       render(<AddressNoteRow note={sampleNote} />)
 
@@ -252,9 +252,22 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
         })
       })
     })
+
+    it('moves focus to "Keep it" when delete ask opens and returns focus to Delete when closed', () => {
+      render(<AddressNoteRow note={sampleNote} />)
+
+      const deleteBtn = screen.getByRole('button', { name: 'Delete' })
+      fireEvent.click(deleteBtn)
+
+      const keepBtn = screen.getByRole('button', { name: 'Keep it' })
+      expect(document.activeElement).toBe(keepBtn)
+
+      fireEvent.click(keepBtn)
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Delete' }))
+    })
   })
 
-  describe('Dismiss flags action (AC-7)', () => {
+  describe('Dismiss flags action with two-step confirmation (AC-7, row 82 review, decision 82.12)', () => {
     it('shows "Dismiss flags" button when flags exist, and hides it when note has no flags', () => {
       const { rerender } = render(<AddressNoteRow note={sampleNote} />)
       expect(screen.getByRole('button', { name: 'Dismiss flags' })).toBeInTheDocument()
@@ -272,10 +285,54 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
       expect(screen.queryByRole('button', { name: 'Dismiss flags' })).toBeNull()
     })
 
-    it('clicking "Dismiss flags" calls dismiss mutation and toasts success', async () => {
+    it('shows "Yes, dismiss the flag" and "Keep it" when single flag, and "Keep it" cancels', () => {
+      render(<AddressNoteRow note={sampleNote} />)
+
+      const dismissBtn = screen.getByRole('button', { name: 'Dismiss flags' })
+      fireEvent.click(dismissBtn)
+
+      expect(screen.getByRole('button', { name: 'Yes, dismiss the flag' })).toBeInTheDocument()
+      const keepBtn = screen.getByRole('button', { name: 'Keep it' })
+      expect(keepBtn).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Dismiss flags' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+
+      // Clicking "Keep it" cancels without calling mutation
+      fireEvent.click(keepBtn)
+
+      expect(screen.getByRole('button', { name: 'Dismiss flags' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Yes, dismiss the flag' })).toBeNull()
+      expect(mockDismissFlags).not.toHaveBeenCalled()
+    })
+
+    it('shows "Yes, dismiss all 2 flags" and "Keep them" when multiple flags, and "Keep them" cancels', () => {
+      const multiFlagNote: AddressNoteAdminDto = {
+        ...sampleNote,
+        flags: [
+          { id: 'flag-1', reason: 'Old info', createdAt: '2026-11-20T10:00:00Z' },
+          { id: 'flag-2', reason: 'Incorrect code', createdAt: '2026-11-21T11:00:00Z' },
+        ],
+      }
+      render(<AddressNoteRow note={multiFlagNote} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss flags' }))
+
+      expect(screen.getByRole('button', { name: 'Yes, dismiss all 2 flags' })).toBeInTheDocument()
+      const keepBtn = screen.getByRole('button', { name: 'Keep them' })
+      expect(keepBtn).toBeInTheDocument()
+
+      fireEvent.click(keepBtn)
+
+      expect(screen.getByRole('button', { name: 'Dismiss flags' })).toBeInTheDocument()
+      expect(mockDismissFlags).not.toHaveBeenCalled()
+    })
+
+    it('clicking "Yes, dismiss the flag" calls dismiss mutation and toasts success', async () => {
       render(<AddressNoteRow note={sampleNote} />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dismiss flags' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, dismiss the flag' }))
 
       expect(mockDismissFlags).toHaveBeenCalledWith({ id: 'note-001' })
       await waitFor(() => {
@@ -285,7 +342,7 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
       })
     })
 
-    it('handles dismiss mutation error and shows destructive toast', async () => {
+    it('handles dismiss mutation error, shows destructive toast, and resets confirmation state', async () => {
       mockDismissFlags.mockReturnValueOnce({
         unwrap: jest.fn().mockRejectedValue({ message: 'Flags already dismissed.' }),
       })
@@ -293,6 +350,7 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
       render(<AddressNoteRow note={sampleNote} />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dismiss flags' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, dismiss the flag' }))
 
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith({
@@ -300,6 +358,10 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
           variant: 'destructive',
         })
       })
+
+      // Resets state on error
+      expect(screen.getByRole('button', { name: 'Dismiss flags' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
     })
 
     it('uses fallback error message when dismiss error has no message property', async () => {
@@ -310,6 +372,7 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
       render(<AddressNoteRow note={sampleNote} />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dismiss flags' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, dismiss the flag' }))
 
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith({
@@ -317,6 +380,19 @@ describe('AddressNoteRow component (spec 0053, AC-7)', () => {
           variant: 'destructive',
         })
       })
+    })
+
+    it('moves focus to "Keep it" when dismiss ask opens and returns focus to Dismiss flags when closed', () => {
+      render(<AddressNoteRow note={sampleNote} />)
+
+      const dismissBtn = screen.getByRole('button', { name: 'Dismiss flags' })
+      fireEvent.click(dismissBtn)
+
+      const keepBtn = screen.getByRole('button', { name: 'Keep it' })
+      expect(document.activeElement).toBe(keepBtn)
+
+      fireEvent.click(keepBtn)
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Dismiss flags' }))
     })
   })
 
