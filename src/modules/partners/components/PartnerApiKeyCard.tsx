@@ -17,23 +17,20 @@ import {
 import { useCreatePartnerApiKeyMutation, useRemovePartnerApiKeyMutation } from '@/api/partnersApi'
 import type { PartnerAdminDto } from '@/backend-admin-sdk'
 import { ApiKeyShownOnce } from './ApiKeyShownOnce'
+import { useTranslation } from 'react-i18next'
+// TFunction is the type of t, so a plain helper can take it as a parameter.
+import type { TFunction } from 'i18next'
+import { useServerText } from '@/i18n/useServerText'
+import { useFormat, type Formats } from '@/i18n/useFormat'
 
-// The card's sentence for a restaurant with no sign in; the key buttons point to it as their reason.
-export const NO_LOGIN_NO_KEY = 'No login, so no API key.'
+// The translation key of the card's sentence for a restaurant with no sign in; the key buttons point
+// to it as their reason. A key, not words, so it reads in the admin's language (spec 0054).
+export const NO_LOGIN_NO_KEY = 'partners.apiKey.noLogin'
 
-// "3 Dec 2026, 14:05": the co-op's time (Athens), never the browser's zone (adminweb AGENTS.md).
-const keyMadeFormat = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Europe/Athens',
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
-
-export function formatKeyMade(date: Date): string {
-  return `Key made ${keyMadeFormat.format(date)}`
+// "Key made 03/12/2026, 14:05": the co-op's time (Athens), never the browser's zone (adminweb AGENTS.md),
+// through the shared format helpers so it reads like every other date in the admin.
+export function formatKeyMade(date: Date, t: TFunction, f: Formats): string {
+  return t('partners.apiKey.keyMade', { date: f.dateTime(date) })
 }
 
 // Which step the dialog shows. Kept apart from `open`, so the title does not change while Radix
@@ -44,9 +41,16 @@ type DialogMode = 'confirm-new' | 'confirm-remove' | 'shown'
 // API key and Remove key. A new key is shown once; the server keeps only its hash.
 export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
+  const { errorText } = useServerText()
+  // Dates in the reader's language, on Athens time.
+  const f = useFormat()
   const [open, setOpenState] = useState(false)
   const [mode, setMode] = useState<DialogMode>('confirm-new')
   const [shownKey, setShownKey] = useState<string | null>(null)
+  // Words, not a key: the error shows only inside the modal dialog, where the language switch cannot be reached.
   const [error, setError] = useState('')
   const reasonId = useId()
   // Whether the dialog is open right now. A request that ends after a click may read this, while its
@@ -89,7 +93,7 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
       setMode('shown')
       setOpen(true)
     } catch (err: any) {
-      const message = err?.message || 'Could not make a new API key.'
+      const message = errorText(err, t('partners.apiKey.makeFailed'))
       if (openRef.current) {
         setError(message)
       } else {
@@ -114,12 +118,12 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
     setError('')
     try {
       await removeApiKey({ id: partner.id }).unwrap()
-      toast({ title: `The API key of ${partner.name} is removed.` })
+      toast({ title: t('partners.apiKey.removed', { name: partner.name }) })
       // Remove key is about to be disabled (no key any more), so focus goes to New API key.
       openedBy.current = newButtonRef
       setOpen(false)
     } catch (err: any) {
-      const message = err?.message || 'Could not remove the API key.'
+      const message = errorText(err, t('partners.apiKey.removeFailed'))
       if (openRef.current) {
         setError(message)
       } else {
@@ -132,29 +136,30 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
   let title: string
   let description: string
   if (mode === 'shown') {
-    title = 'New API key'
-    description = `For ${partner.name}.`
+    title = t('partners.apiKey.shownTitle')
+    description = t('partners.apiKey.shownDescription', { name: partner.name })
   } else if (mode === 'confirm-new') {
-    title = 'Replace the API key?'
-    description = `The current key of ${partner.name} stops working at once. Whatever uses it must be given the new key.`
+    title = t('partners.apiKey.replaceTitle')
+    description = t('partners.apiKey.replaceDescription', { name: partner.name })
   } else {
-    title = 'Remove the API key?'
-    description = `The key of ${partner.name} stops working at once, and no new one is made.`
+    title = t('partners.apiKey.removeTitle')
+    description = t('partners.apiKey.removeDescription', { name: partner.name })
   }
 
   return (
     <Card className="min-w-0">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">API key</CardTitle>
+        <CardTitle className="text-lg">{t('partners.apiKey.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p id={reasonId} data-testid="api-key-state">
-          {noLogin ? NO_LOGIN_NO_KEY : partner.apiKeyCreatedAt ? formatKeyMade(partner.apiKeyCreatedAt) : 'No API key.'}
+          {noLogin
+            ? t(NO_LOGIN_NO_KEY)
+            : partner.apiKeyCreatedAt
+              ? formatKeyMade(partner.apiKeyCreatedAt, t, f)
+              : t('partners.apiKey.none')}
         </p>
-        <p className="text-muted-foreground">
-          A key lets the restaurant's own system send orders without signing in. Most restaurants use the request app and
-          need none.
-        </p>
+        <p className="text-muted-foreground">{t('partners.apiKey.explainer')}</p>
         <div className="flex flex-wrap gap-2">
           <Button
             ref={newButtonRef}
@@ -165,7 +170,7 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
             onClick={onNewKey}
           >
             {createState.isLoading && !open ? <Spinner className="mr-2" /> : null}
-            New API key
+            {t('partners.apiKey.newKey')}
           </Button>
           <Button
             ref={removeButtonRef}
@@ -176,7 +181,7 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
             aria-describedby={noLogin || !hasKey ? reasonId : undefined}
             onClick={() => openDialog('confirm-remove', removeButtonRef)}
           >
-            Remove key
+            {t('partners.apiKey.removeKey')}
           </Button>
         </div>
       </CardContent>
@@ -226,17 +231,17 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
           ) : (
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               {mode === 'confirm-new' ? (
                 <Button type="button" disabled={busy} onClick={() => void makeKey()}>
                   {createState.isLoading ? <Spinner className="mr-2" /> : null}
-                  Make a new key
+                  {t('partners.apiKey.makeNew')}
                 </Button>
               ) : (
                 <Button type="button" variant="destructive" disabled={busy} onClick={() => void onRemoveConfirmed()}>
                   {removeState.isLoading ? <Spinner className="mr-2" /> : null}
-                  Remove key
+                  {t('partners.apiKey.removeKey')}
                 </Button>
               )}
             </DialogFooter>

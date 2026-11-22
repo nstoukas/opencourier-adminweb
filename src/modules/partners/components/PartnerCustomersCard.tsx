@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
+// date-fns's Greek words for "3 days ago"; English uses date-fns's own default, as before.
+import { el } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { useFormat } from '@/i18n/useFormat'
 import { MagnifyingGlass, PencilSimple, Trash } from '@phosphor-icons/react'
 import {
   Alert,
@@ -46,6 +50,10 @@ interface PartnerCustomersCardProps {
  */
 export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ partnerId, restaurantName }) => {
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // f.language is the reader's language ('el' or 'en').
+  const f = useFormat()
   const [fetchPage] = useLazyGetPartnerCustomersQuery()
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
@@ -100,11 +108,15 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
         return { status: 'ready', items: [...current.items, ...added], total: next.total, page: current.page + 1 }
       })
     } catch {
-      toast({ title: 'Could not load more customers', description: 'Try again in a moment.', variant: 'destructive' })
+      toast({
+        title: t('partners.customers.loadMoreFailed'),
+        description: t('partners.customers.tryInAMoment'),
+        variant: 'destructive',
+      })
     } finally {
       setIsLoadingMore(false)
     }
-  }, [fetchPage, list, partnerId, search, toast])
+  }, [fetchPage, list, partnerId, search, toast, t])
 
   const removeRow = (id: string) => {
     setList((current) =>
@@ -131,7 +143,9 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
   return (
     <Card>
       <CardHeader className="space-y-3">
-        <CardTitle className="text-lg">Customers{total !== null ? ` · ${total}` : ''}</CardTitle>
+        <CardTitle className="text-lg">
+          {total !== null ? t('partners.customers.titleWithCount', { total }) : t('partners.customers.title')}
+        </CardTitle>
         <div className="relative max-w-sm">
           <MagnifyingGlass
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -141,8 +155,8 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name or phone"
-            aria-label={`Search ${restaurantName}'s saved customers by name or phone`}
+            placeholder={t('partners.customers.searchPlaceholder')}
+            aria-label={t('partners.customers.searchLabel', { name: restaurantName })}
             className="pl-9"
           />
         </div>
@@ -151,7 +165,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
         {/* tabIndex -1: focus can be moved here after a delete, without adding a tab stop. */}
         <div ref={tableRef} tabIndex={-1} className="outline-none" aria-busy={list.status === 'loading'}>
           {list.status === 'loading' ? (
-            <div className="space-y-2" aria-label="Loading customers">
+            <div className="space-y-2" aria-label={t('partners.customers.loading')}>
               {[0, 1, 2].map((key) => (
                 <Skeleton key={key} className="h-10 w-full" />
               ))}
@@ -159,26 +173,26 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
           ) : list.status === 'error' ? (
             <Alert variant="destructive">
               <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-                <span>This restaurant&apos;s saved customers could not be loaded.</span>
+                <span>{t('partners.customers.loadFailed')}</span>
                 <Button variant="outline" size="sm" onClick={() => setReloadCount((count) => count + 1)}>
-                  Try again
+                  {t('common.tryAgain')}
                 </Button>
               </AlertDescription>
             </Alert>
           ) : list.items.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              {search ? 'No saved customer matches.' : 'This restaurant has no saved customers.'}
+              {search ? t('partners.customers.noMatch') : t('partners.customers.none')}
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Last used</TableHead>
+                  <TableHead>{t('partners.customers.columns.name')}</TableHead>
+                  <TableHead>{t('partners.customers.columns.phone')}</TableHead>
+                  <TableHead>{t('partners.customers.columns.address')}</TableHead>
+                  <TableHead>{t('partners.customers.columns.lastUsed')}</TableHead>
                   <TableHead>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t('partners.customers.columns.actions')}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -193,7 +207,10 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
                     <TableCell className="whitespace-nowrap">
                       {/* <time> gives the exact moment to assistive tech; the text is the friendly form. */}
                       <time dateTime={customer.lastUsedAt}>
-                        {formatDistanceToNow(new Date(customer.lastUsedAt), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(customer.lastUsedAt), {
+                          addSuffix: true,
+                          locale: f.language === 'el' ? el : undefined,
+                        })}
                       </time>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
@@ -204,7 +221,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
                           openedFrom.current = event.currentTarget
                           setEditing(customer)
                         }}
-                        aria-label={`Edit ${customer.name}`}
+                        aria-label={t('partners.customers.editLabel', { name: customer.name })}
                       >
                         <PencilSimple className="h-4 w-4" aria-hidden="true" />
                       </Button>
@@ -215,7 +232,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
                           openedFrom.current = event.currentTarget
                           setDeleting(customer)
                         }}
-                        aria-label={`Delete ${customer.name}`}
+                        aria-label={t('partners.customers.deleteLabel', { name: customer.name })}
                       >
                         <Trash className="h-4 w-4 text-destructive" aria-hidden="true" />
                       </Button>
@@ -232,12 +249,12 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
             {list.items.length < list.total ? (
               <Button variant="outline" size="sm" onClick={showMore} disabled={isLoadingMore}>
                 {isLoadingMore ? <Spinner className="mr-2 h-4 w-4" /> : null}
-                Show more
+                {t('partners.customers.showMore')}
               </Button>
             ) : null}
             {/* aria-live: a screen reader hears the new count after Show more, without moving focus. */}
             <p className="text-sm text-muted-foreground" aria-live="polite">
-              {list.items.length} of {list.total}
+              {t('partners.customers.shownOfTotal', { shown: list.items.length, total: list.total })}
             </p>
           </div>
         ) : null}
@@ -257,13 +274,13 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
                 : current,
             )
             setEditing(null)
-            toast({ title: 'Changes saved', description: saved.name })
+            toast({ title: t('partners.customers.saved'), description: saved.name })
           }}
           onCloseAutoFocus={moveFocusAfterClose}
           onGone={(id) => {
             setEditing(null)
             removeRow(id)
-            toast({ title: 'This customer was already deleted.' })
+            toast({ title: t('partners.customers.alreadyDeleted') })
           }}
         />
       ) : null}
@@ -277,7 +294,7 @@ export const PartnerCustomersCard: React.FC<PartnerCustomersCardProps> = ({ part
           onDeleted={(id) => {
             setDeleting(null)
             removeRow(id)
-            toast({ title: 'Customer deleted' })
+            toast({ title: t('partners.customers.deleted') })
           }}
         />
       ) : null}

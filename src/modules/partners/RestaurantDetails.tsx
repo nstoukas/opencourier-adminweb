@@ -18,8 +18,8 @@ import {
   CardTitle,
   DetailList,
 } from '@/admin-web-components'
-import { formatDate } from '@/ui-shared-utils'
-import { memberSince } from '@/utils/memberSince'
+import { useTranslation } from 'react-i18next'
+import { useFormat } from '@/i18n/useFormat'
 import { formatPickupAddressForDisplay } from '@/utils/partnerPickupAddress'
 import type { DeliveryListState } from '@/modules/deliveries/components/DeliveriesListFilters'
 import { DeliveryRow } from '@/modules/deliveries/components/DeliveryRow'
@@ -53,6 +53,10 @@ const ACTIVE: DeliveryListState = 'active'
 // side counting, and no money per restaurant (the delivery fee is the customer's, not the store's).
 export function RestaurantDetails({ partnerId }: { partnerId: string }) {
   const { goToPartners, goToDeliveryDetails } = useAdminPageNavigator()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // Dates in the reader's language, on Athens time.
+  const f = useFormat()
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [rotateDialogOpen, setRotateDialogOpen] = useState(false)
   // The Edit Details and Set New Password buttons, which get focus back when their dialog closes.
@@ -81,16 +85,16 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
   if (!partnerId || partnerQuery.isLoading || (!partner && !partnerQuery.isError)) {
     return (
       <>
-        <PageHeader title="Restaurant" />
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <PageHeader title={t('partners.details.title')} />
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
       </>
     )
   }
   if (!partner) {
     return (
       <>
-        <PageHeader title="Restaurant" />
-        <p className="text-sm text-muted-foreground">Restaurant not found or could not be loaded.</p>
+        <PageHeader title={t('partners.details.title')} />
+        <p className="text-sm text-muted-foreground">{t('partners.details.notFound')}</p>
       </>
     )
   }
@@ -105,13 +109,13 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
     <>
       <Breadcrumb
         steps={[
-          { label: 'Restaurants', href: '/partners', onClick: () => goToPartners() },
+          { label: t('partners.list.title'), href: '/partners', onClick: () => goToPartners() },
           { label: partner.name },
         ]}
       />
       <PageHeader
         title={partner.name}
-        description={`Member since ${memberSince(partner.createdAt)}`}
+        description={t('partners.details.memberSince', { date: f.monthYear(partner.createdAt) })}
         action={
           <>
             {/* Its whole order history, on the deliveries list filtered to it (spec 0017, AC-7).
@@ -119,7 +123,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
             <Button variant="outline" asChild>
               <Link href={{ pathname: '/deliveries', query: { partnerId: partner.id } }}>
                 <ListBullets aria-hidden="true" className="mr-2 h-4 w-4" />
-                See its orders
+                {t('partners.details.seeOrders')}
               </Link>
             </Button>
             {/* Its chat thread with dispatch (spec 0034, AC-15). With no sign in it could never read a
@@ -131,11 +135,11 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
             />
             <Button ref={passwordButtonRef} type="button" variant="outline" onClick={() => setRotateDialogOpen(true)}>
               <Key aria-hidden="true" className="mr-2 h-4 w-4" />
-              Set New Password
+              {t('partners.details.setNewPassword')}
             </Button>
             <Button ref={editButtonRef} type="button" onClick={() => setEditDialogOpen(true)}>
               <PencilSimple aria-hidden="true" className="mr-2 h-4 w-4" />
-              Edit Details
+              {t('partners.details.editDetails')}
             </Button>
           </>
         }
@@ -144,12 +148,12 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
       <div className="flex flex-col gap-6">
         <Card className="max-w-xs">
           <CardContent className="p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Live now</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('partners.details.liveNow')}</p>
             <p className="mt-1 text-3xl font-semibold tabular-nums" data-testid="live-now-count">
               {liveQuery.isError ? (
-                <span className="text-base font-normal text-destructive">Could not load</span>
+                <span className="text-base font-normal text-destructive">{t('partners.details.couldNotLoad')}</span>
               ) : liveCount === undefined ? (
-                '—'
+                t('common.dash')
               ) : (
                 liveCount
               )}
@@ -168,7 +172,7 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="min-w-0">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Pickup and contact</CardTitle>
+              <CardTitle className="text-lg">{t('partners.details.pickupAndContact')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {pickup ? (
@@ -176,19 +180,21 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
               ) : (
                 <Alert variant="warning">
                   <Warning aria-hidden="true" className="h-4 w-4" />
-                  <AlertDescription>
-                    No pickup address. This restaurant cannot send a delivery until one is set.
-                  </AlertDescription>
+                  <AlertDescription>{t('partners.details.noPickupAlert')}</AlertDescription>
                 </Alert>
               )}
               {/* DetailList shows an em dash for a missing value. */}
               <DetailList
                 items={[
-                  { label: 'Pickup address', value: pickup ? formatPickupAddressForDisplay(pickup) : null },
-                  { label: 'Pin', value: pickup ? `${pickup.latitude}, ${pickup.longitude}` : null, mono: true },
-                  { label: 'Phone', value: partner.phoneNumber },
-                  { label: 'Sign-in email', value: partner.email, mono: true },
-                  { label: 'Status updates', value: partner.webhookUrl || 'No webhook set', mono: !!partner.webhookUrl },
+                  { label: t('partners.details.pickupAddress'), value: pickup ? formatPickupAddressForDisplay(pickup) : null },
+                  { label: t('partners.details.pin'), value: pickup ? `${pickup.latitude}, ${pickup.longitude}` : null, mono: true },
+                  { label: t('partners.details.phone'), value: partner.phoneNumber },
+                  { label: t('partners.details.signInEmail'), value: partner.email, mono: true },
+                  {
+                    label: t('partners.details.statusUpdates'),
+                    value: partner.webhookUrl || t('partners.details.noWebhook'),
+                    mono: !!partner.webhookUrl,
+                  },
                 ]}
               />
             </CardContent>
@@ -196,15 +202,15 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
 
           <Card className="min-w-0">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Recent deliveries</CardTitle>
+              <CardTitle className="text-lg">{t('partners.details.recentDeliveries')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               {recentQuery.isLoading ? (
-                <p className="text-muted-foreground">Loading…</p>
+                <p className="text-muted-foreground">{t('common.loading')}</p>
               ) : recentQuery.isError ? (
-                <p className="text-destructive">Could not load deliveries.</p>
+                <p className="text-destructive">{t('partners.details.deliveriesFailed')}</p>
               ) : recent.length === 0 ? (
-                <p className="text-muted-foreground">No deliveries yet</p>
+                <p className="text-muted-foreground">{t('partners.details.noDeliveries')}</p>
               ) : (
                 <ul>
                   {recent.map((delivery) => (
@@ -213,10 +219,10 @@ export function RestaurantDetails({ partnerId }: { partnerId: string }) {
                       delivery={delivery}
                       onOpen={goToDeliveryDetails}
                       // The restaurant is this page, so the line under the reference is the customer.
-                      subtitle={delivery.dropoffName || '—'}
+                      subtitle={delivery.dropoffName || t('common.dash')}
                       extra={
                         <span className="text-right text-xs text-muted-foreground tabular-nums">
-                          {formatDate(delivery.createdAt)}
+                          {f.dateTime(delivery.createdAt)}
                         </span>
                       }
                     />

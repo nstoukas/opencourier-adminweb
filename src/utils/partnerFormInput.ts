@@ -5,6 +5,7 @@ import {
   PartnerUpdateAdminInput,
 } from '../backend-admin-sdk/src/models'
 import { buildPickupFormattedAddress } from './partnerPickupAddress'
+import { keyMessage, type ShownMessage } from '@/i18n/shownMessage'
 
 export type PickupAddressFormValues = {
   street: string
@@ -36,12 +37,16 @@ export type PartnerUpdateFormValues = {
   pickupAddress?: PickupAddressFormValues
 }
 
-export type BuildResult<T> = { ok: true; value: T } | { ok: false; errors: string[] }
+// Each error is a translation key with its values (src/i18n/shownMessage.ts), not words: the form
+// dialog keeps them in state and translates them when it draws them, in the reader's language.
+export type BuildResult<T> = { ok: true; value: T } | { ok: false; errors: ShownMessage[] }
 
 const VALID_COUNTRY_CODES: string[] = Object.values(EnumCountryCodeAdmin)
 
-// Spec 0023 (AC-9): the usual prep time a representative may set, and the backend's own sentence.
-export const USUAL_PREP_MINUTES_SENTENCE = 'The usual prep time is a whole number of minutes from 0 to 90.'
+// Spec 0023 (AC-9): the usual prep time a representative may set. The key of the backend's own
+// sentence ("The usual prep time is a whole number of minutes from 0 to 90."), in the server's texts,
+// so the form and a refusal from the server read the same in both languages.
+export const USUAL_PREP_MINUTES_KEY = 'server.error.USUAL_PREP_MINUTES'
 
 // The usual prep time as typed, as a number, or null when it is not a whole number from 0 to 90.
 export function parseUsualPrepMinutes(text: string): number | null {
@@ -76,37 +81,39 @@ export function buildPickupAddressInput(
     return { ok: true, value: undefined }
   }
 
-  const errors: string[] = []
+  const errors: ShownMessage[] = []
 
   if (!street) {
-    errors.push('Street is required when adding a pickup address')
+    errors.push(keyMessage('partners.validation.streetRequired'))
   }
   if (!city) {
-    errors.push('City is required when adding a pickup address')
+    errors.push(keyMessage('partners.validation.cityRequired'))
   }
   if (!countryCode) {
-    errors.push('Country code is required when adding a pickup address')
+    errors.push(keyMessage('partners.validation.countryRequired'))
   } else if (!VALID_COUNTRY_CODES.includes(countryCode)) {
-    errors.push(`Invalid country code "${countryCode}". Allowed codes: ${VALID_COUNTRY_CODES.join(', ')}`)
+    errors.push(
+      keyMessage('partners.validation.countryInvalid', { code: countryCode, allowed: VALID_COUNTRY_CODES.join(', ') }),
+    )
   }
 
   let latNum: number | undefined
   if (!rawLat) {
-    errors.push('Latitude is required when adding a pickup address')
+    errors.push(keyMessage('partners.validation.latitudeRequired'))
   } else {
     latNum = Number(rawLat)
     if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
-      errors.push(`Latitude must be a valid number between -90 and 90 (got "${rawLat}")`)
+      errors.push(keyMessage('partners.validation.latitudeInvalid', { value: rawLat }))
     }
   }
 
   let lngNum: number | undefined
   if (!rawLng) {
-    errors.push('Longitude is required when adding a pickup address')
+    errors.push(keyMessage('partners.validation.longitudeRequired'))
   } else {
     lngNum = Number(rawLng)
     if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
-      errors.push(`Longitude must be a valid number between -180 and 180 (got "${rawLng}")`)
+      errors.push(keyMessage('partners.validation.longitudeInvalid', { value: rawLng }))
     }
   }
 
@@ -144,21 +151,21 @@ export function buildPickupAddressInput(
 
 // Validates restaurant creation form input before submitting to the admin API.
 export function buildPartnerCreateInput(v: PartnerCreateFormValues): BuildResult<PartnerCreateAdminInput> {
-  const errors: string[] = []
+  const errors: ShownMessage[] = []
 
   const name = v.name.trim()
   if (!name) {
-    errors.push('Restaurant name is required')
+    errors.push(keyMessage('partners.validation.restaurantNameRequired'))
   }
 
   const email = v.email.trim()
   if (!email || !email.includes('@')) {
-    errors.push('A valid email address containing "@" is required')
+    errors.push(keyMessage('partners.validation.emailInvalid'))
   }
 
   const password = v.password
   if (!password || password.length < 8) {
-    errors.push('Password must be at least 8 characters long')
+    errors.push(keyMessage('partners.validation.passwordTooShort'))
   }
 
   let pickupAddress: PickupAddressAdminInput | undefined
@@ -175,7 +182,7 @@ export function buildPartnerCreateInput(v: PartnerCreateFormValues): BuildResult
   let usualPrepMinutes: number | undefined
   if (v.usualPrepMinutes !== undefined) {
     const parsed = parseUsualPrepMinutes(v.usualPrepMinutes)
-    if (parsed === null) errors.push(USUAL_PREP_MINUTES_SENTENCE)
+    if (parsed === null) errors.push(keyMessage(USUAL_PREP_MINUTES_KEY))
     else usualPrepMinutes = parsed
   }
 
@@ -198,13 +205,13 @@ export function buildPartnerCreateInput(v: PartnerCreateFormValues): BuildResult
 
 // Validates restaurant update form input before submitting to the admin API.
 export function buildPartnerUpdateInput(v: PartnerUpdateFormValues): BuildResult<PartnerUpdateAdminInput> {
-  const errors: string[] = []
+  const errors: ShownMessage[] = []
   const result: PartnerUpdateAdminInput = {}
 
   if (v.name !== undefined) {
     const trimmedName = v.name.trim()
     if (!trimmedName) {
-      errors.push('Restaurant name cannot be empty')
+      errors.push(keyMessage('partners.validation.restaurantNameEmpty'))
     } else {
       result.name = trimmedName
     }
@@ -225,7 +232,7 @@ export function buildPartnerUpdateInput(v: PartnerUpdateFormValues): BuildResult
   // Spec 0023 (AC-9): an emptied box is refused, never saved as 0.
   if (v.usualPrepMinutes !== undefined) {
     const parsed = parseUsualPrepMinutes(v.usualPrepMinutes)
-    if (parsed === null) errors.push(USUAL_PREP_MINUTES_SENTENCE)
+    if (parsed === null) errors.push(keyMessage(USUAL_PREP_MINUTES_KEY))
     else result.usualPrepMinutes = parsed
   }
 

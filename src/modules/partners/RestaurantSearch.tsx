@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Input } from '@/admin-web-components'
 import { useDebouncedValue } from '@/ui-shared-utils'
+import { useTranslation } from 'react-i18next'
 
 // How long after the last key the search is sent, so typing a name sends one request, not one per
 // letter (as on the couriers list, row 97).
@@ -15,6 +16,8 @@ type Props = {
 // backend, which ignores case and accents and wants every word to match (decision 106.1). It follows
 // the couriers list's search line for line.
 export function RestaurantSearch({ onSearchChange }: Props) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   // The text as it was RESTAURANT_SEARCH_DELAY_MS after the last key (the shared debounce hook).
   const settled = useDebouncedValue(text, RESTAURANT_SEARCH_DELAY_MS)
@@ -39,8 +42,8 @@ export function RestaurantSearch({ onSearchChange }: Props) {
       />
       <Input
         type="search"
-        aria-label="Search restaurants"
-        placeholder="Name, street or email"
+        aria-label={t('partners.search.label')}
+        placeholder={t('partners.search.placeholder')}
         maxLength={100}
         value={text}
         onChange={(event) => setText(event.target.value)}

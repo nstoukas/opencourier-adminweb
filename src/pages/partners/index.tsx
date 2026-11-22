@@ -8,15 +8,20 @@ import { useAdminPageNavigator } from '@/hooks/useAdminPageNavigator'
 import { Button, DEFAULT_PAGE_SIZE, DataTable } from '@/admin-web-components'
 import type { PartnerAdminDto } from '@/backend-admin-sdk'
 import { formatPickupAddressForDisplay } from '@/utils/partnerPickupAddress'
-import { memberSince } from '@/utils/memberSince'
+import { useFormat } from '@/i18n/useFormat'
 import { PartnerFormDialog } from '@/modules/partners/components/PartnerFormDialog'
 import { RestaurantSearch } from '@/modules/partners/RestaurantSearch'
 import { Plus } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 
 // The restaurants list (spec 0024, AC-1), with the board's search (row 106). Only what the backend
 // sends today: no live or today figures (they need the backend first, see the deferred list).
 const PartnersPage: NextPage = () => {
   const { goToPartnerDetails } = useAdminPageNavigator()
+  // useTranslation gives t, which looks a key up in the reader's language (src/i18n/resources).
+  const { t } = useTranslation()
+  // The date formats in the reader's language, on Athens time (src/i18n/useFormat.ts).
+  const f = useFormat()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   // The Add Restaurant button, which gets focus back when the dialog closes.
   const addButtonRef = useRef<HTMLButtonElement>(null)
@@ -31,7 +36,7 @@ const PartnersPage: NextPage = () => {
     () => [
       {
         id: 'restaurant',
-        header: 'Restaurant',
+        header: t('partners.list.columns.restaurant'),
         cell: ({ row }) => {
           const address = row.original.pickupAddress ? formatPickupAddressForDisplay(row.original.pickupAddress) : null
           return (
@@ -44,7 +49,7 @@ const PartnersPage: NextPage = () => {
                 </span>
               ) : (
                 // A restaurant with no pickup address cannot send a delivery, so it stands out.
-                <span className="text-xs font-medium text-warning-foreground">No pickup address</span>
+                <span className="text-xs font-medium text-warning-foreground">{t('partners.list.noPickupAddress')}</span>
               )}
             </div>
           )
@@ -52,28 +57,28 @@ const PartnersPage: NextPage = () => {
       },
       {
         accessorKey: 'phoneNumber',
-        header: 'Phone',
+        header: t('partners.list.columns.phone'),
         cell: ({ row }) => <span className="text-sm">{row.original.phoneNumber ?? '—'}</span>,
       },
       {
         accessorKey: 'email',
-        header: 'Sign-in email',
+        header: t('partners.list.columns.signInEmail'),
         cell: ({ row }) => <span className="font-mono text-sm">{row.original.email ?? '—'}</span>,
       },
       {
         id: 'memberSince',
-        header: 'Member since',
+        header: t('partners.list.columns.memberSince'),
         // The SDK builds createdAt with `new Date(...)`, so it is always a Date here.
-        cell: ({ row }) => <span className="text-sm">{memberSince(row.original.createdAt)}</span>,
+        cell: ({ row }) => <span className="text-sm">{f.monthYear(row.original.createdAt)}</span>,
       },
       {
         id: 'action',
-        header: () => <span className="sr-only">Action</span>,
+        header: () => <span className="sr-only">{t('partners.list.columns.action')}</span>,
         cell: ({ row }) => (
           // The row itself opens the restaurant; this keeps the click from firing twice.
           <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <Button type="button" variant="outline" size="sm" onClick={() => goToPartnerDetails(row.original.id)}>
-              Open
+              {t('common.open')}
             </Button>
           </div>
         ),
@@ -81,7 +86,8 @@ const PartnersPage: NextPage = () => {
     ],
     // goToPartnerDetails is left out on purpose: it calls Next's router, whose push always reaches
     // the one live router, so the first render's copy keeps working (as on the couriers list).
-    [],
+    // t and f change when the language does, so the headers and dates follow a switch.
+    [t, f],
   )
 
   const getPartnersResponse = useGetPartnersQuery({
@@ -93,11 +99,11 @@ const PartnersPage: NextPage = () => {
   return (
     <DefaultLayout>
       <PageHeader
-        title="Restaurants"
+        title={t('partners.list.title')}
         action={
           <Button ref={addButtonRef} type="button" onClick={() => setCreateDialogOpen(true)}>
             <Plus aria-hidden="true" className="mr-2 h-4 w-4" />
-            Add Restaurant
+            {t('partners.list.addRestaurant')}
           </Button>
         }
       />

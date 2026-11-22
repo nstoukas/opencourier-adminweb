@@ -12,6 +12,7 @@ import {
 } from '@/admin-web-components'
 import type { SavedCustomerAdminDto } from '@/backend-admin-sdk'
 import { useDeletePartnerCustomerMutation } from '@/api/savedCustomersApi'
+import { useTranslation } from 'react-i18next'
 
 interface DeleteSavedCustomerDialogProps {
   partnerId: string
@@ -32,6 +33,8 @@ export const DeleteSavedCustomerDialog: React.FC<DeleteSavedCustomerDialogProps>
   onDeleted,
   onCloseAutoFocus,
 }) => {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [deleteCustomer, { isLoading }] = useDeletePartnerCustomerMutation()
   const [error, setError] = useState<string | null>(null)
 
@@ -45,7 +48,7 @@ export const DeleteSavedCustomerDialog: React.FC<DeleteSavedCustomerDialogProps>
         onDeleted(customer.id)
         return
       }
-      setError('The customer could not be deleted. Try again in a moment.')
+      setError(t('partners.deleteCustomer.failed'))
     }
   }
 
@@ -53,11 +56,8 @@ export const DeleteSavedCustomerDialog: React.FC<DeleteSavedCustomerDialogProps>
     <AlertDialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
       <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {customer.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Their saved name, phone and address are removed for good. Past orders keep their own copy. The
-            deletion is logged with your admin account.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t('partners.deleteCustomer.title', { name: customer.name })}</AlertDialogTitle>
+          <AlertDialogDescription>{t('partners.deleteCustomer.description')}</AlertDialogDescription>
         </AlertDialogHeader>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
@@ -65,11 +65,11 @@ export const DeleteSavedCustomerDialog: React.FC<DeleteSavedCustomerDialogProps>
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t('common.cancel')}</AlertDialogCancel>
           {/* A plain Button, not AlertDialogAction, so the dialog stays open until the delete is done. */}
           <Button variant="destructive" onClick={confirm} disabled={isLoading}>
             {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-            Delete
+            {t('common.delete')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

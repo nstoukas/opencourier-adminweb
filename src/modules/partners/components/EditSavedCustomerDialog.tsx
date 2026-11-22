@@ -16,6 +16,8 @@ import {
 } from '@/admin-web-components'
 import type { SavedCustomerAdminDto } from '@/backend-admin-sdk'
 import { useUpdatePartnerCustomerMutation } from '@/api/savedCustomersApi'
+import { useTranslation } from 'react-i18next'
+import { useServerText } from '@/i18n/useServerText'
 
 interface EditSavedCustomerDialogProps {
   partnerId: string
@@ -46,10 +48,15 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
   onGone,
   onCloseAutoFocus,
 }) => {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
+  const { errorText } = useServerText()
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone)
   const [floor, setFloor] = useState(customer.addressLine2 ?? '')
   const [notes, setNotes] = useState(customer.notes ?? '')
+  // Words, not a key: the dialog is modal, so the language switch cannot be reached while it shows.
   const [error, setError] = useState<string | null>(null)
   const [updateCustomer, { isLoading }] = useUpdatePartnerCustomerMutation()
 
@@ -58,7 +65,7 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
     event.preventDefault()
     setError(null)
     if (name.trim() === '' || phone.trim() === '') {
-      setError('Name and phone cannot be empty.')
+      setError(t('partners.editCustomer.emptyFields'))
       return
     }
     try {
@@ -76,11 +83,12 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
         return
       }
       if (statusCode === 409) {
-        setError('Another saved customer of this restaurant has this phone.')
+        setError(t('partners.editCustomer.phoneTaken'))
         return
       }
-      const message = (err as { message?: string } | undefined)?.message
-      setError(statusCode === 422 && message ? message : 'The customer could not be saved. Try again in a moment.')
+      // A 422 is the server saying which value it refuses: show its sentence. Anything else gets ours.
+      const fallback = t('partners.editCustomer.saveFailed')
+      setError(statusCode === 422 ? errorText(err, fallback) : fallback)
     }
   }
 
@@ -89,13 +97,13 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
     <Dialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
       <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Edit {customer.name}</DialogTitle>
-          <DialogDescription>A saved customer of {restaurantName}.</DialogDescription>
+          <DialogTitle>{t('partners.editCustomer.title', { name: customer.name })}</DialogTitle>
+          <DialogDescription>{t('partners.editCustomer.description', { restaurant: restaurantName })}</DialogDescription>
         </DialogHeader>
         {/* Each maxLength is the backend's own limit, so the form never sends a value it refuses. */}
         <form onSubmit={save} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor="saved-customer-name">Name</Label>
+            <Label htmlFor="saved-customer-name">{t('partners.editCustomer.name')}</Label>
             <Input
               id="saved-customer-name"
               value={name}
@@ -105,7 +113,7 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="saved-customer-phone">Phone</Label>
+            <Label htmlFor="saved-customer-phone">{t('partners.editCustomer.phone')}</Label>
             <Input
               id="saved-customer-phone"
               type="tel"
@@ -117,13 +125,15 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="saved-customer-floor">
-              Floor or flat <span className="font-normal text-muted-foreground">(optional)</span>
+              {t('partners.editCustomer.floor')}{' '}
+              <span className="font-normal text-muted-foreground">{t('common.optional')}</span>
             </Label>
             <Input id="saved-customer-floor" value={floor} onChange={(e) => setFloor(e.target.value)} maxLength={255} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="saved-customer-notes">
-              Notes for the rider <span className="font-normal text-muted-foreground">(optional)</span>
+              {t('partners.editCustomer.notes')}{' '}
+              <span className="font-normal text-muted-foreground">{t('common.optional')}</span>
             </Label>
             <Textarea
               id="saved-customer-notes"
@@ -135,9 +145,9 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
             />
           </div>
           <div className="space-y-1 rounded-md bg-muted p-3 text-sm">
-            <p className="font-medium">Address</p>
+            <p className="font-medium">{t('partners.editCustomer.address')}</p>
             <p className="text-muted-foreground">{customer.formattedAddress || customer.addressLine1}</p>
-            <p className="text-xs text-muted-foreground">The address and its map point stay as the restaurant saved them.</p>
+            <p className="text-xs text-muted-foreground">{t('partners.editCustomer.addressStays')}</p>
           </div>
 
           {error ? (
@@ -148,11 +158,11 @@ export const EditSavedCustomerDialog: React.FC<EditSavedCustomerDialogProps> = (
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-              {isLoading ? 'Saving…' : 'Save'}
+              {isLoading ? t('common.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </form>

@@ -8,21 +8,27 @@ import {
 import { DefaultLayout } from "@/components/layouts/DefaultLayout";
 import { PageHeader } from "@/components/layouts/PageHeader";
 import { AddressNoteRow } from "@/modules/address-notes/AddressNoteRow";
+import { useTranslation } from "react-i18next";
 
 const PER_PAGE = 20;
 
 // Two grey bars while a list is read (docs/DESIGN.md: lists load with a Skeleton).
-const ListLoading = () => (
-  <div className="flex flex-col gap-2" aria-label="Loading">
-    <Skeleton className="h-24 w-full" />
-    <Skeleton className="h-24 w-full" />
-  </div>
-);
+const ListLoading = () => {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-2" aria-label={t("addressNotes.page.loading")}>
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+    </div>
+  );
+};
 
 // Spec 0053 (AC-7): riders' notes about places. Flagged notes first, then the notes found by street
 // (or coordinates). No filter, count or list by author (value 5). Row 82 review: nothing is listed
 // until a street is typed, so the page never pages through every note in town with its author.
 const AddressNotesPage: NextPage = () => {
+  const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -55,8 +61,8 @@ const AddressNotesPage: NextPage = () => {
   return (
     <DefaultLayout>
       <PageHeader
-        title="Address notes"
-        description="What riders wrote about places. Notes describe the place, never the person; delete any that break the rules."
+        title={t("addressNotes.page.title")}
+        description={t("addressNotes.page.description")}
       />
       <div className="flex flex-col gap-6">
         <section
@@ -64,16 +70,18 @@ const AddressNotesPage: NextPage = () => {
           aria-labelledby="flagged-notes"
         >
           <h2 id="flagged-notes" className="text-base font-semibold">
-            Flagged by riders
+            {t("addressNotes.page.flaggedHeading")}
           </h2>
           {flaggedQuery.isError ? (
             <p className="text-sm text-destructive">
-              Could not load the flagged notes.
+              {t("addressNotes.page.flaggedFailed")}
             </p>
           ) : null}
           {!flaggedQuery.isError && !flaggedData ? <ListLoading /> : null}
           {flaggedData && flaggedData.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No flagged notes.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("addressNotes.page.noFlagged")}
+            </p>
           ) : null}
           {(flaggedData ?? []).map((note) => (
             <AddressNoteRow key={note.id} note={note} />
@@ -82,7 +90,7 @@ const AddressNotesPage: NextPage = () => {
 
         <section className="flex flex-col gap-3" aria-labelledby="all-notes">
           <h2 id="all-notes" className="text-base font-semibold">
-            Find a note by street
+            {t("addressNotes.page.findHeading")}
           </h2>
           <form
             className="flex gap-2 max-w-xl"
@@ -90,31 +98,33 @@ const AddressNotesPage: NextPage = () => {
             role="search"
           >
             <Input
-              aria-label="Street, address or coordinates"
-              placeholder="Street, address or coordinates"
+              aria-label={t("addressNotes.page.searchLabel")}
+              placeholder={t("addressNotes.page.searchLabel")}
               value={typed}
               maxLength={100}
               onChange={(event) => setTyped(event.target.value)}
             />
             <Button type="submit" variant="outline">
-              Search
+              {t("common.search")}
             </Button>
           </form>
           {searchQuery.isError ? (
             <p className="text-sm text-destructive">
-              Could not load the notes.
+              {t("addressNotes.page.searchFailed")}
             </p>
           ) : null}
           {search === "" ? (
             <p className="text-sm text-muted-foreground">
-              Type a street, an address or coordinates to see the notes there.
+              {t("addressNotes.page.typePrompt")}
             </p>
           ) : null}
           {search !== "" && !searchQuery.isError && !searchData ? (
             <ListLoading />
           ) : null}
           {searchData && searchData.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No notes match.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("addressNotes.page.noMatch")}
+            </p>
           ) : null}
           {(searchData?.data ?? []).map((note) => (
             <AddressNoteRow key={note.id} note={note} />
@@ -128,10 +138,10 @@ const AddressNotesPage: NextPage = () => {
                 disabled={page <= 1}
                 onClick={() => setPage(page - 1)}
               >
-                Previous
+                {t("addressNotes.page.previous")}
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {page} of {pageCount}
+                {t("addressNotes.page.pageOf", { page, pages: pageCount })}
               </span>
               <Button
                 type="button"
@@ -140,7 +150,7 @@ const AddressNotesPage: NextPage = () => {
                 disabled={page >= pageCount}
                 onClick={() => setPage(page + 1)}
               >
-                Next
+                {t("addressNotes.page.next")}
               </Button>
             </div>
           ) : null}

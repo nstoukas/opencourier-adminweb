@@ -21,27 +21,34 @@ import {
   useGetPartnerAvailabilityChangesQuery,
 } from '@/api/partnersApi'
 import type { PartnerAdminDto, PartnerAvailabilityChangeAdminDto } from '@/backend-admin-sdk'
-import { formatDate } from '@/ui-shared-utils'
 import { usePageVisible } from '@/hooks/usePageVisible'
+import { useTranslation } from 'react-i18next'
+// TFunction is the type of t, so a plain helper can take it as a parameter.
+import type { TFunction } from 'i18next'
+import { useServerText } from '@/i18n/useServerText'
+import { useFormat, type Formats } from '@/i18n/useFormat'
 
 const REASON_MAX = 200
 // The history is read again as the card's own state is, while the tab is visible.
 const REFRESH_MS = 30_000
 
-function changeWords(change: PartnerAvailabilityChangeAdminDto): string {
+// One history line in the reader's language. It takes t and the formats because its sentences carry values.
+function changeWords(change: PartnerAvailabilityChangeAdminDto, t: TFunction, f: Formats): string {
   switch (change.action) {
     case 'BUSY_ON':
-      return `Busy mode on, +${change.extraMinutes} min`
+      return t('partners.availability.change.busyOn', { minutes: change.extraMinutes })
     case 'BUSY_OFF':
-      return 'Busy mode off'
+      return t('partners.availability.change.busyOff')
     case 'PAUSED':
-      return `Paused until ${change.pausedUntil ? formatDate(change.pausedUntil) : '—'}`
+      // f.dateTime reads "—" for a missing date, as this line always did.
+      return t('partners.availability.change.pausedUntil', { date: f.dateTime(change.pausedUntil) })
     case 'RESUMED':
-      return 'Resumed'
+      return t('partners.availability.change.resumed')
     case 'DISABLED':
-      return `Disabled: ${change.reason ?? ''}`
+      // The reason is the representative's own words, shown as written.
+      return t('partners.availability.change.disabled', { reason: change.reason ?? '' })
     case 'ENABLED':
-      return 'Enabled'
+      return t('partners.availability.change.enabled')
   }
 }
 
@@ -49,8 +56,15 @@ function changeWords(change: PartnerAvailabilityChangeAdminDto): string {
 // changed what. A disable keeps the restaurant signed in; it only stops new orders.
 export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto }) {
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
+  const { errorText } = useServerText()
+  // Dates in the reader's language, on Athens time.
+  const f = useFormat()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [reason, setReason] = useState('')
+  // Words, not a key: the error shows only inside the modal dialog, where the language switch cannot be reached.
   const [error, setError] = useState('')
   const disableButtonRef = useRef<HTMLButtonElement>(null)
   const [disablePartner, disableState] = useDisablePartnerMutation()
@@ -68,41 +82,44 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
 
   const handleDisable = async () => {
     if (trimmed.length === 0 || trimmed.length > REASON_MAX) {
-      setError(`Give a reason, up to ${REASON_MAX} characters.`)
+      setError(t('partners.availability.reasonRequired', { max: REASON_MAX }))
       return
     }
     setError('')
     try {
       await disablePartner({ id: partner.id, reason: trimmed }).unwrap()
-      toast({ title: `${partner.name} is disabled.` })
+      toast({ title: t('partners.availability.disabledToast', { name: partner.name }) })
       setDialogOpen(false)
     } catch (err: any) {
-      setError(err?.message || 'Could not disable this restaurant.')
+      setError(errorText(err, t('partners.availability.disableFailed')))
     }
   }
 
   const handleEnable = async () => {
     try {
       await enablePartner({ id: partner.id }).unwrap()
-      toast({ title: `${partner.name} is enabled.` })
+      toast({ title: t('partners.availability.enabledToast', { name: partner.name }) })
     } catch (err: any) {
-      toast({ title: err?.message || 'Could not enable this restaurant.', variant: 'destructive' })
+      toast({ title: errorText(err, t('partners.availability.enableFailed')), variant: 'destructive' })
     }
   }
 
   return (
     <Card className="min-w-0">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Availability</CardTitle>
+        <CardTitle className="text-lg">{t('partners.availability.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p data-testid="availability-state">
-          {availability?.acceptingOrders === false ? availability.notAcceptingReason : 'Accepting orders.'}
+          {/* The server's own sentence for why it is not taking orders, shown as it came. */}
+          {availability?.acceptingOrders === false ? availability.notAcceptingReason : t('partners.availability.accepting')}
         </p>
-        {availability?.busyExtraMinutes ? <p>Busy mode: +{availability.busyExtraMinutes} min on new orders.</p> : null}
+        {availability?.busyExtraMinutes ? (
+          <p>{t('partners.availability.busyMode', { minutes: availability.busyExtraMinutes })}</p>
+        ) : null}
         {disabled ? (
           <Button type="button" variant="outline" disabled={enableState.isLoading} onClick={handleEnable}>
-            Enable
+            {t('partners.availability.enable')}
           </Button>
         ) : (
           <Button
@@ -115,25 +132,27 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
               setDialogOpen(true)
             }}
           >
-            Disable
+            {t('partners.availability.disable')}
           </Button>
         )}
 
         <div>
-          <p className="font-medium">History</p>
+          <p className="font-medium">{t('partners.availability.history')}</p>
           {changesQuery.isError ? (
-            <p className="text-destructive">Could not load the history.</p>
+            <p className="text-destructive">{t('partners.availability.historyFailed')}</p>
           ) : (changesQuery.data ?? []).length === 0 ? (
-            <p className="text-muted-foreground">No changes yet.</p>
+            <p className="text-muted-foreground">{t('partners.availability.noChanges')}</p>
           ) : (
             <ul className="space-y-1">
               {(changesQuery.data ?? []).map((change) => (
                 <li key={change.id}>
-                  <span className="text-muted-foreground">{formatDate(change.createdAt)}</span>{' '}
-                  {changeWords(change)}
+                  <span className="text-muted-foreground">{f.dateTime(change.createdAt)}</span>{' '}
+                  {changeWords(change, t, f)}
                   <span className="text-muted-foreground">
                     {' '}
-                    ({change.actorRole}
+                    {'('}
+                    {/* The role code as words; a role this copy does not know is shown as its code. */}
+                    {t(`partners.availability.actorRole.${change.actorRole}`, { defaultValue: change.actorRole })}
                     {change.actorEmail ? ` · ${change.actorEmail}` : ''})
                   </span>
                 </li>
@@ -154,11 +173,11 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
           }}
         >
           <DialogHeader>
-            <DialogTitle>Disable {partner.name}</DialogTitle>
-            <DialogDescription>It keeps its sign in but cannot place orders. The restaurant reads your reason.</DialogDescription>
+            <DialogTitle>{t('partners.availability.dialogTitle', { name: partner.name })}</DialogTitle>
+            <DialogDescription>{t('partners.availability.dialogDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="disable-reason">Reason</Label>
+            <Label htmlFor="disable-reason">{t('partners.availability.reason')}</Label>
             <Textarea id="disable-reason" value={reason} maxLength={REASON_MAX} onChange={(event) => setReason(event.target.value)} />
             {error ? (
               <p role="alert" className="text-sm text-destructive">
@@ -168,10 +187,10 @@ export function PartnerAvailabilityCard({ partner }: { partner: PartnerAdminDto 
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="button" disabled={disableState.isLoading} onClick={handleDisable}>
-              Disable
+              {t('partners.availability.disable')}
             </Button>
           </DialogFooter>
         </DialogContent>

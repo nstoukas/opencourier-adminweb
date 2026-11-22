@@ -6,7 +6,11 @@ import {
   useDismissAddressNoteFlagsMutation,
 } from "@/api/addressNoteApi";
 import type { AddressNoteAdminDto } from "@/backend-admin-sdk";
-import { formatDate } from "@/ui-shared-utils";
+import { useTranslation } from "react-i18next";
+// TFunction is the type of t, so a plain helper can take it as a parameter.
+import type { TFunction } from "i18next";
+import { useServerText } from "@/i18n/useServerText";
+import { useFormat } from "@/i18n/useFormat";
 
 // "39.36400, 22.94800", as the backend writes points in its records.
 // `Pick<Type, "a" | "b">` is a TypeScript helper: the same type with only the named fields kept.
@@ -15,19 +19,19 @@ export const pointText = (
 ): string => `${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}`;
 
 // Who wrote a note: a rider (linked to their page, for abuse), or the co-op itself.
-const authorOf = (note: AddressNoteAdminDto) => {
+const authorOf = (note: AddressNoteAdminDto, t: TFunction) => {
   if (note.authorCourierId) {
     return (
       <Link href={`/couriers/${note.authorCourierId}`} className="underline">
-        {note.authorName || "A rider"}
+        {note.authorName || t("addressNotes.row.aRider")}
       </Link>
     );
   }
   return note.actor === "ADMIN"
-    ? "An admin"
+    ? t("addressNotes.row.anAdmin")
     : note.actor === "PARTNER"
-    ? "A restaurant"
-    : "Unknown";
+    ? t("addressNotes.row.aRestaurant")
+    : t("addressNotes.row.unknown");
 };
 
 // Which action, if any, is waiting for its second ask.
@@ -38,6 +42,12 @@ type Asking = "none" | "delete" | "dismiss";
 // reports, as deleting deletes the note).
 export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
   const { toast } = useToast();
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation();
+  // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
+  const { errorText } = useServerText();
+  // Dates in the reader's language, on Athens time.
+  const f = useFormat();
   const [asking, setAsking] = useState<Asking>("none");
   const confirming = asking !== "none";
   const [deleteNote, deleteState] = useDeleteAddressNoteMutation();
@@ -66,10 +76,10 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
   const remove = async () => {
     try {
       await deleteNote({ id: note.id }).unwrap();
-      toast({ title: "Note deleted." });
+      toast({ title: t("addressNotes.row.deleted") });
     } catch (err: any) {
       toast({
-        title: err?.message || "The note could not be deleted.",
+        title: errorText(err, t("addressNotes.row.deleteFailed")),
         variant: "destructive",
       });
       setAsking("none");
@@ -79,10 +89,10 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
   const dismiss = async () => {
     try {
       await dismissFlags({ id: note.id }).unwrap();
-      toast({ title: "Flags dismissed. The note stays." });
+      toast({ title: t("addressNotes.row.dismissed") });
     } catch (err: any) {
       toast({
-        title: err?.message || "The flags could not be dismissed.",
+        title: errorText(err, t("addressNotes.row.dismissFailed")),
         variant: "destructive",
       });
     }
@@ -97,31 +107,42 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
       <p className="text-sm whitespace-pre-wrap break-words">{note.note}</p>
       <div className="text-xs text-muted-foreground space-y-0.5">
         <div>
-          <span>Place: </span>
+          <span>{t("addressNotes.row.place")}</span>
           <span className="text-foreground">
             {note.address ? `${note.address} · ` : ""}
           </span>
           <span className="tabular-nums">{pointText(note)}</span>
         </div>
         <div>
-          <span>Written by </span>
-          <span className="text-foreground">{authorOf(note)}</span>
-          <span> · {formatDate(note.createdAt)}</span>
+          <span>{t("addressNotes.row.writtenBy")}</span>
+          <span className="text-foreground">{authorOf(note, t)}</span>
+          <span>
+            {" · "}
+            {f.dateTime(note.createdAt)}
+          </span>
           {note.updatedAt !== note.createdAt ? (
-            <span> · edited {formatDate(note.updatedAt)}</span>
+            <span>
+              {t("addressNotes.row.edited", {
+                date: f.dateTime(note.updatedAt),
+              })}
+            </span>
           ) : null}
         </div>
         <div>
-          Last confirmed {formatDate(note.lastConfirmedAt)} · {note.upvotes}{" "}
-          {note.upvotes === 1 ? "upvote" : "upvotes"} from other riders
+          {t("addressNotes.row.lastConfirmed", {
+            date: f.dateTime(note.lastConfirmedAt),
+            count: note.upvotes,
+          })}
         </div>
       </div>
       {note.flags.length > 0 ? (
-        <ul className="text-xs space-y-0.5" aria-label="Flags">
+        <ul className="text-xs space-y-0.5" aria-label={t("addressNotes.row.flags")}>
           {note.flags.map((flag) => (
             <li key={flag.id}>
-              <span className="font-medium">Flagged</span>{" "}
-              {formatDate(flag.createdAt)}
+              <span className="font-medium">
+                {t("addressNotes.row.flagged")}
+              </span>{" "}
+              {f.dateTime(flag.createdAt)}
               {flag.reason ? `: ${flag.reason}` : ""}
             </li>
           ))}
@@ -137,7 +158,7 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
               disabled={busy}
               onClick={remove}
             >
-              Yes, delete this note
+              {t("addressNotes.row.confirmDelete")}
             </Button>
             <Button
               ref={keepRef}
@@ -147,7 +168,7 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
               disabled={busy}
               onClick={() => setAsking("none")}
             >
-              Keep it
+              {t("addressNotes.row.keepIt")}
             </Button>
           </>
         ) : null}
@@ -160,10 +181,9 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
               disabled={busy}
               onClick={dismiss}
             >
-              Yes, dismiss{" "}
-              {note.flags.length === 1
-                ? "the flag"
-                : `all ${note.flags.length} flags`}
+              {t("addressNotes.row.confirmDismiss", {
+                count: note.flags.length,
+              })}
             </Button>
             <Button
               ref={keepRef}
@@ -173,7 +193,7 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
               disabled={busy}
               onClick={() => setAsking("none")}
             >
-              Keep {note.flags.length === 1 ? "it" : "them"}
+              {t("addressNotes.row.keepFlags", { count: note.flags.length })}
             </Button>
           </>
         ) : null}
@@ -186,7 +206,7 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
             disabled={busy}
             onClick={() => setAsking("delete")}
           >
-            Delete
+            {t("common.delete")}
           </Button>
         ) : null}
         {note.flags.length > 0 && !confirming ? (
@@ -198,7 +218,7 @@ export function AddressNoteRow({ note }: { note: AddressNoteAdminDto }) {
             disabled={busy}
             onClick={() => setAsking("dismiss")}
           >
-            Dismiss flags
+            {t("addressNotes.row.dismissFlags")}
           </Button>
         ) : null}
       </div>

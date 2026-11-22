@@ -14,6 +14,8 @@ import {
 } from '@/admin-web-components'
 import { useRotatePartnerPasswordMutation } from '@/api/partnersApi'
 import { ApiKeyShownOnce } from './ApiKeyShownOnce'
+import { useTranslation } from 'react-i18next'
+import { useServerText } from '@/i18n/useServerText'
 
 interface RotateCredentialsDialogProps {
   open: boolean
@@ -33,9 +35,14 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
   returnFocusTo,
 }) => {
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
+  const { errorText } = useServerText()
   const [rotatePassword, { isLoading }] = useRotatePartnerPasswordMutation()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  // Words, not a key: the dialog is modal, so the language switch cannot be reached while it shows.
   const [error, setError] = useState<string | null>(null)
   // Spec 0037, AC-1: the restaurant's new API key when the password change replaced one. Shown once,
   // in this dialog, and forgotten when it closes.
@@ -71,10 +78,10 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
         setNewApiKey(answer.apiKey)
         return
       }
-      toast({ title: `Password updated for ${partnerName}.` })
+      toast({ title: t('partners.password.updated', { name: partnerName }) })
       onOpenChange(false)
     } catch (err: any) {
-      setError(err?.message || 'Failed to rotate password. Please try again.')
+      setError(errorText(err, t('partners.password.failed')))
     }
   }
 
@@ -110,21 +117,16 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
         {newApiKey ? (
           <>
             <DialogHeader>
-              <DialogTitle>Password set for {partnerName}</DialogTitle>
-              <DialogDescription>
-                The new password works now. This restaurant also had an API key: it was replaced too, so the old key
-                stopped working. Here is the new one.
-              </DialogDescription>
+              <DialogTitle>{t('partners.password.keyReplacedTitle', { name: partnerName })}</DialogTitle>
+              <DialogDescription>{t('partners.password.keyReplacedDescription')}</DialogDescription>
             </DialogHeader>
             <ApiKeyShownOnce apiKey={newApiKey} onDone={() => onOpenChange(false)} />
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Set New Password for {partnerName}</DialogTitle>
-              <DialogDescription>
-                Sets a new password for this restaurant's login. The current password stops working immediately. It cannot be read back — note it down before you close this.
-              </DialogDescription>
+              <DialogTitle>{t('partners.password.title', { name: partnerName })}</DialogTitle>
+              <DialogDescription>{t('partners.password.description')}</DialogDescription>
             </DialogHeader>
 
             {error ? (
@@ -135,43 +137,43 @@ export const RotateCredentialsDialog: React.FC<RotateCredentialsDialogProps> = (
 
             <div className="space-y-3 py-2">
               <div className="space-y-1">
-                <Label htmlFor="new-password">New password</Label>
+                <Label htmlFor="new-password">{t('partners.password.newPassword')}</Label>
                 <Input
                   id="new-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder={t('partners.password.atLeast8')}
                 />
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Label htmlFor="confirm-password">{t('partners.password.confirmPassword')}</Label>
                 <Input
                   id="confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter password"
+                  placeholder={t('partners.password.reenter')}
                 />
               </div>
 
               {password.length > 0 && password.length < 8 ? (
-                <p className="text-xs text-amber-600">Password must be at least 8 characters.</p>
+                <p className="text-xs text-amber-600">{t('partners.password.tooShort')}</p>
               ) : null}
 
               {confirmPassword.length > 0 && password !== confirmPassword ? (
-                <p className="text-xs text-destructive">Passwords do not match.</p>
+                <p className="text-xs text-destructive">{t('partners.password.mismatch')}</p>
               ) : null}
             </div>
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="button" disabled={!isValid || isLoading} onClick={handleRotate}>
                 {isLoading ? <Spinner className="mr-2" /> : null}
-                Set New Password
+                {t('partners.password.submit')}
               </Button>
             </DialogFooter>
           </>

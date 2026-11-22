@@ -27,6 +27,9 @@ import { usePartnerCreateForm, usePartnerUpdateForm } from '../hooks/form/usePar
 import { PickupAddressFields } from './PickupAddressFields'
 import { buildPartnerCreateInput, buildPartnerUpdateInput, PartnerCreateFormValues, PartnerUpdateFormValues } from '@/utils/partnerFormInput'
 import { mapLocationToPickupFormValues } from '@/utils/partnerPickupAddress'
+import { useTranslation } from 'react-i18next'
+import { useServerText } from '@/i18n/useServerText'
+import { showMessage, type ShownMessage } from '@/i18n/shownMessage'
 
 interface PartnerFormDialogProps {
   open: boolean
@@ -58,9 +61,14 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
   returnFocusTo,
 }) => {
   const { toast } = useToast()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, or our own sentence when it gave none.
+  const { errorText } = useServerText()
   const [createPartner, { isLoading: isCreating }] = useCreatePartnerMutation()
   const [updatePartner, { isLoading: isUpdating }] = useUpdatePartnerMutation()
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  // Keys with their values, translated when drawn (src/i18n/shownMessage.ts).
+  const [validationErrors, setValidationErrors] = useState<ShownMessage[]>([])
   const [created, setCreated] = useState<CreatedRestaurant | null>(null)
   const [copyState, setCopyState] = useState<CopyState>('idle')
 
@@ -108,8 +116,8 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
       setCreated({ name: saved.name || buildRes.value.name, email: buildRes.value.email, password: buildRes.value.password })
     } catch (err: any) {
       toast({
-        title: 'Failed to create restaurant',
-        description: err?.message || 'An error occurred while creating the restaurant.',
+        title: t('partners.form.createFailedTitle'),
+        description: errorText(err, t('partners.form.createFailed')),
         variant: 'destructive',
       })
     }
@@ -140,12 +148,12 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
 
     try {
       await updatePartner({ id: partner.id, data: buildRes.value }).unwrap()
-      toast({ title: 'Restaurant updated successfully' })
+      toast({ title: t('partners.form.updated') })
       onOpenChange(false)
     } catch (err: any) {
       toast({
-        title: 'Failed to update restaurant',
-        description: err?.message || 'An error occurred while updating the restaurant.',
+        title: t('partners.form.updateFailedTitle'),
+        description: errorText(err, t('partners.form.updateFailed')),
         variant: 'destructive',
       })
     }
@@ -158,7 +166,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
     try {
       // The DOM types say the clipboard always exists, but browsers leave it out on insecure pages:
       // then this line throws a TypeError, which the catch below turns into the "select" line.
-      await navigator.clipboard.writeText(`Email: ${created.email}\nPassword: ${created.password}`)
+      await navigator.clipboard.writeText(
+        t('partners.form.clipboard', { email: created.email, password: created.password }),
+      )
       setCopyState('copied')
     } catch {
       setCopyState('failed')
@@ -167,12 +177,16 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
 
   // The title and description stay the same while the dialog animates closed, because `created`
   // is only cleared after the close (onCloseAutoFocus) or on the next open (adminweb AGENTS.md).
-  const title = created ? 'Restaurant Added' : mode === 'create' ? 'Add a Restaurant' : 'Edit Details'
-  const description = created
-    ? 'Give these details to the restaurant.'
+  const title = created
+    ? t('partners.form.addedTitle')
     : mode === 'create'
-      ? 'Issue a restaurant login and set its pickup location.'
-      : `Update details for ${partner?.name || 'this restaurant'}.`
+      ? t('partners.form.addTitle')
+      : t('partners.form.editTitle')
+  const description = created
+    ? t('partners.form.addedDescription')
+    : mode === 'create'
+      ? t('partners.form.addDescription')
+      : t('partners.form.editDescription', { name: partner?.name || t('partners.form.thisRestaurant') })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -204,7 +218,10 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
         {validationErrors.length > 0 ? (
           <div className="bg-destructive/15 text-destructive p-3 rounded-md text-sm space-y-1">
             {validationErrors.map((err, idx) => (
-              <p key={idx}>• {err}</p>
+              <p key={idx}>
+                {'• '}
+                {showMessage(err, t)}
+              </p>
             ))}
           </div>
         ) : null}
@@ -214,27 +231,27 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
             <Alert variant="success">
               <CheckCircle aria-hidden="true" className="h-4 w-4" />
               <AlertDescription>
-                {created.name} can start sending deliveries. Give them these details. The password is shown only now.
+                {t('partners.form.addedAlert', { name: created.name })}
               </AlertDescription>
             </Alert>
             <DetailList
               items={[
-                { label: 'Email', value: created.email, mono: true },
-                { label: 'Password', value: created.password, mono: true },
+                { label: t('partners.form.email'), value: created.email, mono: true },
+                { label: t('partners.form.password'), value: created.password, mono: true },
               ]}
             />
             {copyState === 'failed' ? (
               <p className="text-sm text-destructive" role="status">
-                Could not copy. Select the text instead.
+                {t('partners.form.copyFailed')}
               </p>
             ) : null}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={copyAll}>
                 <Copy aria-hidden="true" className="mr-2 h-4 w-4" />
-                {copyState === 'copied' ? 'Copied' : 'Copy All'}
+                {copyState === 'copied' ? t('partners.form.copied') : t('partners.form.copyAll')}
               </Button>
               <Button type="button" onClick={() => onOpenChange(false)}>
-                Done
+                {t('partners.form.done')}
               </Button>
             </DialogFooter>
           </div>
@@ -246,9 +263,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Restaurant name</FormLabel>
+                    <FormLabel>{t('partners.form.name')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Souvlaki tou Nikou" {...field} />
+                      <Input placeholder={t('partners.form.namePlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -260,9 +277,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone couriers call</FormLabel>
+                    <FormLabel>{t('partners.form.phone')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. +30 24210 12345" {...field} />
+                      <Input placeholder={t('partners.form.phonePlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -277,14 +294,11 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="usualPrepMinutes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usual prep time (minutes)</FormLabel>
+                    <FormLabel>{t('partners.form.usualPrep')}</FormLabel>
                     <FormControl>
                       <Input inputMode="numeric" placeholder="15" {...field} />
                     </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Whole minutes from 0 to 90. New orders are ready this long after they are placed, unless the
-                      restaurant picks another time.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t('partners.form.usualPrepHint')}</p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -295,9 +309,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Sign-in email</FormLabel>
+                    <FormLabel>{t('partners.form.signInEmail')}</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="e.g. nikou@volos.test" {...field} />
+                      <Input type="email" placeholder={t('partners.form.emailPlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -309,9 +323,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>{t('partners.form.password')}</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="At least 8 characters" {...field} />
+                      <Input type="password" placeholder={t('partners.form.passwordPlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -320,11 +334,11 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
 
               <DialogFooter className="pt-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? <Spinner className="mr-2" /> : null}
-                  Add Restaurant
+                  {t('partners.form.submitAdd')}
                 </Button>
               </DialogFooter>
             </form>
@@ -337,9 +351,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Restaurant name</FormLabel>
+                    <FormLabel>{t('partners.form.name')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Souvlaki tou Nikou" {...field} />
+                      <Input placeholder={t('partners.form.namePlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -351,9 +365,9 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone couriers call</FormLabel>
+                    <FormLabel>{t('partners.form.phone')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. +30 24210 12345" {...field} value={field.value ?? ''} />
+                      <Input placeholder={t('partners.form.phonePlaceholder')} {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -366,14 +380,11 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="usualPrepMinutes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usual prep time (minutes)</FormLabel>
+                    <FormLabel>{t('partners.form.usualPrep')}</FormLabel>
                     <FormControl>
                       <Input inputMode="numeric" placeholder="15" {...field} />
                     </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Whole minutes from 0 to 90. New orders are ready this long after they are placed, unless the
-                      restaurant picks another time.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t('partners.form.usualPrepHint')}</p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -384,7 +395,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="logo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Logo URL</FormLabel>
+                    <FormLabel>{t('partners.form.logoUrl')}</FormLabel>
                     <FormControl>
                       <Input placeholder="https://..." {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -398,7 +409,7 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
                 name="webhookUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Webhook URL</FormLabel>
+                    <FormLabel>{t('partners.form.webhookUrl')}</FormLabel>
                     <FormControl>
                       <Input placeholder="https://..." {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -411,11 +422,11 @@ export const PartnerFormDialog: React.FC<PartnerFormDialogProps> = ({
 
               <DialogFooter className="pt-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? <Spinner className="mr-2" /> : null}
-                  Save Changes
+                  {t('partners.form.saveChanges')}
                 </Button>
               </DialogFooter>
             </form>
