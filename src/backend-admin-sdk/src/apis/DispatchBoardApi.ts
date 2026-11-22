@@ -37,6 +37,10 @@ export interface DispatchAttentionRowDto {
     // Spec 0035, only on a REMOVAL_REQUEST row. The approve sends `pickedUp` back as read here.
     removalRequestId?: string;
     pickedUp?: boolean;
+    // Spec 0048 (AC-12), only on an OFFER_UNANSWERED row of a stack: the other order offered with it.
+    // Optional and nullable: an older backend sends none, a single offer sends null.
+    pairedDeliveryId?: string | null;
+    pairedOrderReference?: string | null;
 }
 
 export interface DispatchMapCourierDto {
@@ -45,7 +49,8 @@ export interface DispatchMapCourierDto {
     latitude: number;
     longitude: number;
     state: 'FREE' | 'BUSY';
-    carrying: { deliveryId: string; orderReference: string | null; offered: boolean }[];
+    // `paired` (spec 0048): one of two orders offered or carried together; absent otherwise.
+    carrying: { deliveryId: string; orderReference: string | null; offered: boolean; paired?: boolean }[];
 }
 
 export interface DispatchMapWaitingDeliveryDto {

@@ -453,6 +453,22 @@ export interface DeliveryAdminDto {
     legCount?: number | null;
     orderLegs?: OrderLegAdmin[];
     missingLegNumbers?: number[];
+    /**
+     * Spec 0048 (AC-12): two deliveries offered together (a stack) share this id; null for a single offer.
+     * Kept after the accept as the link between the two. Optional: an older backend sends none. Hand edited (row 80).
+     */
+    offerGroupId?: string | null;
+    /**
+     * Spec 0048: the stack's four stops in riding order while the two are with one rider; null otherwise.
+     * Hand edited (row 80).
+     */
+    stackStops?: StackStopAdmin[] | null;
+}
+
+/** Spec 0048: one stop of a stack, picking an order up or handing it over. Hand edited (row 80). */
+export interface StackStopAdmin {
+    deliveryId: string;
+    stop: 'PICKUP' | 'DROPOFF';
 }
 
 
@@ -641,6 +657,8 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'legCount': !exists(json, 'legCount') ? null : json['legCount'],
         'orderLegs': !exists(json, 'orderLegs') ? [] : json['orderLegs'],
         'missingLegNumbers': !exists(json, 'missingLegNumbers') ? [] : json['missingLegNumbers'],
+        'offerGroupId': !exists(json, 'offerGroupId') ? null : json['offerGroupId'],
+        'stackStops': !exists(json, 'stackStops') ? null : json['stackStops'],
     };
 }
 
@@ -731,6 +749,8 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'legCount': value.legCount,
         'orderLegs': value.orderLegs,
         'missingLegNumbers': value.missingLegNumbers,
+        'offerGroupId': value.offerGroupId,
+        'stackStops': value.stackStops,
     };
 }
 

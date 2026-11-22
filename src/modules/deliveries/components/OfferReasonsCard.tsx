@@ -7,6 +7,7 @@ import {
 } from "../../../admin-web-components";
 import type { OfferReasonAdmin } from "../../../backend-admin-sdk/src/models/DeliveryAdminDto";
 import { formatOptionalDate } from "../../../ui-shared-utils";
+import { shortId } from "@/utils/shortId";
 
 // Spec 0044 (AC-8): why each offer of this delivery went to its rider, as the backend recorded it at the
 // offer (OfferReason). Read only. The candidates table shows other riders' figures, which is why it lives
@@ -103,6 +104,35 @@ export function reasonLines(reason: OfferReasonAdmin): string[] {
   }
 }
 
+// Spec 0048 (AC-12): what a stack's reason adds to the rider's own figures: the other order offered with
+// this one, the order of the four stops, and how much later each customer's food arrives than it would on a
+// single trip (the co-op's delay limit). Orders are named by their short id, as everywhere on this page.
+export function stackLines(reason: OfferReasonAdmin): string[] {
+  if (reason.kind !== "STACK") return [];
+  const v = reason.values;
+  const lines: string[] = [];
+  if (typeof v.partnerDeliveryId === "string") {
+    lines.push(`Offered together with delivery ${shortId(v.partnerDeliveryId)}`);
+  }
+  if (Array.isArray(v.sequence)) {
+    const stops = v.sequence
+      .map((item, index) => {
+        const stop = item as { deliveryId?: unknown; stop?: unknown };
+        if (typeof stop.deliveryId !== "string") return null;
+        return `${index + 1} ${stop.stop === "PICKUP" ? "pick up" : "drop off"} ${shortId(stop.deliveryId)}`;
+      })
+      .filter((text): text is string => text !== null);
+    if (stops.length > 0) lines.push(`Stops: ${stops.join(", ")}`);
+  }
+  if (v.delaySeconds && typeof v.delaySeconds === "object") {
+    const delays = Object.entries(v.delaySeconds as Record<string, unknown>).map(
+      ([deliveryId, seconds]) => `${shortId(deliveryId)} ${durationText(seconds)}`
+    );
+    if (delays.length > 0) lines.push(`Each customer's extra wait over a single trip: ${delays.join(", ")}`);
+  }
+  return lines;
+}
+
 // Spec 0049: the On a shift column shows only for offers made while Shifts was on.
 function hasShiftColumn(reason: OfferReasonAdmin): boolean {
   return (reason.candidates ?? []).some((candidate) => typeof candidate.onShift === "boolean");
@@ -143,6 +173,8 @@ export function OfferReasonsCard({
                 {formatOptionalDate(reason.createdAt)} ·{" "}
                 {name(reason.courierId)} ·{" "}
                 {STRATEGY_WORDS[reason.strategy] ?? reason.strategy}
+                {/* Spec 0048: one of two orders offered together. */}
+                {reason.kind === "STACK" ? " · Two orders together" : ""}
               </p>
               {reason.weights ? (
                 <p className="text-muted-foreground">
@@ -156,7 +188,7 @@ export function OfferReasonsCard({
                 </p>
               ) : null}
               <ul className="list-disc pl-5">
-                {reasonLines(reason).map((line) => (
+                {[...reasonLines(reason), ...stackLines(reason)].map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>

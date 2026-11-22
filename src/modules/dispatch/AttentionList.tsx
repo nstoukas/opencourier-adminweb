@@ -107,6 +107,15 @@ function AttentionRow({ row, nowMs }: { row: DispatchAttentionRowDto; nowMs: num
             {minutes !== null ? <span className="font-normal text-muted-foreground"> · {minutes} min</span> : null}
           </p>
           {second ? <p className="whitespace-pre-wrap break-words text-muted-foreground">{second}</p> : null}
+          {/* Spec 0048 (AC-12): one of two orders offered together to one rider, answered together. */}
+          {row.pairedDeliveryId ? (
+            <p className="text-muted-foreground" data-testid="attention-pair">
+              Two orders together, with{' '}
+              <Link href={`/deliveries/${row.pairedDeliveryId}`} className="underline">
+                {row.pairedOrderReference ? `#${row.pairedOrderReference}` : 'the other order'}
+              </Link>
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">

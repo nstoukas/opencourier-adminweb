@@ -1,6 +1,7 @@
 import React from 'react'
 import { boxSizeText } from '@/utils/boxSize'
 import { legText } from '@/utils/legs'
+import { StackedOrderCard } from '@/modules/deliveries/components/StackedOrderCard'
 import { OrderLegsCard } from '@/modules/deliveries/components/OrderLegsCard'
 import { OfferReasonsCard } from '@/modules/deliveries/components/OfferReasonsCard'
 import { useGetDeliveryQuery, useSubmitDeliveryEventMutation } from '@/api/deliveriesApi'
@@ -379,6 +380,14 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               legCount={delivery.legCount}
               legs={delivery.orderLegs}
               missingLegNumbers={delivery.missingLegNumbers ?? []}
+            />
+          ) : null}
+          {/* Spec 0048 (AC-12): the other order of a stack and the order of its stops. */}
+          {delivery.offerGroupId ? (
+            <StackedOrderCard
+              deliveryId={delivery.id}
+              stackStops={delivery.stackStops}
+              offerReasons={delivery.offerReasons}
             />
           ) : null}
           <PriceBreakdownCard delivery={delivery} />

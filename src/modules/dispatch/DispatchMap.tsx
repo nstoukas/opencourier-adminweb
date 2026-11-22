@@ -40,6 +40,8 @@ function CourierPopup({ courier }: { courier: DispatchMapCourierDto }) {
             {job.orderReference ? `#${job.orderReference}` : 'Delivery'}
           </Link>
           {job.offered ? ' offered' : ''}
+          {/* Spec 0048 (AC-12): one of two orders offered or carried together. */}
+          {job.paired ? ' (two orders together)' : ''}
         </p>
       ))}
     </div>
