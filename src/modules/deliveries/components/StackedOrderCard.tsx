@@ -65,8 +65,10 @@ export function StackedOrderCard(props: Props) {
             ))}
           </ol>
         ) : (
+          // agy review of row 80: the stop order is cleared once the two are not both open with one rider,
+          // which includes a pair delivered together, so this says only what is known.
           <p className="text-muted-foreground">
-            The two are no longer with one rider, so each goes on alone.
+            No stop order now: it is kept only while both orders are open with one rider.
           </p>
         )}
       </CardContent>
