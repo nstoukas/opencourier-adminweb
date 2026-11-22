@@ -20,4 +20,5 @@ export * from './RemovalRequestApi';
 export * from './ChatApi';
 export * from './PartnerChargeApi';
 export * from './ReviewRequestApi';
+export * from './ComplaintApi';
 export * from './TimeWorkedApi';

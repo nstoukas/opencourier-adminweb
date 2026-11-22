@@ -1,5 +1,5 @@
 import { BaseAPI, Configuration, ConfigurationParameters } from './runtime'
-import { AuthApi, ChatApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, StatementApi, SplitRequestApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
+import { AuthApi, ChatApi, ComplaintApi, ConfigApi, CourierApi, CourierSettingsApi, DeliveriesApi, DispatchBoardApi, DispatchStopApi, LocationsApi, PartnerApi, PartnerChargeApi, RemovalRequestApi, ReviewRequestApi, SavedCustomersApi, CourierAccountApi, ShiftOfflineEventApi, StatementApi, SplitRequestApi, ShiftSlotApi, SosApi, TimeWorkedApi } from "./apis";
 import { ApiError } from './errors'
 
 export class BackendAdminSdk {
@@ -130,6 +130,11 @@ export class BackendAdminSdk {
   // Riders' review requests and the settings record (spec 0038).
   reviewRequests(): ReviewRequestApi {
     return this.getOrCreateApi(ReviewRequestApi)
+  }
+
+  // Complaints both ways, with no ratings (spec 0052).
+  complaints(): ComplaintApi {
+    return this.getOrCreateApi(ComplaintApi)
   }
 
   // A rider's time worked and the co-op totals (spec 0040).
