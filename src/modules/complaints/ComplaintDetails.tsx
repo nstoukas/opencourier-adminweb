@@ -30,6 +30,7 @@ import {
   filerText,
   statusText,
 } from './complaintDisplay'
+import { ComplaintPhoto } from './ComplaintPhoto'
 
 const isOpen = (complaint: ComplaintAdminDto) =>
   complaint.status === 'OPEN' || complaint.status === 'AWAITING_REPLY'
@@ -152,6 +153,7 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <p className="whitespace-pre-wrap break-words">{complaint.text}</p>
+              {complaint.hasPhoto ? <ComplaintPhoto complaintId={complaint.id} /> : null}
             </CardContent>
           </Card>
 

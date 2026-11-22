@@ -47,6 +47,8 @@ export interface ComplaintAdminDto {
     aboutCourierDeactivated: boolean;
     category: ComplaintCategory;
     text: string;
+    // Slice 2: a rider's filing carries a photo; read it with photo(id). Never a key or a storage URL.
+    hasPhoto: boolean;
     status: ComplaintStatus;
     createdAt: string;
     riderReply: string | null;
@@ -124,6 +126,13 @@ export class ComplaintApi extends runtime.BaseAPI {
     async get(id: string, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ComplaintAdminDto> {
         const response = await this.request({ path: `/api/admin/v1/complaints/${encodeURIComponent(id)}`, method: 'GET', headers: await this.authHeaders(), query: {} }, initOverrides);
         return await new runtime.JSONApiResponse<ComplaintAdminDto>(response).value();
+    }
+
+    // Slice 2 (cross check 8): the photo's bytes, a JPEG with no metadata, through the admin route with the
+    // bearer. The caller shows it as an object URL and revokes it when done.
+    async photo(id: string, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob> {
+        const response = await this.request({ path: `/api/admin/v1/complaints/${encodeURIComponent(id)}/photo`, method: 'GET', headers: await this.authHeaders(), query: {} }, initOverrides);
+        return await response.blob();
     }
 
     async deliveryRiders(deliveryId: string, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ComplaintDeliveryRiderDto[]> {

@@ -113,3 +113,9 @@ export const {
   useWithdrawComplaintMutation,
   useReplyForRiderMutation,
 } = complaintApi
+
+// Slice 2: a complaint's photo as bytes, outside RTK Query (a Blob is not something to keep in the Redux
+// store). Fetched with the bearer through the admin route; never a storage URL (cross check 8).
+export async function fetchComplaintPhoto(accessToken: string, id: string): Promise<Blob> {
+  return prepareAdminSdk(accessToken).complaints().photo(id)
+}
