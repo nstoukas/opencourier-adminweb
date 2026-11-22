@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -16,7 +17,7 @@ import {
 } from '@/admin-web-components'
 import type { PartnerBillDto } from '@/backend-admin-sdk'
 import { refreshPartnerCharges, useUndoPartnerBillMutation } from '@/api/partnerChargeApi'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
+import { useServerText } from '@/i18n/useServerText'
 import { useAppDispatch } from '@/ui-shared-utils'
 import { billLabel } from './chargeWording'
 
@@ -39,7 +40,12 @@ export function UndoBillDialog({
   const [undoBill, { isLoading }] = useUndoPartnerBillMutation()
   const dispatch = useAppDispatch()
   const [reason, setReason] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, else the fallback given.
+  const { errorText } = useServerText()
+  // The failed request's error itself, not words, so the message is written in the language shown now.
+  const [error, setError] = useState<unknown>(null)
   const trimmed = reason.trim()
   const valid = trimmed.length >= 1 && trimmed.length <= UNDO_REASON_MAX
 
@@ -52,7 +58,8 @@ export function UndoBillDialog({
     } catch (err) {
       // Already undone by someone else: show the bill as it is now.
       if ((err as { statusCode?: number } | undefined)?.statusCode === 409) dispatch(refreshPartnerCharges())
-      setError(backendMessage(err, 'The bill could not be undone. Try again in a moment.'))
+      // `?? {}`: a throw of nothing still shows the fallback.
+      setError(err ?? {})
     }
   }
 
@@ -60,14 +67,13 @@ export function UndoBillDialog({
     <AlertDialog open onOpenChange={(open) => !open && !isLoading && onClose()}>
       <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Undo {billLabel(bill)}?</AlertDialogTitle>
+          <AlertDialogTitle>{t('charges.undoBill.title', { bill: billLabel(t, bill) })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Its {bill.lineCount === 1 ? 'line becomes' : `${bill.lineCount} lines become`} unbilled again. The bill stays on
-            the record as undone, with your reason.
+            {t('charges.undoBill.description', { count: bill.lineCount })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <Field>
-          <FieldLabel htmlFor="undo-reason">Why</FieldLabel>
+          <FieldLabel htmlFor="undo-reason">{t('charges.undoBill.why')}</FieldLabel>
           <Textarea
             id="undo-reason"
             value={reason}
@@ -76,20 +82,22 @@ export function UndoBillDialog({
             aria-invalid={trimmed.length > UNDO_REASON_MAX}
           />
           <FieldDescription>
-            {trimmed.length > UNDO_REASON_MAX ? `At most ${UNDO_REASON_MAX} characters.` : 'For example: wrong lines, or the invoice was cancelled.'}
+            {trimmed.length > UNDO_REASON_MAX
+              ? t('charges.atMostCharacters', { max: UNDO_REASON_MAX })
+              : t('charges.undoBill.hint')}
           </FieldDescription>
         </Field>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
-            {error}
+            {errorText(error, t('charges.undoBill.failed'))}
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t('common.cancel')}</AlertDialogCancel>
           {/* A plain Button, so the dialog stays open until the undo is done. */}
           <Button variant="destructive" onClick={confirm} disabled={isLoading || !valid}>
             {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-            Undo bill
+            {t('charges.undoBill.confirm')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

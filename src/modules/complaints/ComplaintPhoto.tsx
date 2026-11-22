@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { fetchComplaintPhoto } from "@/api/complaintApi";
 import useAppSelector from "@/hooks/useAppSelector";
 
@@ -12,6 +13,8 @@ type PhotoState =
 // only in this tab and points at the bytes in memory. It is revoked when the page leaves or the complaint
 // changes, so the photo does not stay in memory. There is never a MinIO URL to copy or share.
 export function ComplaintPhoto({ complaintId }: { complaintId: string }) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation();
   const accessToken = useAppSelector((state) => state.auth.accessToken);
   const [state, setState] = useState<PhotoState>({ kind: "loading" });
 
@@ -46,12 +49,12 @@ export function ComplaintPhoto({ complaintId }: { complaintId: string }) {
   }, [accessToken, complaintId]);
 
   if (state.kind === "loading") {
-    return <p className="text-muted-foreground">Loading the photo…</p>;
+    return <p className="text-muted-foreground">{t("complaints.photo.loading")}</p>;
   }
   if (state.kind === "failed") {
     return (
       <p className="text-muted-foreground" role="alert">
-        The photo could not be loaded. Reload the page to try again.
+        {t("complaints.photo.failed")}
       </p>
     );
   }
@@ -61,14 +64,13 @@ export function ComplaintPhoto({ complaintId }: { complaintId: string }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={state.url}
-        alt="The photo the rider attached to this complaint"
+        alt={t("complaints.photo.alt")}
         className="max-h-[32rem] w-auto max-w-full rounded-md border"
         data-testid="complaint-photo"
         onError={() => setState({ kind: "failed" })}
       />
       <figcaption className="text-xs text-muted-foreground">
-        From the rider&apos;s gallery. The server removed its metadata,
-        including where it was taken.
+        {t("complaints.photo.caption")}
       </figcaption>
     </figure>
   );

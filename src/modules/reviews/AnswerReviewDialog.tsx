@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Dialog,
@@ -17,10 +18,10 @@ import {
 } from '@/admin-web-components'
 import type { ReviewOutcome, ReviewRequestAdminDto } from '@/backend-admin-sdk'
 import { refreshReviewRequests, useAnswerReviewRequestMutation } from '@/api/reviewRequestApi'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
 import { useAppDispatch } from '@/ui-shared-utils'
-import { formatMoney } from '@/utils/formatMoney'
-import { REVIEW_ANSWER_MAX, REVIEW_OUTCOME_TO_HUMAN, parseCorrectionCents } from './reviewDisplay'
+import { REVIEW_ANSWER_MAX, outcomeText, parseCorrectionCents } from './reviewDisplay'
 
 function isConflict(err: unknown): boolean {
   return (err as { statusCode?: number } | undefined)?.statusCode === 409
@@ -42,6 +43,12 @@ export function AnswerReviewButton({
 }) {
   const { toast } = useToast()
   const dispatch = useAppDispatch()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // useFormat gives money in the reader's language.
+  const f = useFormat()
+  // errorText: the server's refusal in the reader's language, else the fallback given.
+  const { errorText } = useServerText()
   const [answer, { isLoading }] = useAnswerReviewRequestMutation()
   const [open, setOpen] = useState(false)
   // 'write' is the form; 'confirm' repeats the correction before it is sent. Kept apart from `open`,
@@ -50,7 +57,8 @@ export function AnswerReviewButton({
   const [outcome, setOutcome] = useState<ReviewOutcome | null>(null)
   const [reason, setReason] = useState('')
   const [correction, setCorrection] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // The failed request's error itself, not words, so the message is written in the language shown now.
+  const [error, setError] = useState<unknown>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   // True once the answer went (or someone else's did): the row and this button are about to leave the
   // list, so focus goes to the page's main area instead of a button that no longer exists.
@@ -63,12 +71,12 @@ export function AnswerReviewButton({
     correctionText === ''
       ? null
       : correctionCents === null
-        ? 'Write an amount in euro above 0, such as 1.50.'
+        ? t('reviews.answer.correctionInvalid')
         : correctionMaxCents === null
           ? // Without the cap the browser cannot check the amount, so nothing goes to the confirm step.
-            "The co-op's limit has not loaded yet. Try again in a moment."
+            t('reviews.answer.capNotLoaded')
           : correctionCents > correctionMaxCents
-            ? `At most ${formatMoney(correctionMaxCents, currencyCode)}, the co-op's limit.`
+            ? t('reviews.answer.overCap', { max: f.money(correctionMaxCents, currencyCode) })
             : null
   const reasonText = reason.trim()
   const ready = outcome !== null && reasonText.length > 0 && reasonText.length <= REVIEW_ANSWER_MAX && !correctionError
@@ -100,18 +108,25 @@ export function AnswerReviewButton({
       }).unwrap()
       rowLeavingRef.current = true
       setOpen(false)
-      toast({ title: 'Answer sent', description: `${request.courierName} can read it in the app.` })
+      toast({
+        title: t('reviews.answer.sent'),
+        description: t('reviews.answer.sentDescription', { name: request.courierName }),
+      })
     } catch (err) {
-      const message = backendMessage(err, 'The answer could not be sent. Try again in a moment.')
       if (isConflict(err)) {
         // Someone else answered it, or the rider withdrew it: the row is about to change under the dialog.
         rowLeavingRef.current = true
         setOpen(false)
         dispatch(refreshReviewRequests())
-        toast({ title: 'Not sent', description: message, variant: 'destructive' })
+        toast({
+          title: t('reviews.answer.notSent'),
+          description: errorText(err, t('reviews.answer.failed')),
+          variant: 'destructive',
+        })
       } else {
         setStep('write')
-        setError(message)
+        // `?? {}`: a throw of nothing still shows the fallback.
+        setError(err ?? {})
       }
     }
   }
@@ -125,7 +140,7 @@ export function AnswerReviewButton({
   return (
     <>
       <Button ref={triggerRef} type="button" size="sm" onClick={() => handleOpenChange(true)}>
-        Answer
+        {t('reviews.answer.button')}
       </Button>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
@@ -139,14 +154,12 @@ export function AnswerReviewButton({
           {step === 'write' ? (
             <>
               <DialogHeader>
-                <DialogTitle>Answer {request.courierName}</DialogTitle>
-                <DialogDescription>
-                  The rider reads your answer in the app. Nothing is decided until you send it.
-                </DialogDescription>
+                <DialogTitle>{t('reviews.answer.title', { name: request.courierName })}</DialogTitle>
+                <DialogDescription>{t('reviews.answer.description')}</DialogDescription>
               </DialogHeader>
               <blockquote className="whitespace-pre-wrap rounded-md border bg-muted p-3 text-sm">{request.note}</blockquote>
               <fieldset className="space-y-2">
-                <legend className="text-sm font-medium">Outcome</legend>
+                <legend className="text-sm font-medium">{t('reviews.answer.outcome')}</legend>
                 {(['STANDS', 'CHANGED'] as ReviewOutcome[]).map((value) => (
                   <label key={value} className="flex items-center gap-2 text-sm">
                     <input
@@ -156,12 +169,12 @@ export function AnswerReviewButton({
                       checked={outcome === value}
                       onChange={() => setOutcome(value)}
                     />
-                    {REVIEW_OUTCOME_TO_HUMAN[value]}
+                    {outcomeText(t, value)}
                   </label>
                 ))}
               </fieldset>
               <Field>
-                <FieldLabel htmlFor={`review-answer-${request.id}`}>Reason</FieldLabel>
+                <FieldLabel htmlFor={`review-answer-${request.id}`}>{t('reviews.answer.reason')}</FieldLabel>
                 <Textarea
                   id={`review-answer-${request.id}`}
                   rows={4}
@@ -169,11 +182,11 @@ export function AnswerReviewButton({
                   maxLength={REVIEW_ANSWER_MAX}
                   onChange={(event) => setReason(event.target.value)}
                 />
-                <FieldDescription>Say why, in words the rider can follow. At most {REVIEW_ANSWER_MAX} characters.</FieldDescription>
+                <FieldDescription>{t('reviews.answer.reasonHint', { max: REVIEW_ANSWER_MAX })}</FieldDescription>
               </Field>
               {canCorrect ? (
                 <Field>
-                  <FieldLabel htmlFor={`review-correction-${request.id}`}>Pay correction in euro (optional)</FieldLabel>
+                  <FieldLabel htmlFor={`review-correction-${request.id}`}>{t('reviews.answer.correction')}</FieldLabel>
                   <Input
                     id={`review-correction-${request.id}`}
                     inputMode="decimal"
@@ -187,8 +200,12 @@ export function AnswerReviewButton({
                     onChange={(event) => setCorrection(event.target.value)}
                   />
                   <FieldDescription id={`review-correction-help-${request.id}`}>
-                    Added to {request.courierName}&apos;s pay for this delivery, today. It only adds, never takes away
-                    {correctionMaxCents !== null ? `, up to ${formatMoney(correctionMaxCents, currencyCode)}` : ''}.
+                    {correctionMaxCents !== null
+                      ? t('reviews.answer.correctionHintCap', {
+                          name: request.courierName,
+                          max: f.money(correctionMaxCents, currencyCode),
+                        })
+                      : t('reviews.answer.correctionHint', { name: request.courierName })}
                   </FieldDescription>
                   {correctionError ? (
                     <FieldError id={`review-correction-error-${request.id}`} role="alert">
@@ -199,15 +216,19 @@ export function AnswerReviewButton({
               ) : null}
               {error ? (
                 <p role="alert" className="text-sm text-destructive">
-                  {error}
+                  {errorText(error, t('reviews.answer.failed'))}
                 </p>
               ) : null}
               <DialogFooter>
                 <Button type="button" variant="outline" disabled={isLoading} onClick={() => handleOpenChange(false)}>
-                  Not now
+                  {t('reviews.answer.notNow')}
                 </Button>
                 <Button type="button" disabled={!ready || isLoading} onClick={next}>
-                  {isLoading ? 'Sending…' : correctionCents !== null ? 'Next' : 'Send answer'}
+                  {isLoading
+                    ? t('reviews.answer.sending')
+                    : correctionCents !== null
+                      ? t('reviews.answer.next')
+                      : t('reviews.answer.send')}
                 </Button>
               </DialogFooter>
             </>
@@ -215,24 +236,30 @@ export function AnswerReviewButton({
             <>
               {/* role="alert": the step changes inside an open dialog, so a screen reader is told what it now asks. */}
               <DialogHeader role="alert">
-                <DialogTitle>Add {formatMoney(correctionCents, currencyCode)} to this rider&apos;s pay?</DialogTitle>
+                <DialogTitle>
+                  {t('reviews.answer.confirmTitle', { amount: f.money(correctionCents, currencyCode) })}
+                </DialogTitle>
                 <DialogDescription>
-                  {request.courierName} is paid {formatMoney(correctionCents, currencyCode)} more for this delivery, on
-                  today&apos;s earnings. It is recorded on the delivery and cannot be undone.
+                  {t('reviews.answer.confirmBody', {
+                    name: request.courierName,
+                    amount: f.money(correctionCents, currencyCode),
+                  })}
                 </DialogDescription>
               </DialogHeader>
               {error ? (
                 <p role="alert" className="text-sm text-destructive">
-                  {error}
+                  {errorText(error, t('reviews.answer.failed'))}
                 </p>
               ) : null}
               <DialogFooter>
                 {/* Focus lands on Back, never on the button that pays, when this step opens. */}
                 <Button type="button" variant="outline" autoFocus disabled={isLoading} onClick={() => setStep('write')}>
-                  Back
+                  {t('common.back')}
                 </Button>
                 <Button type="button" disabled={isLoading} onClick={() => void send()}>
-                  {isLoading ? 'Sending…' : `Send and add ${formatMoney(correctionCents, currencyCode)}`}
+                  {isLoading
+                    ? t('reviews.answer.sending')
+                    : t('reviews.answer.sendAndAdd', { amount: f.money(correctionCents, currencyCode) })}
                 </Button>
               </DialogFooter>
             </>

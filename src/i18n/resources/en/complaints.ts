@@ -1,3 +1,145 @@
 // complaints: English texts (spec 0054, row 47). Every key here has its Greek in ../el/complaints.ts.
+// The words were keyed in src/modules/complaints/complaintDisplay.ts (spec 0052) and moved here as they were.
 export const complaints = {
+  title: 'Complaints',
+  // A complaint's status, by the backend's code.
+  status: {
+    AWAITING_REPLY: "Waiting for the rider's reply",
+    OPEN: 'Open, to decide',
+    DECIDED: 'Decided',
+    WITHDRAWN: 'Withdrawn',
+  },
+  // Who filed it, by the backend's code.
+  filedBy: {
+    RIDER: 'Rider',
+    RESTAURANT: 'Restaurant',
+    ADMIN: 'Co-op (on behalf of a caller)',
+  },
+  category: {
+    LONG_WAIT: 'Long wait',
+    FOOD_NOT_READY: 'Food not ready',
+    UNSAFE_PACKAGING: 'Unsafe packaging',
+    RUDE_STAFF: 'Rude staff',
+    ABUSE_OR_THREAT: 'Abuse or a threat',
+    UNSAFE_ADDRESS: 'Unsafe address',
+    NOT_ANSWERING: 'Not answering',
+    LATE: 'Late',
+    RUDE: 'Rude',
+    FOOD_DAMAGED: 'Food damaged',
+    OTHER: 'Something else',
+  },
+  // The list's status tabs ("All" sends no filter).
+  statusFilter: {
+    ALL: 'All',
+    OPEN: 'To decide',
+    AWAITING_REPLY: 'Waiting for a reply',
+    DECIDED: 'Decided',
+    WITHDRAWN: 'Withdrawn',
+  },
+  // The list's "About" filter.
+  aboutFilter: {
+    ALL: 'Anyone',
+    RIDER: 'A rider',
+    RESTAURANT: 'A restaurant',
+    CUSTOMER: 'A customer',
+  },
+  aboutOption: 'About: {{label}}',
+  // Who the complaint is about, as one line.
+  aboutRider: 'A rider',
+  aboutRestaurant: '{{name}} (restaurant)',
+  aboutCustomer: "The order's customer",
+  // The table's headings and the details card's labels.
+  fields: {
+    made: 'Made',
+    from: 'From',
+    about: 'About',
+    what: 'What',
+    delivery: 'Delivery',
+    status: 'Status',
+    open: 'Open',
+  },
+  list: {
+    description:
+      "Complaints from riders about restaurants and customers, and from restaurants or callers about riders. A person decides each one; a complaint about a rider waits for the rider's reply first.",
+    loadFailed: 'The complaints could not be loaded. The list below may be out of date.',
+    empty: 'No complaint here.',
+    previous: 'Previous',
+    next: 'Next',
+    page: 'Page {{current}} of {{total}}',
+  },
+  file: {
+    title: 'Complaint about the rider',
+    intro:
+      'Someone phoned in about the rider on this order? File it here for them. Complaints are handled on the Complaints page.',
+    start: 'File a complaint for a caller',
+    ridersFailed: "The order's riders could not be loaded.",
+    noRider: 'No rider accepted this order, so there is nobody to complain about.',
+    // Followed by the rider's name, in bold.
+    about: 'About',
+    whichRider: 'Which rider (this order was reassigned)',
+    whichRiderShort: 'Which rider',
+    pickRider: 'Pick the rider',
+    whatHappened: 'What happened',
+    text: 'What the caller said',
+    textHint: 'Name who called in. The rider reads this text.',
+    save: 'File the complaint',
+    filed: 'Complaint filed. The rider is told and replies before anyone decides.',
+    failed: 'The complaint could not be filed.',
+  },
+  photo: {
+    loading: 'Loading the photo…',
+    failed: 'The photo could not be loaded. Reload the page to try again.',
+    alt: 'The photo the rider attached to this complaint',
+    caption: "From the rider's gallery. The server removed its metadata, including where it was taken.",
+  },
+  details: {
+    title: 'Complaint',
+    titleWithCategory: 'Complaint: {{category}}',
+    loadFailed: 'The complaint could not be loaded.',
+    allComplaints: 'All complaints',
+    complaint: 'The complaint',
+    reply: "The rider's reply",
+    replyEnteredBy: "Entered from a phone call by {{name}} (the rider's account was deactivated)",
+    replyFromApp: 'From the rider, in the app',
+    waitingForReply:
+      "Waiting for the rider's reply. The rider was told in the app; nothing can be decided before the reply, and there is no deadline. You can still withdraw the complaint.",
+    replyForRider: 'Enter the reply for the rider',
+    replyForRiderHint:
+      "The rider's account is deactivated, so they cannot reply in the app. Write down what they said on the phone, or that they could not reply. It is marked as entered by you.",
+    saveReply: 'Save the reply',
+    replySaved: 'Reply saved.',
+    replyFailed: 'The reply could not be saved.',
+    // The button's words, and the sentence it writes into the box.
+    riderCouldNotReplyButton: 'The rider could not reply',
+    riderCouldNotReply: 'The rider could not reply.',
+    decision: 'Decision',
+    decidedBy: 'Decided {{when}} by {{name}}',
+    removedAdmin: 'a removed admin',
+    withdrawnNoFinding: 'Withdrawn, with no finding against anyone.',
+    withdrawnBy: 'Withdrawn {{when}} by {{name}}',
+    outcome: 'Outcome',
+    outcomeHintWaiting: "Waiting for the rider's reply: a decision can be recorded once they have replied.",
+    outcomeHintRider: 'Shown to the rider who filed it. Once saved it cannot be changed.',
+    outcomeHintOthers: 'Shown to the rider and to whoever filed it. Once saved it cannot be changed.',
+    recordDecision: 'Record the decision',
+    confirmDecisionTitle: 'Record this decision?',
+    confirmDecisionRider: 'The rider who filed it will see it, and it cannot be changed.',
+    confirmDecisionOthers: 'The rider and whoever filed it will see it, and it cannot be changed.',
+    decisionRecorded: 'Decision recorded.',
+    decisionFailed: 'The decision could not be saved.',
+    withdrawReason: 'Why it is withdrawn',
+    withdrawHint:
+      'Closes the complaint with no finding against anyone. The reason is shown to the rider and to whoever filed it.',
+    withdrawConfirm: 'Withdraw the complaint',
+    confirmWithdrawTitle: 'Withdraw this complaint?',
+    confirmWithdrawBody:
+      'It closes with no finding against anyone, and it cannot be reopened. The reason is shown to the rider and to whoever filed it.',
+    withdrawn: 'Complaint withdrawn.',
+    withdrawFailed: 'The complaint could not be withdrawn.',
+    withdraw: 'Withdraw…',
+    details: 'Details',
+    deliveryLink: 'Delivery: {{name}}, {{when}}',
+    riderLink: 'Rider: {{name}}',
+    deactivatedSuffix: ' (deactivated)',
+  },
 }

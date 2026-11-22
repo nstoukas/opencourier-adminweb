@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useGetReviewRequestCountQuery } from '@/api/reviewRequestApi'
 import { usePageVisible } from '@/hooks/usePageVisible'
 
@@ -7,6 +8,8 @@ export const REVIEW_COUNT_POLL_MS = 30_000
 // for the whole co-op, never per rider (binding value 5). Asked again every 30 s while the tab is visible.
 export function ReviewsBadge() {
   const pageVisible = usePageVisible()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const { data, isError } = useGetReviewRequestCountQuery(undefined, {
     pollingInterval: pageVisible ? REVIEW_COUNT_POLL_MS : 0,
   })
@@ -18,16 +21,16 @@ export function ReviewsBadge() {
     return (
       <span
         role="img"
-        aria-label="Open review requests could not be counted"
+        aria-label={t('reviews.badge.notCounted')}
         className="ml-auto rounded-full bg-secondary px-1.5 py-0.5 text-xs font-semibold leading-none text-secondary-foreground"
-        title="Open review requests could not be counted"
+        title={t('reviews.badge.notCounted')}
       >
-        ?
+        {'?'}
       </span>
     )
   }
   if (open === 0) return null
-  const label = overdue > 0 ? `${open} open, ${overdue} overdue` : `${open} open`
+  const label = overdue > 0 ? t('reviews.badge.openOverdue', { open, overdue }) : t('reviews.badge.open', { open })
   // role="img" makes screen readers read the label (on a plain span it is often skipped), and an
   // overdue count shows "!" as well as red, so it is not told by colour alone.
   return (

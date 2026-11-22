@@ -1,89 +1,58 @@
-import type {
-  ComplaintAbout,
-  ComplaintAdminDto,
-  ComplaintCategory,
-  ComplaintFiledBy,
-  ComplaintStatus,
-} from '@/backend-admin-sdk'
+import type { TFunction } from 'i18next'
+import type { ComplaintAbout, ComplaintAdminDto, ComplaintCategory, ComplaintStatus } from '@/backend-admin-sdk'
 
-// Spec 0052 (row 83): the words for complaints in adminweb, keyed in one place so row 47 (spec 0054)
-// can move them into translation files as they are. adminweb has no translation library yet.
-
-export const COMPLAINT_STATUS_TO_HUMAN: Record<ComplaintStatus, string> = {
-  AWAITING_REPLY: "Waiting for the rider's reply",
-  OPEN: 'Open, to decide',
-  DECIDED: 'Decided',
-  WITHDRAWN: 'Withdrawn',
-}
-
-export const COMPLAINT_ABOUT_TO_HUMAN: Record<ComplaintAbout, string> = {
-  RESTAURANT: 'A restaurant',
-  CUSTOMER: 'A customer',
-  RIDER: 'A rider',
-}
-
-export const COMPLAINT_FILED_BY_TO_HUMAN: Record<ComplaintFiledBy, string> = {
-  RIDER: 'Rider',
-  RESTAURANT: 'Restaurant',
-  ADMIN: 'Co-op (on behalf of a caller)',
-}
-
-export const COMPLAINT_CATEGORY_TO_HUMAN: Record<ComplaintCategory, string> = {
-  LONG_WAIT: 'Long wait',
-  FOOD_NOT_READY: 'Food not ready',
-  UNSAFE_PACKAGING: 'Unsafe packaging',
-  RUDE_STAFF: 'Rude staff',
-  ABUSE_OR_THREAT: 'Abuse or a threat',
-  UNSAFE_ADDRESS: 'Unsafe address',
-  NOT_ANSWERING: 'Not answering',
-  LATE: 'Late',
-  RUDE: 'Rude',
-  FOOD_DAMAGED: 'Food damaged',
-  OTHER: 'Something else',
-}
+// Spec 0052 (row 83): the words for complaints in adminweb. Row 47 (spec 0054) moved them into
+// src/i18n/resources/{en,el}/complaints.ts; these helpers take `t` (useTranslation's) and answer in the
+// reader's language.
 
 // A code this tab does not know (a newer server) reads as the code itself rather than breaking the page.
-export const categoryText = (category: string): string =>
-  (COMPLAINT_CATEGORY_TO_HUMAN as Record<string, string>)[category] ?? category
+// `defaultValue` is what i18next returns when the key does not exist.
+export const categoryText = (t: TFunction, category: string): string =>
+  t(`complaints.category.${category}`, { defaultValue: category })
 
 // A status this tab does not know reads as the code itself, as with categories.
-export const statusText = (status: string): string =>
-  (COMPLAINT_STATUS_TO_HUMAN as Record<string, string>)[status] ?? status
+export const statusText = (t: TFunction, status: string): string =>
+  t(`complaints.status.${status}`, { defaultValue: status })
 
 // The categories for a complaint about a rider, the only kind an admin files (AC-3).
 export const RIDER_CATEGORIES: ComplaintCategory[] = ['LATE', 'RUDE', 'FOOD_DAMAGED', 'OTHER']
 
 // The list's status filter, in the order a representative works through them. "All" sends no filter.
-export const COMPLAINT_STATUS_FILTERS: { value: ComplaintStatus | 'ALL'; label: string }[] = [
-  { value: 'ALL', label: 'All' },
-  { value: 'OPEN', label: 'To decide' },
-  { value: 'AWAITING_REPLY', label: 'Waiting for a reply' },
-  { value: 'DECIDED', label: 'Decided' },
-  { value: 'WITHDRAWN', label: 'Withdrawn' },
+// Each label is a translation key, translated where the tab is drawn.
+export const COMPLAINT_STATUS_FILTERS: { value: ComplaintStatus | 'ALL'; labelKey: string }[] = [
+  { value: 'ALL', labelKey: 'complaints.statusFilter.ALL' },
+  { value: 'OPEN', labelKey: 'complaints.statusFilter.OPEN' },
+  { value: 'AWAITING_REPLY', labelKey: 'complaints.statusFilter.AWAITING_REPLY' },
+  { value: 'DECIDED', labelKey: 'complaints.statusFilter.DECIDED' },
+  { value: 'WITHDRAWN', labelKey: 'complaints.statusFilter.WITHDRAWN' },
 ]
 
-export const COMPLAINT_ABOUT_FILTERS: { value: ComplaintAbout | 'ALL'; label: string }[] = [
-  { value: 'ALL', label: 'Anyone' },
-  { value: 'RIDER', label: 'A rider' },
-  { value: 'RESTAURANT', label: 'A restaurant' },
-  { value: 'CUSTOMER', label: 'A customer' },
+export const COMPLAINT_ABOUT_FILTERS: { value: ComplaintAbout | 'ALL'; labelKey: string }[] = [
+  { value: 'ALL', labelKey: 'complaints.aboutFilter.ALL' },
+  { value: 'RIDER', labelKey: 'complaints.aboutFilter.RIDER' },
+  { value: 'RESTAURANT', labelKey: 'complaints.aboutFilter.RESTAURANT' },
+  { value: 'CUSTOMER', labelKey: 'complaints.aboutFilter.CUSTOMER' },
 ]
 
 // Who the complaint is about, as one line: the rider's name, else the party.
-export function aboutText(complaint: Pick<ComplaintAdminDto, 'about' | 'aboutCourierName' | 'delivery'>): string {
-  if (complaint.about === 'RIDER') return complaint.aboutCourierName ?? 'A rider'
-  if (complaint.about === 'RESTAURANT') return `${complaint.delivery.pickupName} (restaurant)`
-  return "The order's customer"
+export function aboutText(
+  t: TFunction,
+  complaint: Pick<ComplaintAdminDto, 'about' | 'aboutCourierName' | 'delivery'>
+): string {
+  if (complaint.about === 'RIDER') return complaint.aboutCourierName ?? t('complaints.aboutRider')
+  if (complaint.about === 'RESTAURANT') return t('complaints.aboutRestaurant', { name: complaint.delivery.pickupName })
+  return t('complaints.aboutCustomer')
 }
 
-// Who filed it, as one line.
-export function filerText(complaint: Pick<ComplaintAdminDto, 'filedBy' | 'filerName'>): string {
-  const kind = (COMPLAINT_FILED_BY_TO_HUMAN as Record<string, string>)[complaint.filedBy] ?? complaint.filedBy
+// Who filed it, as one line ("Rider: Maria"). A code this tab does not know reads as the code.
+export function filerText(t: TFunction, complaint: Pick<ComplaintAdminDto, 'filedBy' | 'filerName'>): string {
+  const kind = t(`complaints.filedBy.${complaint.filedBy}`, { defaultValue: complaint.filedBy })
   return complaint.filerName ? `${kind}: ${complaint.filerName}` : kind
 }
 
 // The backend keeps a complaint, an outcome, a reason and a reply to 1000 characters each.
 export const COMPLAINT_TEXT_MAX = 1000
 
-// The sentence the admin writes when a deactivated rider could not be reached (cross check 2).
-export const RIDER_COULD_NOT_REPLY = 'The rider could not reply.'
+// The key of the sentence the admin writes when a deactivated rider could not be reached (cross check 2),
+// put into the box in the reader's language.
+export const RIDER_COULD_NOT_REPLY_KEY = 'complaints.details.riderCouldNotReply'

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Checkbox,
@@ -16,13 +17,18 @@ import {
 } from '@/admin-web-components'
 import type { PartnerChargeBilledLineDto } from '@/backend-admin-sdk'
 import { alreadyBilledIds, refreshPartnerCharges, useCreatePartnerBillMutation } from '@/api/partnerChargeApi'
-import { backendMessage } from '@/modules/couriers/courierAccountRules'
+import { useFormat } from '@/i18n/useFormat'
+import { useServerText } from '@/i18n/useServerText'
 import { useAppDispatch } from '@/ui-shared-utils'
 import { athensDayTime } from '@/utils/athensMonth'
-import { formatMoney } from '@/utils/formatMoney'
 import { adminOrderLabel, reasonText } from './chargeWording'
 
 export const REFERENCE_MAX = 60
+
+// What went wrong, kept as facts rather than words, so the message is written in the language shown
+// now. A union type (`|`): either someone else billed some of the lines (with their names, which may
+// be empty), or the server refused for another reason (its error, worded by errorText).
+type BillError = { kind: 'alreadyBilled'; names: string[] } | { kind: 'server'; error: unknown }
 
 // Spec 0036, AC-5, AC-6. Every unbilled line starts ticked; untick what this invoice does not cover.
 // One bill is written for the ticked lines, all or nothing. If another admin billed one of them a
@@ -52,7 +58,13 @@ export function MarkBilledDialog({
   // after a reload starts ticked too.
   const [unticked, setUnticked] = useState<Set<string>>(new Set())
   const [reference, setReference] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<BillError | null>(null)
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
+  // useFormat gives money in the reader's language.
+  const f = useFormat()
+  // errorText: the server's refusal in the reader's language, else the fallback given.
+  const { errorText } = useServerText()
 
   // A fresh start each time the dialog opens.
   useEffect(() => {
@@ -95,14 +107,10 @@ export function MarkBilledDialog({
         const names = unbilled
           .filter((line) => billed.includes(line.id))
           .map((line) => `${adminOrderLabel(line)} (${athensDayTime(line.happenedAt)})`)
-        setError(
-          names.length > 0
-            ? `Nothing was billed: someone else just billed ${names.join(', ')}. The list is up to date now; check it and confirm again.`
-            : 'Nothing was billed: some of these lines were just billed by someone else. The list is up to date now.'
-        )
+        setError({ kind: 'alreadyBilled', names })
         return
       }
-      setError(backendMessage(err, 'The bill could not be saved. Try again in a moment.'))
+      setError({ kind: 'server', error: err })
     }
   }
 
@@ -110,14 +118,12 @@ export function MarkBilledDialog({
     <Dialog open={open} onOpenChange={(next) => !isLoading && onOpenChange(next)}>
       <DialogContent className="max-h-[90vh] overflow-y-auto" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Mark as billed</DialogTitle>
-          <DialogDescription>
-            Tick the lines your invoice covers. Lines you untick stay unbilled and can go in a later bill.
-          </DialogDescription>
+          <DialogTitle>{t('charges.partnerMonth.markAsBilled')}</DialogTitle>
+          <DialogDescription>{t('charges.markBilled.description')}</DialogDescription>
         </DialogHeader>
 
         {unbilled.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Every line of this month is billed.</p>
+          <p className="text-sm text-muted-foreground">{t('charges.markBilled.allBilled')}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border">
             {unbilled.map((line) => {
@@ -136,9 +142,9 @@ export function MarkBilledDialog({
                       {' · '}
                       {adminOrderLabel(line)}
                       {' · '}
-                      {reasonText(line)}
+                      {reasonText(t, line)}
                     </span>
-                    <span className="tabular-nums font-medium">{formatMoney(line.amount, line.currencyCode)}</span>
+                    <span className="tabular-nums font-medium">{f.money(line.amount, line.currencyCode)}</span>
                   </label>
                 </li>
               )
@@ -147,7 +153,7 @@ export function MarkBilledDialog({
         )}
 
         <Field>
-          <FieldLabel htmlFor="bill-reference">Invoice number (optional)</FieldLabel>
+          <FieldLabel htmlFor="bill-reference">{t('charges.markBilled.reference')}</FieldLabel>
           <Input
             id="bill-reference"
             value={reference}
@@ -156,23 +162,29 @@ export function MarkBilledDialog({
             aria-invalid={referenceTooLong}
           />
           <FieldDescription>
-            {referenceTooLong ? `At most ${REFERENCE_MAX} characters.` : 'The number of the invoice you sent, so the two can be matched.'}
+            {referenceTooLong
+              ? t('charges.atMostCharacters', { max: REFERENCE_MAX })
+              : t('charges.markBilled.referenceHint')}
           </FieldDescription>
         </Field>
 
         {error ? (
           <p role="alert" className="text-sm text-destructive">
-            {error}
+            {error.kind === 'server'
+              ? errorText(error.error, t('charges.markBilled.saveFailed'))
+              : error.names.length > 0
+                ? t('charges.markBilled.someoneBilled', { names: error.names.join(', ') })
+                : t('charges.markBilled.someoneBilledUnknown')}
           </p>
         ) : null}
 
         <DialogFooter>
           <Button type="button" variant="outline" disabled={isLoading} onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button type="button" onClick={confirm} disabled={isLoading || ticked.length === 0 || referenceTooLong}>
             {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-            {ticked.length === 1 ? 'Confirm 1 line' : `Confirm ${ticked.length} lines`}
+            {t('charges.markBilled.confirm', { count: ticked.length })}
           </Button>
         </DialogFooter>
       </DialogContent>

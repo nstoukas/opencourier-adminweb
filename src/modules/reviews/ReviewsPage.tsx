@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Table,
@@ -19,9 +20,9 @@ import { PageHeader } from '@/components/layouts/PageHeader'
 import { EAdminRoutes } from '@/hooks/useAdminPageNavigator'
 import { usePageVisible } from '@/hooks/usePageVisible'
 import { athensDayTime } from '@/utils/athensMonth'
-import { formatMoney } from '@/utils/formatMoney'
+import { useFormat } from '@/i18n/useFormat'
 import { AnswerReviewButton } from './AnswerReviewDialog'
-import { REVIEW_OUTCOME_TO_HUMAN, REVIEW_TABS, REVIEW_TOPIC_TO_HUMAN, dueText } from './reviewDisplay'
+import { REVIEW_TABS, dueText, outcomeText, topicText } from './reviewDisplay'
 
 export const REVIEWS_PAGE_SIZE = 20
 export const REVIEWS_POLL_MS = 30_000
@@ -31,6 +32,8 @@ export const REVIEWS_POLL_MS = 30_000
 // Answered and withdrawn requests stay readable under their own tabs.
 export function ReviewsPage() {
   const pageVisible = usePageVisible()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [status, setStatus] = useState<ReviewRequestStatus>('OPEN')
   const [page, setPage] = useState(1)
   // `currentData`, not `data`: after a tab or page change, the last tab's rows (with their Answer
@@ -62,14 +65,14 @@ export function ReviewsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reviews"
-        description="A rider can ask a person to look again at any decision the app took about their work. Each request needs a written answer by its due date."
+        title={t('reviews.title')}
+        description={t('reviews.description')}
       />
       <Tabs value={status} onValueChange={changeTab}>
         <TabsList>
           {REVIEW_TABS.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
+              {t(tab.labelKey)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -77,24 +80,36 @@ export function ReviewsPage() {
 
       {isError ? (
         <p role="alert" className="text-sm text-destructive">
-          The review requests could not be loaded. The list below may be out of date.
+          {t('reviews.list.loadFailed')}
         </p>
       ) : null}
 
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {isFetching && !data ? 'Loading…' : status === 'OPEN' ? 'No request is waiting for an answer.' : 'None yet.'}
+          {isFetching && !data
+            ? t('common.loading')
+            : status === 'OPEN'
+              ? t('reviews.list.noneOpen')
+              : t('reviews.list.noneYet')}
         </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{status === 'OPEN' ? 'Due' : status === 'ANSWERED' ? 'Answered' : 'Withdrawn'}</TableHead>
-              <TableHead>Rider</TableHead>
-              <TableHead>About</TableHead>
-              <TableHead>Delivery</TableHead>
-              <TableHead className="w-2/5">{status === 'ANSWERED' ? 'Request and answer' : 'Request'}</TableHead>
-              {status === 'OPEN' ? <TableHead className="sr-only">Answer</TableHead> : null}
+              <TableHead>
+                {status === 'OPEN'
+                  ? t('reviews.list.due')
+                  : status === 'ANSWERED'
+                    ? t('reviews.list.answered')
+                    : t('reviews.list.withdrawn')}
+              </TableHead>
+              <TableHead>{t('reviews.list.rider')}</TableHead>
+              <TableHead>{t('reviews.list.about')}</TableHead>
+              <TableHead>{t('reviews.list.delivery')}</TableHead>
+              <TableHead className="w-2/5">
+                {status === 'ANSWERED' ? t('reviews.list.requestAndAnswer') : t('reviews.list.request')}
+              </TableHead>
+              {status === 'OPEN' ? <TableHead className="sr-only">{t('reviews.list.answer')}</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -118,10 +133,10 @@ export function ReviewsPage() {
             disabled={!pagination.prevPage || isFetching}
             onClick={() => setPage((current) => Math.max(1, current - 1))}
           >
-            Previous
+            {t('reviews.list.previous')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            Page {pagination.currentPage} of {pagination.totalPages}
+            {t('reviews.list.page', { current: pagination.currentPage, total: pagination.totalPages })}
           </span>
           <Button
             type="button"
@@ -129,7 +144,7 @@ export function ReviewsPage() {
             disabled={!pagination.nextPage || isFetching}
             onClick={() => setPage((current) => current + 1)}
           >
-            Next
+            {t('reviews.list.next')}
           </Button>
         </div>
       ) : null}
@@ -146,6 +161,9 @@ function ReviewRow({
   correctionMaxCents: number | null
   currencyCode: string
 }) {
+  const { t } = useTranslation()
+  // useFormat gives money in the reader's language.
+  const f = useFormat()
   const when =
     request.status === 'OPEN'
       ? null
@@ -161,39 +179,49 @@ function ReviewRow({
         {request.status === 'OPEN' ? (
           <>
             <span className={request.overdue ? 'font-semibold text-destructive' : undefined}>
-              {dueText(request.dueAt, request.overdue)}
+              {dueText(t, request.dueAt, request.overdue)}
             </span>
-            <div className="text-xs text-muted-foreground">Due {athensDayTime(request.dueAt)}</div>
+            <div className="text-xs text-muted-foreground">
+              {t('reviews.list.dueAt', { when: athensDayTime(request.dueAt) })}
+            </div>
           </>
         ) : (
           when
         )}
-        <div className="text-xs text-muted-foreground">Sent {athensDayTime(request.createdAt)}</div>
+        <div className="text-xs text-muted-foreground">
+          {t('reviews.list.sentAt', { when: athensDayTime(request.createdAt) })}
+        </div>
       </TableCell>
       <TableCell className="align-top">{request.courierName}</TableCell>
-      <TableCell className="align-top">{REVIEW_TOPIC_TO_HUMAN[request.topic]}</TableCell>
+      <TableCell className="align-top">{topicText(t, request.topic)}</TableCell>
       <TableCell className="align-top">
         {request.delivery ? (
           <Link
             href={{ pathname: EAdminRoutes.DELIVERY_DETAILS, query: { deliveryId: request.delivery.id } }}
             className="underline underline-offset-2"
           >
-            {request.delivery.pickupName}, {athensDayTime(request.delivery.createdAt)}
+            {`${request.delivery.pickupName}, ${athensDayTime(request.delivery.createdAt)}`}
           </Link>
         ) : (
-          <span className="text-muted-foreground">General</span>
+          <span className="text-muted-foreground">{t('reviews.list.general')}</span>
         )}
       </TableCell>
       <TableCell className="align-top">
         <p className="whitespace-pre-wrap break-words text-sm">{request.note}</p>
         {request.status === 'ANSWERED' && request.outcome ? (
           <div className="mt-2 space-y-1 border-l-2 pl-3 text-sm">
-            <p className="font-medium">{REVIEW_OUTCOME_TO_HUMAN[request.outcome]}</p>
+            <p className="font-medium">{outcomeText(t, request.outcome)}</p>
             {request.answer ? <p className="whitespace-pre-wrap break-words">{request.answer}</p> : null}
             {request.correctionCents !== null ? (
-              <p>Pay correction: {formatMoney(request.correctionCents, request.correctionCurrency ?? currencyCode)}</p>
+              <p>
+                {t('reviews.list.payCorrection', {
+                  amount: f.money(request.correctionCents, request.correctionCurrency ?? currencyCode),
+                })}
+              </p>
             ) : null}
-            <p className="text-xs text-muted-foreground">Answered by {request.answeredBy ?? 'a removed admin'}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('reviews.list.answeredBy', { name: request.answeredBy ?? t('reviews.list.removedAdmin') })}
+            </p>
           </div>
         ) : null}
       </TableCell>

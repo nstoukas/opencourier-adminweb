@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -28,10 +29,11 @@ import {
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { EAdminRoutes } from '@/hooks/useAdminPageNavigator'
 import { usePageVisible } from '@/hooks/usePageVisible'
+import { useServerText } from '@/i18n/useServerText'
 import { athensDayTime } from '@/utils/athensMonth'
 import {
   COMPLAINT_TEXT_MAX,
-  RIDER_COULD_NOT_REPLY,
+  RIDER_COULD_NOT_REPLY_KEY,
   aboutText,
   categoryText,
   filerText,
@@ -67,6 +69,8 @@ function TextForm({
   // as the courier app asks before the rider's one reply.
   confirm?: { title: string; body: string }
 }) {
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [asking, setAsking] = useState(false)
   const trimmed = text.trim()
@@ -107,7 +111,7 @@ function TextForm({
               <AlertDialogDescription>{confirm.body}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={busy}>{t('common.cancel')}</AlertDialogCancel>
               {/* A plain Button, so the dialog stays open until the save is done. */}
               <Button onClick={save} disabled={busy}>
                 {buttonText}
@@ -127,6 +131,9 @@ function TextForm({
 export function ComplaintDetails({ complaintId }: { complaintId: string }) {
   const { toast } = useToast()
   const pageVisible = usePageVisible()
+  const { t } = useTranslation()
+  // errorText: the server's refusal in the reader's language, else the fallback given.
+  const { errorText } = useServerText()
   // `currentData`: going back between two complaints never shows the previous one (AGENTS.md). The rider
   // replies from the phone, which invalidates nothing here, so the page polls while visible.
   const query = useGetComplaintQuery(
@@ -145,8 +152,8 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
       await write()
       toast({ title: done })
       return true
-    } catch (err: any) {
-      toast({ title: err?.message || failed, variant: 'destructive' })
+    } catch (err) {
+      toast({ title: errorText(err, failed), variant: 'destructive' })
       return false
     }
   }
@@ -154,9 +161,9 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
   if (!complaint) {
     return (
       <>
-        <PageHeader title="Complaint" />
+        <PageHeader title={t('complaints.details.title')} />
         <p className="text-sm text-muted-foreground" role={query.isError ? 'alert' : undefined}>
-          {query.isError ? 'The complaint could not be loaded.' : 'Loading…'}
+          {query.isError ? t('complaints.details.loadFailed') : t('common.loading')}
         </p>
       </>
     )
@@ -168,19 +175,19 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
   return (
     <>
       <PageHeader
-        title={`Complaint: ${categoryText(complaint.category)}`}
-        description={statusText(complaint.status)}
+        title={t('complaints.details.titleWithCategory', { category: categoryText(t, complaint.category) })}
+        description={statusText(t, complaint.status)}
       />
       <div className="mb-4">
         <Link href={EAdminRoutes.COMPLAINTS} className="text-sm underline underline-offset-2">
-          All complaints
+          {t('complaints.details.allComplaints')}
         </Link>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="flex min-w-0 flex-col gap-6">
           <Card data-testid="complaint-text">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">The complaint</CardTitle>
+              <CardTitle className="text-lg">{t('complaints.details.complaint')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <p className="whitespace-pre-wrap break-words">{complaint.text}</p>
@@ -191,7 +198,7 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
           {aboutRider ? (
             <Card data-testid="complaint-reply">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">The rider&apos;s reply</CardTitle>
+                <CardTitle className="text-lg">{t('complaints.details.reply')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {complaint.riderReply !== null ? (
@@ -199,34 +206,32 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
                     <p className="whitespace-pre-wrap break-words">{complaint.riderReply}</p>
                     <p className="text-xs text-muted-foreground">
                       {complaint.repliedAt ? athensDayTime(complaint.repliedAt) : null}
+                      {' · '}
                       {complaint.replyEnteredBy
-                        ? ` · Entered from a phone call by ${complaint.replyEnteredBy} (the rider's account was deactivated)`
-                        : ' · From the rider, in the app'}
+                        ? t('complaints.details.replyEnteredBy', { name: complaint.replyEnteredBy })
+                        : t('complaints.details.replyFromApp')}
                     </p>
                   </>
                 ) : (
-                  <p className="text-muted-foreground">
-                    Waiting for the rider&apos;s reply. The rider was told in the app; nothing can be decided before
-                    the reply, and there is no deadline. You can still withdraw the complaint.
-                  </p>
+                  <p className="text-muted-foreground">{t('complaints.details.waitingForReply')}</p>
                 )}
                 {awaitingReply && complaint.aboutCourierDeactivated ? (
                   <TextForm
                     id="reply-for-rider"
-                    label="Enter the reply for the rider"
-                    hint="The rider's account is deactivated, so they cannot reply in the app. Write down what they said on the phone, or that they could not reply. It is marked as entered by you."
-                    buttonText="Save the reply"
+                    label={t('complaints.details.replyForRider')}
+                    hint={t('complaints.details.replyForRiderHint')}
+                    buttonText={t('complaints.details.saveReply')}
                     busy={replyState.isLoading}
                     onSave={(text) =>
                       run(
                         () => replyForRider({ id: complaint.id, text }).unwrap(),
-                        'Reply saved.',
-                        'The reply could not be saved.'
+                        t('complaints.details.replySaved'),
+                        t('complaints.details.replyFailed')
                       )
                     }
                     extra={(setText) => (
-                      <Button type="button" size="sm" variant="outline" onClick={() => setText(RIDER_COULD_NOT_REPLY)}>
-                        The rider could not reply
+                      <Button type="button" size="sm" variant="outline" onClick={() => setText(t(RIDER_COULD_NOT_REPLY_KEY))}>
+                        {t('complaints.details.riderCouldNotReplyButton')}
                       </Button>
                     )}
                   />
@@ -237,25 +242,29 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
 
           <Card data-testid="complaint-decision">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Decision</CardTitle>
+              <CardTitle className="text-lg">{t('complaints.details.decision')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               {complaint.status === 'DECIDED' ? (
                 <>
                   <p className="whitespace-pre-wrap break-words">{complaint.outcome}</p>
                   <p className="text-xs text-muted-foreground">
-                    Decided {complaint.decidedAt ? athensDayTime(complaint.decidedAt) : ''} by{' '}
-                    {complaint.decidedBy ?? 'a removed admin'}
+                    {t('complaints.details.decidedBy', {
+                      when: complaint.decidedAt ? athensDayTime(complaint.decidedAt) : '',
+                      name: complaint.decidedBy ?? t('complaints.details.removedAdmin'),
+                    })}
                   </p>
                 </>
               ) : null}
               {complaint.status === 'WITHDRAWN' ? (
                 <>
-                  <p className="font-medium">Withdrawn, with no finding against anyone.</p>
+                  <p className="font-medium">{t('complaints.details.withdrawnNoFinding')}</p>
                   <p className="whitespace-pre-wrap break-words">{complaint.withdrawnReason}</p>
                   <p className="text-xs text-muted-foreground">
-                    Withdrawn {complaint.withdrawnAt ? athensDayTime(complaint.withdrawnAt) : ''} by{' '}
-                    {complaint.withdrawnBy ?? 'a removed admin'}
+                    {t('complaints.details.withdrawnBy', {
+                      when: complaint.withdrawnAt ? athensDayTime(complaint.withdrawnAt) : '',
+                      name: complaint.withdrawnBy ?? t('complaints.details.removedAdmin'),
+                    })}
                   </p>
                 </>
               ) : null}
@@ -263,59 +272,59 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
                 <>
                   <TextForm
                     id="decide-outcome"
-                    label="Outcome"
+                    label={t('complaints.details.outcome')}
                     hint={
                       awaitingReply
-                        ? "Waiting for the rider's reply: a decision can be recorded once they have replied."
+                        ? t('complaints.details.outcomeHintWaiting')
                         : complaint.filedBy === 'RIDER'
-                          ? 'Shown to the rider who filed it. Once saved it cannot be changed.'
-                          : 'Shown to the rider and to whoever filed it. Once saved it cannot be changed.'
+                          ? t('complaints.details.outcomeHintRider')
+                          : t('complaints.details.outcomeHintOthers')
                     }
-                    buttonText="Record the decision"
+                    buttonText={t('complaints.details.recordDecision')}
                     busy={decideState.isLoading}
                     disabled={awaitingReply}
                     confirm={{
-                      title: 'Record this decision?',
+                      title: t('complaints.details.confirmDecisionTitle'),
                       body:
                         complaint.filedBy === 'RIDER'
-                          ? 'The rider who filed it will see it, and it cannot be changed.'
-                          : 'The rider and whoever filed it will see it, and it cannot be changed.',
+                          ? t('complaints.details.confirmDecisionRider')
+                          : t('complaints.details.confirmDecisionOthers'),
                     }}
                     onSave={(outcome) =>
                       run(
                         () => decide({ id: complaint.id, outcome }).unwrap(),
-                        'Decision recorded.',
-                        'The decision could not be saved.'
+                        t('complaints.details.decisionRecorded'),
+                        t('complaints.details.decisionFailed')
                       )
                     }
                   />
                   {withdrawing ? (
                     <TextForm
                       id="withdraw-reason"
-                      label="Why it is withdrawn"
-                      hint="Closes the complaint with no finding against anyone. The reason is shown to the rider and to whoever filed it."
-                      buttonText="Withdraw the complaint"
+                      label={t('complaints.details.withdrawReason')}
+                      hint={t('complaints.details.withdrawHint')}
+                      buttonText={t('complaints.details.withdrawConfirm')}
                       busy={withdrawState.isLoading}
                       confirm={{
-                        title: 'Withdraw this complaint?',
-                        body: 'It closes with no finding against anyone, and it cannot be reopened. The reason is shown to the rider and to whoever filed it.',
+                        title: t('complaints.details.confirmWithdrawTitle'),
+                        body: t('complaints.details.confirmWithdrawBody'),
                       }}
                       onSave={(reason) =>
                         run(
                           () => withdraw({ id: complaint.id, reason }).unwrap(),
-                          'Complaint withdrawn.',
-                          'The complaint could not be withdrawn.'
+                          t('complaints.details.withdrawn'),
+                          t('complaints.details.withdrawFailed')
                         )
                       }
                       extra={() => (
                         <Button type="button" size="sm" variant="ghost" onClick={() => setWithdrawing(false)}>
-                          Cancel
+                          {t('common.cancel')}
                         </Button>
                       )}
                     />
                   ) : (
                     <Button type="button" size="sm" variant="outline" onClick={() => setWithdrawing(true)}>
-                      Withdraw…
+                      {t('complaints.details.withdraw')}
                     </Button>
                   )}
                 </>
@@ -327,16 +336,16 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
         <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Details</CardTitle>
+              <CardTitle className="text-lg">{t('complaints.details.details')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               <DetailList
                 items={[
-                  { label: 'Made', value: athensDayTime(complaint.createdAt) },
-                  { label: 'From', value: filerText(complaint) },
-                  { label: 'About', value: aboutText(complaint) },
-                  { label: 'What', value: categoryText(complaint.category) },
-                  { label: 'Status', value: statusText(complaint.status) },
+                  { label: t('complaints.fields.made'), value: athensDayTime(complaint.createdAt) },
+                  { label: t('complaints.fields.from'), value: filerText(t, complaint) },
+                  { label: t('complaints.fields.about'), value: aboutText(t, complaint) },
+                  { label: t('complaints.fields.what'), value: categoryText(t, complaint.category) },
+                  { label: t('complaints.fields.status'), value: statusText(t, complaint.status) },
                 ]}
               />
               <div className="mt-4 flex flex-col gap-2">
@@ -344,15 +353,18 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
                   href={{ pathname: EAdminRoutes.DELIVERY_DETAILS, query: { deliveryId: complaint.delivery.id } }}
                   className="underline underline-offset-2"
                 >
-                  Delivery: {complaint.delivery.pickupName}, {athensDayTime(complaint.delivery.createdAt)}
+                  {t('complaints.details.deliveryLink', {
+                    name: complaint.delivery.pickupName,
+                    when: athensDayTime(complaint.delivery.createdAt),
+                  })}
                 </Link>
                 {complaint.aboutCourierId ? (
                   <Link
                     href={{ pathname: EAdminRoutes.COURIER_DETAILS, query: { courierId: complaint.aboutCourierId } }}
                     className="underline underline-offset-2"
                   >
-                    Rider: {complaint.aboutCourierName ?? complaint.aboutCourierId}
-                    {complaint.aboutCourierDeactivated ? ' (deactivated)' : ''}
+                    {t('complaints.details.riderLink', { name: complaint.aboutCourierName ?? complaint.aboutCourierId })}
+                    {complaint.aboutCourierDeactivated ? t('complaints.details.deactivatedSuffix') : ''}
                   </Link>
                 ) : null}
               </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Select,
@@ -40,6 +41,8 @@ export const COMPLAINTS_POLL_MS = 30_000
 // the backend's list takes no rider id (binding value 5). Each row opens the complaint's page.
 export function ComplaintsPage() {
   const pageVisible = usePageVisible()
+  // useTranslation gives t, which looks a key up in the reader's language.
+  const { t } = useTranslation()
   const [status, setStatus] = useState<ComplaintStatus | 'ALL'>('ALL')
   const [about, setAbout] = useState<ComplaintAbout | 'ALL'>('ALL')
   const [page, setPage] = useState(1)
@@ -69,8 +72,8 @@ export function ComplaintsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Complaints"
-        description="Complaints from riders about restaurants and customers, and from restaurants or callers about riders. A person decides each one; a complaint about a rider waits for the rider's reply first."
+        title={t('complaints.title')}
+        description={t('complaints.list.description')}
       />
       <div className="flex flex-wrap items-center gap-3">
         <Tabs
@@ -83,7 +86,7 @@ export function ComplaintsPage() {
           <TabsList>
             {COMPLAINT_STATUS_FILTERS.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
+                {t(tab.labelKey)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -95,13 +98,13 @@ export function ComplaintsPage() {
             setPage(1)
           }}
         >
-          <SelectTrigger className="w-48" aria-label="About">
+          <SelectTrigger className="w-48" aria-label={t('complaints.fields.about')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {COMPLAINT_ABOUT_FILTERS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                About: {option.label}
+                {t('complaints.aboutOption', { label: t(option.labelKey) })}
               </SelectItem>
             ))}
           </SelectContent>
@@ -110,7 +113,7 @@ export function ComplaintsPage() {
 
       {isError ? (
         <p role="alert" className="text-sm text-destructive">
-          The complaints could not be loaded. The list below may be out of date.
+          {t('complaints.list.loadFailed')}
         </p>
       ) : null}
 
@@ -118,19 +121,19 @@ export function ComplaintsPage() {
         // Row 83 review: "No complaint here." only when a list arrived; after a failed first load the
         // alert above stands alone, since the page never received an empty list.
         isError && !data ? null : (
-          <p className="text-sm text-muted-foreground">{isFetching && !data ? 'Loading…' : 'No complaint here.'}</p>
+          <p className="text-sm text-muted-foreground">{isFetching && !data ? t('common.loading') : t('complaints.list.empty')}</p>
         )
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Made</TableHead>
-              <TableHead>From</TableHead>
-              <TableHead>About</TableHead>
-              <TableHead>What</TableHead>
-              <TableHead>Delivery</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="sr-only">Open</TableHead>
+              <TableHead>{t('complaints.fields.made')}</TableHead>
+              <TableHead>{t('complaints.fields.from')}</TableHead>
+              <TableHead>{t('complaints.fields.about')}</TableHead>
+              <TableHead>{t('complaints.fields.what')}</TableHead>
+              <TableHead>{t('complaints.fields.delivery')}</TableHead>
+              <TableHead>{t('complaints.fields.status')}</TableHead>
+              <TableHead className="sr-only">{t('complaints.fields.open')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -149,10 +152,10 @@ export function ComplaintsPage() {
             disabled={!pagination.prevPage || isFetching}
             onClick={() => setPage((current) => Math.max(1, current - 1))}
           >
-            Previous
+            {t('complaints.list.previous')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            Page {pagination.currentPage} of {pagination.totalPages}
+            {t('complaints.list.page', { current: pagination.currentPage, total: pagination.totalPages })}
           </span>
           <Button
             type="button"
@@ -160,7 +163,7 @@ export function ComplaintsPage() {
             disabled={!pagination.nextPage || isFetching}
             onClick={() => setPage((current) => current + 1)}
           >
-            Next
+            {t('complaints.list.next')}
           </Button>
         </div>
       ) : null}
@@ -169,13 +172,14 @@ export function ComplaintsPage() {
 }
 
 function ComplaintRow({ complaint }: { complaint: ComplaintAdminDto }) {
+  const { t } = useTranslation()
   return (
     <TableRow data-testid="complaint-row">
       <TableCell className="whitespace-nowrap align-top">{athensDayTime(complaint.createdAt)}</TableCell>
-      <TableCell className="align-top">{filerText(complaint)}</TableCell>
-      <TableCell className="align-top">{aboutText(complaint)}</TableCell>
+      <TableCell className="align-top">{filerText(t, complaint)}</TableCell>
+      <TableCell className="align-top">{aboutText(t, complaint)}</TableCell>
       <TableCell className="align-top">
-        <p className="font-medium">{categoryText(complaint.category)}</p>
+        <p className="font-medium">{categoryText(t, complaint.category)}</p>
         <p className="line-clamp-2 whitespace-pre-wrap break-words text-muted-foreground">{complaint.text}</p>
       </TableCell>
       <TableCell className="align-top">
@@ -183,13 +187,13 @@ function ComplaintRow({ complaint }: { complaint: ComplaintAdminDto }) {
           href={{ pathname: EAdminRoutes.DELIVERY_DETAILS, query: { deliveryId: complaint.delivery.id } }}
           className="underline underline-offset-2"
         >
-          {complaint.delivery.pickupName}, {athensDayTime(complaint.delivery.createdAt)}
+          {`${complaint.delivery.pickupName}, ${athensDayTime(complaint.delivery.createdAt)}`}
         </Link>
       </TableCell>
-      <TableCell className="align-top">{statusText(complaint.status)}</TableCell>
+      <TableCell className="align-top">{statusText(t, complaint.status)}</TableCell>
       <TableCell className="text-right align-top">
         <Button asChild size="sm" variant="outline">
-          <Link href={{ pathname: EAdminRoutes.COMPLAINT_DETAILS, query: { complaintId: complaint.id } }}>Open</Link>
+          <Link href={{ pathname: EAdminRoutes.COMPLAINT_DETAILS, query: { complaintId: complaint.id } }}>{t('complaints.fields.open')}</Link>
         </Button>
       </TableCell>
     </TableRow>

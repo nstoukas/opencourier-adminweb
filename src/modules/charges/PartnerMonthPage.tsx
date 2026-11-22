@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useTranslation } from 'react-i18next'
 import { DownloadSimple, Printer, Receipt } from '@phosphor-icons/react'
 import {
   Breadcrumb,
@@ -21,10 +22,11 @@ import { useGetPartnerChargePartnerMonthQuery } from '@/api/partnerChargeApi'
 import { PageHeader } from '@/components/layouts/PageHeader'
 import { EAdminRoutes } from '@/hooks/useAdminPageNavigator'
 import { athensDayTime, isMonth, monthTitle } from '@/utils/athensMonth'
-import { formatMoney } from '@/utils/formatMoney'
+import { toLanguage } from '@/i18n/language'
+import { useFormat } from '@/i18n/useFormat'
 import { buildChargesCsv, downloadCsv } from './chargesCsv'
 import { formatAmounts, formatTotals } from './chargeTotals'
-import { DELIVERY_FEE_NOTE, adminOrderLabel, billLabel, reasonText } from './chargeWording'
+import { DELIVERY_FEE_NOTE_KEY, adminOrderLabel, billLabel, reasonText } from './chargeWording'
 import { MarkBilledDialog } from './MarkBilledDialog'
 import { UndoBillDialog } from './UndoBillDialog'
 
@@ -32,6 +34,13 @@ import { UndoBillDialog } from './UndoBillDialog'
 // bills newest first, Mark as billed, Undo, each bill's statement and the month's CSV.
 export function PartnerMonthPage() {
   const router = useRouter()
+  // useTranslation gives t (a key in the reader's language) and i18n (which language that is).
+  const { t, i18n } = useTranslation()
+  // useFormat gives money and numbers in the reader's language.
+  const f = useFormat()
+  const language = toLanguage(i18n.language)
+  // The CSV is a Greek document whatever the reader's language (spec 0054, cross check 11).
+  const tGreek = i18n.getFixedT('el')
   const month = typeof router.query.month === 'string' ? router.query.month : ''
   const partnerId = typeof router.query.partnerId === 'string' ? router.query.partnerId : ''
   const validMonth = isMonth(month)
@@ -62,10 +71,10 @@ export function PartnerMonthPage() {
   }
 
   if (router.isReady && !validMonth) {
-    return <p className="text-sm text-destructive">This address does not name a month (YYYY-MM).</p>
+    return <p className="text-sm text-destructive">{t('charges.partnerMonth.notAMonth')}</p>
   }
 
-  const title = validMonth ? monthTitle(month) : ''
+  const title = validMonth ? monthTitle(month, language) : ''
   const unbilled = data ? data.charges.filter((line) => line.billId === null) : []
 
   return (
@@ -73,7 +82,7 @@ export function PartnerMonthPage() {
       <Breadcrumb
         steps={[
           {
-            label: 'Charges',
+            label: t('charges.title'),
             href: `/charges?month=${month}`,
             onClick: () => router.push({ pathname: EAdminRoutes.CHARGES, query: { month } }),
           },
@@ -81,8 +90,8 @@ export function PartnerMonthPage() {
         ]}
       />
       <PageHeader
-        title={data ? data.partner.name : 'Charges'}
-        description={title ? `Charges in ${title}, Athens time.` : undefined}
+        title={data ? data.partner.name : t('charges.title')}
+        description={title ? t('charges.partnerMonth.description', { month: title }) : undefined}
         action={
           <>
             <Button
@@ -93,56 +102,59 @@ export function PartnerMonthPage() {
                 data &&
                 downloadCsv(
                   `charges-${month}-${data.partner.name.replace(/[^\p{L}\p{N}]+/gu, '-')}.csv`,
-                  buildChargesCsv(data.charges.map((line) => ({ ...line, partnerName: data.partner.name })))
+                  buildChargesCsv(
+                    tGreek,
+                    data.charges.map((line) => ({ ...line, partnerName: data.partner.name }))
+                  )
                 )
               }
             >
               <DownloadSimple aria-hidden="true" className="mr-2 h-4 w-4" />
-              Download CSV
+              {t('charges.downloadCsv')}
             </Button>
             <Button ref={billButtonRef} type="button" disabled={unbilled.length === 0} onClick={() => setBillOpen(true)}>
               <Receipt aria-hidden="true" className="mr-2 h-4 w-4" />
-              Mark as billed
+              {t('charges.partnerMonth.markAsBilled')}
             </Button>
           </>
         }
       />
 
       {!router.isReady || query.isLoading || (query.isFetching && !data) ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
       ) : query.isError ? (
         <p className="text-sm text-destructive">
           {(query.error as { statusCode?: number } | undefined)?.statusCode === 404
-            ? 'This restaurant was not found.'
-            : 'Could not load the charges.'}
+            ? t('charges.partnerMonth.partnerNotFound')
+            : t('charges.loadFailed')}
         </p>
       ) : !data ? null : (
         <div className="flex flex-col gap-6">
-          <section aria-label="Totals">
+          <section aria-label={t('charges.partnerMonth.totals')}>
             <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Total label="Charged" value={formatTotals(data.totals, 'charged')} />
-              <Total label="Billed" value={formatTotals(data.totals, 'billed')} />
-              <Total label="Unbilled" value={formatTotals(data.totals, 'unbilled')} />
+              <Total label={t('charges.columns.charged')} value={formatTotals(data.totals, 'charged', language)} />
+              <Total label={t('charges.columns.billed')} value={formatTotals(data.totals, 'billed', language)} />
+              <Total label={t('charges.columns.unbilled')} value={formatTotals(data.totals, 'unbilled', language)} />
             </dl>
-            <p className="mt-3 text-sm text-muted-foreground">{DELIVERY_FEE_NOTE}</p>
+            <p className="mt-3 text-sm text-muted-foreground">{t(DELIVERY_FEE_NOTE_KEY)}</p>
           </section>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Lines</CardTitle>
+              <CardTitle className="text-lg">{t('charges.partnerMonth.lines')}</CardTitle>
             </CardHeader>
             <CardContent>
               {data.charges.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No charges in {title}</p>
+                <p className="text-sm text-muted-foreground">{t('charges.noChargesIn', { month: title })}</p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>When</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="pl-6">Billed</TableHead>
+                      <TableHead>{t('charges.columns.when')}</TableHead>
+                      <TableHead>{t('charges.columns.order')}</TableHead>
+                      <TableHead>{t('charges.columns.reason')}</TableHead>
+                      <TableHead className="text-right">{t('charges.columns.amount')}</TableHead>
+                      <TableHead className="pl-6">{t('charges.columns.billed')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -159,12 +171,16 @@ export function PartnerMonthPage() {
                             {adminOrderLabel(line)}
                           </Link>
                         </TableCell>
-                        <TableCell>{reasonText(line)}</TableCell>
+                        <TableCell>{reasonText(t, line)}</TableCell>
                         <TableCell className="whitespace-nowrap text-right tabular-nums">
-                          {formatMoney(line.amount, line.currencyCode)}
+                          {f.money(line.amount, line.currencyCode)}
                         </TableCell>
                         <TableCell className="pl-6">
-                          {line.bill ? billLabel(line.bill) : <span className="text-muted-foreground">Not billed</span>}
+                          {line.bill ? (
+                            billLabel(t, line.bill)
+                          ) : (
+                            <span className="text-muted-foreground">{t('charges.partnerMonth.notBilled')}</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -179,28 +195,36 @@ export function PartnerMonthPage() {
               <CardTitle className="text-lg">
                 {/* tabIndex -1: focus can be put here by code, but Tab never stops on it. */}
                 <span ref={billsHeadingRef} tabIndex={-1} className="outline-none">
-                  Bills
+                  {t('charges.partnerMonth.bills')}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {data.bills.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No bills for {title} yet.</p>
+                <p className="text-sm text-muted-foreground">{t('charges.partnerMonth.noBills', { month: title })}</p>
               ) : (
                 <ul className="flex flex-col divide-y divide-border">
                   {data.bills.map((bill) => (
                     <li key={bill.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
                       <div className="min-w-0 space-y-1 text-sm">
                         <p className={`font-medium ${bill.undoneAt ? 'text-muted-foreground line-through' : ''}`}>
-                          {billLabel(bill)}
+                          {billLabel(t, bill)}
                         </p>
                         <p className="text-muted-foreground">
-                          Billed by {bill.billedByLabel} on {athensDayTime(bill.createdAt)} ·{' '}
-                          {bill.lineCount === 1 ? '1 line' : `${bill.lineCount} lines`} · {formatAmounts(bill.totals)}
+                          {t('charges.partnerMonth.billSummary', {
+                            count: bill.lineCount,
+                            name: bill.billedByLabel,
+                            when: athensDayTime(bill.createdAt),
+                            amounts: formatAmounts(bill.totals, language),
+                          })}
                         </p>
                         {bill.undoneAt ? (
                           <p>
-                            Undone by {bill.undoneByLabel} on {athensDayTime(bill.undoneAt)}: {bill.undoReason}
+                            {t('charges.partnerMonth.undoneBy', {
+                              name: bill.undoneByLabel,
+                              when: athensDayTime(bill.undoneAt),
+                              reason: bill.undoReason,
+                            })}
                           </p>
                         ) : null}
                       </div>
@@ -210,10 +234,10 @@ export function PartnerMonthPage() {
                             href={{ pathname: EAdminRoutes.CHARGES_STATEMENT, query: { billId: bill.id } }}
                             target="_blank"
                             rel="noopener noreferrer"
-                            aria-label={`Statement for ${billLabel(bill)}, opens in a new tab`}
+                            aria-label={t('charges.partnerMonth.statementLabel', { bill: billLabel(t, bill) })}
                           >
                             <Printer aria-hidden="true" className="mr-2 h-4 w-4" />
-                            Statement
+                            {t('charges.partnerMonth.statement')}
                           </Link>
                         </Button>
                         {bill.undoneAt ? null : (
@@ -221,13 +245,13 @@ export function PartnerMonthPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            aria-label={`Undo ${billLabel(bill)}`}
+                            aria-label={t('charges.partnerMonth.undoLabel', { bill: billLabel(t, bill) })}
                             onClick={(event) => {
                               undoOpenerRef.current = event.currentTarget
                               setUndoing(bill)
                             }}
                           >
-                            Undo
+                            {t('charges.partnerMonth.undo')}
                           </Button>
                         )}
                       </span>
