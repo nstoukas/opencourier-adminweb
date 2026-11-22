@@ -101,6 +101,9 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     fairnessWeightShift: '0',
     fairnessCandidateLimit: '10',
     fairnessMinOnlineMinutes: '30',
+    stackingEnabled: false,
+    twoOrderPolicy: 'SHORTAGE_ONLY',
+    twoOrderDelayLimitMinutes: '10',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {

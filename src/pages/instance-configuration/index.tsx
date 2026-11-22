@@ -20,6 +20,7 @@ import {
   MATCHER_COPY,
   MatchingCard,
   OffersCard,
+  TwoOrdersCard,
   RestaurantDelaysCard,
   PricingCard,
   PublicPagesCard,
@@ -303,6 +304,7 @@ const InstanceConfigurationPage: NextPage = () => {
             <BoxCard {...cardProps} />
             <FairnessCard {...cardProps} />
             <OffersCard {...cardProps} />
+            <TwoOrdersCard {...cardProps} />
             <RiderPayCard
               {...cardProps}
               policyEditor={

@@ -297,6 +297,10 @@ export interface InstanceConfigSettingsAdminInput {
   chatRetentionDays?: number;
   // Address notes (spec 0053). Without the ToJSON line below a save would drop it silently.
   addressNoteRetentionDays?: number;
+  // Two orders at once (spec 0048, row 80). Without the ToJSON lines below a save would drop them silently.
+  stackingEnabled?: boolean;
+  twoOrderPolicy?: string;
+  twoOrderDelayLimitMinutes?: number;
   // Review requests (spec 0038). Without the ToJSON lines below a save would drop them silently.
   reviewAnswerDays?: number;
   reviewCorrectionMaxCents?: number;
@@ -556,6 +560,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
       ? undefined
       : json["chatRetentionDays"],
     addressNoteRetentionDays: !exists(json, "addressNoteRetentionDays") ? undefined : json["addressNoteRetentionDays"],
+    stackingEnabled: !exists(json, "stackingEnabled") ? undefined : json["stackingEnabled"],
+    twoOrderPolicy: !exists(json, "twoOrderPolicy") ? undefined : json["twoOrderPolicy"],
+    twoOrderDelayLimitMinutes: !exists(json, "twoOrderDelayLimitMinutes") ? undefined : json["twoOrderDelayLimitMinutes"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? undefined : json["reviewAnswerDays"],
     reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? undefined : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
@@ -645,6 +652,9 @@ export function InstanceConfigSettingsAdminInputToJSON(
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,
     chatRetentionDays: value.chatRetentionDays,
     addressNoteRetentionDays: value.addressNoteRetentionDays,
+    stackingEnabled: value.stackingEnabled,
+    twoOrderPolicy: value.twoOrderPolicy,
+    twoOrderDelayLimitMinutes: value.twoOrderDelayLimitMinutes,
     reviewAnswerDays: value.reviewAnswerDays,
     reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     // Without this line a save would drop the cancellation rule before it left the browser.

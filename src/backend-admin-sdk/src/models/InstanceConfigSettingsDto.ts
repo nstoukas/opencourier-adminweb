@@ -296,6 +296,10 @@ export interface InstanceConfigSettingsDto {
   chatRetentionDays?: number | null;
   // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
   addressNoteRetentionDays?: number | null;
+  // Two orders at once (spec 0048, row 80): the switch, SHORTAGE_ONLY or WHENEVER_FITS, and the delay limit.
+  stackingEnabled?: boolean | null;
+  twoOrderPolicy?: string | null;
+  twoOrderDelayLimitMinutes?: number | null;
   // Review requests (spec 0038): whole days to answer, and the largest pay correction in cents.
   reviewAnswerDays?: number | null;
   reviewCorrectionMaxCents?: number | null;
@@ -530,6 +534,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
       ? null
       : json["chatRetentionDays"],
     addressNoteRetentionDays: !exists(json, "addressNoteRetentionDays") ? null : json["addressNoteRetentionDays"],
+    stackingEnabled: !exists(json, "stackingEnabled") ? null : json["stackingEnabled"],
+    twoOrderPolicy: !exists(json, "twoOrderPolicy") ? null : json["twoOrderPolicy"],
+    twoOrderDelayLimitMinutes: !exists(json, "twoOrderDelayLimitMinutes") ? null : json["twoOrderDelayLimitMinutes"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? null : json["reviewAnswerDays"],
     reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? null : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
@@ -609,6 +616,9 @@ export function InstanceConfigSettingsDtoToJSON(
     chatQuickRepliesCourier: value.chatQuickRepliesCourier,
     chatRetentionDays: value.chatRetentionDays,
     addressNoteRetentionDays: value.addressNoteRetentionDays,
+    stackingEnabled: value.stackingEnabled,
+    twoOrderPolicy: value.twoOrderPolicy,
+    twoOrderDelayLimitMinutes: value.twoOrderDelayLimitMinutes,
     reviewAnswerDays: value.reviewAnswerDays,
     reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,

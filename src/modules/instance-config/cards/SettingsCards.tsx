@@ -70,6 +70,7 @@ export const SECTIONS = [
   { id: 'box', title: 'Box' },
   { id: 'fairness', title: 'Fairness' },
   { id: 'offers', title: 'Offers' },
+  { id: 'two-orders', title: 'Two orders' },
   { id: 'rider-pay', title: 'Rider pay' },
   { id: 'removal-reasons', title: 'Removal reasons' },
   { id: 'restaurant-delays', title: 'Restaurant delays' },
@@ -547,6 +548,82 @@ export function FairnessCard({ form, set, loaded }: CardProps) {
             disabled={!loaded}
             description="0 to 100, starts at 0. Only while Shifts is on: a rider on a booked shift right now is offered sooner. It is a fixed yes or no, so it moves a score by the same amount every time. It does not count toward the three above."
             onChange={(value) => set('fairnessWeightShift', value)}
+          />
+        </div>
+      </FieldGroup>
+    </SettingsSection>
+  )
+}
+
+// Spec 0048 (AC-1): the two choices for when a pair may be offered, in plain words.
+const TWO_ORDER_POLICY_LABELS: Record<string, string> = {
+  SHORTAGE_ONLY: 'Only when no free rider is a good fit',
+  WHENEVER_FITS: 'Whenever the two orders fit',
+}
+
+// Spec 0048 (row 80, AC-1): two waiting orders offered together to one rider. Off until the assembly
+// decides (binding value 2); the backend keeps every safety rule whatever is set here.
+export function TwoOrdersCard({ form, set, loaded }: CardProps) {
+  const notLoaded = form.stackingEnabled === null
+  return (
+    <SettingsSection
+      id="two-orders"
+      title="Two orders"
+      description="Whether one rider may be offered two orders at once, and within which limits."
+    >
+      <FieldGroup>
+        <Field>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="stackingEnabled"
+              checked={form.stackingEnabled === true}
+              disabled={!loaded || notLoaded}
+              onCheckedChange={(checked: boolean) => set('stackingEnabled', checked)}
+            />
+            <FieldLabel htmlFor="stackingEnabled">{labelOf('stackingEnabled')}</FieldLabel>
+            {notLoaded && <span className="text-sm text-muted-foreground">Not loaded yet</span>}
+          </div>
+          <FieldDescription>
+            On: a free rider may be offered two waiting orders at once, from the same restaurant, or from two
+            restaurants when both have marked the food ready. The rider takes or declines the pair, and the phone
+            never accepts a pair by itself. Each order is paid in full from its own quote; never more than two orders
+            or one box. Off: every offer is a single order, as before.
+          </FieldDescription>
+        </Field>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="twoOrderPolicy">{labelOf('twoOrderPolicy')}</FieldLabel>
+            <NativeSelect
+              id="twoOrderPolicy"
+              value={form.twoOrderPolicy}
+              disabled={!loaded || notLoaded}
+              onChange={(event) => set('twoOrderPolicy', event.target.value)}
+            >
+              {form.twoOrderPolicy === '' && (
+                <option value="" disabled>
+                  Not set
+                </option>
+              )}
+              {Object.entries(TWO_ORDER_POLICY_LABELS).map(([value, words]) => (
+                <option key={value} value={value}>
+                  {words}
+                </option>
+              ))}
+            </NativeSelect>
+            <FieldDescription>
+              "Only when no free rider is a good fit" pairs an order only with one that already found no free rider.
+              Used only while Two orders offered together is on.
+            </FieldDescription>
+          </Field>
+          <NumberField
+            id="twoOrderDelayLimitMinutes"
+            label={labelOf('twoOrderDelayLimitMinutes')}
+            value={form.twoOrderDelayLimitMinutes}
+            min={0}
+            max={30}
+            disabled={!loaded || notLoaded}
+            description="Whole minutes, 0 to 30. Neither customer's food may arrive more than this later than on a single trip by the same rider; 0 allows only pairs that delay nobody."
+            onChange={(value) => set('twoOrderDelayLimitMinutes', value)}
           />
         </div>
       </FieldGroup>

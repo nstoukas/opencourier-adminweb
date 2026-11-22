@@ -82,6 +82,11 @@ export type SettingsForm = {
   fairnessWeightShift: string
   fairnessCandidateLimit: string
   fairnessMinOnlineMinutes: string
+  // Two orders at once (spec 0048, row 80): the stacking switch, unknown until loaded, when a stack may be
+  // offered, and the most minutes a stack may make a customer wait.
+  stackingEnabled: boolean | null
+  twoOrderPolicy: string
+  twoOrderDelayLimitMinutes: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -169,6 +174,10 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'fairnessWeightShift', label: 'Weight of being on a booked shift', kind: 'number' },
   { key: 'fairnessCandidateLimit', label: "Nearest riders compared for each offer", kind: 'number' },
   { key: 'fairnessMinOnlineMinutes', label: "Minutes online before own pay per hour counts", kind: 'number' },
+  // Two orders at once (spec 0048, AC-1).
+  { key: 'stackingEnabled', label: 'Two orders offered together', kind: 'switch' },
+  { key: 'twoOrderPolicy', label: 'When two orders may go together', kind: 'select' },
+  { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', kind: 'number' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -514,6 +523,9 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     fairnessWeightShift: text(data.fairnessWeightShift),
     fairnessCandidateLimit: text(data.fairnessCandidateLimit),
     fairnessMinOnlineMinutes: text(data.fairnessMinOnlineMinutes),
+    stackingEnabled: data.stackingEnabled ?? null,
+    twoOrderPolicy: data.twoOrderPolicy ?? '',
+    twoOrderDelayLimitMinutes: text(data.twoOrderDelayLimitMinutes),
   }
 }
 
@@ -576,6 +588,9 @@ export function successMessage(changes: PendingChange[]): string {
   }
   if (keys.has('addressNoteRetentionDays')) {
     parts.push('The nightly job deletes address notes under the new period from its next run, and riders see the new period in How notes work.')
+  }
+  if (keys.has('stackingEnabled') || keys.has('twoOrderPolicy') || keys.has('twoOrderDelayLimitMinutes')) {
+    parts.push('Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.')
   }
   if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {
     parts.push('New box units apply to orders made from now on; an order already made keeps its units.')
