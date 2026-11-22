@@ -41,6 +41,9 @@ export interface DispatchAttentionRowDto {
     // Optional and nullable: an older backend sends none, a single offer sends null.
     pairedDeliveryId?: string | null;
     pairedOrderReference?: string | null;
+    // Row 81 (AC-12): true on the row of an add on, one more order offered to a rider on a job; the paired
+    // fields then name that job. Optional: an older backend sends none.
+    addOn?: boolean;
 }
 
 export interface DispatchMapCourierDto {

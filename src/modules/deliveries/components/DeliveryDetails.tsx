@@ -382,12 +382,15 @@ export function DeliveryDetails(props: DeliveryDetailsProps) {
               missingLegNumbers={delivery.missingLegNumbers ?? []}
             />
           ) : null}
-          {/* Spec 0048 (AC-12): the other order of a stack and the order of its stops. */}
-          {delivery.offerGroupId ? (
+          {/* Spec 0048 (AC-12): the other order of a stack and the order of its stops; row 81: an add on too,
+              open (no group yet) or accepted (it joins its job's pair). */}
+          {delivery.offerGroupId || delivery.addOn ? (
             <StackedOrderCard
               deliveryId={delivery.id}
               stackStops={delivery.stackStops}
               offerReasons={delivery.offerReasons}
+              addOnExtraKm={delivery.addOnExtraKm}
+              addOnExtraMinutes={delivery.addOnExtraMinutes}
             />
           ) : null}
           <PriceBreakdownCard delivery={delivery} />

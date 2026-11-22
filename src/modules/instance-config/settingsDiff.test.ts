@@ -104,6 +104,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     stackingEnabled: false,
     twoOrderPolicy: 'SHORTAGE_ONLY',
     twoOrderDelayLimitMinutes: '10',
+    addOnOffersEnabled: false,
+    addOnMoment: 'BEFORE_PICKUP',
   }
 
   describe('pendingChanges (spec AC-3, AC-12, AC-13)', () => {

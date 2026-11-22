@@ -300,6 +300,9 @@ export interface InstanceConfigSettingsDto {
   stackingEnabled?: boolean | null;
   twoOrderPolicy?: string | null;
   twoOrderDelayLimitMinutes?: number | null;
+  // Mid job add ons (spec 0048, row 81): the switch, and BEFORE_PICKUP, BEFORE_DROPOFF or SAME_RESTAURANT.
+  addOnOffersEnabled?: boolean | null;
+  addOnMoment?: string | null;
   // Review requests (spec 0038): whole days to answer, and the largest pay correction in cents.
   reviewAnswerDays?: number | null;
   reviewCorrectionMaxCents?: number | null;
@@ -537,6 +540,8 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     stackingEnabled: !exists(json, "stackingEnabled") ? null : json["stackingEnabled"],
     twoOrderPolicy: !exists(json, "twoOrderPolicy") ? null : json["twoOrderPolicy"],
     twoOrderDelayLimitMinutes: !exists(json, "twoOrderDelayLimitMinutes") ? null : json["twoOrderDelayLimitMinutes"],
+    addOnOffersEnabled: !exists(json, "addOnOffersEnabled") ? null : json["addOnOffersEnabled"],
+    addOnMoment: !exists(json, "addOnMoment") ? null : json["addOnMoment"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? null : json["reviewAnswerDays"],
     reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? null : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
@@ -619,6 +624,8 @@ export function InstanceConfigSettingsDtoToJSON(
     stackingEnabled: value.stackingEnabled,
     twoOrderPolicy: value.twoOrderPolicy,
     twoOrderDelayLimitMinutes: value.twoOrderDelayLimitMinutes,
+    addOnOffersEnabled: value.addOnOffersEnabled,
+    addOnMoment: value.addOnMoment,
     reviewAnswerDays: value.reviewAnswerDays,
     reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     cancellationPayoutPolicy: value.cancellationPayoutPolicy,

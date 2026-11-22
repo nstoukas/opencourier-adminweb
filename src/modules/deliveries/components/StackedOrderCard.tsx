@@ -19,15 +19,24 @@ type Props = {
   stackStops: StackStopAdmin[] | null | undefined;
   // The offer reasons, for the other order once the stop list is gone (the reason keeps it).
   offerReasons: OfferReasonAdmin[] | undefined;
+  // Row 81: what this delivery was offered as adding to a rider's job, when it was an add on.
+  addOnExtraKm?: number | null;
+  addOnExtraMinutes?: number | null;
 };
 
-// The other delivery of the stack: from the stop list, else from the newest STACK reason.
+// The newest reason that paired this delivery with another: a stack's or an add on's (row 81).
+function newestPairingReason(offerReasons: OfferReasonAdmin[] | undefined): OfferReasonAdmin | undefined {
+  const reasons = (offerReasons ?? []).filter((reason) => reason.kind === "STACK" || reason.kind === "ADD_ON");
+  return reasons[reasons.length - 1];
+}
+
+// The other delivery of the stack: from the stop list, else from the newest STACK reason (or, for an add on,
+// the job it was added to).
 export function stackPartnerId({ deliveryId, stackStops, offerReasons }: Props): string | null {
   const fromStops = stackStops?.find((stop) => stop.deliveryId !== deliveryId)?.deliveryId;
   if (fromStops) return fromStops;
-  const reasons = (offerReasons ?? []).filter((reason) => reason.kind === "STACK");
-  const newest = reasons[reasons.length - 1];
-  const partner = newest?.values.partnerDeliveryId;
+  const newest = newestPairingReason(offerReasons);
+  const partner = newest?.kind === "ADD_ON" ? newest.values.currentDeliveryId : newest?.values.partnerDeliveryId;
   return typeof partner === "string" ? partner : null;
 }
 
@@ -35,8 +44,10 @@ export function stackPartnerId({ deliveryId, stackStops, offerReasons }: Props):
 // while the two are still with one rider, the order of their four stops. The reason for the pairing is on
 // the offer reasons card below.
 export function StackedOrderCard(props: Props) {
-  const { deliveryId, stackStops } = props;
+  const { deliveryId, stackStops, addOnExtraKm, addOnExtraMinutes } = props;
   const partnerId = stackPartnerId(props);
+  // Row 81: this delivery came as one more order to a rider already on a job.
+  const addOn = newestPairingReason(props.offerReasons)?.kind === "ADD_ON";
   const link = (id: string) =>
     id === deliveryId ? (
       <span className="text-xs text-muted-foreground">this delivery</span>
@@ -48,14 +59,25 @@ export function StackedOrderCard(props: Props) {
   return (
     <Card data-testid="stacked-order">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Two orders together</CardTitle>
+        <CardTitle className="text-lg">{addOn ? "One more order on the way" : "Two orders together"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <p>
-          Offered together with{" "}
-          {partnerId ? link(partnerId) : <span className="text-muted-foreground">another delivery</span>}
-          . Each is paid in full from its own quote.
-        </p>
+        {addOn ? (
+          <p>
+            Offered to a rider on a job, added to{" "}
+            {partnerId ? link(partnerId) : <span className="text-muted-foreground">their job</span>}
+            {typeof addOnExtraKm === "number" && typeof addOnExtraMinutes === "number"
+              ? `, adding +${addOnExtraKm} km, +${addOnExtraMinutes} min`
+              : ""}
+            . Each is paid in full from its own quote.
+          </p>
+        ) : (
+          <p>
+            Offered together with{" "}
+            {partnerId ? link(partnerId) : <span className="text-muted-foreground">another delivery</span>}
+            . Each is paid in full from its own quote.
+          </p>
+        )}
         {stackStops && stackStops.length > 0 ? (
           <ol className="list-decimal space-y-1 pl-5">
             {stackStops.map((stop) => (

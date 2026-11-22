@@ -87,6 +87,9 @@ export type SettingsForm = {
   stackingEnabled: boolean | null
   twoOrderPolicy: string
   twoOrderDelayLimitMinutes: string
+  // Row 81: mid job add ons.
+  addOnOffersEnabled: boolean | null
+  addOnMoment: string
 }
 
 export type SettingKey = keyof SettingsForm
@@ -178,6 +181,8 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'stackingEnabled', label: 'Two orders offered together', kind: 'switch' },
   { key: 'twoOrderPolicy', label: 'When two orders may go together', kind: 'select' },
   { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', kind: 'number' },
+  { key: 'addOnOffersEnabled', label: 'One more order offered while on a job', kind: 'switch' },
+  { key: 'addOnMoment', label: 'When one more order may be offered', kind: 'select' },
 ]
 
 // The words for a setting, shared by its box and the bar (row 87 review). The rate follows the
@@ -526,6 +531,8 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     stackingEnabled: data.stackingEnabled ?? null,
     twoOrderPolicy: data.twoOrderPolicy ?? '',
     twoOrderDelayLimitMinutes: text(data.twoOrderDelayLimitMinutes),
+    addOnOffersEnabled: data.addOnOffersEnabled ?? null,
+    addOnMoment: data.addOnMoment ?? '',
   }
 }
 
@@ -589,7 +596,13 @@ export function successMessage(changes: PendingChange[]): string {
   if (keys.has('addressNoteRetentionDays')) {
     parts.push('The nightly job deletes address notes under the new period from its next run, and riders see the new period in How notes work.')
   }
-  if (keys.has('stackingEnabled') || keys.has('twoOrderPolicy') || keys.has('twoOrderDelayLimitMinutes')) {
+  if (
+    keys.has('stackingEnabled') ||
+    keys.has('twoOrderPolicy') ||
+    keys.has('twoOrderDelayLimitMinutes') ||
+    keys.has('addOnOffersEnabled') ||
+    keys.has('addOnMoment')
+  ) {
     parts.push('Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.')
   }
   if (keys.has('boxUnitsSmall') || keys.has('boxUnitsMedium') || keys.has('boxUnitsLarge')) {

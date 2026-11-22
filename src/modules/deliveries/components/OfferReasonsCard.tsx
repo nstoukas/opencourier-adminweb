@@ -49,9 +49,12 @@ function scoreText(score: unknown): string {
   return s === null ? "—" : s.toFixed(3);
 }
 
-// The chosen rider's figures in words, per strategy (spec 0044, cross check 10).
+// The chosen rider's figures in words, per strategy (spec 0044, cross check 10). An add on (row 81) was not
+// chosen by the matcher's figures, so it has only its own lines (addOnLines); the strategy in its heading is
+// the co-op's matcher setting at the time.
 export function reasonLines(reason: OfferReasonAdmin): string[] {
   const v = reason.values;
+  if (reason.kind === "ADD_ON") return [];
   switch (reason.strategy) {
     case "FAIRNESS":
       return [
@@ -133,6 +136,30 @@ export function stackLines(reason: OfferReasonAdmin): string[] {
   return lines;
 }
 
+// Spec 0048 (row 81, AC-12): why an add on went to its rider: the job it was added to, what it added, the
+// order of the stops, each customer's extra wait, whether the rider carried food (then it was calm), and how
+// many riders on a job were compared (the fewest extra minutes won).
+export function addOnLines(reason: OfferReasonAdmin): string[] {
+  if (reason.kind !== "ADD_ON") return [];
+  const v = reason.values;
+  const lines: string[] = [];
+  if (typeof v.currentDeliveryId === "string") {
+    lines.push(`Added to the rider's job, delivery ${shortId(v.currentDeliveryId)}`);
+  }
+  if (typeof v.extraKm === "number" && typeof v.extraMinutes === "number") {
+    lines.push(`Adds +${v.extraKm} km, +${v.extraMinutes} min to that job`);
+  }
+  // The stops and the extra waits read as for a pair.
+  lines.push(...stackLines({ ...reason, kind: "STACK", values: { ...v, partnerDeliveryId: undefined } }));
+  if (v.carryingFood === true) {
+    lines.push("The rider was carrying food: twice the time to answer, never an insistent ring");
+  }
+  if (typeof reason.candidateCount === "number") {
+    lines.push(`Fewest extra minutes of ${reason.candidateCount} riders on a job compared`);
+  }
+  return lines;
+}
+
 // Spec 0049: the On a shift column shows only for offers made while Shifts was on.
 function hasShiftColumn(reason: OfferReasonAdmin): boolean {
   return (reason.candidates ?? []).some((candidate) => typeof candidate.onShift === "boolean");
@@ -175,6 +202,8 @@ export function OfferReasonsCard({
                 {STRATEGY_WORDS[reason.strategy] ?? reason.strategy}
                 {/* Spec 0048: one of two orders offered together. */}
                 {reason.kind === "STACK" ? " · Two orders together" : ""}
+                {/* Row 81: one more order offered to a rider on a job. */}
+                {reason.kind === "ADD_ON" ? " · One more order on the way" : ""}
               </p>
               {reason.weights ? (
                 <p className="text-muted-foreground">
@@ -188,7 +217,7 @@ export function OfferReasonsCard({
                 </p>
               ) : null}
               <ul className="list-disc pl-5">
-                {[...reasonLines(reason), ...stackLines(reason)].map((line) => (
+                {[...reasonLines(reason), ...stackLines(reason), ...addOnLines(reason)].map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>

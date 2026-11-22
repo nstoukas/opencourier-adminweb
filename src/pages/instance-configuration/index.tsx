@@ -19,6 +19,7 @@ import {
   InstanceCard,
   MATCHER_COPY,
   TWO_ORDER_POLICY_LABELS,
+  ADD_ON_MOMENT_LABELS,
   MatchingCard,
   OffersCard,
   TwoOrdersCard,
@@ -79,6 +80,8 @@ const OPTION_LABELS: Partial<Record<SettingKey, Record<string, string>>> = {
   boxDefaultSize: { SMALL: "Small", MEDIUM: "Medium", LARGE: "Large" },
   // Row 80 review: the policy in the card's own words, not "SHORTAGE_ONLY → WHENEVER_FITS".
   twoOrderPolicy: TWO_ORDER_POLICY_LABELS,
+  // Row 81: the add on moment in the card's words too.
+  addOnMoment: ADD_ON_MOMENT_LABELS,
 };
 
 const optionLabel = (key: SettingKey, option: string): string =>

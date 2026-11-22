@@ -301,6 +301,9 @@ export interface InstanceConfigSettingsAdminInput {
   stackingEnabled?: boolean;
   twoOrderPolicy?: string;
   twoOrderDelayLimitMinutes?: number;
+  // Mid job add ons (spec 0048, row 81). Without the ToJSON lines below a save would drop them silently.
+  addOnOffersEnabled?: boolean;
+  addOnMoment?: string;
   // Review requests (spec 0038). Without the ToJSON lines below a save would drop them silently.
   reviewAnswerDays?: number;
   reviewCorrectionMaxCents?: number;
@@ -563,6 +566,8 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     stackingEnabled: !exists(json, "stackingEnabled") ? undefined : json["stackingEnabled"],
     twoOrderPolicy: !exists(json, "twoOrderPolicy") ? undefined : json["twoOrderPolicy"],
     twoOrderDelayLimitMinutes: !exists(json, "twoOrderDelayLimitMinutes") ? undefined : json["twoOrderDelayLimitMinutes"],
+    addOnOffersEnabled: !exists(json, "addOnOffersEnabled") ? undefined : json["addOnOffersEnabled"],
+    addOnMoment: !exists(json, "addOnMoment") ? undefined : json["addOnMoment"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? undefined : json["reviewAnswerDays"],
     reviewCorrectionMaxCents: !exists(json, "reviewCorrectionMaxCents") ? undefined : json["reviewCorrectionMaxCents"],
     cancellationPayoutPolicy: !exists(json, "cancellationPayoutPolicy")
@@ -655,6 +660,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     stackingEnabled: value.stackingEnabled,
     twoOrderPolicy: value.twoOrderPolicy,
     twoOrderDelayLimitMinutes: value.twoOrderDelayLimitMinutes,
+    addOnOffersEnabled: value.addOnOffersEnabled,
+    addOnMoment: value.addOnMoment,
     reviewAnswerDays: value.reviewAnswerDays,
     reviewCorrectionMaxCents: value.reviewCorrectionMaxCents,
     // Without this line a save would drop the cancellation rule before it left the browser.

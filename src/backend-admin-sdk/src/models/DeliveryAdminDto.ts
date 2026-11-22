@@ -463,6 +463,14 @@ export interface DeliveryAdminDto {
      * Hand edited (row 80).
      */
     stackStops?: StackStopAdmin[] | null;
+    /**
+     * Row 81 (AC-12): true while this is an open add on offer to a rider on a job (stackStops then name the job),
+     * and what the add on was offered as adding, kept after it (null if it never was one). Optional: an older
+     * backend sends none. Hand edited (row 81).
+     */
+    addOn?: boolean;
+    addOnExtraKm?: number | null;
+    addOnExtraMinutes?: number | null;
 }
 
 /** Spec 0048: one stop of a stack, picking an order up or handing it over. Hand edited (row 80). */
@@ -659,6 +667,9 @@ export function DeliveryAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: bo
         'missingLegNumbers': !exists(json, 'missingLegNumbers') ? [] : json['missingLegNumbers'],
         'offerGroupId': !exists(json, 'offerGroupId') ? null : json['offerGroupId'],
         'stackStops': !exists(json, 'stackStops') ? null : json['stackStops'],
+        'addOn': !exists(json, 'addOn') ? false : json['addOn'],
+        'addOnExtraKm': !exists(json, 'addOnExtraKm') ? null : json['addOnExtraKm'],
+        'addOnExtraMinutes': !exists(json, 'addOnExtraMinutes') ? null : json['addOnExtraMinutes'],
     };
 }
 
@@ -751,6 +762,9 @@ export function DeliveryAdminDtoToJSON(value?: DeliveryAdminDto | null): any {
         'missingLegNumbers': value.missingLegNumbers,
         'offerGroupId': value.offerGroupId,
         'stackStops': value.stackStops,
+        'addOn': value.addOn,
+        'addOnExtraKm': value.addOnExtraKm,
+        'addOnExtraMinutes': value.addOnExtraMinutes,
     };
 }
 

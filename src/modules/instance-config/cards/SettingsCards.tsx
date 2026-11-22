@@ -561,6 +561,13 @@ export const TWO_ORDER_POLICY_LABELS: Record<string, string> = {
   WHENEVER_FITS: 'Whenever the two orders fit',
 }
 
+// Spec 0048 (row 81, AC-1): the three moments an add on may come, all the co-op's to choose.
+export const ADD_ON_MOMENT_LABELS: Record<string, string> = {
+  BEFORE_PICKUP: 'Before the rider picks up the first order',
+  BEFORE_DROPOFF: 'Any time before the first drop off',
+  SAME_RESTAURANT: 'Only at the same restaurant, before the pickup',
+}
+
 // Spec 0048 (row 80, AC-1): two waiting orders offered together to one rider. Off until the assembly
 // decides (binding value 2); the backend keeps every safety rule whatever is set here.
 export function TwoOrdersCard({ form, set, loaded }: CardProps) {
@@ -611,8 +618,9 @@ export function TwoOrdersCard({ form, set, loaded }: CardProps) {
               ))}
             </NativeSelect>
             <FieldDescription>
-              "Only when no free rider is a good fit" pairs an order only with one that already found no free rider.
-              Used only while Two orders offered together is on.
+              "Only when no free rider is a good fit" pairs an order only with one that already found no free rider,
+              and offers one more order to a rider on a job only when no free rider was found. Used while either
+              switch is on.
             </FieldDescription>
           </Field>
           <NumberField
@@ -626,6 +634,45 @@ export function TwoOrdersCard({ form, set, loaded }: CardProps) {
             onChange={(value) => set('twoOrderDelayLimitMinutes', value)}
           />
         </div>
+        <Field>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="addOnOffersEnabled"
+              checked={form.addOnOffersEnabled === true}
+              disabled={!loaded || form.addOnOffersEnabled === null}
+              onCheckedChange={(checked: boolean) => set('addOnOffersEnabled', checked)}
+            />
+            <FieldLabel htmlFor="addOnOffersEnabled">{labelOf('addOnOffersEnabled')}</FieldLabel>
+            {form.addOnOffersEnabled === null && <span className="text-sm text-muted-foreground">Not loaded yet</span>}
+          </div>
+          <FieldDescription>
+            On: a rider on a job may be offered one more order on the way, showing the km and minutes it adds.
+            Declining is free and changes nothing about the job, and the phone never accepts it by itself. It pays in
+            full from its own quote, and the limits above apply. While the rider carries food it never rings
+            insistently and gets twice the time to answer. Off: no rider on a job is offered anything.
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="addOnMoment">{labelOf('addOnMoment')}</FieldLabel>
+          <NativeSelect
+            id="addOnMoment"
+            value={form.addOnMoment}
+            disabled={!loaded || form.addOnOffersEnabled === null}
+            onChange={(event) => set('addOnMoment', event.target.value)}
+          >
+            {form.addOnMoment === '' && (
+              <option value="" disabled>
+                Not set
+              </option>
+            )}
+            {Object.entries(ADD_ON_MOMENT_LABELS).map(([value, words]) => (
+              <option key={value} value={value}>
+                {words}
+              </option>
+            ))}
+          </NativeSelect>
+          <FieldDescription>Used only while One more order offered while on a job is on.</FieldDescription>
+        </Field>
       </FieldGroup>
     </SettingsSection>
   )
