@@ -13,7 +13,6 @@ import {
   filerText,
   statusText,
 } from './complaintDisplay'
-import type { ComplaintAdminDto } from '@/backend-admin-sdk'
 
 // Spec 0052 (row 83, AC-1, AC-6; cross check 2): tests for human-readable labels and display helper functions
 describe('complaintDisplay (spec 0052)', () => {

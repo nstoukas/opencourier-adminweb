@@ -8,7 +8,6 @@ import {
   useWithdrawComplaintMutation,
   useReplyForRiderMutation,
 } from '@/api/complaintApi'
-import { useToast } from '@/admin-web-components'
 
 // Mock next/link
 jest.mock('next/link', () => {
@@ -176,10 +175,31 @@ describe('ComplaintDetails (spec 0052, AC-1, AC-5, AC-6, AC-7, AC-10; cross chec
 
       // The withdrawal form appears
       const reasonInput = within(decideCard).getByLabelText('Why it is withdrawn')
-      const confirmWithdrawButton = within(decideCard).getByRole('button', { name: 'Withdraw the complaint' })
+      const withdrawButton = within(decideCard).getByRole('button', { name: 'Withdraw the complaint' })
 
       fireEvent.change(reasonInput, { target: { value: 'Restaurant discovered soup was packaged loosely.' } })
-      fireEvent.click(confirmWithdrawButton)
+
+      // Clicking "Withdraw the complaint" opens confirmation dialog (row 83 review: value 4)
+      fireEvent.click(withdrawButton)
+
+      const dialog = screen.getByRole('alertdialog')
+      expect(dialog).toBeInTheDocument()
+      expect(within(dialog).getByText('Withdraw this complaint?')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText(
+          'It closes with no finding against anyone, and it cannot be reopened. The reason is shown to the rider and to whoever filed it.'
+        )
+      ).toBeInTheDocument()
+
+      // Cancelling the dialog keeps the complaint open and does not call withdraw
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(mockWithdraw).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+
+      // Clicking withdraw again and confirming in dialog calls the API
+      fireEvent.click(withdrawButton)
+      const confirmDialog = screen.getByRole('alertdialog')
+      fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Withdraw the complaint' }))
 
       await waitFor(() => {
         expect(mockWithdraw).toHaveBeenCalledWith({
@@ -293,7 +313,26 @@ describe('ComplaintDetails (spec 0052, AC-1, AC-5, AC-6, AC-7, AC-10; cross chec
       fireEvent.change(outcomeTextarea, { target: { value: 'Packaging issue noted; no deduction from rider.' } })
       expect(decideButton).toBeEnabled()
 
+      // Clicking "Record the decision" opens confirmation dialog (row 83 review: value 4)
       fireEvent.click(decideButton)
+
+      const dialog = screen.getByRole('alertdialog')
+      expect(dialog).toBeInTheDocument()
+      expect(within(dialog).getByText('Record this decision?')).toBeInTheDocument()
+      // Base complaint filedBy is 'RESTAURANT', so description names both rider and filer
+      expect(
+        within(dialog).getByText('The rider and whoever filed it will see it, and it cannot be changed.')
+      ).toBeInTheDocument()
+
+      // Cancelling the dialog leaves complaint undecided
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(mockDecide).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+
+      // Clicking record again and confirming calls the API
+      fireEvent.click(decideButton)
+      const confirmDialog = screen.getByRole('alertdialog')
+      fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Record the decision' }))
 
       await waitFor(() => {
         expect(mockDecide).toHaveBeenCalledWith({
@@ -301,6 +340,46 @@ describe('ComplaintDetails (spec 0052, AC-1, AC-5, AC-6, AC-7, AC-10; cross chec
           outcome: 'Packaging issue noted; no deduction from rider.',
         })
         expect(mockToast).toHaveBeenCalledWith({ title: 'Decision recorded.' })
+      })
+    })
+
+    it('shows rider-specific confirmation dialog text when deciding a complaint filed by a rider', async () => {
+      const riderFiledComplaint: ComplaintAdminDto = {
+        ...openComplaintWithReply,
+        filedBy: 'RIDER',
+        filerCourierId: 'c-10',
+        about: 'RESTAURANT',
+        aboutCourierId: null,
+      }
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: riderFiledComplaint,
+        isError: false,
+      })
+      mockDecide.mockReturnValue({
+        unwrap: () => Promise.resolve({ id: 'cmp-201', status: 'DECIDED', outcome: 'Resolved.' }),
+      })
+
+      render(<ComplaintDetails complaintId="cmp-201" />)
+
+      const decideCard = screen.getByTestId('complaint-decision')
+      const outcomeTextarea = within(decideCard).getByLabelText('Outcome')
+      const decideButton = within(decideCard).getByRole('button', { name: 'Record the decision' })
+
+      fireEvent.change(outcomeTextarea, { target: { value: 'Restaurant contacted regarding wait times.' } })
+      fireEvent.click(decideButton)
+
+      const dialog = screen.getByRole('alertdialog')
+      expect(
+        within(dialog).getByText('The rider who filed it will see it, and it cannot be changed.')
+      ).toBeInTheDocument()
+
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Record the decision' }))
+
+      await waitFor(() => {
+        expect(mockDecide).toHaveBeenCalledWith({
+          id: 'cmp-201',
+          outcome: 'Restaurant contacted regarding wait times.',
+        })
       })
     })
   })

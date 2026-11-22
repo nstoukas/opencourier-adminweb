@@ -1,7 +1,7 @@
 import React from 'react'
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ComplaintsPage, COMPLAINTS_PAGE_SIZE, COMPLAINTS_POLL_MS } from './ComplaintsPage'
-import type { ComplaintAdminDto, ComplaintAdminPageDto } from '@/backend-admin-sdk'
+import type { ComplaintAdminDto } from '@/backend-admin-sdk'
 
 // Mock next/link to render a simple anchor tag
 jest.mock('next/link', () => {
@@ -181,6 +181,9 @@ describe('ComplaintsPage (spec 0052, AC-6, cross check 13)', () => {
 
     // First row checks
     const firstRow = rows[0]
+    const secondRow = rows[1]
+    if (!firstRow || !secondRow) throw new Error('Expected 2 rows')
+
     expect(within(firstRow).getByText('Rider: Manolis Courier')).toBeInTheDocument()
     expect(within(firstRow).getByText('Souvlaki Bar (restaurant)')).toBeInTheDocument()
     expect(within(firstRow).getByText('Long wait')).toBeInTheDocument()
@@ -192,7 +195,6 @@ describe('ComplaintsPage (spec 0052, AC-6, cross check 13)', () => {
     expect(openLink).toHaveAttribute('href', '/complaints/cmp-101')
 
     // Second row checks
-    const secondRow = rows[1]
     expect(within(secondRow).getByText('Restaurant: Pizza Bistro Staff')).toBeInTheDocument()
     expect(within(secondRow).getByText('Eleni Rider')).toBeInTheDocument()
     expect(within(secondRow).getByText('Rude')).toBeInTheDocument()
@@ -221,7 +223,7 @@ describe('ComplaintsPage (spec 0052, AC-6, cross check 13)', () => {
     )
   })
 
-  it('filters by status tab and resets to page 1 on tab change', async () => {
+  it('filters by status tab and resets to page 1 on tab change', () => {
     render(<ComplaintsPage />)
 
     // Initially passes undefined status for "ALL"
@@ -382,7 +384,7 @@ describe('ComplaintsPage (spec 0052, AC-6, cross check 13)', () => {
     expect(screen.getByText('No complaint here.')).toBeInTheDocument()
   })
 
-  it('renders alert message when query encounters an error', () => {
+  it('renders alert message without empty state line when initial load fails (row 83 review)', () => {
     mockUseGetComplaintsQuery.mockReturnValue({
       data: undefined,
       isError: true,
@@ -392,5 +394,8 @@ describe('ComplaintsPage (spec 0052, AC-6, cross check 13)', () => {
     render(<ComplaintsPage />)
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('The complaints could not be loaded. The list below may be out of date.')
+    // Ruling: "No complaint here." shown only when a list arrived; after a failed first load the alert stands alone
+    expect(screen.queryByText('No complaint here.')).toBeNull()
+    expect(screen.queryByText('Loading…')).toBeNull()
   })
 })

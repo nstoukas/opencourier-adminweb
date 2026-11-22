@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ComplaintPhoto } from './ComplaintPhoto'
 import { fetchComplaintPhoto } from '@/api/complaintApi'
 import useAppSelector from '@/hooks/useAppSelector'
@@ -63,7 +63,7 @@ describe('ComplaintPhoto (spec 0052, AC-9, cross check 8)', () => {
   })
 
   it('revokes the object URL on component unmount to free memory (cross check 8)', async () => {
-    const mockBlob = new Blob(['bytes'])
+    const mockBlob = new Blob(['bytes'], { type: 'image/jpeg' })
     mockFetchComplaintPhoto.mockResolvedValueOnce(mockBlob)
 
     const { unmount } = render(<ComplaintPhoto complaintId="cmp-1" />)
@@ -72,7 +72,8 @@ describe('ComplaintPhoto (spec 0052, AC-9, cross check 8)', () => {
       expect(screen.getByTestId('complaint-photo')).toBeInTheDocument()
     })
 
-    const createdUrl = (global.URL.createObjectURL as jest.Mock).mock.results[0].value
+    const results = (global.URL.createObjectURL as jest.Mock).mock.results
+    const createdUrl = results[0] ? results[0].value : undefined
 
     unmount()
 
@@ -93,16 +94,52 @@ describe('ComplaintPhoto (spec 0052, AC-9, cross check 8)', () => {
     unmount()
 
     // Resolve network request after unmount
-    const mockBlob = new Blob(['bytes'])
+    const mockBlob = new Blob(['bytes'], { type: 'image/jpeg' })
     resolvePromise(mockBlob)
 
     await waitFor(() => {
       expect(global.URL.createObjectURL).toHaveBeenCalledWith(mockBlob)
     })
 
-    const createdUrl = (global.URL.createObjectURL as jest.Mock).mock.results[0].value
+    const results = (global.URL.createObjectURL as jest.Mock).mock.results
+    const createdUrl = results[0] ? results[0].value : undefined
     expect(global.URL.revokeObjectURL).toHaveBeenCalledWith(createdUrl)
     expect(screen.queryByTestId('complaint-photo')).toBeNull()
+  })
+
+  it('renders alert and skips creating object URL when response is not an image (row 83 review)', async () => {
+    // Anything other than image/* (such as proxy HTML 502 or JSON error body) is a failed state
+    const nonImageBlob = new Blob(['{"error":"Bad gateway"}'], { type: 'application/json' })
+    mockFetchComplaintPhoto.mockResolvedValueOnce(nonImageBlob)
+
+    render(<ComplaintPhoto complaintId="cmp-502" />)
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('The photo could not be loaded. Reload the page to try again.')
+    })
+
+    expect(global.URL.createObjectURL).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('complaint-photo')).toBeNull()
+  })
+
+  it('transitions to failed alert state when image element triggers onError (row 83 review)', async () => {
+    const mockBlob = new Blob(['corrupt-image-data'], { type: 'image/jpeg' })
+    mockFetchComplaintPhoto.mockResolvedValueOnce(mockBlob)
+
+    render(<ComplaintPhoto complaintId="cmp-broken" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('complaint-photo')).toBeInTheDocument()
+    })
+
+    fireEvent.error(screen.getByTestId('complaint-photo'))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('The photo could not be loaded. Reload the page to try again.')
+      expect(screen.queryByTestId('complaint-photo')).toBeNull()
+    })
   })
 
   it('renders alert when photo fetch fails (e.g. 404 or network drop)', async () => {

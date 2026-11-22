@@ -1,9 +1,7 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { FileComplaintCard } from './FileComplaintCard'
 import { useFileComplaintMutation, useGetComplaintDeliveryRidersQuery } from '@/api/complaintApi'
-import { useRouter } from 'next/router'
-import { useToast } from '@/admin-web-components'
 
 // Mock Radix Select
 jest.mock('@radix-ui/react-select', () => {

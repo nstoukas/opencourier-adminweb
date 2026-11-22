@@ -37,7 +37,7 @@ describe('Value 5 guard — Complaints (spec 0052, AC-8; cross check 12, 13)', (
     )
     const listArgsInterfaceMatch = complaintApiSource.match(/interface ComplaintListAdminArgs\s*\{([^}]+)\}/)
     expect(listArgsInterfaceMatch).not.toBeNull()
-    const interfaceBody = listArgsInterfaceMatch![1]
+    const interfaceBody = listArgsInterfaceMatch ? listArgsInterfaceMatch[1] : ''
     expect(interfaceBody).not.toMatch(/courier/i)
     expect(interfaceBody).not.toMatch(/rider/i)
   })
