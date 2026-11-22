@@ -5,7 +5,6 @@ import { Toaster } from '../../../admin-web-components'
 import type { DeliveryAdminDto } from '../../../backend-admin-sdk'
 import { EnumDeliveryStatus, EnumDeliveryEventType } from '../../../shared-types'
 import {
-  useGetDeliveryQuery,
   useSubmitDeliveryEventMutation,
   useReassignDeliveryMutation,
   useAssignDeliveryToCourierMutation,
@@ -91,8 +90,19 @@ jest.mock('@radix-ui/react-select', () => {
   }
 })
 
+const mockUseGetDeliveryQuery = jest.fn()
+
 jest.mock('../../../api/deliveriesApi', () => ({
-  useGetDeliveryQuery: jest.fn(),
+  // RTK Query returns both `data` and `currentData`. When a test mock provides `data` but omits `currentData`,
+  // default `currentData` to `data` so the hook reflects RTK Query's behavior for the active query.
+  useGetDeliveryQuery: (args: any, options: any) => {
+    const res = mockUseGetDeliveryQuery(args, options)
+    if (!res) return res
+    return {
+      currentData: 'currentData' in res ? res.currentData : res.data,
+      ...res,
+    }
+  },
   useSubmitDeliveryEventMutation: jest.fn(),
   useReassignDeliveryMutation: jest.fn(),
   useAssignDeliveryToCourierMutation: jest.fn(),
@@ -149,7 +159,6 @@ jest.mock('next/router', () => ({
   }),
 }))
 
-const mockUseGetDeliveryQuery = useGetDeliveryQuery as jest.Mock
 const mockUseSubmitDeliveryEventMutation = useSubmitDeliveryEventMutation as jest.Mock
 const mockUseReassignDeliveryMutation = useReassignDeliveryMutation as jest.Mock
 const mockUseAssignDeliveryToCourierMutation = useAssignDeliveryToCourierMutation as jest.Mock
@@ -220,7 +229,9 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
     jest.clearAllMocks()
     mockUseGetDeliveryQuery.mockReturnValue({
       data: sampleEurDelivery,
+      currentData: sampleEurDelivery,
       isLoading: false,
+      isError: false,
     })
     mockUseSubmitDeliveryEventMutation.mockReturnValue([
       mockSubmitDeliveryEvent,
@@ -263,17 +274,107 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
   })
 
   it('renders loading state when API query is loading', () => {
-    mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, isLoading: true })
+    mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, currentData: undefined, isLoading: true })
     render(<DeliveryDetails deliveryId="d100" />)
     expect(screen.getByText('Loading delivery data.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Delivery' })).toBeInTheDocument()
   })
 
-  it('renders error message state when delivery data is unavailable', () => {
-    mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, isLoading: false })
+  it('renders error message state when delivery data is unavailable and query failed', () => {
+    mockUseGetDeliveryQuery.mockReturnValue({ data: undefined, currentData: undefined, isLoading: false, isError: true })
     render(<DeliveryDetails deliveryId="d100" />)
     expect(screen.getByText('There was a problem loading data.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Delivery' })).toBeInTheDocument()
+  })
+
+  // Row 10 fix (spec 0046, AC-1 & review): currentData is the answer for THIS id only; data keeps the previous
+  // leg's record while the next loads. The page must show loading and no controls or details of the previous leg.
+  describe('Current query isolation across delivery navigation (spec 0046, row 10 review)', () => {
+    it('shows h1 "Delivery" and "Loading delivery data.", not previous delivery, when data has previous record but currentData is undefined', () => {
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleEurDelivery,
+          id: 'del-previous-leg',
+          orderReference: 'ORD-PREVIOUS-LEG',
+          customerName: 'Stale Customer',
+        },
+        currentData: undefined,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<DeliveryDetails deliveryId="del-next-leg" />)
+
+      // Shows generic header and loading message, not the previous delivery
+      expect(screen.getByRole('heading', { level: 1, name: 'Delivery' })).toBeInTheDocument()
+      expect(screen.getByText('Loading delivery data.')).toBeInTheDocument()
+      expect(screen.queryByText(/ORD-PREVIOUS-LEG/i)).toBeNull()
+      expect(screen.queryByText(/Stale Customer/i)).toBeNull()
+      expect(screen.queryByRole('button', { name: /change status/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /cancel delivery/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /assign courier|reassign/i })).toBeNull()
+    })
+
+    it('shows error state and no previous delivery when fetching next leg fails with an error', () => {
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleEurDelivery,
+          id: 'del-previous-leg',
+          orderReference: 'ORD-PREVIOUS-LEG',
+        },
+        currentData: undefined,
+        isLoading: false,
+        isError: true,
+      })
+
+      render(<DeliveryDetails deliveryId="del-next-leg" />)
+
+      expect(screen.getByRole('heading', { level: 1, name: 'Delivery' })).toBeInTheDocument()
+      expect(screen.getByText('There was a problem loading data.')).toBeInTheDocument()
+      expect(screen.queryByText(/ORD-PREVIOUS-LEG/i)).toBeNull()
+      expect(screen.queryByRole('button', { name: /change status/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /cancel delivery/i })).toBeNull()
+    })
+
+    it('submits event with current delivery id from currentData, not the stale data id', async () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+      mockSubmitDeliveryEvent.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+
+      const nextLegDelivery = {
+        ...sampleEurDelivery,
+        id: 'del-next-leg-999',
+        orderReference: 'ORD-MULTI-LEG',
+        status: EnumDeliveryStatus.DISPATCHED,
+      }
+
+      mockUseGetDeliveryQuery.mockReturnValue({
+        data: {
+          ...sampleEurDelivery,
+          id: 'del-previous-leg-111',
+        },
+        currentData: nextLegDelivery,
+        isLoading: false,
+        isError: false,
+      })
+
+      render(<DeliveryDetails deliveryId="del-next-leg-999" />)
+
+      // Open Change status menu
+      fireEvent.click(screen.getByText('Change status'))
+      fireEvent.click(screen.getByText(/Arrived_at_pickup_location/i))
+
+      await waitFor(() => {
+        // Assert event is submitted for del-next-leg-999, NOT del-previous-leg-111
+        expect(mockSubmitDeliveryEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            deliveryId: 'del-next-leg-999',
+            eventType: EnumDeliveryEventType.ARRIVED_AT_PICKUP_LOCATION,
+          })
+        )
+      })
+
+      confirmSpy.mockRestore()
+    })
   })
 
   describe('Breadcrumb and Header (AC-2)', () => {
