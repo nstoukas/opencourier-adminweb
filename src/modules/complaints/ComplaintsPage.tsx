@@ -115,7 +115,11 @@ export function ComplaintsPage() {
       ) : null}
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{isFetching && !data ? 'Loading…' : 'No complaint here.'}</p>
+        // Row 83 review: "No complaint here." only when a list arrived; after a failed first load the
+        // alert above stands alone, since the page never received an empty list.
+        isError && !data ? null : (
+          <p className="text-sm text-muted-foreground">{isFetching && !data ? 'Loading…' : 'No complaint here.'}</p>
+        )
       ) : (
         <Table>
           <TableHeader>
