@@ -87,6 +87,8 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     chatQuickRepliesDispatch: 'Line 1\nLine 2',
     chatQuickRepliesCourier: 'Courier line 1\nCourier line 2',
     chatRetentionDays: '90',
+    // Address notes (spec 0053): days a courier note is kept when no rider upvotes it.
+    addressNoteRetentionDays: '182',
     reviewAnswerDays: '14',
     reviewCorrectionMaxCents: '5000',
     boxUnitsSmall: '30',
@@ -296,6 +298,16 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(changes[0]?.to).toBe('15')
     })
 
+    it('detects changes to addressNoteRetentionDays (spec 0053, AC-6)', () => {
+      const edited: SettingsForm = { ...baseSavedForm, addressNoteRetentionDays: '200' }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('addressNoteRetentionDays')
+      expect(changes[0]?.label).toBe('Address notes kept without an upvote (days)')
+      expect(changes[0]?.from).toBe('182')
+      expect(changes[0]?.to).toBe('200')
+    })
+
     it('detects changes to arrivalRadiusMetres including setting to 0 (spec 0021, AC-11)', () => {
       const editedTo80: SettingsForm = { ...baseSavedForm, arrivalRadiusMetres: '80' }
       const changes80 = pendingChanges(baseSavedForm, editedTo80)
@@ -394,6 +406,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         arrivalRadiusMetres: '',
       }
       expect(blockers(arrivalRadiusChanges as any, arrivalRadiusEdited)).toContain('Arrival radius (metres) is empty')
+
+      const addressNotesChanges = [{ key: 'addressNoteRetentionDays', label: 'Address notes kept without an upvote (days)', from: '182', to: '(empty)' }]
+      const addressNotesEdited: SettingsForm = {
+        ...baseSavedForm,
+        addressNoteRetentionDays: '',
+      }
+      expect(blockers(addressNotesChanges as any, addressNotesEdited)).toContain('Address notes kept without an upvote (days) is empty')
     })
 
     it('does not block save when dispatchPhoneNumber is empty (clearing is allowed)', () => {
@@ -728,6 +747,19 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(payload0).toEqual({
         arrivalRadiusMetres: 0,
       })
+
+      const changesAddressNotes = [
+        { key: 'addressNoteRetentionDays', label: 'Address notes kept without an upvote (days)', from: '182', to: '200' },
+      ]
+      const editedAddressNotes: SettingsForm = {
+        ...baseSavedForm,
+        addressNoteRetentionDays: '200',
+      }
+      const payloadAddressNotes = savePayload(changesAddressNotes as any, editedAddressNotes, savedDetails)
+      expect(payloadAddressNotes).toEqual({
+        addressNoteRetentionDays: 200,
+      })
+      expect(payloadAddressNotes).not.toHaveProperty('details')
     })
   })
 
@@ -783,6 +815,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const changes = [{ key: 'sosLocationRetentionDays', label: 'SOS location kept for (days)', from: '30', to: '14' }]
       expect(successMessage(changes as any)).toBe(
         'Saved: SOS location kept for (days). The daily job deletes SOS positions under the new period from its next run.'
+      )
+    })
+
+    it('appends addressNoteRetentionDays sentence when retention days is changed (spec 0053, AC-6)', () => {
+      const changes = [{ key: 'addressNoteRetentionDays', label: 'Address notes kept without an upvote (days)', from: '182', to: '200' }]
+      expect(successMessage(changes as any)).toBe(
+        'Saved: Address notes kept without an upvote (days). The nightly job deletes address notes under the new period from its next run, and riders see the new period in How notes work.'
       )
     })
 

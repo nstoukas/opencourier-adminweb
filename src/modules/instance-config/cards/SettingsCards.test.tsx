@@ -1040,10 +1040,39 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(mockSet).toHaveBeenCalledWith('dispatchPhoneNumber', '+30 24210 99999')
     })
 
-    it('disables restaurantHistoryDays and dispatchPhoneNumber when not loaded', () => {
+    // Spec 0053 (AC-6): Address notes retention period on Instance configuration
+    it('renders addressNoteRetentionDays with min 30 max 730, description, and calls set on change', () => {
+      const mockSet = jest.fn()
       render(
         <InstanceCard
-          form={{ ...dummyForm, restaurantHistoryDays: '', dispatchPhoneNumber: '' }}
+          form={{ ...dummyForm, addressNoteRetentionDays: '182' }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+          linkLocked={true}
+        />
+      )
+
+      const input = screen.getByLabelText('Address notes kept without an upvote (days)') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.value).toBe('182')
+      expect(input).toHaveAttribute('min', '30')
+      expect(input).toHaveAttribute('max', '730')
+      expect(input).not.toBeDisabled()
+      expect(
+        screen.getByText(
+          'A courier note about a place that no other rider upvotes for this many days is deleted, at 03:30. Each upvote restarts the period. Riders are told the period. Whole days, 30 to 730; 182 is about 6 months.'
+        )
+      ).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '200' } })
+      expect(mockSet).toHaveBeenCalledWith('addressNoteRetentionDays', '200')
+    })
+
+    it('disables restaurantHistoryDays, dispatchPhoneNumber, and addressNoteRetentionDays when not loaded', () => {
+      render(
+        <InstanceCard
+          form={{ ...dummyForm, restaurantHistoryDays: '', dispatchPhoneNumber: '', addressNoteRetentionDays: '' }}
           set={jest.fn()}
           options={dummyOptions}
           loaded={false}
@@ -1053,6 +1082,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       expect(screen.getByLabelText('Restaurant order history (days)')).toBeDisabled()
       expect(screen.getByLabelText('Dispatch phone number')).toBeDisabled()
+      expect(screen.getByLabelText('Address notes kept without an upvote (days)')).toBeDisabled()
     })
   })
 

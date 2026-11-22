@@ -12,4 +12,9 @@ describe('useAdminPageNavigator & EAdminRoutes (spec 0022)', () => {
     expect(EAdminRoutes.PRODUCT_REPORTS).toBe('/product-reports')
     expect(Routes).toContain('/product-reports')
   })
+
+  it('declares ADDRESS_NOTES route (spec 0053, AC-7)', () => {
+    expect(EAdminRoutes.ADDRESS_NOTES).toBe('/address-notes')
+    expect(Routes).toContain('/address-notes')
+  })
 })

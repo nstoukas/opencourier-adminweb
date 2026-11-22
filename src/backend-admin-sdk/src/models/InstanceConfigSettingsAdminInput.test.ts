@@ -1606,5 +1606,47 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.fairnessCandidateLimit).toBe(12)
       expect(serialized.fairnessMinOnlineMinutes).toBe(15)
     })
+
+    it('preserves addressNoteRetentionDays in InstanceConfigSettingsAdminInputToJSON (spec 0053, AC-6)', () => {
+      // Load-bearing test guard: without addressNoteRetentionDays in ToJSON, the SDK silently drops it
+      // when saving instance settings.
+      const input = {
+        addressNoteRetentionDays: 182,
+      }
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.addressNoteRetentionDays).toBe(182)
+
+      const inputZero = {
+        addressNoteRetentionDays: 0,
+      }
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.addressNoteRetentionDays).toBe(0)
+    })
+
+    it('round-trips addressNoteRetentionDays through InstanceConfigSettingsAdminInput FromJSON and ToJSON', () => {
+      const original = { addressNoteRetentionDays: 200 }
+      const model = InstanceConfigSettingsAdminInputFromJSON(original)
+      expect(model.addressNoteRetentionDays).toBe(200)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.addressNoteRetentionDays).toBe(200)
+
+      const missing = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(missing.addressNoteRetentionDays).toBeUndefined()
+      const serializedMissing = InstanceConfigSettingsAdminInputToJSON(missing)
+      expect(serializedMissing.addressNoteRetentionDays).toBeUndefined()
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON and ToJSON handle addressNoteRetentionDays (spec 0053, AC-6)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({ addressNoteRetentionDays: 182 })
+      expect(dto.addressNoteRetentionDays).toBe(182)
+
+      const serialized = InstanceConfigSettingsDtoToJSON(dto)
+      expect(serialized.addressNoteRetentionDays).toBe(182)
+
+      const missing = InstanceConfigSettingsDtoFromJSON({})
+      expect(missing.addressNoteRetentionDays).toBeNull()
+    })
   })
 })

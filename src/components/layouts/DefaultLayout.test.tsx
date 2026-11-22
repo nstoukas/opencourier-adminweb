@@ -258,7 +258,8 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
     // Spec 0038 (row 30): the Co-op group gains "Reviews" (/reviews).
     // Spec 0052 (row 83): the Co-op group gains "Complaints" (/complaints).
     // Spec 0040 (row 36): the Co-op group gains "Time worked" (/time-worked).
-    it('lists Settings then "Shift slots" (/shift-slots), "Charges" (/charges), "Reviews" (/reviews), "Complaints" (/complaints) and "Time worked" (/time-worked) in the Co-op group, and marks Shift slots active there', () => {
+    // Spec 0053 (row 82): the Co-op group gains "Address notes" (/address-notes).
+    it('lists Settings then "Shift slots" (/shift-slots), "Charges" (/charges), "Reviews" (/reviews), "Complaints" (/complaints), "Address notes" (/address-notes) and "Time worked" (/time-worked) in the Co-op group, and marks Shift slots active there', () => {
       currentPathname = '/shift-slots'
       renderLayout()
 
@@ -270,19 +271,22 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
         'Charges',
         'Reviews',
         'Complaints',
+        'Address notes',
         'Time worked',
       ])
       expect(links[1]).toHaveAttribute('href', '/shift-slots')
       expect(links[2]).toHaveAttribute('href', '/charges')
       expect(links[3]).toHaveAttribute('href', '/reviews')
       expect(links[4]).toHaveAttribute('href', '/complaints')
-      expect(links[5]).toHaveAttribute('href', '/time-worked')
+      expect(links[5]).toHaveAttribute('href', '/address-notes')
+      expect(links[6]).toHaveAttribute('href', '/time-worked')
       expect(EAdminRoutes.SHIFT_SLOTS).toBe('/shift-slots')
       expect(EAdminRoutes.CHARGES).toBe('/charges')
       expect(EAdminRoutes.CHARGES_PARTNER_MONTH).toBe('/charges/[month]/[partnerId]')
       expect(EAdminRoutes.CHARGES_STATEMENT).toBe('/charges/statement/[billId]')
       expect(EAdminRoutes.REVIEWS).toBe('/reviews')
       expect(EAdminRoutes.COMPLAINTS).toBe('/complaints')
+      expect(EAdminRoutes.ADDRESS_NOTES).toBe('/address-notes')
       expect(EAdminRoutes.TIME_WORKED).toBe('/time-worked')
 
       expect(links[1]).toHaveAttribute('aria-current', 'page')
@@ -291,10 +295,12 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(links[3]).not.toHaveAttribute('aria-current')
       expect(links[4]).not.toHaveAttribute('aria-current')
       expect(links[5]).not.toHaveAttribute('aria-current')
+      expect(links[6]).not.toHaveAttribute('aria-current')
       expect(screen.getAllByRole('link', { name: /Shift slots/ })).toHaveLength(1)
       expect(screen.getAllByRole('link', { name: /Charges/ })).toHaveLength(1)
       expect(screen.getAllByRole('link', { name: /Reviews/ })).toHaveLength(1)
       expect(screen.getAllByRole('link', { name: /Complaints/ })).toHaveLength(1)
+      expect(screen.getAllByRole('link', { name: /Address notes/ })).toHaveLength(1)
       expect(screen.getAllByRole('link', { name: /Time worked/ })).toHaveLength(1)
     })
 
@@ -420,6 +426,8 @@ describe('DefaultLayout and Admin shell (row 86)', () => {
       expect(isActivePath('/sos', '/sos')).toBe(true)
       expect(isActivePath('/sos/sos-123', '/sos')).toBe(true)
       expect(isActivePath('/product-reports', '/product-reports')).toBe(true)
+      expect(isActivePath('/address-notes', '/address-notes')).toBe(true)
+      expect(isActivePath('/address-notes/search', '/address-notes')).toBe(true)
       // Handles trailing slashes cleanly
       expect(isActivePath('/deliveries/', '/deliveries')).toBe(true)
       expect(isActivePath('/deliveries', '/deliveries/')).toBe(true)
