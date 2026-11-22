@@ -22,6 +22,12 @@ export function ComplaintPhoto({ complaintId }: { complaintId: string }) {
     setState({ kind: "loading" });
     fetchComplaintPhoto(accessToken || "", complaintId)
       .then((blob) => {
+        // Row 83 review: anything but an image (a proxy's error page passed on as "{}") is a failure,
+        // not a broken picture.
+        if (!blob.type.startsWith("image/")) {
+          if (!cancelled) setState({ kind: "failed" });
+          return;
+        }
         url = URL.createObjectURL(blob);
         if (cancelled) {
           URL.revokeObjectURL(url);
@@ -58,6 +64,7 @@ export function ComplaintPhoto({ complaintId }: { complaintId: string }) {
         alt="The photo the rider attached to this complaint"
         className="max-h-[32rem] w-auto max-w-full rounded-md border"
         data-testid="complaint-photo"
+        onError={() => setState({ kind: "failed" })}
       />
       <figcaption className="text-xs text-muted-foreground">
         From the rider&apos;s gallery. The server removed its metadata,
