@@ -1,7 +1,9 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { I18nextProvider } from 'react-i18next'
 import { ComplaintDetails } from './ComplaintDetails'
 import type { ComplaintAdminDto } from '@/backend-admin-sdk'
+import { createI18n } from '@/i18n/createI18n'
 import {
   useGetComplaintQuery,
   useDecideComplaintMutation,
@@ -451,6 +453,170 @@ describe('ComplaintDetails (spec 0052, AC-1, AC-5, AC-6, AC-7, AC-10; cross chec
       render(<ComplaintDetails complaintId="cmp-201" />)
 
       expect(screen.queryByTestId('complaint-reply')).toBeNull()
+    })
+  })
+
+  describe('Reply attribution: rider in app vs admin on phone (row 126, spec 0052)', () => {
+    const baseRepliedComplaint: ComplaintAdminDto = {
+      ...baseComplaintAboutRider,
+      status: 'OPEN',
+      riderReply: 'The rider provided explanation over the phone.',
+      repliedAt: '2026-11-20T14:00:00Z',
+    }
+
+    it('shows admin name when reply was entered by an active admin', () => {
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: {
+          ...baseRepliedComplaint,
+          replyEnteredForRider: true,
+          replyEnteredBy: 'Admin Maria',
+        },
+        isError: false,
+      })
+
+      render(<ComplaintDetails complaintId="cmp-201" />)
+
+      const replyCard = screen.getByTestId('complaint-reply')
+      expect(
+        within(replyCard).getByText(
+          /Entered from a phone call by Admin Maria \(the rider's account was deactivated\)/
+        )
+      ).toBeInTheDocument()
+      expect(within(replyCard).queryByText(/a removed admin/)).toBeNull()
+      expect(within(replyCard).queryByText(/From the rider, in the app/)).toBeNull()
+    })
+
+    it('shows "a removed admin" when replyEnteredForRider is true and admin was deleted (row 126, English)', () => {
+      // Row 126: when an admin account is deleted, replyEnteredBy becomes null via onDelete: SetNull.
+      // replyEnteredForRider remains true, so it must still read as entered by an admin ("a removed admin")
+      // rather than misattributing to the rider.
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: {
+          ...baseRepliedComplaint,
+          replyEnteredForRider: true,
+          replyEnteredBy: null,
+        },
+        isError: false,
+      })
+
+      render(<ComplaintDetails complaintId="cmp-201" />)
+
+      const replyCard = screen.getByTestId('complaint-reply')
+      expect(
+        within(replyCard).getByText(
+          /Entered from a phone call by a removed admin \(the rider's account was deactivated\)/
+        )
+      ).toBeInTheDocument()
+      // Bug check: must NOT fall back to "From the rider, in the app"
+      expect(within(replyCard).queryByText(/From the rider, in the app/)).toBeNull()
+    })
+
+    it('shows "διαχειριστή που έχει αφαιρεθεί" when replyEnteredForRider is true and admin was deleted (row 126, Greek)', () => {
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: {
+          ...baseRepliedComplaint,
+          replyEnteredForRider: true,
+          replyEnteredBy: null,
+        },
+        isError: false,
+      })
+
+      const i18nEl = createI18n('el')
+      render(
+        <I18nextProvider i18n={i18nEl}>
+          <ComplaintDetails complaintId="cmp-201" />
+        </I18nextProvider>
+      )
+
+      const replyCard = screen.getByTestId('complaint-reply')
+      expect(
+        within(replyCard).getByText(
+          /Καταχωρίστηκε από τηλεφώνημα από διαχειριστή που έχει αφαιρεθεί \(ο λογαριασμός του διανομέα είχε απενεργοποιηθεί\)/
+        )
+      ).toBeInTheDocument()
+      // Bug check: must NOT fall back to Greek rider wording or English
+      expect(within(replyCard).queryByText(/Από τον διανομέα, στην εφαρμογή/)).toBeNull()
+      expect(within(replyCard).queryByText(/a removed admin/)).toBeNull()
+    })
+
+    it('shows rider wording when replyEnteredForRider is false and replyEnteredBy is null (English and Greek)', () => {
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: {
+          ...baseRepliedComplaint,
+          replyEnteredForRider: false,
+          replyEnteredBy: null,
+        },
+        isError: false,
+      })
+
+      // English
+      const { unmount } = render(<ComplaintDetails complaintId="cmp-201" />)
+      const replyCardEn = screen.getByTestId('complaint-reply')
+      expect(within(replyCardEn).getByText(/From the rider, in the app/)).toBeInTheDocument()
+      expect(within(replyCardEn).queryByText(/Entered from a phone call by/)).toBeNull()
+      expect(within(replyCardEn).queryByText(/a removed admin/)).toBeNull()
+      unmount()
+
+      // Greek
+      const i18nEl = createI18n('el')
+      render(
+        <I18nextProvider i18n={i18nEl}>
+          <ComplaintDetails complaintId="cmp-201" />
+        </I18nextProvider>
+      )
+      const replyCardEl = screen.getByTestId('complaint-reply')
+      expect(within(replyCardEl).getByText(/Από τον διανομέα, στην εφαρμογή/)).toBeInTheDocument()
+      expect(within(replyCardEl).queryByText(/Καταχωρίστηκε από τηλεφώνημα από/)).toBeNull()
+      expect(within(replyCardEl).queryByText(/διαχειριστή που έχει αφαιρεθεί/)).toBeNull()
+    })
+
+    it('shows admin name when replyEnteredBy is present even if replyEnteredForRider is false (backward compatibility)', () => {
+      // Compatibility with older backends that send replyEnteredBy without setting replyEnteredForRider
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: {
+          ...baseRepliedComplaint,
+          replyEnteredForRider: false,
+          replyEnteredBy: 'Admin Giorgos',
+        },
+        isError: false,
+      })
+
+      render(<ComplaintDetails complaintId="cmp-201" />)
+
+      const replyCard = screen.getByTestId('complaint-reply')
+      expect(
+        within(replyCard).getByText(
+          /Entered from a phone call by Admin Giorgos \(the rider's account was deactivated\)/
+        )
+      ).toBeInTheDocument()
+      expect(within(replyCard).queryByText(/From the rider, in the app/)).toBeNull()
+    })
+
+    it('shows admin name in Greek when reply was entered by a named admin', () => {
+      mockUseGetComplaintQuery.mockReturnValue({
+        currentData: {
+          ...baseRepliedComplaint,
+          replyEnteredForRider: true,
+          replyEnteredBy: 'Admin Nikos',
+        },
+        isError: false,
+      })
+
+      const i18nEl = createI18n('el')
+      render(
+        <I18nextProvider i18n={i18nEl}>
+          <ComplaintDetails complaintId="cmp-201" />
+        </I18nextProvider>
+      )
+
+      const replyCard = screen.getByTestId('complaint-reply')
+      expect(
+        within(replyCard).getByText(
+          /Καταχωρίστηκε από τηλεφώνημα από Admin Nikos \(ο λογαριασμός του διανομέα είχε απενεργοποιηθεί\)/
+        )
+      ).toBeInTheDocument()
+      expect(within(replyCard).queryByText(/διαχειριστή που έχει αφαιρεθεί/)).toBeNull()
+      expect(within(replyCard).queryByText(/Από τον διανομέα, στην εφαρμογή/)).toBeNull()
     })
   })
 })
