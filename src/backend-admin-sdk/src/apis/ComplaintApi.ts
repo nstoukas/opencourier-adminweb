@@ -53,8 +53,11 @@ export interface ComplaintAdminDto {
     createdAt: string;
     riderReply: string | null;
     repliedAt: string | null;
-    // The admin who typed a deactivated rider's reply, or null when the rider replied in the app.
+    // The admin who typed a deactivated rider's reply. Null when the rider replied in the app, and also
+    // when that admin's account was deleted: read replyEnteredForRider to tell the two apart (row 126).
     replyEnteredBy: string | null;
+    // True when an admin entered the reply for the rider, even if that admin's account is gone since.
+    replyEnteredForRider: boolean;
     outcome: string | null;
     decidedAt: string | null;
     decidedBy: string | null;

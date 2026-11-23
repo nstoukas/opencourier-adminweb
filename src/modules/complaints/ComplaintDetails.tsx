@@ -207,8 +207,12 @@ export function ComplaintDetails({ complaintId }: { complaintId: string }) {
                     <p className="text-xs text-muted-foreground">
                       {complaint.repliedAt ? athensDayTime(complaint.repliedAt) : null}
                       {' · '}
-                      {complaint.replyEnteredBy
-                        ? t('complaints.details.replyEnteredBy', { name: complaint.replyEnteredBy })
+                      {/* Row 126: the stored flag, not the admin's name, says an admin entered it; a deleted
+                          admin's name is null, and the reply must still not read as the rider's own. */}
+                      {complaint.replyEnteredForRider || complaint.replyEnteredBy
+                        ? t('complaints.details.replyEnteredBy', {
+                            name: complaint.replyEnteredBy ?? t('complaints.details.removedAdmin'),
+                          })
                         : t('complaints.details.replyFromApp')}
                     </p>
                   </>

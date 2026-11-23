@@ -82,6 +82,7 @@ describe('ComplaintDetails (spec 0052, AC-1, AC-5, AC-6, AC-7, AC-10; cross chec
     riderReply: null,
     repliedAt: null,
     replyEnteredBy: null,
+    replyEnteredForRider: false,
     outcome: null,
     decidedAt: null,
     decidedBy: null,
