@@ -60,7 +60,7 @@ export const settings = {
     offerLeadMinutes: 'Lead time before an offer (minutes)',
     offerTimingCandidates: 'Riders compared by road time',
     handBackSeconds: 'Seconds a rider can hand back an order for free',
-    offerSkipMinutes: 'Minutes before a declined or missed offer goes back to the same rider',
+    offerSkipMinutes: 'Skip time after a rider leaves an order, in minutes',
     cancellationPayoutPolicy: 'Pay when a job is cancelled',
     defaultCourierPayRate: 'Default courier pay rate',
     defaultMaxWorkingHours: 'Default max working hours',
@@ -215,13 +215,13 @@ export const settings = {
     SAME_RESTAURANT: 'Only at the same restaurant, before the pickup',
   },
   offers: {
-    description: 'How long an offer to a rider lasts, and when it goes out.',
+    description: 'How long an offer to a rider lasts, when it goes out, and how long a rider is skipped after leaving an order.',
     expirySecondsHelp:
       'Whole seconds, 20 to 300. Used while Offer expiry is on, and always for one more order offered while on a job (twice this while the rider carries food). An offer an admin makes by hand never ends on its own.',
     retryHelp:
       'Whole seconds, 10 to 300. A delivery nobody could take is offered again this often, and at once when a rider comes online or finishes. Applies whether Offer expiry is on or off.',
     offerSkipHelp:
-      'Whole minutes, 1 to 240. A rider who declines an offer, or lets it run out, is not offered that delivery again for at least this long (each new decline on it starts the time again); other riders are. A change applies to the next decline.',
+      'Whole minutes, 1 to 240. A rider who declines or misses an offer, hands an order back, leaves a late restaurant, is removed or is reassigned is not offered that order again for at least this long. Each new skip on the order starts the time again. Other riders can still be offered it.',
     handBackHelp:
       'Whole seconds, 0 to 300; 0 switches it off. Counted from the accept, and only before the rider reaches the restaurant. The order goes back to matching and nothing is paid or charged. A change applies to the next accept.',
     timingHelp:
@@ -461,7 +461,7 @@ export const settings = {
     shifts: 'Riders see nothing of shifts until shift booking is built.',
     shiftBreak: "Every rider's time worked, past shifts included, is worked out again with the new break length.",
     handBack: 'The hand back applies to the next accept; a running hand back keeps its end.',
-    offerSkip: 'The skip time applies from the next decline or missed offer.',
+    offerSkip: 'The new skip time applies from the next skip.',
     cancellation: 'Cancelled job pay applies to cancellations from now on.',
     returnTrip: 'Return trip pay applies to food recorded as returned from now on.',
     savedCustomers: 'The daily job uses the retention from its next run.',
