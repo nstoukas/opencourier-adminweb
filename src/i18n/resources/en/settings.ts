@@ -221,7 +221,7 @@ export const settings = {
     retryHelp:
       'Whole seconds, 10 to 300. A delivery nobody could take is offered again this often, and at once when a rider comes online or finishes. Applies whether Offer expiry is on or off.',
     offerSkipHelp:
-      'Whole minutes, 1 to 240. A rider who declines or misses an offer, hands an order back, leaves a late restaurant, is removed or is reassigned is not offered that order again for at least this long. Each new skip on the order starts the time again. Other riders can still be offered it.',
+      'Whole minutes, 1 to 60. A rider who declines or misses an offer, hands an order back, leaves a late restaurant, is removed or is reassigned is not offered that order again for at least this long. Each new skip on the order starts the time again. Other riders can still be offered it.',
     handBackHelp:
       'Whole seconds, 0 to 300; 0 switches it off. Counted from the accept, and only before the rider reaches the restaurant. The order goes back to matching and nothing is paid or charged. A change applies to the next accept.',
     timingHelp:

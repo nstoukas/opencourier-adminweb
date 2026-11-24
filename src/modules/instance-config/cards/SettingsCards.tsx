@@ -761,7 +761,7 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             label={labelOf(t, 'offerSkipMinutes')}
             value={form.offerSkipMinutes}
             min={1}
-            max={240}
+            max={60}
             disabled={!loaded}
             description={t('settings.offers.offerSkipHelp')}
             onChange={(value) => set('offerSkipMinutes', value)}
