@@ -96,6 +96,8 @@ export type SettingsForm = {
   stackingEnabled: boolean | null
   twoOrderPolicy: string
   twoOrderDelayLimitMinutes: string
+  // Row 147: minutes a declined or missed pair stays apart; 0 means no block.
+  stackPairBlockMinutes: string
   // Row 81: mid job add ons.
   addOnOffersEnabled: boolean | null
   addOnMoment: string
@@ -193,6 +195,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'stackingEnabled', labelKey: 'settings.labels.stackingEnabled', kind: 'switch' },
   { key: 'twoOrderPolicy', labelKey: 'settings.labels.twoOrderPolicy', kind: 'select' },
   { key: 'twoOrderDelayLimitMinutes', labelKey: 'settings.labels.twoOrderDelayLimitMinutes', kind: 'number' },
+  { key: 'stackPairBlockMinutes', labelKey: 'settings.labels.stackPairBlockMinutes', kind: 'number' },
   { key: 'addOnOffersEnabled', labelKey: 'settings.labels.addOnOffersEnabled', kind: 'switch' },
   { key: 'addOnMoment', labelKey: 'settings.labels.addOnMoment', kind: 'select' },
 ]
@@ -613,6 +616,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     stackingEnabled: data.stackingEnabled ?? null,
     twoOrderPolicy: data.twoOrderPolicy ?? '',
     twoOrderDelayLimitMinutes: text(data.twoOrderDelayLimitMinutes),
+    stackPairBlockMinutes: text(data.stackPairBlockMinutes),
     addOnOffersEnabled: data.addOnOffersEnabled ?? null,
     addOnMoment: data.addOnMoment ?? '',
   }
@@ -685,12 +689,17 @@ export function successMessage(t: TFunction, changes: PendingChange[]): string {
     keys.has('stackingEnabled') ||
     keys.has('twoOrderPolicy') ||
     keys.has('twoOrderDelayLimitMinutes') ||
+    keys.has('stackPairBlockMinutes') ||
     keys.has('addOnOffersEnabled') ||
     keys.has('addOnMoment')
   ) {
     // Review fix (row 81): an add on change is named as such, not only as "two orders together".
     const addOn = keys.has('addOnOffersEnabled') || keys.has('addOnMoment')
-    const stack = keys.has('stackingEnabled') || keys.has('twoOrderPolicy') || keys.has('twoOrderDelayLimitMinutes')
+    const stack =
+      keys.has('stackingEnabled') ||
+      keys.has('twoOrderPolicy') ||
+      keys.has('twoOrderDelayLimitMinutes') ||
+      keys.has('stackPairBlockMinutes')
     const what = t(
       addOn && stack ? 'settings.success.stackAndAddOn' : addOn ? 'settings.success.addOn' : 'settings.success.stack',
     )

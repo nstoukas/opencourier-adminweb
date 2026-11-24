@@ -661,6 +661,17 @@ export function TwoOrdersCard({ form, set, loaded }: CardProps) {
             description={t('settings.twoOrders.delayHelp')}
             onChange={(value) => set('twoOrderDelayLimitMinutes', value)}
           />
+          {/* Row 147: how long a declined or missed pair stays apart; 0 means no block. */}
+          <NumberField
+            id="stackPairBlockMinutes"
+            label={labelOf(t, 'stackPairBlockMinutes')}
+            value={form.stackPairBlockMinutes}
+            min={0}
+            max={60}
+            disabled={!loaded || notLoaded}
+            description={t('settings.twoOrders.pairBlockHelp')}
+            onChange={(value) => set('stackPairBlockMinutes', value)}
+          />
         </div>
         <Field>
           <div className="flex items-center gap-3">

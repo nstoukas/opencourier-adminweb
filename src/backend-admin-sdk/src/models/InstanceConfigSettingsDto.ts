@@ -315,6 +315,11 @@ export interface InstanceConfigSettingsDto {
   stackingEnabled?: boolean | null;
   twoOrderPolicy?: string | null;
   twoOrderDelayLimitMinutes?: number | null;
+  /**
+   * Minutes a declined or missed pair is not offered together again; 0 means no block (row 147). Hand edited.
+   * @type {number}
+   */
+  stackPairBlockMinutes?: number | null;
   // Mid job add ons (spec 0048, row 81): the switch, and BEFORE_PICKUP, BEFORE_DROPOFF or SAME_RESTAURANT.
   addOnOffersEnabled?: boolean | null;
   addOnMoment?: string | null;
@@ -558,6 +563,7 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     stackingEnabled: !exists(json, "stackingEnabled") ? null : json["stackingEnabled"],
     twoOrderPolicy: !exists(json, "twoOrderPolicy") ? null : json["twoOrderPolicy"],
     twoOrderDelayLimitMinutes: !exists(json, "twoOrderDelayLimitMinutes") ? null : json["twoOrderDelayLimitMinutes"],
+    stackPairBlockMinutes: !exists(json, "stackPairBlockMinutes") ? null : json["stackPairBlockMinutes"],
     addOnOffersEnabled: !exists(json, "addOnOffersEnabled") ? null : json["addOnOffersEnabled"],
     addOnMoment: !exists(json, "addOnMoment") ? null : json["addOnMoment"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? null : json["reviewAnswerDays"],
@@ -643,6 +649,7 @@ export function InstanceConfigSettingsDtoToJSON(
     stackingEnabled: value.stackingEnabled,
     twoOrderPolicy: value.twoOrderPolicy,
     twoOrderDelayLimitMinutes: value.twoOrderDelayLimitMinutes,
+    stackPairBlockMinutes: value.stackPairBlockMinutes,
     addOnOffersEnabled: value.addOnOffersEnabled,
     addOnMoment: value.addOnMoment,
     reviewAnswerDays: value.reviewAnswerDays,

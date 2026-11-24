@@ -310,6 +310,11 @@ export interface InstanceConfigSettingsAdminInput {
   stackingEnabled?: boolean;
   twoOrderPolicy?: string;
   twoOrderDelayLimitMinutes?: number;
+  /**
+   * Minutes a declined or missed pair is not offered together again; 0 means no block (row 147). Hand edited.
+   * @type {number}
+   */
+  stackPairBlockMinutes?: number;
   // Mid job add ons (spec 0048, row 81). Without the ToJSON lines below a save would drop them silently.
   addOnOffersEnabled?: boolean;
   addOnMoment?: string;
@@ -578,6 +583,7 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     stackingEnabled: !exists(json, "stackingEnabled") ? undefined : json["stackingEnabled"],
     twoOrderPolicy: !exists(json, "twoOrderPolicy") ? undefined : json["twoOrderPolicy"],
     twoOrderDelayLimitMinutes: !exists(json, "twoOrderDelayLimitMinutes") ? undefined : json["twoOrderDelayLimitMinutes"],
+    stackPairBlockMinutes: !exists(json, "stackPairBlockMinutes") ? undefined : json["stackPairBlockMinutes"],
     addOnOffersEnabled: !exists(json, "addOnOffersEnabled") ? undefined : json["addOnOffersEnabled"],
     addOnMoment: !exists(json, "addOnMoment") ? undefined : json["addOnMoment"],
     reviewAnswerDays: !exists(json, "reviewAnswerDays") ? undefined : json["reviewAnswerDays"],
@@ -674,6 +680,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     stackingEnabled: value.stackingEnabled,
     twoOrderPolicy: value.twoOrderPolicy,
     twoOrderDelayLimitMinutes: value.twoOrderDelayLimitMinutes,
+    // Without this line a save would drop the pair block before it left the browser (row 147).
+    stackPairBlockMinutes: value.stackPairBlockMinutes,
     addOnOffersEnabled: value.addOnOffersEnabled,
     addOnMoment: value.addOnMoment,
     reviewAnswerDays: value.reviewAnswerDays,
