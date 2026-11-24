@@ -220,11 +220,17 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
     it('defines server.event.ADD_ON_JOINED sentence in English and Greek naming {{addOnId}} and {{courierId}} (row 146)', () => {
       expect(en.server.event.ADD_ON_JOINED).toBe(
-        'Delivery {{addOnId}} joined this job as one more order on the way; courier {{courierId}} carries both'
+        'Delivery {{addOnId}} was added to this job as one more order on the way; courier {{courierId}} has taken both'
       )
       expect(el.server.event.ADD_ON_JOINED).toBe(
-        'Η παραγγελία {{addOnId}} μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας {{courierId}} μεταφέρει και τις δύο'
+        'Η παραγγελία {{addOnId}} προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας {{courierId}} έχει αναλάβει και τις δύο'
       )
+    })
+
+    it('ensures Greek no longer says "μεταφέρει" and English no longer says "carries both" (row 146)', () => {
+      // Both untrue before pickup; replaced with "has taken both" / "έχει αναλάβει και τις δύο"
+      expect(en.server.event.ADD_ON_JOINED).not.toContain('carries both')
+      expect(el.server.event.ADD_ON_JOINED).not.toContain('μεταφέρει')
     })
 
     it('ensures server.event.ADD_ON_JOINED includes both {{addOnId}} and {{courierId}} placeholders in both languages (row 146)', () => {

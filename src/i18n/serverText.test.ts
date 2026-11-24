@@ -35,7 +35,7 @@ describe('serverText helpers (spec 0054, AC-4, AC-6)', () => {
 
     it('renders ADD_ON_JOINED messageCode in reader language naming the add on and courier (row 146)', () => {
       const event: StoredEventText = {
-        message: 'Delivery del-99 joined this job as one more order on the way; courier c-12 carries both',
+        message: 'Delivery del-99 was added to this job as one more order on the way; courier c-12 has taken both',
         messageCode: 'ADD_ON_JOINED',
         messageParams: { addOnId: 'del-99', courierId: 'c-12' },
         eventSource: 'OPENCOURIER',
@@ -44,14 +44,14 @@ describe('serverText helpers (spec 0054, AC-4, AC-6)', () => {
       // English
       const resultEn = eventMessageText(i18nEn, event)
       expect(resultEn.text).toBe(
-        'Delivery del-99 joined this job as one more order on the way; courier c-12 carries both'
+        'Delivery del-99 was added to this job as one more order on the way; courier c-12 has taken both'
       )
       expect(resultEn.recordedInEnglish).toBe(false)
 
       // Greek
       const resultEl = eventMessageText(i18nEl, event)
       expect(resultEl.text).toBe(
-        'Η παραγγελία del-99 μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας c-12 μεταφέρει και τις δύο'
+        'Η παραγγελία del-99 προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας c-12 έχει αναλάβει και τις δύο'
       )
       expect(resultEl.recordedInEnglish).toBe(false)
     })

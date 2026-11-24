@@ -868,7 +868,7 @@ describe('DeliveryEventTimeline component', () => {
         oldStatus: 'DISPATCHED',
         newStatus: 'DISPATCHED',
         transitionSuccessful: true,
-        message: 'Delivery del-456 joined this job as one more order on the way; courier c-88 carries both',
+        message: 'Delivery del-456 was added to this job as one more order on the way; courier c-88 has taken both',
         messageCode: 'ADD_ON_JOINED',
         messageParams: { addOnId: 'del-456', courierId: 'c-88' },
         createdAt: new Date('2026-11-24T10:00:00Z'),
@@ -895,7 +895,7 @@ describe('DeliveryEventTimeline component', () => {
         // Message rendered from messageCode + messageParams in Greek, naming addOnId and courierId
         expect(
           screen.getByText(
-            'Η παραγγελία del-456 μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας c-88 μεταφέρει και τις δύο'
+            'Η παραγγελία del-456 προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας c-88 έχει αναλάβει και τις δύο'
           )
         ).toBeInTheDocument()
 
@@ -929,7 +929,7 @@ describe('DeliveryEventTimeline component', () => {
         // Message rendered from template in English
         expect(
           screen.getByText(
-            'Delivery del-456 joined this job as one more order on the way; courier c-88 carries both'
+            'Delivery del-456 was added to this job as one more order on the way; courier c-88 has taken both'
           )
         ).toBeInTheDocument()
 
@@ -963,7 +963,7 @@ describe('DeliveryEventTimeline component', () => {
 
         expect(
           screen.getByText(
-            'Η παραγγελία del-456 μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας c-88 μεταφέρει και τις δύο'
+            'Η παραγγελία del-456 προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας c-88 έχει αναλάβει και τις δύο'
           )
         ).toBeInTheDocument()
         expect(screen.queryByText('Stored English text from backend')).toBeNull()
