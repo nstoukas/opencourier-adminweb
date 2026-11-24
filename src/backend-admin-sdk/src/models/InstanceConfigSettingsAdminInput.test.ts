@@ -434,6 +434,44 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.offerSkipMinutes).toBeUndefined()
     })
 
+    it('preserves stackPairBlockMinutes in ToJSON serialization, including 0 (row 147)', () => {
+      // Load-bearing test guard: without stackPairBlockMinutes in ToJSON, the SDK silently drops
+      // it and the save reports success for a setting never sent to the backend.
+      const input = {
+        stackPairBlockMinutes: 20,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.stackPairBlockMinutes).toBe(20)
+
+      const inputZero = {
+        stackPairBlockMinutes: 0,
+      }
+      const jsonZero = InstanceConfigSettingsAdminInputToJSON(inputZero)
+      expect(jsonZero.stackPairBlockMinutes).toBe(0)
+    })
+
+    it('round-trips stackPairBlockMinutes through FromJSON and ToJSON (row 147)', () => {
+      const originalJson = {
+        stackPairBlockMinutes: 45,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.stackPairBlockMinutes).toBe(45)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.stackPairBlockMinutes).toBe(45)
+    })
+
+    it('handles undefined stackPairBlockMinutes in FromJSON and ToJSON (row 147)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.stackPairBlockMinutes).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.stackPairBlockMinutes).toBeUndefined()
+    })
+
     it('preserves arrivalRadiusMetres in ToJSON serialization, including 0 (spec 0021, AC-11)', () => {
       // Load-bearing test guard: without arrivalRadiusMetres in ToJSON, the SDK silently drops
       // it and the save reports success for a setting never sent to the backend.
@@ -986,6 +1024,51 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.offerSkipMinutes).toBe(20)
+    })
+
+    it('deserializes stackPairBlockMinutes when present, including 0 (row 147)', () => {
+      const json = {
+        details: {},
+        stackPairBlockMinutes: 20,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.stackPairBlockMinutes).toBe(20)
+
+      const jsonZero = {
+        details: {},
+        stackPairBlockMinutes: 0,
+      }
+
+      const dtoZero = InstanceConfigSettingsDtoFromJSON(jsonZero)
+      expect(dtoZero.stackPairBlockMinutes).toBe(0)
+    })
+
+    it('deserializes stackPairBlockMinutes as null when absent in backend response (row 147)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.stackPairBlockMinutes).toBeNull()
+    })
+
+    it('serializes DTO carrying stackPairBlockMinutes back to JSON, including 0 (row 147)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        stackPairBlockMinutes: 20,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.stackPairBlockMinutes).toBe(20)
+
+      const dtoZero = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        stackPairBlockMinutes: 0,
+      })
+
+      const jsonZero = InstanceConfigSettingsDtoToJSON(dtoZero)
+      expect(jsonZero.stackPairBlockMinutes).toBe(0)
     })
 
     it('deserializes arrivalRadiusMetres when present, including 0 (spec 0021, AC-11)', () => {

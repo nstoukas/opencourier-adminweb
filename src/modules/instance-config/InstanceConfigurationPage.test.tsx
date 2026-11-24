@@ -570,6 +570,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(document.getElementById('stackingEnabled')).toBeDisabled()
       expect(document.getElementById('twoOrderPolicy')).toBeDisabled()
       expect(document.getElementById('twoOrderDelayLimitMinutes')).toBeDisabled()
+      expect(document.getElementById('stackPairBlockMinutes')).toBeDisabled()
       expect(document.getElementById('addOnOffersEnabled')).toBeDisabled()
       expect(document.getElementById('addOnMoment')).toBeDisabled()
       expect(document.getElementById('shiftsEnabled')).toBeDisabled()
@@ -2197,7 +2198,8 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       twoOrderPolicy = 'SHORTAGE_ONLY',
       twoOrderDelayLimitMinutes = 10,
       addOnOffersEnabled = false,
-      addOnMoment = 'BEFORE_PICKUP'
+      addOnMoment = 'BEFORE_PICKUP',
+      stackPairBlockMinutes = 20
     ) => {
       mockUseGetInstanceConfigQuery.mockReturnValue({
         data: {
@@ -2207,6 +2209,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
           twoOrderDelayLimitMinutes,
           addOnOffersEnabled,
           addOnMoment,
+          stackPairBlockMinutes,
         },
         isLoading: false,
       })
@@ -2460,6 +2463,74 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       const saveBar = screen.getByTestId('save-bar')
       expect(within(saveBar).getByText('Most minutes a pair may delay a customer')).toBeInTheDocument()
       expect(within(saveBar).getByText(/-5/)).toBeInTheDocument()
+    })
+
+    it('editing stackPairBlockMinutes sends the number, 0 included (row 147)', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, false, 'BEFORE_PICKUP', 20)
+      mockSetInstanceConfig.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+      render(<InstanceConfigurationPage />)
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '0' } })
+
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ stackPairBlockMinutes: 0 })
+      })
+    })
+
+    it('blocks save when stackPairBlockMinutes is emptied and names setting in blockers (row 147)', () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, false, 'BEFORE_PICKUP', 20)
+      render(<InstanceConfigurationPage />)
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      expect(saveButton).toBeDisabled()
+      expect(saveButton).toHaveAttribute('aria-describedby', 'save-all-blockers')
+
+      const blockersContainer = document.getElementById('save-all-blockers')
+      expect(blockersContainer?.textContent).toContain(
+        'Minutes before a turned down pair can be offered together again is empty'
+      )
+
+      fireEvent.click(saveButton)
+      expect(mockSetInstanceConfig).not.toHaveBeenCalled()
+    })
+
+    it('shows backend refusal sentence in destructive toast when backend rejects out-of-range stackPairBlockMinutes (> 60) (row 147)', async () => {
+      withTwoOrders(false, 'SHORTAGE_ONLY', 10, false, 'BEFORE_PICKUP', 20)
+      const serverErrorMessage = 'stackPairBlockMinutes must be between 0 and 60'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ statusCode: 400, message: serverErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '61' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ stackPairBlockMinutes: 61 })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Not saved',
+            description: serverErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+
+      const saveBar = screen.getByTestId('save-bar')
+      expect(
+        within(saveBar).getByText('Minutes before a turned down pair can be offered together again')
+      ).toBeInTheDocument()
+      expect(within(saveBar).getByText(/61/)).toBeInTheDocument()
     })
 
     it('switching addOnOffersEnabled on puts it on the save bar and Save sends addOnOffersEnabled: true with success message', async () => {

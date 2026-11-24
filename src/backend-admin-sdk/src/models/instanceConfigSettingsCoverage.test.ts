@@ -134,6 +134,13 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
     expect(setting?.labelKey).toBe('settings.labels.offerSkipMinutes')
   })
 
+  it('covers stackPairBlockMinutes in SETTINGS (row 147)', () => {
+    const setting = SETTINGS.find((s) => s.key === 'stackPairBlockMinutes')
+    expect(setting).toBeDefined()
+    expect(setting?.kind).toBe('number')
+    expect(setting?.labelKey).toBe('settings.labels.stackPairBlockMinutes')
+  })
+
   // Check that each non-excluded backend setting is bound to an input value, select, editor component in an input tag
   it.each(settingKeys)('ensures page source renders input or editor for setting key: %s', (key) => {
     if (DELIBERATE_NON_FIELD_SETTINGS.includes(key)) {

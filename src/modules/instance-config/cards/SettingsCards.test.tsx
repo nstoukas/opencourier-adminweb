@@ -1915,11 +1915,12 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(screen.getByLabelText('Two orders offered together')).toBeDisabled()
       expect(screen.getByLabelText('When two orders may go together')).toBeDisabled()
       expect(screen.getByLabelText('Most minutes a pair may delay a customer')).toBeDisabled()
+      expect(screen.getByLabelText('Minutes before a turned down pair can be offered together again')).toBeDisabled()
       expect(screen.getByLabelText('One more order offered while on a job')).toBeDisabled()
       expect(screen.getByLabelText('When one more order may be offered')).toBeDisabled()
     })
 
-    it('disables all five inputs when loaded is false', () => {
+    it('disables all inputs when loaded is false', () => {
       render(
         <TwoOrdersCard
           form={{
@@ -1927,6 +1928,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
             stackingEnabled: false,
             twoOrderPolicy: 'SHORTAGE_ONLY',
             twoOrderDelayLimitMinutes: '10',
+            stackPairBlockMinutes: '20',
             addOnOffersEnabled: false,
             addOnMoment: 'BEFORE_PICKUP',
           }}
@@ -1939,6 +1941,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(screen.getByLabelText('Two orders offered together')).toBeDisabled()
       expect(screen.getByLabelText('When two orders may go together')).toBeDisabled()
       expect(screen.getByLabelText('Most minutes a pair may delay a customer')).toBeDisabled()
+      expect(screen.getByLabelText('Minutes before a turned down pair can be offered together again')).toBeDisabled()
       expect(screen.getByLabelText('One more order offered while on a job')).toBeDisabled()
       expect(screen.getByLabelText('When one more order may be offered')).toBeDisabled()
     })
@@ -2098,6 +2101,126 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(momentSelect.value).toBe('')
       const notSetOption = within(momentSelect).getByRole('option', { name: 'Not set' })
       expect(notSetOption).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // TwoOrdersCard: stackPairBlockMinutes (row 147)
+  // ---------------------------------------------------------------------------
+  describe('TwoOrdersCard stackPairBlockMinutes (row 147)', () => {
+    it('renders NumberField id stackPairBlockMinutes with its label, help, min 0 and max 60, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: true,
+            twoOrderPolicy: 'SHORTAGE_ONLY',
+            twoOrderDelayLimitMinutes: '10',
+            stackPairBlockMinutes: '20',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.value).toBe('20')
+      expect(input).toHaveAttribute('type', 'number')
+      expect(input).toHaveAttribute('min', '0')
+      expect(input).toHaveAttribute('max', '60')
+      expect(input).not.toBeDisabled()
+
+      expect(screen.getByLabelText(t('settings.labels.stackPairBlockMinutes'))).toBe(input)
+      expect(screen.getByText(t('settings.twoOrders.pairBlockHelp'))).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '45' } })
+      expect(mockSet).toHaveBeenCalledWith('stackPairBlockMinutes', '45')
+    })
+
+    it('stackPairBlockMinutes is editable once loaded even when stackingEnabled is false', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: false,
+            stackPairBlockMinutes: '20',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      expect(input).not.toBeDisabled()
+    })
+
+    it('stackPairBlockMinutes is disabled before settings load', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackPairBlockMinutes: '',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+
+    it('stackPairBlockMinutes is disabled when stackingEnabled is null (not loaded yet)', () => {
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: null,
+            stackPairBlockMinutes: '20',
+          }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+
+    it('allows entering boundary and out-of-range values (0, 60, -5, 65), passing raw input to set', () => {
+      const mockSet = jest.fn()
+      render(
+        <TwoOrdersCard
+          form={{
+            ...dummyForm,
+            stackingEnabled: true,
+            stackPairBlockMinutes: '20',
+          }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = document.getElementById('stackPairBlockMinutes') as HTMLInputElement
+
+      fireEvent.change(input, { target: { value: '0' } })
+      expect(mockSet).toHaveBeenCalledWith('stackPairBlockMinutes', '0')
+
+      fireEvent.change(input, { target: { value: '60' } })
+      expect(mockSet).toHaveBeenCalledWith('stackPairBlockMinutes', '60')
+
+      fireEvent.change(input, { target: { value: '-5' } })
+      expect(mockSet).toHaveBeenCalledWith('stackPairBlockMinutes', '-5')
+
+      fireEvent.change(input, { target: { value: '65' } })
+      expect(mockSet).toHaveBeenCalledWith('stackPairBlockMinutes', '65')
     })
   })
 })

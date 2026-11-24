@@ -282,4 +282,65 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(el.server.event.ADD_ON_JOINED).toBe((backendElSentenceMatch?.[1] ?? ''))
     })
   })
+
+  describe('Row 147: stackPairBlockMinutes translations and auto-accept stacking help', () => {
+    it('defines stackPairBlockMinutes label and pairBlockHelp in en and el (row 147)', () => {
+      // English label and help
+      expect(en.settings.labels.stackPairBlockMinutes).toBe(
+        'Minutes before a turned down pair can be offered together again'
+      )
+      expect(en.settings.twoOrders.pairBlockHelp).toContain('0 to 60')
+      expect(en.settings.twoOrders.pairBlockHelp).toContain(
+        '0: the same pair can go to another rider at once'
+      )
+      expect(en.settings.twoOrders.pairBlockHelp).toContain(
+        'The rider who declined is kept away by the skip time either way'
+      )
+      expect(en.settings.twoOrders.pairBlockHelp.toLowerCase()).toContain('skip time')
+
+      // Greek label and help
+      expect(el.settings.labels.stackPairBlockMinutes).toBe(
+        'Λεπτά πριν ένα ζευγάρι που απορρίφθηκε ξαναπροταθεί μαζί'
+      )
+      expect(el.settings.twoOrders.pairBlockHelp).toContain('0 έως 60')
+      expect(el.settings.twoOrders.pairBlockHelp).toContain(
+        '0: το ίδιο ζευγάρι μπορεί να πάει αμέσως σε άλλον διανομέα'
+      )
+      expect(el.settings.twoOrders.pairBlockHelp).toContain(
+        'Τον διανομέα που το απέρριψε τον κρατά μακριά ο χρόνος παράλειψης σε κάθε περίπτωση'
+      )
+      expect(el.settings.twoOrders.pairBlockHelp).toContain('χρόνος παράλειψης')
+    })
+
+    it('ensures stacking help in en and el reflects auto-accept pairs and no longer says the phone never accepts a pair by itself (row 128 / row 147)', () => {
+      // English: phone never accepts a pair by itself was removed in row 147 review fix;
+      // auto accept rule from row 128 is explained instead.
+      expect(en.settings.twoOrders.stackingHelp).not.toContain(
+        'the phone never accepts a pair by itself'
+      )
+      expect(en.settings.twoOrders.stackingHelp).not.toContain(
+        'phone never accepts a pair by itself'
+      )
+      expect(en.settings.twoOrders.stackingHelp).toContain(
+        'a rider on auto accept takes it like a single order'
+      )
+
+      // Greek: removed "το κινητό δεν το δέχεται ποτέ μόνο του"; added auto accept explanation
+      expect(el.settings.twoOrders.stackingHelp).not.toContain(
+        'το κινητό δεν το δέχεται ποτέ μόνο του'
+      )
+      expect(el.settings.twoOrders.stackingHelp).toContain(
+        'με αυτόματη αποδοχή το κινητό το δέχεται όπως μία μόνο παραγγελία'
+      )
+    })
+
+    it('ensures Two orders card description exists in en and el', () => {
+      expect(en.settings.twoOrders.description).toBe(
+        'Whether one rider may be offered two orders at once, and within which limits.'
+      )
+      expect(el.settings.twoOrders.description).toBe(
+        'Αν ένας διανομέας μπορεί να πάρει πρόταση για δύο παραγγελίες μαζί, και με ποια όρια.'
+      )
+    })
+  })
 })

@@ -135,6 +135,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     stackingEnabled: false,
     twoOrderPolicy: 'SHORTAGE_ONLY',
     twoOrderDelayLimitMinutes: '10',
+    stackPairBlockMinutes: '20',
     addOnOffersEnabled: false,
     addOnMoment: 'BEFORE_PICKUP',
   }
@@ -2516,13 +2517,20 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         ] as any)
       ).toBe(`Saved: Most minutes a pair may delay a customer. ${sentence}`)
 
-      // Appended only once when all three change
-      const allThree = [
+      expect(
+        successMessage([
+          { key: 'stackPairBlockMinutes', label: 'Minutes before a turned down pair can be offered together again', from: '20', to: '0' },
+        ] as any)
+      ).toBe(`Saved: Minutes before a turned down pair can be offered together again. ${sentence}`)
+
+      // Appended only once when all four change
+      const allFour = [
         { key: 'stackingEnabled', label: 'Two orders offered together', from: 'Off', to: 'On' },
         { key: 'twoOrderPolicy', label: 'When two orders may go together', from: 'SHORTAGE_ONLY', to: 'WHENEVER_FITS' },
         { key: 'twoOrderDelayLimitMinutes', label: 'Most minutes a pair may delay a customer', from: '10', to: '15' },
+        { key: 'stackPairBlockMinutes', label: 'Minutes before a turned down pair can be offered together again', from: '20', to: '0' },
       ]
-      const msg = successMessage(allThree as any)
+      const msg = successMessage(allFour as any)
       const occurrences = msg.split(sentence).length - 1
       expect(occurrences).toBe(1)
     })
@@ -2727,6 +2735,191 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       } as any
       const serialized = InstanceConfigSettingsDtoToJSON(dto)
       expect(serialized.offerSkipMinutes).toBe(25)
+    })
+  })
+
+  describe('stackPairBlockMinutes setting (row 147)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('declares stackPairBlockMinutes in SETTINGS as a number with correct labelKey', () => {
+      const setting = SETTINGS.find((s) => s.key === 'stackPairBlockMinutes')
+      expect(setting).toBeDefined()
+      expect(setting?.kind).toBe('number')
+      expect(setting?.labelKey).toBe('settings.labels.stackPairBlockMinutes')
+      expect(labelOf('stackPairBlockMinutes')).toBe(
+        'Minutes before a turned down pair can be offered together again'
+      )
+    })
+
+    it('formFromSettings populates stackPairBlockMinutes from data and falls back to empty string', () => {
+      const form1 = formFromSettings({ stackPairBlockMinutes: 20 })
+      expect(form1.stackPairBlockMinutes).toBe('20')
+
+      const formZero = formFromSettings({ stackPairBlockMinutes: 0 })
+      expect(formZero.stackPairBlockMinutes).toBe('0')
+
+      const form2 = formFromSettings({ stackPairBlockMinutes: null })
+      expect(form2.stackPairBlockMinutes).toBe('')
+
+      const form3 = formFromSettings({})
+      expect(form3.stackPairBlockMinutes).toBe('')
+      expect(EMPTY_FORM.stackPairBlockMinutes).toBe('')
+    })
+
+    it('pendingChanges detects edits to stackPairBlockMinutes', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        stackPairBlockMinutes: '35',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('stackPairBlockMinutes')
+      expect(changes[0]?.from).toBe('20')
+      expect(changes[0]?.to).toBe('35')
+      expect(changes[0]?.label).toBe(
+        'Minutes before a turned down pair can be offered together again'
+      )
+    })
+
+    it('blocks saving when stackPairBlockMinutes is empty string or whitespace', () => {
+      const editedEmpty: SettingsForm = {
+        ...baseSavedForm,
+        stackPairBlockMinutes: '',
+      }
+      const changesEmpty = pendingChanges(baseSavedForm, editedEmpty)
+      const foundEmpty = blockers(changesEmpty, editedEmpty)
+      expect(foundEmpty).toContain(
+        'Minutes before a turned down pair can be offered together again is empty'
+      )
+
+      const editedWhitespace: SettingsForm = {
+        ...baseSavedForm,
+        stackPairBlockMinutes: '   ',
+      }
+      const changesWhitespace = pendingChanges(baseSavedForm, editedWhitespace)
+      const foundWhitespace = blockers(changesWhitespace, editedWhitespace)
+      expect(foundWhitespace).toContain(
+        'Minutes before a turned down pair can be offered together again is empty'
+      )
+
+      const editedZero: SettingsForm = {
+        ...baseSavedForm,
+        stackPairBlockMinutes: '0',
+      }
+      const changesZero = pendingChanges(baseSavedForm, editedZero)
+      expect(blockers(changesZero, editedZero)).not.toContain(
+        'Minutes before a turned down pair can be offered together again is empty'
+      )
+    })
+
+    it('savePayload converts stackPairBlockMinutes to a number, sending 0 as number 0', () => {
+      const editedZero: SettingsForm = {
+        ...baseSavedForm,
+        stackPairBlockMinutes: '0',
+      }
+      const changesZero = pendingChanges(baseSavedForm, editedZero)
+      const payloadZero = savePayload(changesZero, editedZero, savedDetails)
+      expect(payloadZero.stackPairBlockMinutes).toBe(0)
+      expect(typeof payloadZero.stackPairBlockMinutes).toBe('number')
+
+      const edited45: SettingsForm = {
+        ...baseSavedForm,
+        stackPairBlockMinutes: '45',
+      }
+      const changes45 = pendingChanges(baseSavedForm, edited45)
+      const payload45 = savePayload(changes45, edited45, savedDetails)
+      expect(payload45.stackPairBlockMinutes).toBe(45)
+      expect(typeof payload45.stackPairBlockMinutes).toBe('number')
+    })
+
+    it('successMessage includes two orders note when stackPairBlockMinutes is saved alone or with add-ons', () => {
+      const sentence =
+        'Two orders together: applies to the next offer; offers already out and jobs already taken are unchanged.'
+      const changes = [
+        {
+          key: 'stackPairBlockMinutes',
+          label: 'Minutes before a turned down pair can be offered together again',
+          from: '20',
+          to: '0',
+        },
+      ]
+      expect(successMessage(changes as any)).toBe(
+        `Saved: Minutes before a turned down pair can be offered together again. ${sentence}`
+      )
+
+      const combinedChanges = [
+        {
+          key: 'stackPairBlockMinutes',
+          label: 'Minutes before a turned down pair can be offered together again',
+          from: '20',
+          to: '0',
+        },
+        {
+          key: 'addOnOffersEnabled',
+          label: 'One more order offered while on a job',
+          from: 'Off',
+          to: 'On',
+        },
+      ]
+      const combinedSentence =
+        'Two orders together and one more order on a job: applies to the next offer; offers already out and jobs already taken are unchanged.'
+      expect(successMessage(combinedChanges as any)).toContain(combinedSentence)
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON serializes stackPairBlockMinutes directly, including 0', () => {
+      const input = {
+        stackPairBlockMinutes: 0,
+      }
+      const serialized = InstanceConfigSettingsAdminInputToJSON(input as any)
+      expect(serialized.stackPairBlockMinutes).toBe(0)
+
+      const input45 = {
+        stackPairBlockMinutes: 45,
+      }
+      const serialized45 = InstanceConfigSettingsAdminInputToJSON(input45 as any)
+      expect(serialized45.stackPairBlockMinutes).toBe(45)
+    })
+
+    it('InstanceConfigSettingsAdminInputFromJSON deserializes stackPairBlockMinutes', () => {
+      const json = { stackPairBlockMinutes: 30 }
+      const model = InstanceConfigSettingsAdminInputFromJSON(json)
+      expect(model.stackPairBlockMinutes).toBe(30)
+
+      const jsonZero = { stackPairBlockMinutes: 0 }
+      const modelZero = InstanceConfigSettingsAdminInputFromJSON(jsonZero)
+      expect(modelZero.stackPairBlockMinutes).toBe(0)
+
+      const jsonWithout = {}
+      const modelWithout = InstanceConfigSettingsAdminInputFromJSON(jsonWithout)
+      expect(modelWithout.stackPairBlockMinutes).toBeUndefined()
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON deserializes stackPairBlockMinutes and falls back to null when absent', () => {
+      const dtoWith = { stackPairBlockMinutes: 25 }
+      const deserialized1 = InstanceConfigSettingsDtoFromJSON(dtoWith)
+      expect(deserialized1.stackPairBlockMinutes).toBe(25)
+
+      const dtoZero = { stackPairBlockMinutes: 0 }
+      const deserializedZero = InstanceConfigSettingsDtoFromJSON(dtoZero)
+      expect(deserializedZero.stackPairBlockMinutes).toBe(0)
+
+      const dtoWithout = {}
+      const deserialized2 = InstanceConfigSettingsDtoFromJSON(dtoWithout)
+      expect(deserialized2.stackPairBlockMinutes).toBeNull()
+    })
+
+    it('InstanceConfigSettingsDtoToJSON serializes stackPairBlockMinutes, including 0', () => {
+      const dto = {
+        stackPairBlockMinutes: 25,
+      } as any
+      const serialized = InstanceConfigSettingsDtoToJSON(dto)
+      expect(serialized.stackPairBlockMinutes).toBe(25)
+
+      const dtoZero = {
+        stackPairBlockMinutes: 0,
+      } as any
+      const serializedZero = InstanceConfigSettingsDtoToJSON(dtoZero)
+      expect(serializedZero.stackPairBlockMinutes).toBe(0)
     })
   })
 })
