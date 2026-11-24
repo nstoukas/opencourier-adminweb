@@ -424,7 +424,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
   // OffersCard: Skip time setting (row 144)
   // ---------------------------------------------------------------------------
   describe('OffersCard offerSkipMinutes (row 144)', () => {
-    it('renders offerSkipMinutes with its label, help, min 1 and max 240, loaded value, and calls set on change', () => {
+    it('renders offerSkipMinutes with its label, help, min 1 and max 60, loaded value, and calls set on change', () => {
       const mockSet = jest.fn()
       render(
         <OffersCard
@@ -441,7 +441,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(input.type).toBe('number')
       expect(input.value).toBe('20')
       expect(input.getAttribute('min')).toBe('1')
-      expect(input.getAttribute('max')).toBe('240')
+      expect(input.getAttribute('max')).toBe('60')
       expect(input).not.toBeDisabled()
 
       // Check label and description
@@ -450,6 +450,15 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       fireEvent.change(input, { target: { value: '45' } })
       expect(mockSet).toHaveBeenCalledWith('offerSkipMinutes', '45')
+    })
+
+    it('help text states the range 1 to 60 in English and 1 έως 60 in Greek (decision 144.3)', () => {
+      const tEn = createI18n('en').t
+      const tEl = createI18n('el').t
+      expect(tEn('settings.offers.offerSkipHelp')).toContain('1 to 60')
+      expect(tEn('settings.offers.offerSkipHelp')).not.toContain('240')
+      expect(tEl('settings.offers.offerSkipHelp')).toContain('1 έως 60')
+      expect(tEl('settings.offers.offerSkipHelp')).not.toContain('240')
     })
 
     it('offerSkipMinutes is editable once loaded even when offerExpiryEnabled is false', () => {

@@ -129,12 +129,14 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     }
   })
 
-  it('defines offerSkipMinutes label, help (with at least / τουλάχιστον), and success note in en and el (row 144)', () => {
+  it('defines offerSkipMinutes label, help (with at least / τουλάχιστον and 1 to 60 / 1 έως 60), and success note in en and el (row 144)', () => {
     // English
     expect(en.settings.labels.offerSkipMinutes).toBe(
       'Skip time after a rider leaves an order, in minutes'
     )
     expect(en.settings.offers.offerSkipHelp).toContain('at least')
+    expect(en.settings.offers.offerSkipHelp).toContain('1 to 60')
+    expect(en.settings.offers.offerSkipHelp).not.toContain('240')
     expect(en.settings.success.offerSkip).toBe(
       'The new skip time applies from the next skip.'
     )
@@ -144,6 +146,8 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       'Χρόνος παράλειψης αφού ένας διανομέας αφήσει μια παραγγελία, σε λεπτά'
     )
     expect(el.settings.offers.offerSkipHelp).toContain('τουλάχιστον')
+    expect(el.settings.offers.offerSkipHelp).toContain('1 έως 60')
+    expect(el.settings.offers.offerSkipHelp).not.toContain('240')
     expect(el.settings.success.offerSkip).toBe(
       'Ο νέος χρόνος παράλειψης ισχύει από την επόμενη παράλειψη.'
     )
@@ -193,6 +197,16 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(el.settings.labels.offerSkipMinutes.toLowerCase()).toContain('χρόνος παράλειψης')
       expect(el.settings.success.offerSkip.toLowerCase()).toContain('χρόνος παράλειψης')
       expect(el.settings.offers.description).toContain('παραλείπεται')
+    })
+
+    it('states the range 1 to 60 in English and 1 έως 60 in Greek offerSkipHelp, not 240 (decision 144.3)', () => {
+      // English help states range 1 to 60 minutes
+      expect(en.settings.offers.offerSkipHelp).toContain('1 to 60')
+      expect(en.settings.offers.offerSkipHelp).not.toContain('240')
+
+      // Greek help states range 1 έως 60 minutes
+      expect(el.settings.offers.offerSkipHelp).toContain('1 έως 60')
+      expect(el.settings.offers.offerSkipHelp).not.toContain('240')
     })
   })
 })
