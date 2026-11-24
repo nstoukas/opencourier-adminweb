@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { EnumDeliveryEventType } from './delivery-events'
+import { EVENT_MESSAGE_CODES } from './event-messages'
 import { STATE_MACHINE } from './state-machine'
 import * as deliveriesApiModule from '../api/deliveriesApi'
 import { humanizeEventType } from '../utils/deliveryEventDisplay'
@@ -147,6 +148,29 @@ describe('Section H — Safety & Architectural Regression Guards', () => {
       )
       expect(allTransitions).not.toContain('WAIT_UNDISPATCHED')
       expect(allTransitions).not.toContain('COURIER_PAID_FOR_WAIT')
+    })
+
+    it('ensures EnumDeliveryEventType contains ADD_ON_JOINED (row 146)', () => {
+      const eventTypes = Object.values(EnumDeliveryEventType) as string[]
+      expect(eventTypes).toContain('ADD_ON_JOINED')
+      expect(EnumDeliveryEventType.ADD_ON_JOINED).toBe('ADD_ON_JOINED')
+    })
+
+    it('ensures STATE_MACHINE transition table does NOT contain ADD_ON_JOINED (row 146)', () => {
+      // ADD_ON_JOINED is recorded directly by the backend when an accepted add on joins a job;
+      // keeping it out of STATE_MACHINE prevents admin event trigger menus from offering it
+      const allTransitions = Object.values(STATE_MACHINE).flatMap((node) =>
+        Object.keys(node.on)
+      )
+      expect(allTransitions).not.toContain('ADD_ON_JOINED')
+    })
+
+    it('ensures humanizeEventType names ADD_ON_JOINED in words as fallback (row 146)', () => {
+      expect(humanizeEventType(EnumDeliveryEventType.ADD_ON_JOINED)).toBe('Add on joined')
+    })
+
+    it('ensures EVENT_MESSAGE_CODES lists ADD_ON_JOINED with courierId and addOnId (row 146)', () => {
+      expect(EVENT_MESSAGE_CODES.ADD_ON_JOINED).toEqual(['courierId', 'addOnId'])
     })
 
     const removalEvents = [

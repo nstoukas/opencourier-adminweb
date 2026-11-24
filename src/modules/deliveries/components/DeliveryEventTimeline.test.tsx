@@ -857,5 +857,138 @@ describe('DeliveryEventTimeline component', () => {
         expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
       })
     })
+
+    describe('Row 146: ADD_ON_JOINED on the delivery trail', () => {
+      const addOnJoinedEvent: DeliveryEventAdminDto = {
+        id: 'ev-addon-1',
+        type: 'ADD_ON_JOINED',
+        actor: 'SYSTEM',
+        eventSource: 'OPENCOURIER',
+        courierId: 'c-88',
+        oldStatus: 'DISPATCHED',
+        newStatus: 'DISPATCHED',
+        transitionSuccessful: true,
+        message: 'Delivery del-456 joined this job as one more order on the way; courier c-88 carries both',
+        messageCode: 'ADD_ON_JOINED',
+        messageParams: { addOnId: 'del-456', courierId: 'c-88' },
+        createdAt: new Date('2026-11-24T10:00:00Z'),
+      }
+
+      it('renders ADD_ON_JOINED headline and message in Greek without recorded-in-English note', () => {
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [addOnJoinedEvent],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        const i18nEl = createI18n('el')
+        render(
+          <I18nextProvider i18n={i18nEl}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+
+        // Type label in Greek
+        expect(screen.getByText('Προστέθηκε μία ακόμη παραγγελία')).toBeInTheDocument()
+
+        // Message rendered from messageCode + messageParams in Greek, naming addOnId and courierId
+        expect(
+          screen.getByText(
+            'Η παραγγελία del-456 μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας c-88 μεταφέρει και τις δύο'
+          )
+        ).toBeInTheDocument()
+
+        // No note about recorded in English
+        expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
+      })
+
+      it('renders ADD_ON_JOINED headline and message in English, preferring reader language over stored English message', () => {
+        const eventWithStoredLegacyMessage: DeliveryEventAdminDto = {
+          ...addOnJoinedEvent,
+          message: 'Some older stored English message that should be ignored by the reader language renderer',
+        }
+
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [eventWithStoredLegacyMessage],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        const i18nEn = createI18n('en')
+        render(
+          <I18nextProvider i18n={i18nEn}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+
+        // Type label in English
+        expect(screen.getByText('One more order joined')).toBeInTheDocument()
+
+        // Message rendered from template in English
+        expect(
+          screen.getByText(
+            'Delivery del-456 joined this job as one more order on the way; courier c-88 carries both'
+          )
+        ).toBeInTheDocument()
+
+        // Does NOT render the stored message
+        expect(
+          screen.queryByText('Some older stored English message that should be ignored by the reader language renderer')
+        ).toBeNull()
+
+        // No note about recorded in English
+        expect(screen.queryByText(/recorded in English/)).toBeNull()
+      })
+
+      it('renders Greek message and ignores stored English message for Greek reader', () => {
+        const eventWithStoredEnglish: DeliveryEventAdminDto = {
+          ...addOnJoinedEvent,
+          message: 'Stored English text from backend',
+        }
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [eventWithStoredEnglish],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        const i18nEl = createI18n('el')
+        render(
+          <I18nextProvider i18n={i18nEl}>
+            <DeliveryEventTimeline deliveryId="d100" />
+          </I18nextProvider>
+        )
+
+        expect(
+          screen.getByText(
+            'Η παραγγελία del-456 μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας c-88 μεταφέρει και τις δύο'
+          )
+        ).toBeInTheDocument()
+        expect(screen.queryByText('Stored English text from backend')).toBeNull()
+        expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
+      })
+
+      it('shows rider name and stayed transition for ADD_ON_JOINED event', () => {
+        const courierMap = new Map([['c-88', 'Maria Kourieri']])
+        mockUseGetDeliveryEventsQuery.mockReturnValue({
+          data: [addOnJoinedEvent],
+          isLoading: false,
+          isError: false,
+          error: null,
+        })
+
+        const i18nEn = createI18n('en')
+        render(
+          <I18nextProvider i18n={i18nEn}>
+            <DeliveryEventTimeline deliveryId="d100" courierNameById={courierMap} />
+          </I18nextProvider>
+        )
+
+        expect(screen.getByText('Maria Kourieri')).toBeInTheDocument()
+        expect(screen.getByText('Stayed Dispatched')).toBeInTheDocument()
+      })
+    })
   })
 })

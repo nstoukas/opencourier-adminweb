@@ -100,6 +100,16 @@ describe('adminEvents utility functions', () => {
         expect(events).not.toContain(EnumDeliveryEventType.NO_COURIER_AVAILABLE)
       })
     })
+
+    it('never offers ADD_ON_JOINED in admin trigger menus for any status (row 146)', () => {
+      // ADD_ON_JOINED is recorded exclusively by the backend; admins must never submit it.
+      const allStatuses = Object.values(EnumDeliveryStatus)
+
+      allStatuses.forEach((status) => {
+        const events = adminEventsForStatus(status)
+        expect(events).not.toContain(EnumDeliveryEventType.ADD_ON_JOINED)
+      })
+    })
   })
 
   describe('courierIdForAdminEvent', () => {

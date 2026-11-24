@@ -1,6 +1,8 @@
 // Spec 0054 (row 47), AC-8: the completeness guard. It fails when a key is in one language and not
 // the other, when a text is empty, when an event code has no template, or when a template names a
 // value its code does not carry.
+import fs from 'fs'
+import path from 'path'
 import { EVENT_MESSAGE_CODES, EVENT_PART_CODES } from '@/shared-types/event-messages'
 import { EnumDeliveryStatus } from '@/shared-types/delivery-events'
 import { en } from './resources/en'
@@ -207,6 +209,63 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       // Greek help states range 1 έως 60 minutes
       expect(el.settings.offers.offerSkipHelp).toContain('1 έως 60')
       expect(el.settings.offers.offerSkipHelp).not.toContain('240')
+    })
+  })
+
+  describe('Row 146: ADD_ON_JOINED translations and backend copy consistency', () => {
+    it('defines eventType.ADD_ON_JOINED in English and Greek (row 146)', () => {
+      expect(en.deliveries.eventType.ADD_ON_JOINED).toBe('One more order joined')
+      expect(el.deliveries.eventType.ADD_ON_JOINED).toBe('Προστέθηκε μία ακόμη παραγγελία')
+    })
+
+    it('defines server.event.ADD_ON_JOINED sentence in English and Greek naming {{addOnId}} and {{courierId}} (row 146)', () => {
+      expect(en.server.event.ADD_ON_JOINED).toBe(
+        'Delivery {{addOnId}} joined this job as one more order on the way; courier {{courierId}} carries both'
+      )
+      expect(el.server.event.ADD_ON_JOINED).toBe(
+        'Η παραγγελία {{addOnId}} μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας {{courierId}} μεταφέρει και τις δύο'
+      )
+    })
+
+    it('ensures server.event.ADD_ON_JOINED includes both {{addOnId}} and {{courierId}} placeholders in both languages (row 146)', () => {
+      expect(placeholders(en.server.event.ADD_ON_JOINED)).toEqual(
+        expect.arrayContaining(['addOnId', 'courierId'])
+      )
+      expect(placeholders(el.server.event.ADD_ON_JOINED)).toEqual(
+        expect.arrayContaining(['addOnId', 'courierId'])
+      )
+    })
+
+    it('verifies copies stay identical to the backend when backend repo is present (row 146 copy check)', () => {
+      const backendDir = path.resolve(__dirname, '../../../opencourier-backend')
+      const backendEnPath = path.join(backendDir, 'src/localization/en.ts')
+      const backendElPath = path.join(backendDir, 'src/localization/el.ts')
+      const backendMessagesPath = path.join(backendDir, 'src/shared-types/event-messages.ts')
+
+      if (!fs.existsSync(backendEnPath) || !fs.existsSync(backendElPath) || !fs.existsSync(backendMessagesPath)) {
+        return
+      }
+
+      const backendEnContent = fs.readFileSync(backendEnPath, 'utf-8')
+      const backendElContent = fs.readFileSync(backendElPath, 'utf-8')
+      const backendMessagesContent = fs.readFileSync(backendMessagesPath, 'utf-8')
+
+      // Extract backend message code params: ADD_ON_JOINED: ['courierId', 'addOnId'],
+      const backendCodeMatch = backendMessagesContent.match(/ADD_ON_JOINED:\s*\[([^\]]+)\]/)
+      expect(backendCodeMatch).not.toBeNull()
+      const backendParams = backendCodeMatch![1]
+        .split(',')
+        .map((s) => s.trim().replace(/['"]/g, ''))
+      expect(EVENT_MESSAGE_CODES.ADD_ON_JOINED).toEqual(backendParams)
+
+      // Extract backend sentences
+      const backendEnSentenceMatch = backendEnContent.match(/ADD_ON_JOINED:\s*'([^']+)'/)
+      expect(backendEnSentenceMatch).not.toBeNull()
+      expect(en.server.event.ADD_ON_JOINED).toBe(backendEnSentenceMatch![1])
+
+      const backendElSentenceMatch = backendElContent.match(/ADD_ON_JOINED:\s*\n?\s*'([^']+)'/)
+      expect(backendElSentenceMatch).not.toBeNull()
+      expect(el.server.event.ADD_ON_JOINED).toBe(backendElSentenceMatch![1])
     })
   })
 })

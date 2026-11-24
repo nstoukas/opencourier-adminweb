@@ -33,6 +33,29 @@ describe('serverText helpers (spec 0054, AC-4, AC-6)', () => {
       expect(resultEl.recordedInEnglish).toBe(false)
     })
 
+    it('renders ADD_ON_JOINED messageCode in reader language naming the add on and courier (row 146)', () => {
+      const event: StoredEventText = {
+        message: 'Delivery del-99 joined this job as one more order on the way; courier c-12 carries both',
+        messageCode: 'ADD_ON_JOINED',
+        messageParams: { addOnId: 'del-99', courierId: 'c-12' },
+        eventSource: 'OPENCOURIER',
+      }
+
+      // English
+      const resultEn = eventMessageText(i18nEn, event)
+      expect(resultEn.text).toBe(
+        'Delivery del-99 joined this job as one more order on the way; courier c-12 carries both'
+      )
+      expect(resultEn.recordedInEnglish).toBe(false)
+
+      // Greek
+      const resultEl = eventMessageText(i18nEl, event)
+      expect(resultEl.text).toBe(
+        'Η παραγγελία del-99 μπήκε σε αυτή τη δουλειά ως μία ακόμη παραγγελία στον δρόμο· ο διανομέας c-12 μεταφέρει και τις δύο'
+      )
+      expect(resultEl.recordedInEnglish).toBe(false)
+    })
+
     it('falls back to stored English message with recordedInEnglish: true for legacy rows (source OPENCOURIER)', () => {
       const legacyEvent: StoredEventText = {
         message: 'Courier accepted delivery del-44',
