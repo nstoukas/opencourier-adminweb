@@ -195,11 +195,11 @@ export const settings = {
   twoOrders: {
     description: 'Whether one rider may be offered two orders at once, and within which limits.',
     stackingHelp:
-      'On: a free rider may be offered two waiting orders at once, from the same restaurant, or from two restaurants when both have marked the food ready. The rider takes or declines the pair, and the phone never accepts a pair by itself. Each order is paid in full from its own quote; never more than two orders or one box. Off: every offer is a single order, as before.',
+      'On: a free rider may be offered two waiting orders at once, from the same restaurant, or from two restaurants when both have marked the food ready. The rider takes or declines the pair; a rider on auto accept takes it like a single order (row 128). Each order is paid in full from its own quote; never more than two orders or one box. Off: every offer is a single order, as before.',
     policyHelp:
       '"Only when no free rider is a good fit" pairs an order only with one that already found no free rider, and offers one more order to a rider on a job only when no free rider was found. "Whenever the two orders fit": with One more order offered while on a job on, a fitting order goes to a rider already on a job before a free rider, even when a free rider is waiting. Used while either switch is on.',
     pairBlockHelp:
-      'Whole minutes, 0 to 60; 0 means no wait. When a rider declines or misses two orders offered together, those two are not offered together again for this long. Each order can still go out on its own at once.',
+      'Whole minutes, 0 to 60. When a rider declines or misses two orders offered together, those two are not offered together again for this long; each can still go out alone at once. 0: the same pair can go to another rider at once. The rider who declined is kept away by the skip time either way.',
     delayHelp:
       "Whole minutes, 0 to 30. Neither customer's food may arrive more than this later than on a single trip by the same rider; 0 allows only pairs that delay nobody.",
     addOnHelp:
