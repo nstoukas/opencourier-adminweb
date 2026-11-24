@@ -128,4 +128,24 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(elStatus.trim().length).toBeGreaterThan(0)
     }
   })
+
+  it('defines offerSkipMinutes label, help (with at least / τουλάχιστον), and success note in en and el (row 144)', () => {
+    // English
+    expect(en.settings.labels.offerSkipMinutes).toBe(
+      'Minutes before a declined or missed offer goes back to the same rider'
+    )
+    expect(en.settings.offers.offerSkipHelp).toContain('at least')
+    expect(en.settings.success.offerSkip).toBe(
+      'The skip time applies from the next decline or missed offer.'
+    )
+
+    // Greek
+    expect(el.settings.labels.offerSkipMinutes).toBe(
+      'Λεπτά πριν μια πρόταση που απορρίφθηκε ή χάθηκε ξαναπάει στον ίδιο διανομέα'
+    )
+    expect(el.settings.offers.offerSkipHelp).toContain('τουλάχιστον')
+    expect(el.settings.success.offerSkip).toBe(
+      'Ο χρόνος παράλειψης ισχύει από την επόμενη απόρριψη ή χαμένη πρόταση.'
+    )
+  })
 })

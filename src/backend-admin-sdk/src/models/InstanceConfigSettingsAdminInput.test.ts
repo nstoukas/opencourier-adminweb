@@ -402,6 +402,38 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
       expect(serialized.handBackSeconds).toBeUndefined()
     })
 
+    it('preserves offerSkipMinutes in ToJSON serialization (row 144)', () => {
+      // Load-bearing test guard: without offerSkipMinutes in ToJSON, the SDK silently drops
+      // it and the save reports success for a setting never sent to the backend.
+      const input = {
+        offerSkipMinutes: 20,
+      }
+
+      const json = InstanceConfigSettingsAdminInputToJSON(input)
+      expect(json).toBeDefined()
+      expect(json.offerSkipMinutes).toBe(20)
+    })
+
+    it('round-trips offerSkipMinutes through FromJSON and ToJSON (row 144)', () => {
+      const originalJson = {
+        offerSkipMinutes: 45,
+      }
+
+      const model = InstanceConfigSettingsAdminInputFromJSON(originalJson)
+      expect(model.offerSkipMinutes).toBe(45)
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.offerSkipMinutes).toBe(45)
+    })
+
+    it('handles undefined offerSkipMinutes in FromJSON and ToJSON (row 144)', () => {
+      const model = InstanceConfigSettingsAdminInputFromJSON({})
+      expect(model.offerSkipMinutes).toBeUndefined()
+
+      const serialized = InstanceConfigSettingsAdminInputToJSON(model)
+      expect(serialized.offerSkipMinutes).toBeUndefined()
+    })
+
     it('preserves arrivalRadiusMetres in ToJSON serialization, including 0 (spec 0021, AC-11)', () => {
       // Load-bearing test guard: without arrivalRadiusMetres in ToJSON, the SDK silently drops
       // it and the save reports success for a setting never sent to the backend.
@@ -925,6 +957,35 @@ describe('InstanceConfigSettings SDK serialization guards', () => {
 
       const json = InstanceConfigSettingsDtoToJSON(dto)
       expect(json.handBackSeconds).toBe(60)
+    })
+
+    it('deserializes offerSkipMinutes when present (row 144)', () => {
+      const json = {
+        details: {},
+        offerSkipMinutes: 20,
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.offerSkipMinutes).toBe(20)
+    })
+
+    it('deserializes offerSkipMinutes as null when absent in backend response (row 144)', () => {
+      const json = {
+        details: {},
+      }
+
+      const dto = InstanceConfigSettingsDtoFromJSON(json)
+      expect(dto.offerSkipMinutes).toBeNull()
+    })
+
+    it('serializes DTO carrying offerSkipMinutes back to JSON (row 144)', () => {
+      const dto = InstanceConfigSettingsDtoFromJSON({
+        details: {},
+        offerSkipMinutes: 20,
+      })
+
+      const json = InstanceConfigSettingsDtoToJSON(dto)
+      expect(json.offerSkipMinutes).toBe(20)
     })
 
     it('deserializes arrivalRadiusMetres when present, including 0 (spec 0021, AC-11)', () => {

@@ -20,8 +20,14 @@ import {
   type SettingKey,
   type PendingChange,
 } from './settingsDiff'
-import { InstanceConfigSettingsAdminInputToJSON } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsAdminInput'
-import { InstanceConfigSettingsDtoFromJSON } from '../../backend-admin-sdk/src/models/InstanceConfigSettingsDto'
+import {
+  InstanceConfigSettingsAdminInputFromJSON,
+  InstanceConfigSettingsAdminInputToJSON,
+} from '../../backend-admin-sdk/src/models/InstanceConfigSettingsAdminInput'
+import {
+  InstanceConfigSettingsDtoFromJSON,
+  InstanceConfigSettingsDtoToJSON,
+} from '../../backend-admin-sdk/src/models/InstanceConfigSettingsDto'
 import { createI18n } from '@/i18n/createI18n'
 
 const t = createI18n('en').t
@@ -99,6 +105,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
     // Spec 0047: the form has the split answer time too.
     splitAnswerMinutes: '10',
     handBackSeconds: '60',
+    offerSkipMinutes: '20',
     cancellationPayoutPolicy: 'FULL_COMPENSATION',
     returnTripPayPercent: '100',
     savedCustomerRetentionMonths: '12',
@@ -823,6 +830,32 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const changes = [{ key: 'handBackSeconds', label: 'Seconds a rider can hand back an order for free', from: '60', to: '45' }]
       expect(successMessage(changes as any)).toBe(
         'Saved: Seconds a rider can hand back an order for free. The hand back applies to the next accept; a running hand back keeps its end.'
+      )
+    })
+
+    it('appends offerSkipMinutes sentence when offerSkipMinutes is among saved keys, and not otherwise (row 144)', () => {
+      const changes = [
+        {
+          key: 'offerSkipMinutes',
+          label: 'Minutes before a declined or missed offer goes back to the same rider',
+          from: '20',
+          to: '45',
+        },
+      ]
+      expect(successMessage(changes as any)).toBe(
+        'Saved: Minutes before a declined or missed offer goes back to the same rider. The skip time applies from the next decline or missed offer.'
+      )
+
+      const unrelatedChanges = [
+        {
+          key: 'handBackSeconds',
+          label: 'Seconds a rider can hand back an order for free',
+          from: '60',
+          to: '45',
+        },
+      ]
+      expect(successMessage(unrelatedChanges as any)).not.toContain(
+        'The skip time applies from the next decline or missed offer.'
       )
     })
 
@@ -2590,6 +2623,110 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const occurrences = msg.split(bothSentence).length - 1
       expect(occurrences).toBe(1)
       expect(msg).toContain(bothSentence)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Offer skip minutes setting (row 144)
+  // ---------------------------------------------------------------------------
+  describe('offerSkipMinutes setting (row 144)', () => {
+    const savedDetails = { name: 'Volos Couriers', region: { type: 'FeatureCollection', features: [] } }
+
+    it('declares offerSkipMinutes in SETTINGS as a number with correct labelKey', () => {
+      const setting = SETTINGS.find((s) => s.key === 'offerSkipMinutes')
+      expect(setting).toBeDefined()
+      expect(setting?.kind).toBe('number')
+      expect(setting?.labelKey).toBe('settings.labels.offerSkipMinutes')
+      expect(labelOf('offerSkipMinutes')).toBe(
+        'Minutes before a declined or missed offer goes back to the same rider'
+      )
+    })
+
+    it('formFromSettings populates offerSkipMinutes from data and falls back to empty string', () => {
+      const form1 = formFromSettings({ offerSkipMinutes: 20 })
+      expect(form1.offerSkipMinutes).toBe('20')
+
+      const form2 = formFromSettings({ offerSkipMinutes: null })
+      expect(form2.offerSkipMinutes).toBe('')
+
+      const form3 = formFromSettings({})
+      expect(form3.offerSkipMinutes).toBe('')
+    })
+
+    it('pendingChanges detects edits to offerSkipMinutes', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        offerSkipMinutes: '35',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.key).toBe('offerSkipMinutes')
+      expect(changes[0]?.from).toBe('20')
+      expect(changes[0]?.to).toBe('35')
+      expect(changes[0]?.label).toBe(
+        'Minutes before a declined or missed offer goes back to the same rider'
+      )
+    })
+
+    it('blocks saving when offerSkipMinutes is empty string', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        offerSkipMinutes: '',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const found = blockers(changes, edited)
+      expect(found).toContain(
+        'Minutes before a declined or missed offer goes back to the same rider is empty'
+      )
+    })
+
+    it('savePayload converts offerSkipMinutes to a number', () => {
+      const edited: SettingsForm = {
+        ...baseSavedForm,
+        offerSkipMinutes: '45',
+      }
+      const changes = pendingChanges(baseSavedForm, edited)
+      const payload = savePayload(changes, edited, savedDetails)
+
+      expect(payload.offerSkipMinutes).toBe(45)
+      expect(typeof payload.offerSkipMinutes).toBe('number')
+    })
+
+    it('InstanceConfigSettingsAdminInputToJSON serializes offerSkipMinutes directly', () => {
+      // Without this line in the serializer, a save drops the value silently while the page says saved (row 144)
+      const input = {
+        offerSkipMinutes: 45,
+      }
+      const serialized = InstanceConfigSettingsAdminInputToJSON(input as any)
+      expect(serialized.offerSkipMinutes).toBe(45)
+    })
+
+    it('InstanceConfigSettingsAdminInputFromJSON deserializes offerSkipMinutes', () => {
+      const json = { offerSkipMinutes: 30 }
+      const model = InstanceConfigSettingsAdminInputFromJSON(json)
+      expect(model.offerSkipMinutes).toBe(30)
+
+      const jsonWithout = {}
+      const modelWithout = InstanceConfigSettingsAdminInputFromJSON(jsonWithout)
+      expect(modelWithout.offerSkipMinutes).toBeUndefined()
+    })
+
+    it('InstanceConfigSettingsDtoFromJSON deserializes offerSkipMinutes and falls back to null when absent', () => {
+      const dtoWith = { offerSkipMinutes: 25 }
+      const deserialized1 = InstanceConfigSettingsDtoFromJSON(dtoWith)
+      expect(deserialized1.offerSkipMinutes).toBe(25)
+
+      const dtoWithout = {}
+      const deserialized2 = InstanceConfigSettingsDtoFromJSON(dtoWithout)
+      expect(deserialized2.offerSkipMinutes).toBeNull()
+    })
+
+    it('InstanceConfigSettingsDtoToJSON serializes offerSkipMinutes', () => {
+      const dto = {
+        offerSkipMinutes: 25,
+      } as any
+      const serialized = InstanceConfigSettingsDtoToJSON(dto)
+      expect(serialized.offerSkipMinutes).toBe(25)
     })
   })
 })

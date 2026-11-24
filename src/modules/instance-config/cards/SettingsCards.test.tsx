@@ -421,6 +421,67 @@ describe('SettingsCards components (row 87 review fixes)', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // OffersCard: Skip time setting (row 144)
+  // ---------------------------------------------------------------------------
+  describe('OffersCard offerSkipMinutes (row 144)', () => {
+    it('renders offerSkipMinutes with its label, help, min 1 and max 240, loaded value, and calls set on change', () => {
+      const mockSet = jest.fn()
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerSkipMinutes: '20', offerExpiryEnabled: true }}
+          set={mockSet}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = document.getElementById('offerSkipMinutes') as HTMLInputElement
+      expect(input).toBeInTheDocument()
+      expect(input.tagName).toBe('INPUT')
+      expect(input.type).toBe('number')
+      expect(input.value).toBe('20')
+      expect(input.getAttribute('min')).toBe('1')
+      expect(input.getAttribute('max')).toBe('240')
+      expect(input).not.toBeDisabled()
+
+      // Check label and description
+      expect(screen.getByLabelText(t('settings.labels.offerSkipMinutes'))).toBe(input)
+      expect(screen.getByText(t('settings.offers.offerSkipHelp'))).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: '45' } })
+      expect(mockSet).toHaveBeenCalledWith('offerSkipMinutes', '45')
+    })
+
+    it('offerSkipMinutes is editable once loaded even when offerExpiryEnabled is false', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerSkipMinutes: '20', offerExpiryEnabled: false }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const input = document.getElementById('offerSkipMinutes') as HTMLInputElement
+      expect(input).not.toBeDisabled()
+    })
+
+    it('offerSkipMinutes is disabled before settings load', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerSkipMinutes: '' }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={false}
+        />
+      )
+
+      const input = document.getElementById('offerSkipMinutes') as HTMLInputElement
+      expect(input).toBeDisabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // OffersCard: Timed offers settings (spec 0031, AC-1)
   // ---------------------------------------------------------------------------
   describe('OffersCard timed offers (spec 0031, AC-1)', () => {

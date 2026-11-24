@@ -127,6 +127,13 @@ describeSuite('InstanceConfigSettings general coverage guard', () => {
     expect(setting?.labelKey).toBe('settings.labels.feePercentageCeiling')
   })
 
+  it('covers offerSkipMinutes in SETTINGS (row 144)', () => {
+    const setting = SETTINGS.find((s) => s.key === 'offerSkipMinutes')
+    expect(setting).toBeDefined()
+    expect(setting?.kind).toBe('number')
+    expect(setting?.labelKey).toBe('settings.labels.offerSkipMinutes')
+  })
+
   // Check that each non-excluded backend setting is bound to an input value, select, editor component in an input tag
   it.each(settingKeys)('ensures page source renders input or editor for setting key: %s', (key) => {
     if (DELIBERATE_NON_FIELD_SETTINGS.includes(key)) {

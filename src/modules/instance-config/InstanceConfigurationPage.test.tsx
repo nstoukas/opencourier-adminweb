@@ -388,6 +388,45 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(within(saveBar).getByText('Furthest courier to offer')).toBeInTheDocument()
       expect(within(saveBar).getByText(/60/)).toBeInTheDocument()
     })
+
+    it('shows backend refusal sentence in destructive toast when backend rejects offerSkipMinutes with 0 (row 144)', async () => {
+      const serverErrorMessage =
+        'offerSkipMinutes cannot be 0: a rider who declined an offer could be offered the same delivery again at once'
+      mockSetInstanceConfig.mockReturnValue({
+        unwrap: () => Promise.reject({ statusCode: 400, message: serverErrorMessage }),
+      })
+
+      render(<InstanceConfigurationPage />)
+      const input = document.getElementById('offerSkipMinutes') as HTMLInputElement
+
+      fireEvent.change(input, { target: { value: '0' } })
+
+      const saveButton = screen.getByRole('button', { name: /save changes/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(mockSetInstanceConfig).toHaveBeenCalledWith({ offerSkipMinutes: 0 })
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Not saved',
+            description: serverErrorMessage,
+            variant: 'destructive',
+          })
+        )
+      })
+
+      // Change remains in the save bar and is not reported as saved
+      const saveBar = screen.getByTestId('save-bar')
+      expect(
+        within(saveBar).getByText('Minutes before a declined or missed offer goes back to the same rider')
+      ).toBeInTheDocument()
+      expect(within(saveBar).getByText(/0/)).toBeInTheDocument()
+      expect(mockToast).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Saved',
+        })
+      )
+    })
   })
 
   // ---------------------------------------------------------------------------
