@@ -51,7 +51,7 @@ export const deliveries = {
     SPLIT_CLOSED: 'Split closed',
     PARTNER_CHARGED_FOR_SPLIT: 'Partner charged for split',
     PARTNER_SPLIT_CHARGE_VOIDED: 'Partner split charge voided',
-    ADD_ON_JOINED: 'One more order joined',
+    ADD_ON_JOINED: 'One more order added',
     REASSIGNED: 'Reassigned',
     RETURNED_TO_WAITING: 'Returned to waiting',
   },
