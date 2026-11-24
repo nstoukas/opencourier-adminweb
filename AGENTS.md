@@ -93,7 +93,8 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   (`src/modules/charges/`), used by the pages, the Greek statement and the CSV: `SPLIT_LEG` and a WAITING line with `splitWait`
   have their own sentences, and a new charge reason needs a case in both.
 - `src/i18n/resources/*/server.ts` and `src/shared-types/event-messages.ts` are word for word copies of the backend's templates;
-  `src/i18n/translations.test.ts` compares them (skipped, not passed, without the backend beside it). A new event type also
+  `src/i18n/translations.test.ts` compares only `ADD_ON_JOINED` with the backend's files (skipped, not passed, without the backend
+  beside it), and a missing key fails the language parity, but a reworded copy of any other code passes: compare a new copy by hand. A new event type also
   needs the enum copy in `src/shared-types/delivery-events.ts` and its `eventType` label in both `deliveries.ts` (row 146).
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
