@@ -72,7 +72,10 @@ export enum EnumDeliveryEventType {
   ADD_ON_JOINED = 'ADD_ON_JOINED',
   // Row 149: that add on left the job before its drop off; on the job, naming the add on. Recorded by the
   // backend, never in STATE_MACHINE or the admin menus.
-  ADD_ON_LEFT = 'ADD_ON_LEFT'
+  ADD_ON_LEFT = 'ADD_ON_LEFT',
+  // Row 160: a restaurant's edit changed the tip, with the old and new amounts. Recorded by the backend,
+  // never in STATE_MACHINE or the admin menus.
+  TIP_CHANGED = 'TIP_CHANGED'
 }
 
 export enum EnumEventActor {
