@@ -253,7 +253,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       // Extract backend message code params: ADD_ON_JOINED: ['courierId', 'addOnId'],
       const backendCodeMatch = backendMessagesContent.match(/ADD_ON_JOINED:\s*\[([^\]]+)\]/)
       expect(backendCodeMatch).not.toBeNull()
-      const backendParams = backendCodeMatch![1]
+      const backendParams = (backendCodeMatch?.[1] ?? '')
         .split(',')
         .map((s) => s.trim().replace(/['"]/g, ''))
       expect(EVENT_MESSAGE_CODES.ADD_ON_JOINED).toEqual(backendParams)
@@ -261,11 +261,11 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       // Extract backend sentences
       const backendEnSentenceMatch = backendEnContent.match(/ADD_ON_JOINED:\s*'([^']+)'/)
       expect(backendEnSentenceMatch).not.toBeNull()
-      expect(en.server.event.ADD_ON_JOINED).toBe(backendEnSentenceMatch![1])
+      expect(en.server.event.ADD_ON_JOINED).toBe((backendEnSentenceMatch?.[1] ?? ''))
 
       const backendElSentenceMatch = backendElContent.match(/ADD_ON_JOINED:\s*\n?\s*'([^']+)'/)
       expect(backendElSentenceMatch).not.toBeNull()
-      expect(el.server.event.ADD_ON_JOINED).toBe(backendElSentenceMatch![1])
+      expect(el.server.event.ADD_ON_JOINED).toBe((backendElSentenceMatch?.[1] ?? ''))
     })
   })
 })
