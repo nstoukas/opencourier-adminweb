@@ -237,6 +237,13 @@ export interface InstanceConfigSettingsAdminInput {
    */
   handBackSeconds?: number;
   /**
+   * Minutes a rider who declined or missed an offer is not offered that delivery again (row 144).
+   * Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsAdminInput
+   */
+  offerSkipMinutes?: number;
+  /**
    * Share of the quote's distance fee paid for bringing food back, 0 to 100 (spec 0035). Hand edited (row 24).
    * @type {number}
    * @memberof InstanceConfigSettingsAdminInput
@@ -532,6 +539,9 @@ export function InstanceConfigSettingsAdminInputFromJSONTyped(
     handBackSeconds: !exists(json, "handBackSeconds")
       ? undefined
       : json["handBackSeconds"],
+    offerSkipMinutes: !exists(json, "offerSkipMinutes")
+      ? undefined
+      : json["offerSkipMinutes"],
     returnTripPayPercent: !exists(json, "returnTripPayPercent")
       ? undefined
       : json["returnTripPayPercent"],
@@ -632,6 +642,8 @@ export function InstanceConfigSettingsAdminInputToJSON(
     sosLocationRetentionDays: value.sosLocationRetentionDays,
     // Without this line a save would drop the hand back window before it left the browser.
     handBackSeconds: value.handBackSeconds,
+    // Without this line a save would drop the skip time before it left the browser (row 144).
+    offerSkipMinutes: value.offerSkipMinutes,
     // Without this line a save would drop the return trip share before it left the browser (spec 0035).
     returnTripPayPercent: value.returnTripPayPercent,
     // Spec 0043: without these a save would drop the box settings silently.

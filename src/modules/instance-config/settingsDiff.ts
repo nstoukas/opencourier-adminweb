@@ -55,6 +55,8 @@ export type SettingsForm = {
   offerLeadMinutes: string
   offerTimingCandidates: string
   handBackSeconds: string
+  // Row 144: minutes a rider who declined or missed an offer is skipped for that delivery.
+  offerSkipMinutes: string
   cancellationPayoutPolicy: string
   returnTripPayPercent: string
   savedCustomerRetentionMonths: string
@@ -142,6 +144,7 @@ export const SETTINGS: SettingDefinition[] = [
   { key: 'offerLeadMinutes', labelKey: 'settings.labels.offerLeadMinutes', kind: 'number' },
   { key: 'offerTimingCandidates', labelKey: 'settings.labels.offerTimingCandidates', kind: 'number' },
   { key: 'handBackSeconds', labelKey: 'settings.labels.handBackSeconds', kind: 'number' },
+  { key: 'offerSkipMinutes', labelKey: 'settings.labels.offerSkipMinutes', kind: 'number' },
   { key: 'cancellationPayoutPolicy', labelKey: 'settings.labels.cancellationPayoutPolicy', kind: 'select' },
   { key: 'defaultCourierPayRate', labelKey: 'settings.labels.defaultCourierPayRate', kind: 'number' },
   { key: 'defaultMaxWorkingHours', labelKey: 'settings.labels.defaultMaxWorkingHours', kind: 'number' },
@@ -579,6 +582,7 @@ export function formFromSettings(data: Record<string, any>): SettingsForm {
     offerLeadMinutes: text(data.offerLeadMinutes),
     offerTimingCandidates: text(data.offerTimingCandidates),
     handBackSeconds: text(data.handBackSeconds),
+    offerSkipMinutes: text(data.offerSkipMinutes),
     // The backend answers the rule in force, FULL_COMPENSATION when none is stored (spec 0015).
     // Before the settings load it is empty, like every other select.
     cancellationPayoutPolicy: data.cancellationPayoutPolicy ?? '',
@@ -649,6 +653,9 @@ export function successMessage(t: TFunction, changes: PendingChange[]): string {
   }
   if (keys.has('handBackSeconds')) {
     parts.push(t('settings.success.handBack'))
+  }
+  if (keys.has('offerSkipMinutes')) {
+    parts.push(t('settings.success.offerSkip'))
   }
   if (keys.has('cancellationPayoutPolicy')) {
     parts.push(t('settings.success.cancellation'))

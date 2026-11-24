@@ -755,6 +755,17 @@ export function OffersCard({ form, set, loaded }: CardProps) {
             description={t('settings.offers.handBackHelp')}
             onChange={(value) => set('handBackSeconds', value)}
           />
+          {/* Row 144: how long a rider who declined or missed an offer is skipped. Used with expiry on or off. */}
+          <NumberField
+            id="offerSkipMinutes"
+            label={labelOf(t, 'offerSkipMinutes')}
+            value={form.offerSkipMinutes}
+            min={1}
+            max={240}
+            disabled={!loaded}
+            description={t('settings.offers.offerSkipHelp')}
+            onChange={(value) => set('offerSkipMinutes', value)}
+          />
         </div>
 
         {/* Spec 0031: off until the assembly decides. The matching algorithm is the pay structure. */}

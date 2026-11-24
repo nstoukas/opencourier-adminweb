@@ -243,6 +243,13 @@ export interface InstanceConfigSettingsDto {
    */
   handBackSeconds?: number | null;
   /**
+   * Minutes a rider who declined or missed an offer is not offered that delivery again (row 144).
+   * Hand edited.
+   * @type {number}
+   * @memberof InstanceConfigSettingsDto
+   */
+  offerSkipMinutes?: number | null;
+  /**
    * Share of the quote's distance fee paid for bringing food back, 0 to 100 (spec 0035). Hand edited (row 24).
    * @type {number}
    * @memberof InstanceConfigSettingsDto
@@ -512,6 +519,9 @@ export function InstanceConfigSettingsDtoFromJSONTyped(
     handBackSeconds: !exists(json, "handBackSeconds")
       ? null
       : json["handBackSeconds"],
+    offerSkipMinutes: !exists(json, "offerSkipMinutes")
+      ? null
+      : json["offerSkipMinutes"],
     returnTripPayPercent: !exists(json, "returnTripPayPercent")
       ? null
       : json["returnTripPayPercent"],
@@ -605,6 +615,7 @@ export function InstanceConfigSettingsDtoToJSON(
     restaurantHistoryDays: value.restaurantHistoryDays,
     sosLocationRetentionDays: value.sosLocationRetentionDays,
     handBackSeconds: value.handBackSeconds,
+    offerSkipMinutes: value.offerSkipMinutes,
     returnTripPayPercent: value.returnTripPayPercent,
     // Spec 0043: without these a save would drop the box settings silently.
     boxUnitsSmall: value.boxUnitsSmall,
