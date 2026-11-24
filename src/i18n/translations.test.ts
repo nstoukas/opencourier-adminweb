@@ -131,12 +131,14 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     }
   })
 
-  it('defines offerSkipMinutes label, help (with at least / τουλάχιστον and 1 to 60 / 1 έως 60), and success note in en and el (row 144)', () => {
+  it('defines offerSkipMinutes label, help (each rider counted on their own / για τον καθένα χωριστά, not at least / τουλάχιστον, and 1 to 60 / 1 έως 60), and success note in en and el (rows 144, 148)', () => {
     // English
     expect(en.settings.labels.offerSkipMinutes).toBe(
       'Skip time after a rider leaves an order, in minutes'
     )
-    expect(en.settings.offers.offerSkipHelp).toContain('at least')
+    expect(en.settings.offers.offerSkipHelp).not.toContain('at least')
+    expect(en.settings.offers.offerSkipHelp).not.toContain('starts the time again')
+    expect(en.settings.offers.offerSkipHelp).toContain('counted for each rider on their own')
     expect(en.settings.offers.offerSkipHelp).toContain('1 to 60')
     expect(en.settings.offers.offerSkipHelp).not.toContain('240')
     expect(en.settings.success.offerSkip).toBe(
@@ -147,7 +149,9 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     expect(el.settings.labels.offerSkipMinutes).toBe(
       'Χρόνος παράλειψης αφού ένας διανομέας αφήσει μια παραγγελία, σε λεπτά'
     )
-    expect(el.settings.offers.offerSkipHelp).toContain('τουλάχιστον')
+    expect(el.settings.offers.offerSkipHelp).not.toContain('τουλάχιστον')
+    expect(el.settings.offers.offerSkipHelp).not.toContain('ξεκινά τον χρόνο από την αρχή')
+    expect(el.settings.offers.offerSkipHelp).toContain('μετρημένο για τον καθένα χωριστά')
     expect(el.settings.offers.offerSkipHelp).toContain('1 έως 60')
     expect(el.settings.offers.offerSkipHelp).not.toContain('240')
     expect(el.settings.success.offerSkip).toBe(
@@ -163,7 +167,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(el.settings.offers.offerSkipHelp).not.toContain('δέχεται')
     })
 
-    it('Minor 2: English and Greek help name all six ways onto skip list, keep at least / τουλάχιστον, and success note is general (row 144)', () => {
+    it('Minor 2: English and Greek help name all six ways onto skip list, count each rider on their own (row 148, dropping at least / τουλάχιστον and starts the time again), and success note is general (row 144)', () => {
       // English help names all six ways: decline, missed offer, hand back, leaving late restaurant, removal, reassignment
       expect(en.settings.offers.offerSkipHelp).toContain('declines')
       expect(en.settings.offers.offerSkipHelp).toContain('misses')
@@ -171,7 +175,9 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(en.settings.offers.offerSkipHelp).toContain('leaves a late restaurant')
       expect(en.settings.offers.offerSkipHelp).toContain('is removed')
       expect(en.settings.offers.offerSkipHelp).toContain('is reassigned')
-      expect(en.settings.offers.offerSkipHelp).toContain('at least')
+      expect(en.settings.offers.offerSkipHelp).not.toContain('at least')
+      expect(en.settings.offers.offerSkipHelp).not.toContain('starts the time again')
+      expect(en.settings.offers.offerSkipHelp).toContain('counted for each rider on their own')
       // English success note applies generally to any skip
       expect(en.settings.success.offerSkip).toContain('applies from the next skip')
       expect(en.settings.success.offerSkip).not.toContain('decline')
@@ -183,7 +189,9 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(el.settings.offers.offerSkipHelp).toContain('φεύγει από κατάστημα που καθυστερεί')
       expect(el.settings.offers.offerSkipHelp).toContain('απομακρύνεται')
       expect(el.settings.offers.offerSkipHelp).toContain('αντικαθίσταται')
-      expect(el.settings.offers.offerSkipHelp).toContain('τουλάχιστον')
+      expect(el.settings.offers.offerSkipHelp).not.toContain('τουλάχιστον')
+      expect(el.settings.offers.offerSkipHelp).not.toContain('ξεκινά τον χρόνο από την αρχή')
+      expect(el.settings.offers.offerSkipHelp).toContain('μετρημένο για τον καθένα χωριστά')
       // Greek success note applies generally to any skip
       expect(el.settings.success.offerSkip).toContain('από την επόμενη παράλειψη')
       expect(el.settings.success.offerSkip).not.toContain('απόρριψη')
@@ -340,6 +348,50 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       )
       expect(el.settings.twoOrders.description).toBe(
         'Αν ένας διανομέας μπορεί να πάρει πρόταση για δύο παραγγελίες μαζί, και με ποια όρια.'
+      )
+    })
+  })
+
+  describe('Row 148: Each rider is skipped for exactly the co-op\'s time (offerSkipHelp wording)', () => {
+    it('English offerSkipHelp drops "at least", no longer says each new skip starts the time again, and says time is counted for each rider on their own', () => {
+      // Must drop 'at least'
+      expect(en.settings.offers.offerSkipHelp).not.toContain('at least')
+
+      // Must no longer say each new skip starts the time again
+      expect(en.settings.offers.offerSkipHelp).not.toContain('starts the time again')
+      expect(en.settings.offers.offerSkipHelp).not.toContain(
+        'Each new skip on the order starts the time again'
+      )
+
+      // Must say the time is counted for each rider on their own
+      expect(en.settings.offers.offerSkipHelp).toContain(
+        'counted for each rider on their own'
+      )
+
+      // Pin exact complete text
+      expect(en.settings.offers.offerSkipHelp).toBe(
+        'Whole minutes, 1 to 60. A rider who declines or misses an offer, hands an order back, leaves a late restaurant, is removed or is reassigned is not offered that order again for this long, counted for each rider on their own. Other riders can still be offered it.'
+      )
+    })
+
+    it('Greek offerSkipHelp drops "τουλάχιστον", no longer says each new skip starts the time again, and says time is counted for each rider on their own', () => {
+      // Must drop 'τουλάχιστον'
+      expect(el.settings.offers.offerSkipHelp).not.toContain('τουλάχιστον')
+
+      // Must no longer say each new skip starts the time again
+      expect(el.settings.offers.offerSkipHelp).not.toContain('ξεκινά τον χρόνο από την αρχή')
+      expect(el.settings.offers.offerSkipHelp).not.toContain(
+        'Κάθε νέα παράλειψη ξεκινά τον χρόνο από την αρχή'
+      )
+
+      // Must say the time is counted for each rider on their own
+      expect(el.settings.offers.offerSkipHelp).toContain(
+        'μετρημένο για τον καθένα χωριστά'
+      )
+
+      // Pin exact complete text
+      expect(el.settings.offers.offerSkipHelp).toBe(
+        'Ακέραια λεπτά, 1 έως 60. Σε διανομέα που απορρίπτει ή χάνει μια πρόταση, επιστρέφει μια παραγγελία, φεύγει από κατάστημα που καθυστερεί, απομακρύνεται ή αντικαθίσταται, η παραγγελία δεν του προτείνεται ξανά για τόσο, μετρημένο για τον καθένα χωριστά. Οι άλλοι διανομείς μπορούν να την πάρουν.'
       )
     })
   })

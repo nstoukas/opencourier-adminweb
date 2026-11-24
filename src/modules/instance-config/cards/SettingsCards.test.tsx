@@ -461,6 +461,39 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(tEl('settings.offers.offerSkipHelp')).not.toContain('240')
     })
 
+    it('offerSkipHelp drops at least / τουλάχιστον and starts the time again, saying each rider is counted on their own (row 148)', () => {
+      const tEn = createI18n('en').t
+      const tEl = createI18n('el').t
+
+      // English
+      expect(tEn('settings.offers.offerSkipHelp')).not.toContain('at least')
+      expect(tEn('settings.offers.offerSkipHelp')).not.toContain('starts the time again')
+      expect(tEn('settings.offers.offerSkipHelp')).toContain('counted for each rider on their own')
+
+      // Greek
+      expect(tEl('settings.offers.offerSkipHelp')).not.toContain('τουλάχιστον')
+      expect(tEl('settings.offers.offerSkipHelp')).not.toContain('ξεκινά τον χρόνο από την αρχή')
+      expect(tEl('settings.offers.offerSkipHelp')).toContain('μετρημένο για τον καθένα χωριστά')
+    })
+
+    it('renders offerSkipHelp on OffersCard reflecting skip time counted for each rider on their own (row 148)', () => {
+      render(
+        <OffersCard
+          form={{ ...dummyForm, offerSkipMinutes: '20', offerExpiryEnabled: true }}
+          set={jest.fn()}
+          options={dummyOptions}
+          loaded={true}
+        />
+      )
+
+      const helpElement = screen.getByText((content) =>
+        content.includes('counted for each rider on their own')
+      )
+      expect(helpElement).toBeInTheDocument()
+      expect(helpElement.textContent).not.toContain('at least')
+      expect(helpElement.textContent).not.toContain('starts the time again')
+    })
+
     it('offerSkipMinutes is editable once loaded even when offerExpiryEnabled is false', () => {
       render(
         <OffersCard
