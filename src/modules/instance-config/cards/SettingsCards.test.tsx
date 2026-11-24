@@ -585,7 +585,9 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       )
 
       expect(
-        screen.getByText('How long an offer to a rider lasts, and when it goes out.')
+        screen.getByText(
+          'How long an offer to a rider lasts, when it goes out, and how long a rider is skipped after leaving an order.'
+        )
       ).toBeInTheDocument()
     })
 

@@ -837,13 +837,13 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const changes = [
         {
           key: 'offerSkipMinutes',
-          label: 'Minutes before a declined or missed offer goes back to the same rider',
+          label: 'Skip time after a rider leaves an order, in minutes',
           from: '20',
           to: '45',
         },
       ]
       expect(successMessage(changes as any)).toBe(
-        'Saved: Minutes before a declined or missed offer goes back to the same rider. The skip time applies from the next decline or missed offer.'
+        'Saved: Skip time after a rider leaves an order, in minutes. The new skip time applies from the next skip.'
       )
 
       const unrelatedChanges = [
@@ -855,7 +855,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
         },
       ]
       expect(successMessage(unrelatedChanges as any)).not.toContain(
-        'The skip time applies from the next decline or missed offer.'
+        'The new skip time applies from the next skip.'
       )
     })
 
@@ -2638,7 +2638,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(setting?.kind).toBe('number')
       expect(setting?.labelKey).toBe('settings.labels.offerSkipMinutes')
       expect(labelOf('offerSkipMinutes')).toBe(
-        'Minutes before a declined or missed offer goes back to the same rider'
+        'Skip time after a rider leaves an order, in minutes'
       )
     })
 
@@ -2664,7 +2664,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       expect(changes[0]?.from).toBe('20')
       expect(changes[0]?.to).toBe('35')
       expect(changes[0]?.label).toBe(
-        'Minutes before a declined or missed offer goes back to the same rider'
+        'Skip time after a rider leaves an order, in minutes'
       )
     })
 
@@ -2676,7 +2676,7 @@ describe('settingsDiff unit tests (spec 0010)', () => {
       const changes = pendingChanges(baseSavedForm, edited)
       const found = blockers(changes, edited)
       expect(found).toContain(
-        'Minutes before a declined or missed offer goes back to the same rider is empty'
+        'Skip time after a rider leaves an order, in minutes is empty'
       )
     })
 

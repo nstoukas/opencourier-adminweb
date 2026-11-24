@@ -418,7 +418,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       // Change remains in the save bar and is not reported as saved
       const saveBar = screen.getByTestId('save-bar')
       expect(
-        within(saveBar).getByText('Minutes before a declined or missed offer goes back to the same rider')
+        within(saveBar).getByText('Skip time after a rider leaves an order, in minutes')
       ).toBeInTheDocument()
       expect(within(saveBar).getByText(/0/)).toBeInTheDocument()
       expect(mockToast).not.toHaveBeenCalledWith(

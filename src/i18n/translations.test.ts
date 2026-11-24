@@ -132,20 +132,67 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
   it('defines offerSkipMinutes label, help (with at least / τουλάχιστον), and success note in en and el (row 144)', () => {
     // English
     expect(en.settings.labels.offerSkipMinutes).toBe(
-      'Minutes before a declined or missed offer goes back to the same rider'
+      'Skip time after a rider leaves an order, in minutes'
     )
     expect(en.settings.offers.offerSkipHelp).toContain('at least')
     expect(en.settings.success.offerSkip).toBe(
-      'The skip time applies from the next decline or missed offer.'
+      'The new skip time applies from the next skip.'
     )
 
     // Greek
     expect(el.settings.labels.offerSkipMinutes).toBe(
-      'Λεπτά πριν μια πρόταση που απορρίφθηκε ή χάθηκε ξαναπάει στον ίδιο διανομέα'
+      'Χρόνος παράλειψης αφού ένας διανομέας αφήσει μια παραγγελία, σε λεπτά'
     )
     expect(el.settings.offers.offerSkipHelp).toContain('τουλάχιστον')
     expect(el.settings.success.offerSkip).toBe(
-      'Ο χρόνος παράλειψης ισχύει από την επόμενη απόρριψη ή χαμένη πρόταση.'
+      'Ο νέος χρόνος παράλειψης ισχύει από την επόμενη παράλειψη.'
     )
+  })
+
+  describe('Row 144 review rulings: offer skip wording', () => {
+    it('Minor 1: Greek help says the order is not offered again with προτείνεται and never uses δέχεται (row 144)', () => {
+      // The Greek help says the order is not offered again (προτείνεται) and avoids
+      // δέχεται (which means rider accepting).
+      expect(el.settings.offers.offerSkipHelp).toContain('προτείνεται')
+      expect(el.settings.offers.offerSkipHelp).not.toContain('δέχεται')
+    })
+
+    it('Minor 2: English and Greek help name all six ways onto skip list, keep at least / τουλάχιστον, and success note is general (row 144)', () => {
+      // English help names all six ways: decline, missed offer, hand back, leaving late restaurant, removal, reassignment
+      expect(en.settings.offers.offerSkipHelp).toContain('declines')
+      expect(en.settings.offers.offerSkipHelp).toContain('misses')
+      expect(en.settings.offers.offerSkipHelp).toContain('hands an order back')
+      expect(en.settings.offers.offerSkipHelp).toContain('leaves a late restaurant')
+      expect(en.settings.offers.offerSkipHelp).toContain('is removed')
+      expect(en.settings.offers.offerSkipHelp).toContain('is reassigned')
+      expect(en.settings.offers.offerSkipHelp).toContain('at least')
+      // English success note applies generally to any skip
+      expect(en.settings.success.offerSkip).toContain('applies from the next skip')
+      expect(en.settings.success.offerSkip).not.toContain('decline')
+
+      // Greek help names all six ways: απορρίπτει, χάνει, επιστρέφει, φεύγει από κατάστημα που καθυστερεί, απομακρύνεται, αντικαθίσταται
+      expect(el.settings.offers.offerSkipHelp).toContain('απορρίπτει')
+      expect(el.settings.offers.offerSkipHelp).toContain('χάνει')
+      expect(el.settings.offers.offerSkipHelp).toContain('επιστρέφει')
+      expect(el.settings.offers.offerSkipHelp).toContain('φεύγει από κατάστημα που καθυστερεί')
+      expect(el.settings.offers.offerSkipHelp).toContain('απομακρύνεται')
+      expect(el.settings.offers.offerSkipHelp).toContain('αντικαθίσταται')
+      expect(el.settings.offers.offerSkipHelp).toContain('τουλάχιστον')
+      // Greek success note applies generally to any skip
+      expect(el.settings.success.offerSkip).toContain('από την επόμενη παράλειψη')
+      expect(el.settings.success.offerSkip).not.toContain('απόρριψη')
+    })
+
+    it('Minor 3: unified name skip time / χρόνος παράλειψης across label, note, and card description in both languages (row 144)', () => {
+      // English: label and success note use "skip time"; description mentions "skipped"
+      expect(en.settings.labels.offerSkipMinutes.toLowerCase()).toContain('skip time')
+      expect(en.settings.success.offerSkip.toLowerCase()).toContain('skip time')
+      expect(en.settings.offers.description.toLowerCase()).toContain('skipped')
+
+      // Greek: label and success note use "χρόνος παράλειψης"; description mentions "παραλείπεται"
+      expect(el.settings.labels.offerSkipMinutes.toLowerCase()).toContain('χρόνος παράλειψης')
+      expect(el.settings.success.offerSkip.toLowerCase()).toContain('χρόνος παράλειψης')
+      expect(el.settings.offers.description).toContain('παραλείπεται')
+    })
   })
 })
