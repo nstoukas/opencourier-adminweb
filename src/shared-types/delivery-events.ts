@@ -66,7 +66,10 @@ export enum EnumDeliveryEventType {
   SPLIT_REFUSED = 'SPLIT_REFUSED',
   SPLIT_CLOSED = 'SPLIT_CLOSED',
   PARTNER_CHARGED_FOR_SPLIT = 'PARTNER_CHARGED_FOR_SPLIT',
-  PARTNER_SPLIT_CHARGE_VOIDED = 'PARTNER_SPLIT_CHARGE_VOIDED'
+  PARTNER_SPLIT_CHARGE_VOIDED = 'PARTNER_SPLIT_CHARGE_VOIDED',
+  // Row 146: an accepted add on joined its rider's job; on the job, naming the added delivery. Recorded by
+  // the backend, never in STATE_MACHINE or the admin menus.
+  ADD_ON_JOINED = 'ADD_ON_JOINED'
 }
 
 export enum EnumEventActor {

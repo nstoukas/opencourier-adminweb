@@ -51,6 +51,7 @@ export const deliveries: Translations['deliveries'] = {
     SPLIT_CLOSED: 'Κλείσιμο διαχωρισμού',
     PARTNER_CHARGED_FOR_SPLIT: 'Χρέωση καταστήματος για διαχωρισμό',
     PARTNER_SPLIT_CHARGE_VOIDED: 'Ακύρωση χρέωσης διαχωρισμού',
+    ADD_ON_JOINED: 'Προστέθηκε μία ακόμη παραγγελία',
     REASSIGNED: 'Ανάθεση σε άλλον διανομέα',
     RETURNED_TO_WAITING: 'Επιστροφή σε αναζήτηση διανομέα',
   },
