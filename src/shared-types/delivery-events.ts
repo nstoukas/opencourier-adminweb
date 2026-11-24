@@ -69,7 +69,10 @@ export enum EnumDeliveryEventType {
   PARTNER_SPLIT_CHARGE_VOIDED = 'PARTNER_SPLIT_CHARGE_VOIDED',
   // Row 146: an accepted add on joined its rider's job; on the job, naming the added delivery. Recorded by
   // the backend, never in STATE_MACHINE or the admin menus.
-  ADD_ON_JOINED = 'ADD_ON_JOINED'
+  ADD_ON_JOINED = 'ADD_ON_JOINED',
+  // Row 149: that add on left the job before its drop off; on the job, naming the add on. Recorded by the
+  // backend, never in STATE_MACHINE or the admin menus.
+  ADD_ON_LEFT = 'ADD_ON_LEFT'
 }
 
 export enum EnumEventActor {
