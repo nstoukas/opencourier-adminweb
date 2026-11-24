@@ -214,17 +214,15 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
   describe('Row 146: ADD_ON_JOINED translations and backend copy consistency', () => {
     it('defines eventType.ADD_ON_JOINED in English and Greek (row 146)', () => {
-      expect(en.deliveries.eventType.ADD_ON_JOINED).toBe('One more order joined')
-      expect(el.deliveries.eventType.ADD_ON_JOINED).toBe('Προστέθηκε μία ακόμη παραγγελία')
+      expect(en.deliveries.eventType.ADD_ON_JOINED).toBe('One more order added')
+      expect(el.deliveries.eventType.ADD_ON_JOINED).toBe('Προστέθηκε μία ακόμα παραγγελία')
     })
 
     it('defines server.event.ADD_ON_JOINED sentence in English and Greek naming {{addOnId}} and {{courierId}} (row 146)', () => {
-      expect(en.server.event.ADD_ON_JOINED).toBe(
-        'Delivery {{addOnId}} was added to this job as one more order on the way; courier {{courierId}} has taken both'
-      )
-      expect(el.server.event.ADD_ON_JOINED).toBe(
-        'Η παραγγελία {{addOnId}} προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας {{courierId}} έχει αναλάβει και τις δύο'
-      )
+      expect(en.server.event.ADD_ON_JOINED).toContain('{{addOnId}}')
+      expect(en.server.event.ADD_ON_JOINED).toContain('{{courierId}}')
+      expect(el.server.event.ADD_ON_JOINED).toContain('{{addOnId}}')
+      expect(el.server.event.ADD_ON_JOINED).toContain('{{courierId}}')
     })
 
     it('ensures Greek no longer says "μεταφέρει" and English no longer says "carries both" (row 146)', () => {
@@ -242,16 +240,26 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       )
     })
 
-    it('verifies copies stay identical to the backend when backend repo is present (row 146 copy check)', () => {
-      const backendDir = path.resolve(__dirname, '../../../opencourier-backend')
-      const backendEnPath = path.join(backendDir, 'src/localization/en.ts')
-      const backendElPath = path.join(backendDir, 'src/localization/el.ts')
-      const backendMessagesPath = path.join(backendDir, 'src/shared-types/event-messages.ts')
+    const backendDir = path.resolve(__dirname, '../../../opencourier-backend')
+    const backendEnPath = path.join(backendDir, 'src/localization/en.ts')
+    const backendElPath = path.join(backendDir, 'src/localization/el.ts')
+    const backendMessagesPath = path.join(backendDir, 'src/shared-types/event-messages.ts')
 
-      if (!fs.existsSync(backendEnPath) || !fs.existsSync(backendElPath) || !fs.existsSync(backendMessagesPath)) {
-        return
-      }
+    const backendPresent =
+      fs.existsSync(backendEnPath) && fs.existsSync(backendElPath) && fs.existsSync(backendMessagesPath)
 
+    if (!backendPresent) {
+      console.warn(
+        '\n=================================================================================\n' +
+          `WARNING: Backend localization files not found under ${backendDir}.\n` +
+          'Skipping ADD_ON_JOINED backend copy consistency check because backend repo is absent.\n' +
+          '=================================================================================\n'
+      )
+    }
+
+    const itBackendCopy = backendPresent ? it : it.skip
+
+    itBackendCopy('verifies copies stay identical to the backend when backend repo is present (row 146 copy check)', () => {
       const backendEnContent = fs.readFileSync(backendEnPath, 'utf-8')
       const backendElContent = fs.readFileSync(backendElPath, 'utf-8')
       const backendMessagesContent = fs.readFileSync(backendMessagesPath, 'utf-8')

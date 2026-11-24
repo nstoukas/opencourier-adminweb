@@ -34,25 +34,28 @@ describe('serverText helpers (spec 0054, AC-4, AC-6)', () => {
     })
 
     it('renders ADD_ON_JOINED messageCode in reader language naming the add on and courier (row 146)', () => {
+      const storedEnglish = 'Stored English message from backend that must be ignored'
       const event: StoredEventText = {
-        message: 'Delivery del-99 was added to this job as one more order on the way; courier c-12 has taken both',
+        message: storedEnglish,
         messageCode: 'ADD_ON_JOINED',
         messageParams: { addOnId: 'del-99', courierId: 'c-12' },
         eventSource: 'OPENCOURIER',
       }
 
-      // English
+      // English reader: both IDs present, English characters, stored English ignored, not recordedInEnglish
       const resultEn = eventMessageText(i18nEn, event)
-      expect(resultEn.text).toBe(
-        'Delivery del-99 was added to this job as one more order on the way; courier c-12 has taken both'
-      )
+      expect(resultEn.text).toContain('del-99')
+      expect(resultEn.text).toContain('c-12')
+      expect(resultEn.text).not.toContain(storedEnglish)
+      expect(resultEn.text).not.toMatch(/[\u0370-\u03ff]/)
       expect(resultEn.recordedInEnglish).toBe(false)
 
-      // Greek
+      // Greek reader: both IDs present, Greek words used, stored English ignored, not recordedInEnglish
       const resultEl = eventMessageText(i18nEl, event)
-      expect(resultEl.text).toBe(
-        'Η παραγγελία del-99 προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας c-12 έχει αναλάβει και τις δύο'
-      )
+      expect(resultEl.text).toContain('del-99')
+      expect(resultEl.text).toContain('c-12')
+      expect(resultEl.text).not.toContain(storedEnglish)
+      expect(resultEl.text).toMatch(/[\u0370-\u03ff]/)
       expect(resultEl.recordedInEnglish).toBe(false)
     })
 

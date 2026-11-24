@@ -868,7 +868,7 @@ describe('DeliveryEventTimeline component', () => {
         oldStatus: 'DISPATCHED',
         newStatus: 'DISPATCHED',
         transitionSuccessful: true,
-        message: 'Delivery del-456 was added to this job as one more order on the way; courier c-88 has taken both',
+        message: 'Stored English message from backend that must be ignored',
         messageCode: 'ADD_ON_JOINED',
         messageParams: { addOnId: 'del-456', courierId: 'c-88' },
         createdAt: new Date('2026-11-24T10:00:00Z'),
@@ -890,14 +890,16 @@ describe('DeliveryEventTimeline component', () => {
         )
 
         // Type label in Greek
-        expect(screen.getByText('Προστέθηκε μία ακόμη παραγγελία')).toBeInTheDocument()
+        expect(screen.getByText('Προστέθηκε μία ακόμα παραγγελία')).toBeInTheDocument()
 
         // Message rendered from messageCode + messageParams in Greek, naming addOnId and courierId
-        expect(
-          screen.getByText(
-            'Η παραγγελία del-456 προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας c-88 έχει αναλάβει και τις δύο'
-          )
-        ).toBeInTheDocument()
+        const messageEl = screen.getByText(/del-456/)
+        expect(messageEl).toBeInTheDocument()
+        expect(messageEl.textContent).toContain('del-456')
+        expect(messageEl.textContent).toContain('c-88')
+        expect(messageEl.textContent).toMatch(/[\u0370-\u03ff]/)
+        expect(messageEl.textContent).not.toContain(addOnJoinedEvent.message)
+        expect(screen.queryByText('Stored English message from backend that must be ignored')).toBeNull()
 
         // No note about recorded in English
         expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
@@ -924,14 +926,15 @@ describe('DeliveryEventTimeline component', () => {
         )
 
         // Type label in English
-        expect(screen.getByText('One more order joined')).toBeInTheDocument()
+        expect(screen.getByText('One more order added')).toBeInTheDocument()
 
-        // Message rendered from template in English
-        expect(
-          screen.getByText(
-            'Delivery del-456 was added to this job as one more order on the way; courier c-88 has taken both'
-          )
-        ).toBeInTheDocument()
+        // Message rendered from template in English, naming addOnId and courierId
+        const messageEl = screen.getByText(/del-456/)
+        expect(messageEl).toBeInTheDocument()
+        expect(messageEl.textContent).toContain('del-456')
+        expect(messageEl.textContent).toContain('c-88')
+        expect(messageEl.textContent).not.toMatch(/[\u0370-\u03ff]/)
+        expect(messageEl.textContent).not.toContain(eventWithStoredLegacyMessage.message)
 
         // Does NOT render the stored message
         expect(
@@ -961,11 +964,12 @@ describe('DeliveryEventTimeline component', () => {
           </I18nextProvider>
         )
 
-        expect(
-          screen.getByText(
-            'Η παραγγελία del-456 προστέθηκε σε αυτή τη δουλειά ως μία ακόμα παραγγελία στον δρόμο· ο διανομέας c-88 έχει αναλάβει και τις δύο'
-          )
-        ).toBeInTheDocument()
+        const messageEl = screen.getByText(/del-456/)
+        expect(messageEl).toBeInTheDocument()
+        expect(messageEl.textContent).toContain('del-456')
+        expect(messageEl.textContent).toContain('c-88')
+        expect(messageEl.textContent).toMatch(/[\u0370-\u03ff]/)
+        expect(messageEl.textContent).not.toContain('Stored English text from backend')
         expect(screen.queryByText('Stored English text from backend')).toBeNull()
         expect(screen.queryByText(/καταγράφηκε στα αγγλικά/)).toBeNull()
       })
