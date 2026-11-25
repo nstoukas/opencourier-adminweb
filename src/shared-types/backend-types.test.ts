@@ -43,14 +43,16 @@ interface BackendPathsOptions {
 function getBackendPaths(options?: BackendPathsOptions) {
   const env = options?.env ?? process.env
   const defaultDir =
-    options?.defaultDir ??
-    env.DEFAULT_BACKEND_DIR ??
-    path.resolve(__dirname, '../../../opencourier-backend')
+    options?.defaultDir ?? path.resolve(__dirname, '../../../opencourier-backend')
 
   const hasOverride = Boolean(
     env.OPENCOURIER_BACKEND_DIR ||
       env.BACKEND_SCHEMA_PATH ||
       env.BACKEND_SHARED_TYPES_DIR
+  )
+
+  const allFilesOverridden = Boolean(
+    env.BACKEND_SCHEMA_PATH && env.BACKEND_SHARED_TYPES_DIR
   )
 
   const backendDir = env.OPENCOURIER_BACKEND_DIR || defaultDir
@@ -71,9 +73,45 @@ function getBackendPaths(options?: BackendPathsOptions) {
     backendSharedTypesDir,
     backendSchemaPath,
     hasOverride,
+    allFilesOverridden,
     dirExists,
     requireBackend,
     shouldSkip,
+  }
+}
+
+// Verifies required backend files exist; only checks directory existence when paths are derived from it.
+function assertBackendFilesExist(paths: ReturnType<typeof getBackendPaths>) {
+  if (paths.requireBackend && !paths.dirExists && !paths.allFilesOverridden) {
+    throw new Error(
+      `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
+    )
+  }
+  if (!paths.dirExists && !paths.allFilesOverridden) {
+    throw new Error(`Backend directory was not found under ${paths.backendDir}`)
+  }
+  if (!fs.existsSync(paths.backendSchemaPath)) {
+    throw new Error(
+      `Backend Prisma schema missing: checked ${paths.backendSchemaPath}`
+    )
+  }
+  if (!fs.existsSync(paths.backendSharedTypesDir)) {
+    throw new Error(
+      `Backend shared-types dir missing: checked ${paths.backendSharedTypesDir}`
+    )
+  }
+}
+
+let loggedSkipWarning = false
+function warnBackendAbsentOnce(backendDir: string) {
+  if (!loggedSkipWarning) {
+    loggedSkipWarning = true
+    console.warn(
+      '\n=================================================================================\n' +
+        `WARNING: Backend directory not found under ${backendDir}.\n` +
+        'Skipping shared type copy consistency checks because backend repo is absent.\n' +
+        '=================================================================================\n'
+    )
   }
 }
 
@@ -194,10 +232,15 @@ function getInterfaceDetails(filePath: string): Record<string, Record<string, Pr
 function compareDictionaries(
   adminDict: Record<string, unknown>,
   backendDict: Record<string, unknown>,
-  options?: { allowedMissingInApp?: string[]; allowedExtraInApp?: string[] }
+  options?: {
+    allowedMissingInApp?: string[]
+    allowedExtraInApp?: string[]
+    allowValueDifferences?: boolean
+  }
 ) {
   const allowedMissing = new Set(options?.allowedMissingInApp ?? [])
   const allowedExtra = new Set(options?.allowedExtraInApp ?? [])
+  const allowValueDifferences = options?.allowValueDifferences ?? false
 
   const adminKeys = Object.keys(adminDict).sort()
   const backendKeys = Object.keys(backendDict).sort()
@@ -206,12 +249,14 @@ function compareDictionaries(
   const extraInApp = adminKeys.filter((k) => !backendKeys.includes(k) && !allowedExtra.has(k))
   const valueMismatches: { key: string; admin: unknown; backend: unknown }[] = []
 
-  for (const key of adminKeys) {
-    if (key in backendDict && !allowedExtra.has(key)) {
-      const adminVal = adminDict[key]
-      const backendVal = backendDict[key]
-      if (adminVal !== backendVal) {
-        valueMismatches.push({ key, admin: adminVal, backend: backendVal })
+  if (!allowValueDifferences) {
+    for (const key of adminKeys) {
+      if (key in backendDict && !allowedExtra.has(key)) {
+        const adminVal = adminDict[key]
+        const backendVal = backendDict[key]
+        if (adminVal !== backendVal) {
+          valueMismatches.push({ key, admin: adminVal, backend: backendVal })
+        }
       }
     }
   }
@@ -238,6 +283,9 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
       expect(paths.shouldSkip).toBe(false)
       expect(paths.requireBackend).toBe(true)
       expect(paths.dirExists).toBe(false)
+      expect(() => assertBackendFilesExist(paths)).toThrow(
+        `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
+      )
     })
 
     it('does not skip when an override path is set, even if the directory does not exist', () => {
@@ -247,6 +295,9 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
       expect(paths.shouldSkip).toBe(false)
       expect(paths.hasOverride).toBe(true)
       expect(paths.dirExists).toBe(false)
+      expect(() => assertBackendFilesExist(paths)).toThrow(
+        `Backend directory was not found under ${paths.backendDir}`
+      )
     })
 
     it('detects missing required file in present directory', () => {
@@ -257,7 +308,36 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         })
         expect(paths.shouldSkip).toBe(false)
         expect(paths.dirExists).toBe(true)
-        expect(fs.existsSync(paths.backendSchemaPath)).toBe(false)
+        expect(() => assertBackendFilesExist(paths)).toThrow(
+          `Backend Prisma schema missing: checked ${paths.backendSchemaPath}`
+        )
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it('does not fail existence check when all per target overrides exist even if default dir is absent', () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-scratch-overrides-'))
+      try {
+        const schemaPath = path.join(tempDir, 'schema.prisma')
+        const sharedTypesDir = path.join(tempDir, 'shared-types')
+        fs.writeFileSync(schemaPath, 'enum Test { A }')
+        fs.mkdirSync(sharedTypesDir)
+
+        const paths = getBackendPaths({
+          defaultDir: path.resolve(__dirname, '../../../nonexistent-backend-for-test'),
+          env: {
+            BACKEND_SCHEMA_PATH: schemaPath,
+            BACKEND_SHARED_TYPES_DIR: sharedTypesDir,
+          },
+        })
+        expect(paths.shouldSkip).toBe(false)
+        expect(paths.allFilesOverridden).toBe(true)
+        expect(paths.dirExists).toBe(false)
+        expect(fs.existsSync(paths.backendSchemaPath)).toBe(true)
+        expect(fs.existsSync(paths.backendSharedTypesDir)).toBe(true)
+
+        expect(() => assertBackendFilesExist(paths)).not.toThrow()
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true })
       }
@@ -284,35 +364,13 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
     const backendPaths = getBackendPaths()
 
     if (backendPaths.shouldSkip) {
-      console.warn(
-        '\n=================================================================================\n' +
-          `WARNING: Backend directory not found under ${backendPaths.backendDir}.\n` +
-          'Skipping shared type copy consistency checks because backend repo is absent.\n' +
-          '=================================================================================\n'
-      )
+      warnBackendAbsentOnce(backendPaths.backendDir)
     }
 
     const itRow170 = backendPaths.shouldSkip ? it.skip : it
 
     itRow170('ensures backend directory and core files exist', () => {
-      if (backendPaths.requireBackend && !backendPaths.dirExists) {
-        throw new Error(
-          `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${backendPaths.backendDir}`
-        )
-      }
-      if (!backendPaths.dirExists) {
-        throw new Error(`Backend directory was not found under ${backendPaths.backendDir}`)
-      }
-      if (!fs.existsSync(backendPaths.backendSchemaPath)) {
-        throw new Error(
-          `Backend Prisma schema missing: checked ${backendPaths.backendSchemaPath}`
-        )
-      }
-      if (!fs.existsSync(backendPaths.backendSharedTypesDir)) {
-        throw new Error(
-          `Backend shared-types dir missing: checked ${backendPaths.backendSharedTypesDir}`
-        )
-      }
+      assertBackendFilesExist(backendPaths)
     })
 
     // Lazy load backend modules only when backend is present
@@ -658,19 +716,25 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         expect(deliveryTypes.EnumCountryCode).toEqual(backendCountryCode)
       })
 
-      itRow170('delivery.ts: COURIER_STATUS_TO_HUMAN matches backend COURIER_STATUS_TO_HUMAN', () => {
-        const backendMod = loadBackendType<{
-          COURIER_STATUS_TO_HUMAN: Record<string, string>
-        }>('delivery.ts')
-        const diff = compareDictionaries(
-          deliveryTypes.COURIER_STATUS_TO_HUMAN,
-          backendMod.COURIER_STATUS_TO_HUMAN
-        )
-        expect(diff.missingInApp).toEqual([])
-        expect(diff.extraInApp).toEqual([])
-        expect(diff.valueMismatches).toEqual([])
-        expect(deliveryTypes.COURIER_STATUS_TO_HUMAN).toEqual(backendMod.COURIER_STATUS_TO_HUMAN)
-      })
+      // AGENTS.md:
+      // "Two label maps differ on purpose: STATUS_TO_HUMAN and COURIER_STATUS_TO_HUMAN hold this
+      // dashboard's on screen labels ("Assigning Courier", "Last Call"), not the backend's lower case
+      // values; their keys must still match."
+      itRow170(
+        'delivery.ts: COURIER_STATUS_TO_HUMAN keys match backend COURIER_STATUS_TO_HUMAN both ways',
+        () => {
+          const backendMod = loadBackendType<{
+            COURIER_STATUS_TO_HUMAN: Record<string, string>
+          }>('delivery.ts')
+          const diff = compareDictionaries(
+            deliveryTypes.COURIER_STATUS_TO_HUMAN,
+            backendMod.COURIER_STATUS_TO_HUMAN,
+            { allowValueDifferences: true }
+          )
+          expect(diff.missingInApp).toEqual([])
+          expect(diff.extraInApp).toEqual([])
+        }
+      )
 
       itRow170('delivery.ts: delivery interfaces match backend field names and optionality', () => {
         const adminIfaces = getInterfaceDetails(path.resolve(__dirname, 'delivery.ts'))
@@ -958,19 +1022,25 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
     // state-machine.ts
     // -----------------------------------------------------------------------------------------
     describe('state-machine.ts', () => {
-      itRow170('state-machine.ts: STATUS_TO_HUMAN matches backend STATUS_TO_HUMAN', () => {
-        const backendMod = loadBackendType<{
-          STATUS_TO_HUMAN: Record<string, string>
-        }>('stateMachine.ts')
-        const diff = compareDictionaries(
-          stateMachineTypes.STATUS_TO_HUMAN,
-          backendMod.STATUS_TO_HUMAN
-        )
-        expect(diff.missingInApp).toEqual([])
-        expect(diff.extraInApp).toEqual([])
-        expect(diff.valueMismatches).toEqual([])
-        expect(stateMachineTypes.STATUS_TO_HUMAN).toEqual(backendMod.STATUS_TO_HUMAN)
-      })
+      // AGENTS.md:
+      // "Two label maps differ on purpose: STATUS_TO_HUMAN and COURIER_STATUS_TO_HUMAN hold this
+      // dashboard's on screen labels ("Assigning Courier", "Last Call"), not the backend's lower case
+      // values; their keys must still match."
+      itRow170(
+        'state-machine.ts: STATUS_TO_HUMAN keys match backend STATUS_TO_HUMAN both ways',
+        () => {
+          const backendMod = loadBackendType<{
+            STATUS_TO_HUMAN: Record<string, string>
+          }>('stateMachine.ts')
+          const diff = compareDictionaries(
+            stateMachineTypes.STATUS_TO_HUMAN,
+            backendMod.STATUS_TO_HUMAN,
+            { allowValueDifferences: true }
+          )
+          expect(diff.missingInApp).toEqual([])
+          expect(diff.extraInApp).toEqual([])
+        }
+      )
 
       // AGENTS.md line 33-34:
       // "OFFERED, OFFER_EXPIRED and NO_COURIER_AVAILABLE are platform events: in the enum copy, never
