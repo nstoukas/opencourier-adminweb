@@ -184,7 +184,7 @@ export const serverEl: ServerTranslations = {
       dispatchStopReason: { HEAT: 'καύσωνας', STORM: 'καταιγίδα', OTHER: 'άλλοι λόγοι' },
       acceptGivenBackReason: {
         STOPPED: 'παύση διανομών',
-        FAILING: 'απέτυχε επανειλημμένα',
+        FAILING: 'δεν ολοκληρώθηκε μέσα σε δέκα λεπτά',
         SOS: 'ο διανομέας είναι σε SOS',
         DEACTIVATED: 'ο διανομέας απενεργοποιήθηκε',
       },
