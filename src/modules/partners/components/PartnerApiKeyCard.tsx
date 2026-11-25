@@ -36,7 +36,7 @@ export function formatKeyMade(date: Date, t: TFunction, f: Formats): string {
 // The card's first sentence: no login, the key's date, why there is no key (row 162), or no key.
 export function keyStateText(partner: PartnerAdminDto, t: TFunction, f: Formats): string {
   if (!partner.userId) return t(NO_LOGIN_NO_KEY)
-  if (partner.apiKeyCreatedAt) return formatKeyMade(partner.apiKeyCreatedAt, t, f)
+  if (partner.apiKeyCreatedAt != null) return formatKeyMade(partner.apiKeyCreatedAt, t, f)
   // Only with no key: the server clears the note whenever an admin makes, replaces or removes one.
   if (partner.apiKeyRemovedByResetAt) {
     return t('partners.apiKey.removedByReset', { date: f.dateTime(partner.apiKeyRemovedByResetAt) })
@@ -75,7 +75,9 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
   const [removeApiKey, removeState] = useRemovePartnerApiKeyMutation()
 
   const noLogin = !partner.userId
-  const hasKey = partner.apiKeyCreatedAt !== null
+  // `!= null` (loose) is false for null and undefined alike, so the buttons agree with the sentence above
+  // even for a partner object whose field is missing (Fable review of row 162, minor).
+  const hasKey = partner.apiKeyCreatedAt != null
   const busy = createState.isLoading || removeState.isLoading
   // The step that shows the key; only Done closes it (AC-13).
   const shown = mode === 'shown' && shownKey !== null

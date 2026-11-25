@@ -90,6 +90,8 @@ export interface PartnerAdminDto {
     apiKeyCreatedAt: Date | null;
     /**
      * When the restaurant's own password reset by email switched its key off; null otherwise (row 162, hand edited).
+     * Optional (`?`), unlike apiKeyCreatedAt, so the many partner fixtures in tests need not all gain it; FromJSON
+     * always gives a Date or null.
      * @type {Date}
      * @memberof PartnerAdminDto
      */
