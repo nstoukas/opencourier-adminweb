@@ -819,13 +819,9 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       const { rerender } = render(<DeliveryDetails deliveryId="d100" />)
 
-      // If the Change status button were rendered, clicking it would open the menu
       const changeStatusBtn = screen.queryByText('Change status')
-      if (changeStatusBtn) {
-        fireEvent.click(changeStatusBtn)
-      }
-      expect(screen.queryByText(/On the way/i)).toBeNull()
       expect(changeStatusBtn).toBeNull()
+      expect(screen.queryByText(/On the way/i)).toBeNull()
 
       // 2. For a DISPATCHED delivery, Change status menu still shows the steps that remain
       mockUseGetDeliveryQuery.mockReturnValue({ data: sampleEurDelivery, isLoading: false })

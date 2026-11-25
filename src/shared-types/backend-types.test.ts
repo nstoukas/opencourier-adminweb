@@ -1139,7 +1139,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           // - HANDED_BACK: rider free hand back event (spec 0020), recorded by courier handBack endpoint
           // - REMOVAL_APPROVED: removal request approval workflow event (spec 0035)
           // - WAIT_UNDISPATCHED: rider left after waiting event (spec 0033)
-          // - ARRIVED_AT_DROPOFF_LOCATION on PICKED_UP: the backend allows it from PICKED_UP; adminweb offers it from ON_THE_WAY only
+          // - ARRIVED_AT_DROPOFF_LOCATION on PICKED_UP: the backend allows it from PICKED_UP and ON_THE_WAY; adminweb's table has it from ON_THE_WAY, and the admin menu no longer offers it (row 176)
           const PLATFORM_ONLY_BACKEND_TRANSITIONS: { status: string; event: string; target: string }[] = [
             { status: 'CREATED', event: 'CREATED', target: 'ASSIGNING_COURIER' },
             { status: 'ASSIGNING_COURIER', event: 'OFFERED', target: 'ASSIGNING_COURIER' },
@@ -1173,7 +1173,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
             expect(adminOn[t.event]).toBe(t.target)
           }
           // Events in the platform only list that adminweb must not offer from any status.
-          // Note: ARRIVED_AT_DROPOFF_LOCATION is excluded because adminweb offers it from ON_THE_WAY.
+          // Note: ARRIVED_AT_DROPOFF_LOCATION is excluded because adminweb's table has it from ON_THE_WAY (the backend allows it from PICKED_UP and ON_THE_WAY; the admin menu no longer offers it, row 176).
           const PLATFORM_ONLY_EVENTS = Array.from(
             new Set(
               PLATFORM_ONLY_BACKEND_TRANSITIONS.map((t) => t.event).filter(
