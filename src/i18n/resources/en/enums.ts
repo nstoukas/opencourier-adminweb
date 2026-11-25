@@ -84,7 +84,8 @@ export const enums = {
   quoteCalculationType: {
     BY_DISTANCE: 'By distance',
     SURGE: 'Surge pricing',
-    CUSTOM: 'Custom implementation, random distance (For development)',
+    // Row 173: the backend's own warning (src/shared-types/quote-calculation.ts): this mode randomises rider pay.
+    CUSTOM: '⚠ Random prices — DEVELOPMENT ONLY (ignores distance; randomises courier pay)',
   },
   quoteToDeliveryConversionType: {
     SIMPLE: 'Only check drift',
