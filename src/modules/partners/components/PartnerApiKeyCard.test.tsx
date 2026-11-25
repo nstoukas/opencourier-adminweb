@@ -2,9 +2,11 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
+import { I18nextProvider } from 'react-i18next'
 import {
   PartnerApiKeyCard,
   formatKeyMade as rawFormatKeyMade,
+  keyStateText,
   NO_LOGIN_NO_KEY,
 } from './PartnerApiKeyCard'
 import { createI18n } from '@/i18n/createI18n'
@@ -16,6 +18,16 @@ const f = {
   dateTime: (date: Date) => formatDateTime(date, 'en'),
 } as Formats
 const formatKeyMade = (date: Date) => rawFormatKeyMade(date, t, f)
+
+const tEl = createI18n('el').t
+const fEl = {
+  dateTime: (date: Date) => formatDateTime(date, 'el'),
+} as Formats
+
+function renderInLanguage(ui: React.ReactElement, language: 'en' | 'el') {
+  const i18n = createI18n(language)
+  return render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>)
+}
 import {
   partnersApi,
   useCreatePartnerApiKeyMutation,
@@ -121,6 +133,75 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
     })
   })
 
+  // Row 162: keyStateText helper decides the first sentence
+  describe('keyStateText (row 162 helper)', () => {
+    const partnerBase: PartnerAdminDto = {
+      ...basePartner,
+      userId: 'user-123',
+      apiKeyCreatedAt: null,
+      apiKeyRemovedByResetAt: null,
+    }
+
+    it('returns partners.apiKey.removedByReset with date on Athens time in English and Greek when apiKeyCreatedAt is null and apiKeyRemovedByResetAt is set (Clause 1)', () => {
+      // Winter time (UTC+2): 12:05 UTC is 14:05 Athens
+      const winterPartner: PartnerAdminDto = {
+        ...partnerBase,
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+      expect(keyStateText(winterPartner, t, f)).toBe(
+        "No API key. The restaurant's own password reset removed it on 25/11/2026, 14:05."
+      )
+      expect(keyStateText(winterPartner, tEl, fEl)).toBe(
+        'Χωρίς κλειδί API. Αφαιρέθηκε με την επαναφορά κωδικού του ίδιου του καταστήματος, 25/11/2026, 14:05.'
+      )
+
+      // Summer time (EEST / UTC+3): 11:00 UTC is 14:00 Athens
+      const summerPartner: PartnerAdminDto = {
+        ...partnerBase,
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: new Date('2026-06-10T11:00:00.000Z'),
+      }
+      expect(keyStateText(summerPartner, t, f)).toBe(
+        "No API key. The restaurant's own password reset removed it on 10/06/2026, 14:00."
+      )
+      expect(keyStateText(summerPartner, tEl, fEl)).toBe(
+        'Χωρίς κλειδί API. Αφαιρέθηκε με την επαναφορά κωδικού του ίδιου του καταστήματος, 10/06/2026, 14:00.'
+      )
+    })
+
+    it('returns keyMade when apiKeyCreatedAt is set, even if apiKeyRemovedByResetAt is also set (Clause 2)', () => {
+      const partnerWithBoth: PartnerAdminDto = {
+        ...partnerBase,
+        apiKeyCreatedAt: new Date('2026-11-18T20:15:00.000Z'),
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+      expect(keyStateText(partnerWithBoth, t, f)).toBe('Key made 18/11/2026, 22:15')
+      expect(keyStateText(partnerWithBoth, tEl, fEl)).toBe('Το κλειδί δημιουργήθηκε: 18/11/2026, 22:15')
+    })
+
+    it('returns partners.apiKey.none when neither apiKeyCreatedAt nor apiKeyRemovedByResetAt is set (Clause 2)', () => {
+      const partnerWithNeither: PartnerAdminDto = {
+        ...partnerBase,
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: null,
+      }
+      expect(keyStateText(partnerWithNeither, t, f)).toBe('No API key.')
+      expect(keyStateText(partnerWithNeither, tEl, fEl)).toBe('Χωρίς κλειδί API.')
+    })
+
+    it('returns NO_LOGIN_NO_KEY when partner has no userId, even if apiKeyRemovedByResetAt is set (Clause 2)', () => {
+      const partnerNoLogin: PartnerAdminDto = {
+        ...partnerBase,
+        userId: null,
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+      expect(keyStateText(partnerNoLogin, t, f)).toBe('No login, so no API key.')
+      expect(keyStateText(partnerNoLogin, tEl, fEl)).toBe('Χωρίς σύνδεση, άρα χωρίς κλειδί API.')
+    })
+  })
+
   describe('Card states and texts (AC-5, AC-13, Decision 110.4)', () => {
     it('shows "No login, so no API key." with both buttons disabled and aria-describedby pointing to it when userId is null', () => {
       const partnerWithoutLogin: PartnerAdminDto = {
@@ -189,6 +270,138 @@ describe('PartnerApiKeyCard (spec 0037, AC-5, AC-13)', () => {
 
       expect(newKeyBtn).toBeEnabled()
       expect(removeKeyBtn).toBeEnabled()
+    })
+
+    // Row 162 (Clause 1): After a restaurant's own reset removes its key, the card says so with the date in English
+    it('shows partners.apiKey.removedByReset with Athens date in English when apiKeyCreatedAt is null and apiKeyRemovedByResetAt is set (Clause 1)', () => {
+      // Winter time: 12:05 UTC is 14:05 Athens time
+      const partnerReset: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+
+      renderInLanguage(<PartnerApiKeyCard partner={partnerReset} />, 'en')
+
+      const stateElem = screen.getByTestId('api-key-state')
+      expect(stateElem).toHaveTextContent(
+        "No API key. The restaurant's own password reset removed it on 25/11/2026, 14:05."
+      )
+      const reasonId = stateElem.getAttribute('id')
+      expect(reasonId).toBeTruthy()
+
+      const newKeyBtn = screen.getByRole('button', { name: /^new api key$/i })
+      const removeKeyBtn = screen.getByRole('button', { name: /^remove key$/i })
+
+      // New key is enabled (admin can generate a replacement key)
+      expect(newKeyBtn).toBeEnabled()
+      expect(newKeyBtn).not.toHaveAttribute('aria-describedby')
+
+      // Remove key is disabled (no key to remove) and points to state element
+      expect(removeKeyBtn).toBeDisabled()
+      expect(removeKeyBtn).toHaveAttribute('aria-describedby', reasonId)
+    })
+
+    // Row 162 (Clause 1): After a restaurant's own reset removes its key, the card says so with the date in Greek
+    it('shows partners.apiKey.removedByReset with Athens date in Greek when apiKeyCreatedAt is null and apiKeyRemovedByResetAt is set (Clause 1)', () => {
+      const partnerReset: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+
+      renderInLanguage(<PartnerApiKeyCard partner={partnerReset} />, 'el')
+
+      const stateElem = screen.getByTestId('api-key-state')
+      expect(stateElem).toHaveTextContent(
+        'Χωρίς κλειδί API. Αφαιρέθηκε με την επαναφορά κωδικού του ίδιου του καταστήματος, 25/11/2026, 14:05.'
+      )
+      const reasonId = stateElem.getAttribute('id')
+      expect(reasonId).toBeTruthy()
+
+      const newKeyBtn = screen.getByRole('button', { name: /^νέο κλειδί api$/i })
+      const removeKeyBtn = screen.getByRole('button', { name: /^αφαίρεση κλειδιού$/i })
+
+      expect(newKeyBtn).toBeEnabled()
+      expect(newKeyBtn).not.toHaveAttribute('aria-describedby')
+
+      expect(removeKeyBtn).toBeDisabled()
+      expect(removeKeyBtn).toHaveAttribute('aria-describedby', reasonId)
+    })
+
+    // Row 162 (Clause 2): With a key (apiKeyCreatedAt set), shows key date even if apiKeyRemovedByResetAt is set
+    it('shows key date and not reset note when apiKeyCreatedAt is set even if apiKeyRemovedByResetAt is set (Clause 2)', () => {
+      const partnerWithBoth: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: new Date('2026-11-18T20:15:00.000Z'),
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+
+      // English render
+      const { unmount } = renderInLanguage(<PartnerApiKeyCard partner={partnerWithBoth} />, 'en')
+      const stateElemEn = screen.getByTestId('api-key-state')
+      expect(stateElemEn).toHaveTextContent('Key made 18/11/2026, 22:15')
+      expect(stateElemEn.textContent).not.toContain('reset')
+      expect(stateElemEn.textContent).not.toContain('removed')
+      expect(screen.getByRole('button', { name: /^new api key$/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /^remove key$/i })).toBeEnabled()
+      unmount()
+
+      // Greek render
+      renderInLanguage(<PartnerApiKeyCard partner={partnerWithBoth} />, 'el')
+      const stateElemEl = screen.getByTestId('api-key-state')
+      expect(stateElemEl).toHaveTextContent('Το κλειδί δημιουργήθηκε: 18/11/2026, 22:15')
+      expect(stateElemEl.textContent).not.toContain('επαναφορά')
+      expect(stateElemEl.textContent).not.toContain('Αφαιρέθηκε')
+      expect(screen.getByRole('button', { name: /^νέο κλειδί api$/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /^αφαίρεση κλειδιού$/i })).toBeEnabled()
+    })
+
+    // Row 162 (Clause 2): With neither, shows plain partners.apiKey.none in both languages
+    it('shows plain partners.apiKey.none in English and Greek when neither key nor reset note exists (Clause 2)', () => {
+      const partnerNeither: PartnerAdminDto = {
+        ...basePartner,
+        userId: 'user-123',
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: null,
+      }
+
+      const { unmount } = renderInLanguage(<PartnerApiKeyCard partner={partnerNeither} />, 'en')
+      expect(screen.getByTestId('api-key-state')).toHaveTextContent('No API key.')
+      expect(screen.getByRole('button', { name: /^new api key$/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /^remove key$/i })).toBeDisabled()
+      unmount()
+
+      renderInLanguage(<PartnerApiKeyCard partner={partnerNeither} />, 'el')
+      expect(screen.getByTestId('api-key-state')).toHaveTextContent('Χωρίς κλειδί API.')
+      expect(screen.getByRole('button', { name: /^νέο κλειδί api$/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /^αφαίρεση κλειδιού$/i })).toBeDisabled()
+    })
+
+    // Row 162 (Clause 2): With no login, shows no login sentence even if apiKeyRemovedByResetAt were set
+    it('shows no login sentence in English and Greek when userId is null even if apiKeyRemovedByResetAt is set (Clause 2)', () => {
+      const partnerNoLoginWithReset: PartnerAdminDto = {
+        ...basePartner,
+        userId: null,
+        apiKeyCreatedAt: null,
+        apiKeyRemovedByResetAt: new Date('2026-11-25T12:05:00.000Z'),
+      }
+
+      const { unmount } = renderInLanguage(<PartnerApiKeyCard partner={partnerNoLoginWithReset} />, 'en')
+      const stateElemEn = screen.getByTestId('api-key-state')
+      expect(stateElemEn).toHaveTextContent('No login, so no API key.')
+      expect(screen.getByRole('button', { name: /^new api key$/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^remove key$/i })).toBeDisabled()
+      unmount()
+
+      renderInLanguage(<PartnerApiKeyCard partner={partnerNoLoginWithReset} />, 'el')
+      const stateElemEl = screen.getByTestId('api-key-state')
+      expect(stateElemEl).toHaveTextContent('Χωρίς σύνδεση, άρα χωρίς κλειδί API.')
+      expect(screen.getByRole('button', { name: /^νέο κλειδί api$/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^αφαίρεση κλειδιού$/i })).toBeDisabled()
     })
   })
 
