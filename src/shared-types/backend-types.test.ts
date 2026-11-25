@@ -882,6 +882,30 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         expect(diff.valueMismatches).toEqual([])
         expect(notificationTypes.NotificationEventType).toEqual(backendMod.NotificationEventType)
       })
+
+      itRow170(
+        'notification.ts: notification channel name builders match backend output for sample id(s)',
+        () => {
+          const backendMod = loadBackendType<{
+            courierNotificationChannel: (userId: string) => string
+            adminBroadcastNotificationChannel: () => string
+            merchantGroupAdminNotificationChannel: (merchantGroupId: string) => string
+          }>('notification.ts')
+
+          const sampleUserId = 'sample-courier-user-123'
+          const sampleMerchantGroupId = 'sample-merchant-group-456'
+
+          expect(notificationTypes.courierNotificationChannel(sampleUserId)).toBe(
+            backendMod.courierNotificationChannel(sampleUserId)
+          )
+          expect(notificationTypes.adminBroadcastNotificationChannel()).toBe(
+            backendMod.adminBroadcastNotificationChannel()
+          )
+          expect(
+            notificationTypes.merchantGroupAdminNotificationChannel(sampleMerchantGroupId)
+          ).toBe(backendMod.merchantGroupAdminNotificationChannel(sampleMerchantGroupId))
+        }
+      )
     })
 
     // -----------------------------------------------------------------------------------------
@@ -1121,7 +1145,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           // - HANDED_BACK: rider free hand back event (spec 0020), recorded by courier handBack endpoint
           // - REMOVAL_APPROVED: removal request approval workflow event (spec 0035)
           // - WAIT_UNDISPATCHED: rider left after waiting event (spec 0033)
-          // - ARRIVED_AT_DROPOFF_LOCATION on PICKED_UP: courier app direct dropoff arrival without explicit on-the-way event
+          // - ARRIVED_AT_DROPOFF_LOCATION on PICKED_UP: the backend allows it from PICKED_UP; adminweb offers it from ON_THE_WAY only
           const PLATFORM_ONLY_BACKEND_TRANSITIONS: { status: string; event: string; target: string }[] = [
             { status: 'CREATED', event: 'CREATED', target: 'ASSIGNING_COURIER' },
             { status: 'ASSIGNING_COURIER', event: 'OFFERED', target: 'ASSIGNING_COURIER' },
@@ -1154,10 +1178,34 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
             const adminOn = adminSM[t.status as keyof typeof adminSM].on as Record<string, string>
             expect(adminOn[t.event]).toBe(t.target)
           }
+          // Events in the platform only list that adminweb must not offer from any status.
+          // Note: ARRIVED_AT_DROPOFF_LOCATION is excluded because adminweb offers it from ON_THE_WAY.
+          const PLATFORM_ONLY_EVENTS = Array.from(
+            new Set(
+              PLATFORM_ONLY_BACKEND_TRANSITIONS.map((t) => t.event).filter(
+                (e) => e !== 'ARRIVED_AT_DROPOFF_LOCATION'
+              )
+            )
+          )
+
+          // Assert that none of the events in the platform only list appears anywhere in adminweb's STATE_MACHINE (any status's `on`), naming the status and event if one does.
+          const platformEventsInAdmin: { status: string; event: string }[] = []
+          for (const [status, node] of Object.entries(adminSM)) {
+            for (const event of Object.keys(node.on)) {
+              if (PLATFORM_ONLY_EVENTS.includes(event)) {
+                platformEventsInAdmin.push({ status, event })
+              }
+            }
+          }
+          expect(platformEventsInAdmin).toEqual([])
+
           for (const t of PLATFORM_ONLY_BACKEND_TRANSITIONS) {
             const backendNode = backendSM[t.status]
             const backendOn = backendNode ? (backendNode.on as Record<string, string>) : {}
             expect(backendOn[t.event]).toBe(t.target)
+            const adminNode = (adminSM as Record<string, { on: Record<string, string> } | undefined>)[t.status]
+            const adminOn = adminNode ? adminNode.on : {}
+            expect(adminOn).not.toHaveProperty(t.event)
           }
 
           const targetMismatches: {
@@ -1283,7 +1331,9 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
     // Guard: runtime exports inventory across all shared-types files (Minor 1)
     // -----------------------------------------------------------------------------------------
     describe('shared-types runtime exports inventory guard (Minor 1)', () => {
-      // Set of runtime exports compared by tests in this file
+      // Set of runtime exports compared by tests in this file.
+      // Both COMPARED_EXPORTS and NOT_COMPARED match by bare name for both folders at once
+      // (a stated limit, per the ruling).
       const COMPARED_EXPORTS = new Set([
         'EnumRewardStatus',
         'CartValidationErrorCode',
@@ -1322,6 +1372,9 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         'EnumGeoCalculationType',
         'GEO_CALCULATION_TYPE_TO_HUMAN',
         'NotificationEventType',
+        'courierNotificationChannel',
+        'adminBroadcastNotificationChannel',
+        'merchantGroupAdminNotificationChannel',
         'EnumQuoteCalculationType',
         'QUOTE_CALCULATION_TYPE_TO_HUMAN',
         'EnumQuoteToDeliveryConversionServiceType',
@@ -1333,24 +1386,21 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         'PAYMENT_STATUS_TO_HUMAN',
       ])
 
-      // Exports not compared directly in this test file, each with a one-line reason:
+      // Exports not compared directly in this test file, each with a one-line reason.
+      // Both COMPARED_EXPORTS and NOT_COMPARED match by bare name for both folders at once
+      // (a stated limit, per the ruling).
       const NOT_COMPARED: Record<string, string> = {
         // Functions: cart item and modifier validators in cart.ts
-        validateItem: 'Cart item validator function; tested in cart module unit tests',
-        validateModifierGroup: 'Cart modifier group validator function; tested in cart module unit tests',
-        extendErrorMap: 'Cart error map extension function; tested in cart module unit tests',
-        canAddGroupToItemModifier: 'Cart modifier hierarchy helper function; tested in cart module unit tests',
-        canAddItemModifierToGroup: 'Cart group hierarchy helper function; tested in cart module unit tests',
+        validateItem: 'Cart item validator function; has no unit tests in either repo',
+        validateModifierGroup: 'Cart modifier group validator function; has no unit tests in either repo',
+        extendErrorMap: 'Cart error map extension function; has no unit tests in either repo',
+        canAddGroupToItemModifier: 'Cart modifier hierarchy helper function; has no unit tests in either repo',
+        canAddItemModifierToGroup: 'Cart group hierarchy helper function; has no unit tests in either repo',
         CartValidationError: 'Cart validation error class',
         CatalogItemNotFound: 'Catalog item not found error class',
 
         // Functions: distance converter in distance-unit.ts
         convertToKM: 'Distance conversion helper function converting units to kilometers',
-
-        // Functions: channel name builders in notification.ts
-        courierNotificationChannel: 'Channel name builder function for courier notifications socket room',
-        adminBroadcastNotificationChannel: 'Channel name builder function for admin broadcast notifications socket room',
-        merchantGroupAdminNotificationChannel: 'Channel name builder function for merchant group notifications socket room',
 
         // Functions: price converters in price.ts
         floatPriceToPennies: 'Price conversion utility function converting float price to integer pennies',
@@ -1368,14 +1418,17 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         EVENT_MESSAGE_CODES: 'Event message template codes compared word-for-word by row 163 in translations.test.ts',
         EVENT_PART_CODES: 'Event part template codes compared word-for-word by row 163 in translations.test.ts',
 
-        // Backend-only exports with no adminweb copy
-        DELIVERY_ONGOING_STATUSES: 'Backend-only list of ongoing statuses with no adminweb copy',
-        DELIVERY_PICKED_UP_STATUSES: 'Backend-only list of picked-up statuses with no adminweb copy',
+        // Backend-only exports with no adminweb copy in src/shared-types/
+        DELIVERY_ONGOING_STATUSES:
+          'Backend-only list of ongoing statuses with hand mirrors outside src/shared-types (src/modules/deliveries/components/ReassignCourierDialog.tsx, src/modules/deliveries/utils/cancellationDisplay.ts), not compared here (a Deferred item)',
+        DELIVERY_PICKED_UP_STATUSES:
+          'Backend-only list of picked-up statuses with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), not compared here (a Deferred item)',
         ORDER_ITEM_KINDS: 'Backend-only order item kinds list with no adminweb copy',
         FALLBACK_REASSIGNMENT_PAYOUT_POLICIES: 'Backend-only fallback reassignment payout policies config with no adminweb copy',
         FALLBACK_REASSIGNMENT_PAYOUT_DEFAULT_POLICY: 'Backend-only fallback default policy with no adminweb copy',
         FALLBACK_CANCELLATION_PAYOUT_POLICY: 'Backend-only fallback cancellation policy with no adminweb copy',
-        EnumCancelledBy: 'Backend-only cancellation actor enum with no adminweb copy',
+        EnumCancelledBy:
+          'Backend-only cancellation actor enum with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), not compared here (a Deferred item)',
         EnumStripeAccountStatus: 'Backend-only Stripe account status enum with no adminweb copy',
         EnumRefundReason: 'Backend-only Stripe refund reason enum with no adminweb copy',
         EnumRefundStatus: 'Backend-only Stripe refund status enum with no adminweb copy',
