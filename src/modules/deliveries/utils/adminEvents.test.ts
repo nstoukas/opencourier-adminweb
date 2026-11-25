@@ -1,5 +1,8 @@
+import fs from 'fs'
+import path from 'path'
 import { EnumDeliveryEventType, EnumDeliveryStatus } from '../../../shared-types'
-import { adminEventsForStatus, courierIdForAdminEvent } from './adminEvents'
+import { STATE_MACHINE } from '../../../shared-types/state-machine'
+import { adminEventsForStatus, courierIdForAdminEvent, ADMIN_PATH_EVENTS } from './adminEvents'
 
 describe('adminEvents utility functions', () => {
   describe('adminEventsForStatus', () => {
@@ -63,10 +66,10 @@ describe('adminEvents utility functions', () => {
     })
 
     it('filters out FAILED from DISPATCHED transitions', () => {
-      // DISPATCHED transitions in STATE_MACHINE: ARRIVED_AT_PICKUP_LOCATION, PICKED_UP, CANCELED, FAILED
+      // DISPATCHED transitions in STATE_MACHINE: ARRIVED_AT_PICKUP_LOCATION, PICKED_UP, CANCELED, FAILED.
+      // ARRIVED_AT_PICKUP_LOCATION is filtered out by ADMIN_PATH_EVENTS; FAILED is filtered out by DISALLOWED_EVENTS.
       const dispatchedEvents = adminEventsForStatus(EnumDeliveryStatus.DISPATCHED)
       expect(dispatchedEvents).toEqual([
-        EnumDeliveryEventType.ARRIVED_AT_PICKUP_LOCATION,
         EnumDeliveryEventType.PICKED_UP,
         EnumDeliveryEventType.CANCELED,
       ])
@@ -108,6 +111,41 @@ describe('adminEvents utility functions', () => {
       allStatuses.forEach((status) => {
         const events = adminEventsForStatus(status)
         expect(events).not.toContain(EnumDeliveryEventType.ADD_ON_JOINED)
+      })
+    })
+
+    it('never offers any of the four unhandled steps (ARRIVED_AT_PICKUP_LOCATION, ON_THE_WAY, ARRIVED_AT_DROPOFF_LOCATION, FULFILLED) for any status in STATE_MACHINE (Pin 1, row 176)', () => {
+      const removedSteps = [
+        EnumDeliveryEventType.ARRIVED_AT_PICKUP_LOCATION,
+        EnumDeliveryEventType.ON_THE_WAY,
+        EnumDeliveryEventType.ARRIVED_AT_DROPOFF_LOCATION,
+        EnumDeliveryEventType.FULFILLED,
+      ]
+      const statuses = Object.keys(STATE_MACHINE) as EnumDeliveryStatus[]
+
+      statuses.forEach((status) => {
+        const eventsWithoutRiders = adminEventsForStatus(status)
+        const eventsWithRider = adminEventsForStatus(status, { courierId: 'c1' })
+        removedSteps.forEach((removedStep) => {
+          expect(eventsWithoutRiders).not.toContain(removedStep)
+          expect(eventsWithRider).not.toContain(removedStep)
+        })
+      })
+    })
+
+    it('ensures every event returned by adminEventsForStatus is in ADMIN_PATH_EVENTS for every status in STATE_MACHINE (Pin 2, row 176)', () => {
+      const statuses = Object.keys(STATE_MACHINE) as EnumDeliveryStatus[]
+
+      statuses.forEach((status) => {
+        const eventsWithoutRiders = adminEventsForStatus(status)
+        eventsWithoutRiders.forEach((event) => {
+          expect(ADMIN_PATH_EVENTS).toContain(event)
+        })
+
+        const eventsWithRider = adminEventsForStatus(status, { courierId: 'c1' })
+        eventsWithRider.forEach((event) => {
+          expect(ADMIN_PATH_EVENTS).toContain(event)
+        })
       })
     })
   })
@@ -169,6 +207,72 @@ describe('adminEvents utility functions', () => {
         courierId: '',
       }
       expect(courierIdForAdminEvent(EnumDeliveryEventType.ACCEPTED, deliveryWithEmptyStrings)).toBeUndefined()
+    })
+  })
+
+  describe('ADMIN_PATH_EVENTS backend parity (Pin 3, row 176)', () => {
+    const defaultBackendDir = path.resolve(__dirname, '../../../../../opencourier-backend')
+    const backendDir = process.env.OPENCOURIER_BACKEND_DIR || defaultBackendDir
+    const backendServicePath = path.join(backendDir, 'src/domains/delivery/delivery.domain.service.ts')
+    const dirExists = fs.existsSync(backendDir)
+    const requireBackend = process.env.REQUIRE_BACKEND === '1'
+    const hasOverride = Boolean(process.env.OPENCOURIER_BACKEND_DIR)
+    const shouldSkip = !hasOverride && !dirExists && !requireBackend
+
+    const itBackend = shouldSkip ? it.skip : it
+
+    itBackend('matches submitDeliveryEvent switch cases in delivery.domain.service.ts both ways', () => {
+      if (requireBackend && !dirExists) {
+        throw new Error(`REQUIRE_BACKEND=1 is set, but backend directory was not found under ${backendDir}`)
+      }
+      if (!dirExists) {
+        console.warn(`WARNING: Backend directory not found under ${backendDir}. Skipping ADMIN_PATH_EVENTS check.`)
+        return
+      }
+
+      if (!fs.existsSync(backendServicePath)) {
+        throw new Error(`Backend delivery service file not found under ${backendServicePath}`)
+      }
+
+      const content = fs.readFileSync(backendServicePath, 'utf8')
+
+      const submitIndex = content.indexOf('async submitDeliveryEvent')
+      expect(submitIndex).toBeGreaterThan(-1)
+      const afterSubmit = content.slice(submitIndex)
+
+      const switchIndex = afterSubmit.indexOf('switch (event.eventType)')
+      expect(switchIndex).toBeGreaterThan(-1)
+
+      const defaultIndex = afterSubmit.indexOf('default:', switchIndex)
+      expect(defaultIndex).toBeGreaterThan(-1)
+
+      const switchBody = afterSubmit.slice(switchIndex, defaultIndex)
+
+      const caseRegex = /case\s+EnumDeliveryEventType\.(\w+):/g
+      const cases: string[] = []
+      let match: RegExpExecArray | null
+      while ((match = caseRegex.exec(switchBody)) !== null) {
+        if (match[1]) {
+          cases.push(match[1])
+        }
+      }
+
+      // Exclude REASSIGNED: it throws BadRequestException because it has its own endpoint
+      const backendHandledEvents = cases.filter((c) => c !== 'REASSIGNED')
+
+      const adminPathEventNames = ADMIN_PATH_EVENTS.map(String)
+
+      // Compare both ways:
+      // 1. Every event in backendHandledEvents is in ADMIN_PATH_EVENTS
+      for (const backendEvent of backendHandledEvents) {
+        expect(adminPathEventNames).toContain(backendEvent)
+      }
+      // 2. Every event in ADMIN_PATH_EVENTS is in backendHandledEvents
+      for (const adminEvent of adminPathEventNames) {
+        expect(backendHandledEvents).toContain(adminEvent)
+      }
+
+      expect([...adminPathEventNames].sort()).toEqual([...backendHandledEvents].sort())
     })
   })
 })

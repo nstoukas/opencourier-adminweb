@@ -361,14 +361,14 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       // Open Change status menu
       fireEvent.click(screen.getByText('Change status'))
-      fireEvent.click(screen.getByText(/Arrived at pickup location/i))
+      fireEvent.click(screen.getByText(/Picked up/i))
 
       await waitFor(() => {
         // Assert event is submitted for del-next-leg-999, NOT del-previous-leg-111
         expect(mockSubmitDeliveryEvent).toHaveBeenCalledWith(
           expect.objectContaining({
             deliveryId: 'del-next-leg-999',
-            eventType: EnumDeliveryEventType.ARRIVED_AT_PICKUP_LOCATION,
+            eventType: EnumDeliveryEventType.PICKED_UP,
           })
         )
       })
@@ -714,13 +714,13 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       fireEvent.click(triggerBtn)
 
       // Click event item
-      const menuItem = screen.getByText(/Arrived at pickup location/i)
+      const menuItem = screen.getByText(/Picked up/i)
       fireEvent.click(menuItem)
 
       await waitFor(() => {
         expect(mockSubmitDeliveryEvent).toHaveBeenCalledWith({
           deliveryId: 'd100',
-          eventType: EnumDeliveryEventType.ARRIVED_AT_PICKUP_LOCATION,
+          eventType: EnumDeliveryEventType.PICKED_UP,
           courierId: undefined,
         })
       })
@@ -786,7 +786,7 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
       )
 
       fireEvent.click(screen.getByText('Change status'))
-      fireEvent.click(screen.getByText(/Arrived at pickup location/i))
+      fireEvent.click(screen.getByText(/Picked up/i))
 
       expect(await screen.findByText('Delivery status transition failed')).toBeInTheDocument()
       expect(screen.getByText('Failed to change delivery status')).toBeInTheDocument()
@@ -805,8 +805,39 @@ describe('DeliveryDetails component (spec 0011, AC-2 & AC-3)', () => {
 
       // CANCELED must NOT be an option in the menu
       expect(screen.queryByText(/^Canceled$/i)).toBeNull()
-      // Other events like ARRIVED_AT_PICKUP_LOCATION remain in the menu
-      expect(screen.getByText(/Arrived at pickup location/i)).toBeInTheDocument()
+      // Other events like PICKED_UP remain in the menu
+      expect(screen.getByText(/Picked up/i)).toBeInTheDocument()
+    })
+
+    it('does not show "On the way" in Change status menu for a PICKED_UP delivery, and still shows remaining steps (Pin 4, row 176)', () => {
+      // 1. For a PICKED_UP delivery, Change status menu does not offer "On the way"
+      const pickedUpDelivery = {
+        ...sampleEurDelivery,
+        status: EnumDeliveryStatus.PICKED_UP,
+      }
+      mockUseGetDeliveryQuery.mockReturnValue({ data: pickedUpDelivery, isLoading: false })
+
+      const { rerender } = render(<DeliveryDetails deliveryId="d100" />)
+
+      // If the Change status button were rendered, clicking it would open the menu
+      const changeStatusBtn = screen.queryByText('Change status')
+      if (changeStatusBtn) {
+        fireEvent.click(changeStatusBtn)
+      }
+      expect(screen.queryByText(/On the way/i)).toBeNull()
+      expect(changeStatusBtn).toBeNull()
+
+      // 2. For a DISPATCHED delivery, Change status menu still shows the steps that remain
+      mockUseGetDeliveryQuery.mockReturnValue({ data: sampleEurDelivery, isLoading: false })
+      rerender(<DeliveryDetails deliveryId="d100" />)
+
+      const dispatchedMenuBtn = screen.getByText('Change status')
+      fireEvent.click(dispatchedMenuBtn)
+
+      // Remaining step is shown
+      expect(screen.getByText(/Picked up/i)).toBeInTheDocument()
+      // Removed step is not shown
+      expect(screen.queryByText(/Arrived at pickup location/i)).toBeNull()
     })
 
     it('shows Cancel delivery button exactly when adminEventsForStatus allows CANCELED (spec 0015, AC-5)', () => {

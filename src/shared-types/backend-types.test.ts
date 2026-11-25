@@ -1124,15 +1124,9 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
             },
           ]
 
-          // (b) Known defect, on the Deferred list: COURIER_ARRIVED_AT_DROPOFF_LOCATION + FULFILLED
-          // The backend has no such transition in stateMachine.ts and drops the event silently.
-          const KNOWN_DEFECT_DEFERRED_TRANSITIONS: { status: string; event: string; target: string }[] = [
-            {
-              status: 'COURIER_ARRIVED_AT_DROPOFF_LOCATION',
-              event: 'FULFILLED',
-              target: 'DROPPED_OFF',
-            },
-          ]
+          // (b) Known defect list: row 176 removed FULFILLED from adminweb's STATE_MACHINE,
+          // matching the backend table which never had it. The known defect list is now empty.
+          const KNOWN_DEFECT_DEFERRED_TRANSITIONS: { status: string; event: string; target: string }[] = []
 
           // (c) Platform-only events the backend table has and adminweb leaves out on purpose
           // (adminweb AGENTS.md: OFFERED, OFFER_EXPIRED, NO_COURIER_AVAILABLE "never in STATE_MACHINE"),
