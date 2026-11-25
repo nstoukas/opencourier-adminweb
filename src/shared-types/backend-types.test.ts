@@ -161,7 +161,11 @@ function loadBackendSharedFile<T = Record<string, unknown>>(
     if (id.startsWith('.')) {
       const dir = path.dirname(filePath)
       let target = path.resolve(dir, id)
+      if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
+        target = path.join(target, 'index')
+      }
       if (!fs.existsSync(target) && fs.existsSync(target + '.ts')) target = target + '.ts'
+      if (!fs.existsSync(target) && fs.existsSync(target + '.d.ts')) return {}
       if (fs.existsSync(target)) {
         return loadBackendSharedFile(target, prismaEnums)
       }
@@ -374,7 +378,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
 
     // Lazy load backend modules only when backend is present
     let prismaEnums: Record<string, Record<string, string>> = {}
-    if (!backendPaths.shouldSkip && backendPaths.dirExists && fs.existsSync(backendPaths.backendSchemaPath)) {
+    if (!backendPaths.shouldSkip && fs.existsSync(backendPaths.backendSchemaPath)) {
       prismaEnums = parsePrismaEnums(backendPaths.backendSchemaPath)
     }
 
@@ -752,6 +756,18 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           'Device',
           'ExternalUserInfo',
         ]
+        // Interfaces in delivery.ts not compared because the admin SDK carries them and they differ from the backend:
+        // - OrderItem: carried by admin SDK, differs from backend definition
+        // - DeliveryCreationDetails: carried by admin SDK, differs from backend definition
+        // - DeliveryUpdateDetails: carried by admin SDK, differs from backend definition
+        const UNCHECKED_DELIVERY_INTERFACES = [
+          'OrderItem',
+          'DeliveryCreationDetails',
+          'DeliveryUpdateDetails',
+        ]
+        expect(Object.keys(adminIfaces).sort()).toEqual(
+          [...checkedInterfaces, ...UNCHECKED_DELIVERY_INTERFACES].sort()
+        )
         for (const name of checkedInterfaces) {
           expect(backendIfaces).toHaveProperty(name)
           const adminFields = adminIfaces[name] ?? {}
@@ -1054,6 +1070,156 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           expect(assigningCourierTransitions).not.toHaveProperty('NO_COURIER_AVAILABLE')
         }
       )
+
+      itRow170(
+        'state-machine.ts: STATE_MACHINE status keys and transitions match backend stateMachine.ts',
+        () => {
+          const backendMod = loadBackendType<{
+            STATE_MACHINE: Record<
+              string,
+              { on: Partial<Record<string, string>> }
+            >
+          }>('stateMachine.ts')
+
+          const backendSM = backendMod.STATE_MACHINE
+          const adminSM = stateMachineTypes.STATE_MACHINE
+
+          // Status keys both ways
+          const backendStatuses = Object.keys(backendSM).sort()
+          const adminStatuses = Object.keys(adminSM).sort()
+          expect(adminStatuses).toEqual(backendStatuses)
+
+          // Allowed differences, each a named list with its reason in a comment:
+          // (a) Admin-only by design: CREATED + ACCEPTED
+          // The backend handles it outside the table (offerDeliveryToCourierAsAdmin in delivery.domain.service.ts).
+          const ADMIN_ONLY_TRANSITIONS: { status: string; event: string; target: string }[] = [
+            {
+              status: 'CREATED',
+              event: 'ACCEPTED',
+              target: 'ASSIGNING_COURIER',
+            },
+          ]
+
+          // (b) Known defect, on the Deferred list: COURIER_ARRIVED_AT_DROPOFF_LOCATION + FULFILLED
+          // The backend has no such transition in stateMachine.ts and drops the event silently.
+          const KNOWN_DEFECT_DEFERRED_TRANSITIONS: { status: string; event: string; target: string }[] = [
+            {
+              status: 'COURIER_ARRIVED_AT_DROPOFF_LOCATION',
+              event: 'FULFILLED',
+              target: 'DROPPED_OFF',
+            },
+          ]
+
+          // (c) Platform-only events the backend table has and adminweb leaves out on purpose
+          // (adminweb AGENTS.md: OFFERED, OFFER_EXPIRED, NO_COURIER_AVAILABLE "never in STATE_MACHINE"),
+          // plus any other platform record the backend table carries that adminweb menus must not send.
+          // - CREATED on CREATED: initial delivery creation by platform, not an admin menu action
+          // - OFFERED, OFFER_EXPIRED, NO_COURIER_AVAILABLE on ASSIGNING_COURIER: platform matching events (spec 0002)
+          // - REASSIGNED on active statuses: Section 3b safety guard requires reassignment to go through
+          //   dedicated POST /reassign endpoint to ensure courier compensation is created
+          // - RETURNED_TO_WAITING: platform dispatch stop event (spec 0014)
+          // - HANDED_BACK: rider free hand back event (spec 0020), recorded by courier handBack endpoint
+          // - REMOVAL_APPROVED: removal request approval workflow event (spec 0035)
+          // - WAIT_UNDISPATCHED: rider left after waiting event (spec 0033)
+          // - ARRIVED_AT_DROPOFF_LOCATION on PICKED_UP: courier app direct dropoff arrival without explicit on-the-way event
+          const PLATFORM_ONLY_BACKEND_TRANSITIONS: { status: string; event: string; target: string }[] = [
+            { status: 'CREATED', event: 'CREATED', target: 'ASSIGNING_COURIER' },
+            { status: 'ASSIGNING_COURIER', event: 'OFFERED', target: 'ASSIGNING_COURIER' },
+            { status: 'ASSIGNING_COURIER', event: 'OFFER_EXPIRED', target: 'ASSIGNING_COURIER' },
+            { status: 'ASSIGNING_COURIER', event: 'NO_COURIER_AVAILABLE', target: 'ASSIGNING_COURIER' },
+            { status: 'ACCEPTED', event: 'REASSIGNED', target: 'ASSIGNING_COURIER' },
+            { status: 'ACCEPTED', event: 'RETURNED_TO_WAITING', target: 'ASSIGNING_COURIER' },
+            { status: 'ACCEPTED', event: 'HANDED_BACK', target: 'ASSIGNING_COURIER' },
+            { status: 'ACCEPTED', event: 'REMOVAL_APPROVED', target: 'ASSIGNING_COURIER' },
+            { status: 'DISPATCHED', event: 'REASSIGNED', target: 'ASSIGNING_COURIER' },
+            { status: 'DISPATCHED', event: 'RETURNED_TO_WAITING', target: 'ASSIGNING_COURIER' },
+            { status: 'DISPATCHED', event: 'HANDED_BACK', target: 'ASSIGNING_COURIER' },
+            { status: 'DISPATCHED', event: 'REMOVAL_APPROVED', target: 'ASSIGNING_COURIER' },
+            { status: 'COURIER_ARRIVED_AT_PICKUP_LOCATION', event: 'WAIT_UNDISPATCHED', target: 'ASSIGNING_COURIER' },
+            { status: 'COURIER_ARRIVED_AT_PICKUP_LOCATION', event: 'REMOVAL_APPROVED', target: 'ASSIGNING_COURIER' },
+            { status: 'COURIER_ARRIVED_AT_PICKUP_LOCATION', event: 'REASSIGNED', target: 'ASSIGNING_COURIER' },
+            { status: 'COURIER_ARRIVED_AT_PICKUP_LOCATION', event: 'RETURNED_TO_WAITING', target: 'ASSIGNING_COURIER' },
+            { status: 'PICKED_UP', event: 'ARRIVED_AT_DROPOFF_LOCATION', target: 'COURIER_ARRIVED_AT_DROPOFF_LOCATION' },
+            { status: 'PICKED_UP', event: 'REASSIGNED', target: 'ASSIGNING_COURIER' },
+            { status: 'ON_THE_WAY', event: 'REASSIGNED', target: 'ASSIGNING_COURIER' },
+            { status: 'COURIER_ARRIVED_AT_DROPOFF_LOCATION', event: 'REASSIGNED', target: 'ASSIGNING_COURIER' },
+          ]
+
+          // Verify all declared allowed transitions actually exist on their respective side
+          for (const t of ADMIN_ONLY_TRANSITIONS) {
+            const adminOn = adminSM[t.status as keyof typeof adminSM].on as Record<string, string>
+            expect(adminOn[t.event]).toBe(t.target)
+          }
+          for (const t of KNOWN_DEFECT_DEFERRED_TRANSITIONS) {
+            const adminOn = adminSM[t.status as keyof typeof adminSM].on as Record<string, string>
+            expect(adminOn[t.event]).toBe(t.target)
+          }
+          for (const t of PLATFORM_ONLY_BACKEND_TRANSITIONS) {
+            const backendNode = backendSM[t.status]
+            const backendOn = backendNode ? (backendNode.on as Record<string, string>) : {}
+            expect(backendOn[t.event]).toBe(t.target)
+          }
+
+          const targetMismatches: {
+            status: string
+            event: string
+            adminTarget: string | undefined
+            backendTarget: string | undefined
+          }[] = []
+          const extraAdminTransitions: { status: string; event: string; target: string }[] = []
+          const missingAdminTransitions: { status: string; event: string; target: string }[] = []
+
+          for (const status of backendStatuses) {
+            const adminNode = (adminSM as Record<string, { on: Record<string, string> } | undefined>)[status]
+            const adminOn = adminNode ? adminNode.on : {}
+            const backendNode = backendSM[status]
+            const backendOn = backendNode ? (backendNode.on as Record<string, string>) : {}
+
+            for (const [event, adminTarget] of Object.entries(adminOn)) {
+              const isAdminOnly = ADMIN_ONLY_TRANSITIONS.some(
+                (t) => t.status === status && t.event === event && t.target === adminTarget
+              )
+              const isKnownDefect = KNOWN_DEFECT_DEFERRED_TRANSITIONS.some(
+                (t) => t.status === status && t.event === event && t.target === adminTarget
+              )
+
+              if (isAdminOnly || isKnownDefect) {
+                if (event in backendOn) {
+                  extraAdminTransitions.push({ status, event, target: adminTarget })
+                }
+                continue
+              }
+
+              if (!(event in backendOn)) {
+                extraAdminTransitions.push({ status, event, target: adminTarget })
+              } else if (backendOn[event] !== adminTarget) {
+                targetMismatches.push({
+                  status,
+                  event,
+                  adminTarget,
+                  backendTarget: backendOn[event],
+                })
+              }
+            }
+
+            for (const [event, backendTarget] of Object.entries(backendOn)) {
+              if (event in adminOn) {
+                continue
+              }
+              const isPlatformOnly = PLATFORM_ONLY_BACKEND_TRANSITIONS.some(
+                (t) => t.status === status && t.event === event && t.target === backendTarget
+              )
+              if (!isPlatformOnly) {
+                missingAdminTransitions.push({ status, event, target: backendTarget })
+              }
+            }
+          }
+
+          expect(targetMismatches).toEqual([])
+          expect(extraAdminTransitions).toEqual([])
+          expect(missingAdminTransitions).toEqual([])
+        }
+      )
     })
 
     // -----------------------------------------------------------------------------------------
@@ -1094,25 +1260,283 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         }
       })
 
-      itRow170('types.ts: JsonArray interface matches backend JsonArray interface', () => {
-        const adminTypesPath =
-          process.env.ADMINWEB_TYPES_PATH ||
-          process.env.ADMIN_TYPES_PATH ||
-          path.resolve(__dirname, 'types.ts')
-        const backendTypesPath =
-          process.env.BACKEND_TYPES_PATH ||
-          path.join(backendPaths.backendSharedTypesDir, 'types.ts')
-        const adminIfaces = getInterfaceDetails(adminTypesPath)
-        const backendIfaces = getInterfaceDetails(backendTypesPath)
-        expect(adminIfaces).toHaveProperty('JsonArray')
-        expect(backendIfaces).toHaveProperty('JsonArray')
-        const adminFields = adminIfaces.JsonArray ?? {}
-        const backendFields = backendIfaces.JsonArray ?? {}
-        expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
-        for (const fname of Object.keys(adminFields)) {
-          expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
+      itRow170(
+        'types.ts: proves JsonArray interface exists on both sides (has no members)',
+        () => {
+          const adminTypesPath = path.resolve(__dirname, 'types.ts')
+          const backendTypesPath = path.join(backendPaths.backendSharedTypesDir, 'types.ts')
+          const adminIfaces = getInterfaceDetails(adminTypesPath)
+          const backendIfaces = getInterfaceDetails(backendTypesPath)
+          expect(adminIfaces).toHaveProperty('JsonArray')
+          expect(backendIfaces).toHaveProperty('JsonArray')
+          const adminFields = adminIfaces.JsonArray ?? {}
+          const backendFields = backendIfaces.JsonArray ?? {}
+          expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
+          for (const fname of Object.keys(adminFields)) {
+            expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
+          }
         }
-      })
+      )
+    })
+
+    // -----------------------------------------------------------------------------------------
+    // Guard: runtime exports inventory across all shared-types files (Minor 1)
+    // -----------------------------------------------------------------------------------------
+    describe('shared-types runtime exports inventory guard (Minor 1)', () => {
+      // Set of runtime exports compared by tests in this file
+      const COMPARED_EXPORTS = new Set([
+        'EnumRewardStatus',
+        'CartValidationErrorCode',
+        'EnumDistanceUnit',
+        'ConfigKey',
+        'EnumCourierCompensationCalculationType',
+        'COURIER_DELIVERY_COMPENSATION_TYPE_TO_HUMAN',
+        'EnumCourierMatcherType',
+        'COURIER_MATCHER_TYPE_TO_HUMAN',
+        'EnumCourierDietaryRestrictions',
+        'COURIER_DIETARY_RESTRICTIONS_TO_HUMAN',
+        'EnumCurrency',
+        'CURRENCY_TO_HUMAN',
+        'EnumDeliveryDurationCalculationType',
+        'DELIVERY_DURATION_CALCULATION_TYPE_TO_HUMAN',
+        'EnumDeliveryEventType',
+        'EnumEventActor',
+        'EnumDeliveryEventSource',
+        'EnumDeliveryStatus',
+        'ACTIVE_STATUSES',
+        'NOT_ACTIVE_STATUSES',
+        'EnumDeliveryIssueReason',
+        'DELIVERY_ISSUE_REASON_TO_HUMAN',
+        'EnumUndeliverableAction',
+        'EnumDeliverableAction',
+        'EnumCourierStatus',
+        'EnumCountryCode',
+        'COURIER_STATUS_TO_HUMAN',
+        'UNCONFIRMED_TOO_LONG_TIME',
+        'UNASSIGNED_TOO_LONG_TIME',
+        'UNACCEPTED_TOO_LONG_TIME',
+        'EnumOrderAlertType',
+        'RED_ALERTS',
+        'ALERT_TO_HUMAN',
+        'DISTANCE_UNIT_TO_HUMAN',
+        'EnumGeoCalculationType',
+        'GEO_CALCULATION_TYPE_TO_HUMAN',
+        'NotificationEventType',
+        'EnumQuoteCalculationType',
+        'QUOTE_CALCULATION_TYPE_TO_HUMAN',
+        'EnumQuoteToDeliveryConversionServiceType',
+        'QUOTE_TO_DELIVERY_CONVERSION_TYPE_TO_HUMAN',
+        'EnumRemovalRequestStatus',
+        'STATUS_TO_HUMAN',
+        'STATE_MACHINE',
+        'EnumPaymentStatus',
+        'PAYMENT_STATUS_TO_HUMAN',
+      ])
+
+      // Exports not compared directly in this test file, each with a one-line reason:
+      const NOT_COMPARED: Record<string, string> = {
+        // Functions: cart item and modifier validators in cart.ts
+        validateItem: 'Cart item validator function; tested in cart module unit tests',
+        validateModifierGroup: 'Cart modifier group validator function; tested in cart module unit tests',
+        extendErrorMap: 'Cart error map extension function; tested in cart module unit tests',
+        canAddGroupToItemModifier: 'Cart modifier hierarchy helper function; tested in cart module unit tests',
+        canAddItemModifierToGroup: 'Cart group hierarchy helper function; tested in cart module unit tests',
+        CartValidationError: 'Cart validation error class',
+        CatalogItemNotFound: 'Catalog item not found error class',
+
+        // Functions: distance converter in distance-unit.ts
+        convertToKM: 'Distance conversion helper function converting units to kilometers',
+
+        // Functions: channel name builders in notification.ts
+        courierNotificationChannel: 'Channel name builder function for courier notifications socket room',
+        adminBroadcastNotificationChannel: 'Channel name builder function for admin broadcast notifications socket room',
+        merchantGroupAdminNotificationChannel: 'Channel name builder function for merchant group notifications socket room',
+
+        // Functions: price converters in price.ts
+        floatPriceToPennies: 'Price conversion utility function converting float price to integer pennies',
+        penniesToFloat: 'Price conversion utility function converting integer pennies to float price',
+
+        // Functions: state machine helper in state-machine.ts
+        transitionsForStatus: 'Adminweb state machine lookup helper function returning transitions for a status',
+
+        // Adminweb-only label maps (backend has none; verified to cover all enum members)
+        EVENT_ACTOR_TO_HUMAN: 'Adminweb-only label map for EnumEventActor; verified to cover all enum members',
+        EVENT_SOURCE_TO_HUMAN: 'Adminweb-only label map for EnumDeliveryEventSource; verified to cover all enum members',
+        REMOVAL_REQUEST_STATUS_TO_HUMAN: 'Adminweb-only label map for EnumRemovalRequestStatus; verified to cover all enum members',
+
+        // event-messages.ts: covered word-for-word by row 163 in src/i18n/translations.test.ts
+        EVENT_MESSAGE_CODES: 'Event message template codes compared word-for-word by row 163 in translations.test.ts',
+        EVENT_PART_CODES: 'Event part template codes compared word-for-word by row 163 in translations.test.ts',
+
+        // Backend-only exports with no adminweb copy
+        DELIVERY_ONGOING_STATUSES: 'Backend-only list of ongoing statuses with no adminweb copy',
+        DELIVERY_PICKED_UP_STATUSES: 'Backend-only list of picked-up statuses with no adminweb copy',
+        ORDER_ITEM_KINDS: 'Backend-only order item kinds list with no adminweb copy',
+        FALLBACK_REASSIGNMENT_PAYOUT_POLICIES: 'Backend-only fallback reassignment payout policies config with no adminweb copy',
+        FALLBACK_REASSIGNMENT_PAYOUT_DEFAULT_POLICY: 'Backend-only fallback default policy with no adminweb copy',
+        FALLBACK_CANCELLATION_PAYOUT_POLICY: 'Backend-only fallback cancellation policy with no adminweb copy',
+        EnumCancelledBy: 'Backend-only cancellation actor enum with no adminweb copy',
+        EnumStripeAccountStatus: 'Backend-only Stripe account status enum with no adminweb copy',
+        EnumRefundReason: 'Backend-only Stripe refund reason enum with no adminweb copy',
+        EnumRefundStatus: 'Backend-only Stripe refund status enum with no adminweb copy',
+        EnumTwoOrderPolicy: 'Backend-only two-order policy enum in stacking.ts with no adminweb copy',
+        EnumAddOnMoment: 'Backend-only add-on moment enum in stacking.ts with no adminweb copy',
+        POLICY_NAMES_EL: 'Backend-only Greek rider-facing policy names map with no adminweb copy',
+        formatCentsEl: 'Backend-only Greek rider-facing cents formatter function with no adminweb copy',
+        distanceUnitNameEl: 'Backend-only Greek rider-facing distance unit name function with no adminweb copy',
+        RIDER_FACING_SETTINGS_EL: 'Backend-only Greek rider-facing settings map with no adminweb copy',
+        riderFacingSettingEl: 'Backend-only Greek rider-facing setting resolver function with no adminweb copy',
+        REMOVAL_REASON_KEY: 'Backend-only removal reason key constant with no adminweb copy',
+        SHIFT_SLOT_KEY: 'Backend-only shift slot key constant with no adminweb copy',
+        isMissing: 'Backend-only rider-facing settings predicate function with no adminweb copy',
+        asNumber: 'Backend-only rider-facing settings number parser function with no adminweb copy',
+        formatCents: 'Backend-only rider-facing cents formatter function with no adminweb copy',
+        distanceUnitName: 'Backend-only rider-facing distance unit name function with no adminweb copy',
+        policyName: 'Backend-only rider-facing policy name function with no adminweb copy',
+        RIDER_FACING_SETTINGS: 'Backend-only rider-facing settings map with no adminweb copy',
+        RIDER_FACING_SETTING_KEYS: 'Backend-only rider-facing setting keys list with no adminweb copy',
+      }
+
+      // Expected non-test TypeScript files in shared-types folders
+      const KNOWN_ADMINWEB_FILES = new Set([
+        'address.ts',
+        'cart.ts',
+        'catalog.ts',
+        'config.ts',
+        'courier-compensation-calculation.ts',
+        'courier-matching.ts',
+        'courier.ts',
+        'currency.ts',
+        'delivery-duration.ts',
+        'delivery-events.ts',
+        'delivery-issues.ts',
+        'delivery.ts',
+        'dispatch.ts',
+        'distance-unit.ts',
+        'event-messages.ts',
+        'geo-calculation.ts',
+        'index.ts',
+        'notification.ts',
+        'price.ts',
+        'quote-calculation.ts',
+        'quote-to-delivery-conversion.ts',
+        'removal-requests.ts',
+        'state-machine.ts',
+        'stripe.ts',
+        'types.ts',
+      ])
+
+      const KNOWN_BACKEND_FILES = new Set([
+        'address.ts',
+        'cart.ts',
+        'catalog.ts',
+        'config.ts',
+        'courier-compensation-calculation.ts',
+        'courier-matching.ts',
+        'courier.ts',
+        'currency.ts',
+        'delivery-duration.ts',
+        'delivery-events.ts',
+        'delivery-issue.ts',
+        'delivery.ts',
+        'discount.ts',
+        'dispatch.ts',
+        'distance-unit.ts',
+        'event-messages.ts',
+        'geo-calculation.ts',
+        'geo.ts',
+        'index.ts',
+        'notification.ts',
+        'price.ts',
+        'quote-calculation.ts',
+        'quote-to-delivery-conversion.ts',
+        'rider-facing-settings.el.ts',
+        'rider-facing-settings.ts',
+        'stacking.ts',
+        'stateMachine.ts',
+        'stripe.ts',
+        'types.ts',
+      ])
+
+      itRow170(
+        'ensures all non-test files in both shared-types folders are accounted for',
+        () => {
+          const adminSharedTypesDir = path.resolve(__dirname)
+          const adminFiles = fs.readdirSync(adminSharedTypesDir).filter((f) => {
+            const p = path.join(adminSharedTypesDir, f)
+            return !fs.statSync(p).isDirectory() && f.endsWith('.ts') && !f.endsWith('.test.ts')
+          })
+
+          const backendFiles = fs.readdirSync(backendPaths.backendSharedTypesDir).filter((f) => {
+            const p = path.join(backendPaths.backendSharedTypesDir, f)
+            return (
+              !fs.statSync(p).isDirectory() &&
+              f.endsWith('.ts') &&
+              !f.endsWith('.test.ts') &&
+              !f.endsWith('.spec.ts')
+            )
+          })
+
+          const unexpectedAdminFiles = adminFiles.filter((f) => !KNOWN_ADMINWEB_FILES.has(f))
+          expect(unexpectedAdminFiles).toEqual([])
+
+          const unexpectedBackendFiles = backendFiles.filter((f) => !KNOWN_BACKEND_FILES.has(f))
+          expect(unexpectedBackendFiles).toEqual([])
+        }
+      )
+
+      itRow170(
+        'ensures every runtime export in adminweb shared-types is compared or named in NOT_COMPARED',
+        () => {
+          const adminSharedTypesDir = path.resolve(__dirname)
+          const adminFiles = fs.readdirSync(adminSharedTypesDir).filter((f) => {
+            const p = path.join(adminSharedTypesDir, f)
+            return !fs.statSync(p).isDirectory() && f.endsWith('.ts') && !f.endsWith('.test.ts')
+          })
+
+          const overlap = Object.keys(NOT_COMPARED).filter((k) => COMPARED_EXPORTS.has(k))
+          expect(overlap).toEqual([])
+
+          const unhandledAdminExports: { file: string; exportName: string }[] = []
+          for (const file of adminFiles) {
+            const filePath = path.join(adminSharedTypesDir, file)
+            const mod = loadBackendSharedFile<Record<string, unknown>>(filePath, prismaEnums)
+            for (const exp of Object.keys(mod)) {
+              if (!COMPARED_EXPORTS.has(exp) && !NOT_COMPARED[exp]) {
+                unhandledAdminExports.push({ file, exportName: exp })
+              }
+            }
+          }
+          expect(unhandledAdminExports).toEqual([])
+        }
+      )
+
+      itRow170(
+        'ensures every runtime export in backend shared-types is compared or named in NOT_COMPARED',
+        () => {
+          const backendFiles = fs.readdirSync(backendPaths.backendSharedTypesDir).filter((f) => {
+            const p = path.join(backendPaths.backendSharedTypesDir, f)
+            return (
+              !fs.statSync(p).isDirectory() &&
+              f.endsWith('.ts') &&
+              !f.endsWith('.test.ts') &&
+              !f.endsWith('.spec.ts')
+            )
+          })
+
+          const unhandledBackendExports: { file: string; exportName: string }[] = []
+          for (const file of backendFiles) {
+            const filePath = path.join(backendPaths.backendSharedTypesDir, file)
+            const mod = loadBackendSharedFile<Record<string, unknown>>(filePath, prismaEnums)
+            for (const exp of Object.keys(mod)) {
+              if (!COMPARED_EXPORTS.has(exp) && !NOT_COMPARED[exp]) {
+                unhandledBackendExports.push({ file, exportName: exp })
+              }
+            }
+          }
+          expect(unhandledBackendExports).toEqual([])
+        }
+      )
     })
   })
 })
