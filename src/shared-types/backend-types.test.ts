@@ -11,9 +11,7 @@ import vm from 'vm'
 import ts from 'typescript'
 
 // Adminweb shared types under test
-import * as addressTypes from './address'
 import * as cartTypes from './cart'
-import * as catalogTypes from './catalog'
 import * as configTypes from './config'
 import * as courierCompensationTypes from './courier-compensation-calculation'
 import * as courierMatchingTypes from './courier-matching'
@@ -32,7 +30,6 @@ import * as quoteToDeliveryConversionTypes from './quote-to-delivery-conversion'
 import * as removalRequestsTypes from './removal-requests'
 import * as stateMachineTypes from './state-machine'
 import * as stripeTypes from './stripe'
-import * as generalTypes from './types'
 
 interface BackendPathsOptions {
   defaultDir?: string
@@ -122,15 +119,17 @@ function parsePrismaEnums(schemaPath: string): Record<string, Record<string, str
   }
   const schemaContent = fs.readFileSync(schemaPath, 'utf-8')
   const enums: Record<string, Record<string, string>> = {}
-  for (const match of schemaContent.matchAll(/enum\s+(\w+)\s+\{([^}]+)\}/g)) {
+  for (const match of Array.from(schemaContent.matchAll(/enum\s+(\w+)\s+\{([^}]+)\}/g))) {
     const enumName = match[1]
-    const members = match[2]
+    const body = match[2]
+    if (!enumName || !body) continue
+    const members = body
       .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('//'))
-      .map((line) => line.split(/\s+/)[0])
+      .map((line: string) => line.trim())
+      .filter((line: string) => line && !line.startsWith('//'))
+      .map((line: string) => line.split(/\s+/)[0])
       .filter(Boolean)
-    enums[enumName] = Object.fromEntries(members.map((m) => [m, m]))
+    enums[enumName] = Object.fromEntries(members.map((m: string) => [m, m]))
   }
   return enums
 }
@@ -215,7 +214,7 @@ function getInterfaceDetails(filePath: string): Record<string, Record<string, Pr
       const name = stmt.name.text
       const fields: Record<string, PropertyDetail> = {}
       stmt.members.forEach((m) => {
-        if (ts.isPropertySignature(m) && m.name) {
+        if (ts.isPropertySignature(m)) {
           const fname = m.name.getText(sf)
           const optional = Boolean(m.questionToken)
           const typeText = m.type ? m.type.getText(sf).trim() : undefined
@@ -421,7 +420,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           const backendFields = backendIfaces[name] ?? {}
           expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
           for (const fname of Object.keys(adminFields)) {
-            expect(adminFields[fname].optional).toBe(backendFields[fname].optional)
+            expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
           }
         }
       })
@@ -759,7 +758,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           const backendFields = backendIfaces[name] ?? {}
           expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
           for (const fname of Object.keys(adminFields)) {
-            expect(adminFields[fname].optional).toBe(backendFields[fname].optional)
+            expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
           }
         }
       })
@@ -1069,7 +1068,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         const backendFields = backendIfaces.Address ?? {}
         expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
         for (const fname of Object.keys(adminFields)) {
-          expect(adminFields[fname].optional).toBe(backendFields[fname].optional)
+          expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
         }
       })
 
@@ -1090,15 +1089,29 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           const backendFields = backendIfaces[name] ?? {}
           expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
           for (const fname of Object.keys(adminFields)) {
-            expect(adminFields[fname].optional).toBe(backendFields[fname].optional)
+            expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
           }
         }
       })
 
       itRow170('types.ts: JsonArray interface matches backend JsonArray interface', () => {
-        const adminIfaces = getInterfaceDetails(path.resolve(__dirname, 'types.ts'))
-        const backendIfaces = getInterfaceDetails(path.join(backendPaths.backendSharedTypesDir, 'types.ts'))
+        const adminTypesPath =
+          process.env.ADMINWEB_TYPES_PATH ||
+          process.env.ADMIN_TYPES_PATH ||
+          path.resolve(__dirname, 'types.ts')
+        const backendTypesPath =
+          process.env.BACKEND_TYPES_PATH ||
+          path.join(backendPaths.backendSharedTypesDir, 'types.ts')
+        const adminIfaces = getInterfaceDetails(adminTypesPath)
+        const backendIfaces = getInterfaceDetails(backendTypesPath)
+        expect(adminIfaces).toHaveProperty('JsonArray')
         expect(backendIfaces).toHaveProperty('JsonArray')
+        const adminFields = adminIfaces.JsonArray ?? {}
+        const backendFields = backendIfaces.JsonArray ?? {}
+        expect(Object.keys(adminFields).sort()).toEqual(Object.keys(backendFields).sort())
+        for (const fname of Object.keys(adminFields)) {
+          expect(adminFields[fname]?.optional).toBe(backendFields[fname]?.optional)
+        }
       })
     })
   })
