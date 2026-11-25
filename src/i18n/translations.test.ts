@@ -3,6 +3,8 @@
 // value its code does not carry.
 import fs from 'fs'
 import path from 'path'
+import vm from 'vm'
+import ts from 'typescript'
 import { EVENT_MESSAGE_CODES, EVENT_PART_CODES } from '@/shared-types/event-messages'
 import { EnumDeliveryStatus } from '@/shared-types/delivery-events'
 import { en } from './resources/en'
@@ -46,6 +48,54 @@ const nestedKeys = (text: string): string[] => {
     if (match[1]) matches.push(match[1])
   }
   return matches
+}
+
+// Loads a TypeScript file by transpiling with ts.transpileModule and evaluating in a CommonJS sandbox.
+// Preserves exact multi-line formatting, escaped quotes and {{template}} placeholders.
+function loadTypeScriptFile<T = Record<string, unknown>>(filePath: string): T {
+  const code = fs.readFileSync(filePath, 'utf-8')
+  const js = ts.transpileModule(code, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+    },
+  }).outputText
+  const exportsObj: Record<string, unknown> = {}
+  const moduleObj = { exports: exportsObj }
+  const context = vm.createContext({
+    exports: exportsObj,
+    module: moduleObj,
+  })
+  vm.runInContext(js, context)
+  return moduleObj.exports as T
+}
+
+// Resolves backend file locations with support for overrides (e.g. scratch copies in tests).
+function getBackendPaths() {
+  const backendDir =
+    process.env.OPENCOURIER_BACKEND_DIR ||
+    process.env.BACKEND_DIR ||
+    path.resolve(__dirname, '../../../opencourier-backend')
+  const backendEnPath =
+    process.env.BACKEND_EN_PATH || path.join(backendDir, 'src/localization/en.ts')
+  const backendElPath =
+    process.env.BACKEND_EL_PATH || path.join(backendDir, 'src/localization/el.ts')
+  const backendMessagesPath =
+    process.env.BACKEND_MESSAGES_PATH ||
+    path.join(backendDir, 'src/shared-types/event-messages.ts')
+
+  const backendPresent =
+    fs.existsSync(backendEnPath) &&
+    fs.existsSync(backendElPath) &&
+    fs.existsSync(backendMessagesPath)
+
+  return {
+    backendDir,
+    backendEnPath,
+    backendElPath,
+    backendMessagesPath,
+    backendPresent,
+  }
 }
 
 describe('Translations completeness (spec 0054, AC-8)', () => {
@@ -248,13 +298,8 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       )
     })
 
-    const backendDir = path.resolve(__dirname, '../../../opencourier-backend')
-    const backendEnPath = path.join(backendDir, 'src/localization/en.ts')
-    const backendElPath = path.join(backendDir, 'src/localization/el.ts')
-    const backendMessagesPath = path.join(backendDir, 'src/shared-types/event-messages.ts')
-
-    const backendPresent =
-      fs.existsSync(backendEnPath) && fs.existsSync(backendElPath) && fs.existsSync(backendMessagesPath)
+    const { backendDir, backendEnPath, backendElPath, backendMessagesPath, backendPresent } =
+      getBackendPaths()
 
     if (!backendPresent) {
       console.warn(
@@ -395,4 +440,206 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       )
     })
   })
+
+  describe('Row 163: Every copied server sentence is checked against the backend', () => {
+    const { backendPresent, backendDir } = getBackendPaths()
+
+    if (!backendPresent) {
+      console.warn(
+        '\n=================================================================================\n' +
+          `WARNING: Backend localization files not found under ${backendDir}.\n` +
+          'Skipping server sentence copy consistency checks because backend repo is absent.\n' +
+          '=================================================================================\n'
+      )
+    }
+
+    const itRow163 = backendPresent ? it : it.skip
+
+    itRow163('ensures backend and app define the exact same set of server groups', () => {
+      const { backendEnPath, backendElPath } = getBackendPaths()
+      const backendEnModule = loadTypeScriptFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
+      const backendElModule = loadTypeScriptFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
+
+      const expectedEnGroups = Object.keys(backendEnModule.en.server).sort()
+      const expectedElGroups = Object.keys(backendElModule.el.server).sort()
+
+      expect(Object.keys(en.server).sort()).toEqual(expectedEnGroups)
+      expect(Object.keys(el.server).sort()).toEqual(expectedElGroups)
+    })
+
+    itRow163('compares every copied English server sentence with the backend word for word', () => {
+      const { backendEnPath } = getBackendPaths()
+      const backendEnModule = loadTypeScriptFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
+      const backendServer = backendEnModule.en.server
+
+      const backendLeaves = leaves(backendServer)
+      const appLeaves = leaves(en.server)
+
+      const backendKeys = Array.from(backendLeaves.keys()).sort()
+      const appKeys = Array.from(appLeaves.keys()).sort()
+
+      const missingInApp = backendKeys.filter((k) => !appLeaves.has(k))
+      const extraInApp = appKeys.filter((k) => !backendLeaves.has(k))
+      const mismatches: { code: string; backend: unknown; app: unknown }[] = []
+
+      for (const key of backendKeys) {
+        if (appLeaves.has(key)) {
+          const bVal = backendLeaves.get(key)
+          const aVal = appLeaves.get(key)
+          if (bVal !== aVal) {
+            mismatches.push({ code: key, backend: bVal, app: aVal })
+          }
+        }
+      }
+
+      expect(missingInApp).toEqual([])
+      expect(extraInApp).toEqual([])
+      expect(mismatches).toEqual([])
+    })
+
+    itRow163('compares every copied Greek server sentence with the backend word for word', () => {
+      const { backendElPath } = getBackendPaths()
+      const backendElModule = loadTypeScriptFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
+      const backendServer = backendElModule.el.server
+
+      const backendLeaves = leaves(backendServer)
+      const appLeaves = leaves(el.server)
+
+      const backendKeys = Array.from(backendLeaves.keys()).sort()
+      const appKeys = Array.from(appLeaves.keys()).sort()
+
+      const missingInApp = backendKeys.filter((k) => !appLeaves.has(k))
+      const extraInApp = appKeys.filter((k) => !backendLeaves.has(k))
+      const mismatches: { code: string; backend: unknown; app: unknown }[] = []
+
+      for (const key of backendKeys) {
+        if (appLeaves.has(key)) {
+          const bVal = backendLeaves.get(key)
+          const aVal = appLeaves.get(key)
+          if (bVal !== aVal) {
+            mismatches.push({ code: key, backend: bVal, app: aVal })
+          }
+        }
+      }
+
+      expect(missingInApp).toEqual([])
+      expect(extraInApp).toEqual([])
+      expect(mismatches).toEqual([])
+    })
+
+    const copiedGroups = ['event', 'eventPart', 'enum', 'error', 'notice', 'board', 'mail'] as const
+
+    for (const group of copiedGroups) {
+      itRow163(`matches English server.${group} sentences word for word with backend`, () => {
+        const { backendEnPath } = getBackendPaths()
+        const backendEnModule = loadTypeScriptFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
+        const backendGroup = backendEnModule.en.server[group]
+        const appGroup = (en.server as Record<string, unknown>)[group]
+
+        const backendLeaves = leaves(backendGroup)
+        const appLeaves = leaves(appGroup || {})
+
+        const missingInApp = Array.from(backendLeaves.keys()).filter((k) => !appLeaves.has(k))
+        const extraInApp = Array.from(appLeaves.keys()).filter((k) => !backendLeaves.has(k))
+        const mismatches: { code: string; backend: unknown; app: unknown }[] = []
+
+        for (const [key, bVal] of Array.from(backendLeaves)) {
+          if (appLeaves.has(key)) {
+            const aVal = appLeaves.get(key)
+            if (bVal !== aVal) {
+              mismatches.push({ code: key, backend: bVal, app: aVal })
+            }
+          }
+        }
+
+        expect(missingInApp).toEqual([])
+        expect(extraInApp).toEqual([])
+        expect(mismatches).toEqual([])
+        expect(appGroup).toEqual(backendGroup)
+      })
+
+      itRow163(`matches Greek server.${group} sentences word for word with backend`, () => {
+        const { backendElPath } = getBackendPaths()
+        const backendElModule = loadTypeScriptFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
+        const backendGroup = backendElModule.el.server[group]
+        const appGroup = (el.server as Record<string, unknown>)[group]
+
+        const backendLeaves = leaves(backendGroup)
+        const appLeaves = leaves(appGroup || {})
+
+        const missingInApp = Array.from(backendLeaves.keys()).filter((k) => !appLeaves.has(k))
+        const extraInApp = Array.from(appLeaves.keys()).filter((k) => !backendLeaves.has(k))
+        const mismatches: { code: string; backend: unknown; app: unknown }[] = []
+
+        for (const [key, bVal] of Array.from(backendLeaves)) {
+          if (appLeaves.has(key)) {
+            const aVal = appLeaves.get(key)
+            if (bVal !== aVal) {
+              mismatches.push({ code: key, backend: bVal, app: aVal })
+            }
+          }
+        }
+
+        expect(missingInApp).toEqual([])
+        expect(extraInApp).toEqual([])
+        expect(mismatches).toEqual([])
+        expect(appGroup).toEqual(backendGroup)
+      })
+    }
+
+    itRow163('ensures EVENT_MESSAGE_CODES and EVENT_PART_CODES match the backend exactly', () => {
+      const { backendMessagesPath } = getBackendPaths()
+      const backendMsgModule = loadTypeScriptFile<{
+        EVENT_MESSAGE_CODES: Record<string, readonly string[]>
+        EVENT_PART_CODES: Record<string, readonly string[]>
+      }>(backendMessagesPath)
+
+      // EVENT_MESSAGE_CODES
+      const backendMsgCodes = Object.keys(backendMsgModule.EVENT_MESSAGE_CODES).sort()
+      const appMsgCodes = Object.keys(EVENT_MESSAGE_CODES).sort()
+
+      const missingMsgCodes = backendMsgCodes.filter((c) => !(c in EVENT_MESSAGE_CODES))
+      const extraMsgCodes = appMsgCodes.filter((c) => !(c in backendMsgModule.EVENT_MESSAGE_CODES))
+      const msgParamMismatches: { code: string; backend: readonly string[] | undefined; app: readonly string[] | undefined }[] = []
+
+      for (const code of backendMsgCodes) {
+        if (code in EVENT_MESSAGE_CODES) {
+          const bParams = backendMsgModule.EVENT_MESSAGE_CODES[code]
+          const aParams = EVENT_MESSAGE_CODES[code as keyof typeof EVENT_MESSAGE_CODES]
+          if (JSON.stringify(bParams) !== JSON.stringify(aParams)) {
+            msgParamMismatches.push({ code, backend: bParams, app: aParams })
+          }
+        }
+      }
+
+      expect(missingMsgCodes).toEqual([])
+      expect(extraMsgCodes).toEqual([])
+      expect(msgParamMismatches).toEqual([])
+      expect(EVENT_MESSAGE_CODES).toEqual(backendMsgModule.EVENT_MESSAGE_CODES)
+
+      // EVENT_PART_CODES
+      const backendPartCodes = Object.keys(backendMsgModule.EVENT_PART_CODES).sort()
+      const appPartCodes = Object.keys(EVENT_PART_CODES).sort()
+
+      const missingPartCodes = backendPartCodes.filter((c) => !(c in EVENT_PART_CODES))
+      const extraPartCodes = appPartCodes.filter((c) => !(c in backendMsgModule.EVENT_PART_CODES))
+      const partParamMismatches: { code: string; backend: readonly string[] | undefined; app: readonly string[] | undefined }[] = []
+
+      for (const code of backendPartCodes) {
+        if (code in EVENT_PART_CODES) {
+          const bParams = backendMsgModule.EVENT_PART_CODES[code]
+          const aParams = EVENT_PART_CODES[code as keyof typeof EVENT_PART_CODES]
+          if (JSON.stringify(bParams) !== JSON.stringify(aParams)) {
+            partParamMismatches.push({ code, backend: bParams, app: aParams })
+          }
+        }
+      }
+
+      expect(missingPartCodes).toEqual([])
+      expect(extraPartCodes).toEqual([])
+      expect(partParamMismatches).toEqual([])
+      expect(EVENT_PART_CODES).toEqual(backendMsgModule.EVENT_PART_CODES)
+    })
+  })
+
 })
