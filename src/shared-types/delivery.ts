@@ -13,7 +13,12 @@ export enum EnumCourierStatus {
 }
 
 export enum EnumCountryCode {
-  US = 'US'
+  US = 'US',
+  GR = 'GR',
+  CA = 'CA',
+  GB = 'GB',
+  AU = 'AU',
+  MX = 'MX',
 }
 
 export enum EnumDeliverableAction {

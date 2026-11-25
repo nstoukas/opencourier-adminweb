@@ -24,6 +24,9 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
 
 - A backend enum gaining a value does not reach the UI by itself: update the copy in
   `src/shared-types/` and its label map.
+  `src/shared-types/backend-types.test.ts` compares every copy with the backend's (row 170). Two label maps differ on
+  purpose: `STATUS_TO_HUMAN` and `COURIER_STATUS_TO_HUMAN` hold this dashboard's on screen labels ("Assigning
+  Courier", "Last Call"), not the backend's lower case values; their keys must still match.
 - The generated SDK's nullability is unreliable, so a null check that looks redundant may be load-bearing.
 - Radix does not return focus when a dialog here closes (focus falls to the page). Pass
   `onCloseAutoFocus`, prevent its default and focus the opening button yourself, as

@@ -17,6 +17,9 @@ export enum EnumDeliveryEventType {
   OFFERED = 'OFFERED',
   OFFER_EXPIRED = 'OFFER_EXPIRED',
   NO_COURIER_AVAILABLE = 'NO_COURIER_AVAILABLE',
+  // A delivery accepted but not picked up, sent back to waiting when dispatch stops (spec 0014). A platform
+  // record, never in STATE_MACHINE or the admin menus.
+  RETURNED_TO_WAITING = 'RETURNED_TO_WAITING',
   // A cancelled job (spec 0015): the rider's pay and the food outcome. Platform records too, never
   // in STATE_MACHINE or the admin menus.
   COURIER_PAID_FOR_CANCELLATION = 'COURIER_PAID_FOR_CANCELLATION',
