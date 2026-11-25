@@ -35,7 +35,8 @@ export type DeliveryStateNode = {
  * - REJECTED — ASSIGNING_COURIER → ASSIGNING_COURIER.
  * - PICKED_UP — ACCEPTED | DISPATCHED | COURIER_ARRIVED_AT_PICKUP_LOCATION → PICKED_UP.
  * - CANCELED — non-terminal pre-dropoff states.
- * - DROPPED_OFF — ON_THE_WAY | COURIER_ARRIVED_AT_DROPOFF_LOCATION → DROPPED_OFF (FULFILLED on doorstep unchanged).
+ * - DROPPED_OFF — ON_THE_WAY | COURIER_ARRIVED_AT_DROPOFF_LOCATION → DROPPED_OFF. (Row 176: FULFILLED removed, as the
+ *   backend's table never had it.)
  * - FAILED — per transitions below; also CANCELED → FAILED.
  * - OFFERED, OFFER_EXPIRED, NO_COURIER_AVAILABLE (spec 0002) — the backend keeps the delivery in
  *   ASSIGNING_COURIER for all three, but only the platform records them, so they are left out here
@@ -99,7 +100,6 @@ export const STATE_MACHINE: Record<EnumDeliveryStatus, DeliveryStateNode> = {
 	[EnumDeliveryStatus.COURIER_ARRIVED_AT_DROPOFF_LOCATION]: {
 		on: {
 			[EnumDeliveryEventType.DROPPED_OFF]: EnumDeliveryStatus.DROPPED_OFF,
-			[EnumDeliveryEventType.FULFILLED]: EnumDeliveryStatus.DROPPED_OFF,
 			[EnumDeliveryEventType.CANCELED]: EnumDeliveryStatus.CANCELED,
 			[EnumDeliveryEventType.FAILED]: EnumDeliveryStatus.FAILED,
 		},

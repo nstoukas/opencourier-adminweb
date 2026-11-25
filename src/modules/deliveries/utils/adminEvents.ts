@@ -1,5 +1,20 @@
 import { EnumDeliveryEventType, transitionsForStatus } from '../../../shared-types'
 
+// Row 176: the events the backend's admin path acts on, one `case` each in `submitDeliveryEvent`
+// (opencourier-backend/src/domains/delivery/delivery.domain.service.ts). Any other event it logs as
+// "Unknown status" and answers as if it worked, so the menu offers only these. The rider's own steps
+// (arrived at pickup, on the way, arrived at drop off) stay the rider's.
+export const ADMIN_PATH_EVENTS: EnumDeliveryEventType[] = [
+  EnumDeliveryEventType.CONFIRMED,
+  EnumDeliveryEventType.ACCEPTED,
+  EnumDeliveryEventType.DISPATCHED,
+  EnumDeliveryEventType.REJECTED,
+  EnumDeliveryEventType.PICKED_UP,
+  EnumDeliveryEventType.CANCELED,
+  EnumDeliveryEventType.DROPPED_OFF,
+  EnumDeliveryEventType.FAILED,
+]
+
 // Events the admin menus never offer, even where the state machine allows them.
 // FAILED stays out, as it always has on the delivery page.
 const DISALLOWED_EVENTS: EnumDeliveryEventType[] = [EnumDeliveryEventType.FAILED]
@@ -19,6 +34,7 @@ export function adminEventsForStatus(
   const events = Object.keys(transitionsForStatus(status)) as EnumDeliveryEventType[]
   return events.filter(
     (eventType) =>
+      ADMIN_PATH_EVENTS.includes(eventType) &&
       !DISALLOWED_EVENTS.includes(eventType) &&
       !(riders && eventType === EnumDeliveryEventType.ACCEPTED && courierIdForAdminEvent(eventType, riders) === undefined)
   )
