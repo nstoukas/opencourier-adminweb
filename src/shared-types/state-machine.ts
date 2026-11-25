@@ -40,7 +40,8 @@ export type DeliveryStateNode = {
  * - FAILED — per transitions below; also CANCELED → FAILED.
  * - OFFERED, OFFER_EXPIRED, NO_COURIER_AVAILABLE (spec 0002) — the backend keeps the delivery in
  *   ASSIGNING_COURIER for all three, but only the platform records them, so they are left out here
- *   on purpose: this table is what the admin event menus offer, and an admin must not submit them.
+ *   on purpose: an admin must not submit them. The admin menus offer this table's events filtered by
+ *   ADMIN_PATH_EVENTS (row 176, src/modules/deliveries/utils/adminEvents.ts).
  */
 export const STATE_MACHINE: Record<EnumDeliveryStatus, DeliveryStateNode> = {
 	[EnumDeliveryStatus.CREATED]: {

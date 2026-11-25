@@ -3,7 +3,8 @@ import { EnumDeliveryEventType, transitionsForStatus } from '../../../shared-typ
 // Row 176: the events the backend's admin path acts on, one `case` each in `submitDeliveryEvent`
 // (opencourier-backend/src/domains/delivery/delivery.domain.service.ts). Any other event it logs as
 // "Unknown status" and answers as if it worked, so the menu offers only these. The rider's own steps
-// (arrived at pickup, on the way, arrived at drop off) stay the rider's.
+// (arrived at pickup, on the way, arrived at drop off) stay the rider's. CONFIRMED is never in
+// STATE_MACHINE and FAILED is in DISALLOWED_EVENTS, so neither is offered; they are listed to mirror the backend.
 export const ADMIN_PATH_EVENTS: EnumDeliveryEventType[] = [
   EnumDeliveryEventType.CONFIRMED,
   EnumDeliveryEventType.ACCEPTED,

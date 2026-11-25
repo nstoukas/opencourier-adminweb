@@ -167,7 +167,8 @@ export const deliveriesApi = baseApi.injectEndpoints({
               // `as` narrows the type by hand. adminweb's event list now also holds OFFERED,
               // OFFER_EXPIRED and NO_COURIER_AVAILABLE, which only the platform records; the
               // SDK's submit list rightly lacks them. Callers pass events from the admin menus,
-              // which come from STATE_MACHINE, and that table never lists those three.
+              // which come from STATE_MACHINE filtered by ADMIN_PATH_EVENTS (row 176), and neither
+              // lists those three.
               eventType: eventType as DeliverySubmitEventAdminInputEventTypeEnum,
               ...(courierId ? { courierId } : {}),
               ...(cancelledBy ? { cancelledBy } : {}),

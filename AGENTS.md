@@ -35,6 +35,9 @@ Yarn 1.22, **not Corepack**: run `node node_modules/.bin/next dev -p 3080` and
   (saving); without the second, a save drops it silently.
 - `OFFERED`, `OFFER_EXPIRED` and `NO_COURIER_AVAILABLE` are platform events: in the enum copy, never
   in `STATE_MACHINE`, so the admin trigger menu cannot send them.
+- The admin event menus offer `STATE_MACHINE`'s events only when they are in `ADMIN_PATH_EVENTS`
+  (`src/modules/deliveries/utils/adminEvents.ts`, row 176): one per `case` in the backend's `submitDeliveryEvent`, which
+  answers any other event as if it worked. A new admin event needs a backend case first, then its name there.
 - The backend replaces the instance config's `details` object whole on save: always send the saved details with your change, as `savePayload` in `src/modules/instance-config/settingsDiff.ts` does (spec 0010).
 - The co-op settings page keeps the representative's edits as overrides laid over the saved settings; copying the fetched settings into the boxes on every fetch wipes pending changes (row 87 review). A new setting needs an entry in `SETTINGS` there and a bound control in `src/modules/instance-config/cards/`, or the coverage guard fails.
 - A delivery event's `occurredAt` (row 20) is when a step happened; `lateStepOf` in `src/utils/deliveryEventDisplay.ts` is the one rule for showing a step as late (over 60 s) and "Not applied" (also failed, with no `newStatus`). The legs of one order share an `orderReference`: show the short id beside it wherever a delivery is named.
