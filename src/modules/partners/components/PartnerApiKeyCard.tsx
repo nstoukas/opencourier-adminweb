@@ -33,6 +33,17 @@ export function formatKeyMade(date: Date, t: TFunction, f: Formats): string {
   return t('partners.apiKey.keyMade', { date: f.dateTime(date) })
 }
 
+// The card's first sentence: no login, the key's date, why there is no key (row 162), or no key.
+export function keyStateText(partner: PartnerAdminDto, t: TFunction, f: Formats): string {
+  if (!partner.userId) return t(NO_LOGIN_NO_KEY)
+  if (partner.apiKeyCreatedAt) return formatKeyMade(partner.apiKeyCreatedAt, t, f)
+  // Only with no key: the server clears the note whenever an admin makes, replaces or removes one.
+  if (partner.apiKeyRemovedByResetAt) {
+    return t('partners.apiKey.removedByReset', { date: f.dateTime(partner.apiKeyRemovedByResetAt) })
+  }
+  return t('partners.apiKey.none')
+}
+
 // Which step the dialog shows. Kept apart from `open`, so the title does not change while Radix
 // animates the dialog closed (adminweb AGENTS.md).
 type DialogMode = 'confirm-new' | 'confirm-remove' | 'shown'
@@ -153,11 +164,7 @@ export function PartnerApiKeyCard({ partner }: { partner: PartnerAdminDto }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p id={reasonId} data-testid="api-key-state">
-          {noLogin
-            ? t(NO_LOGIN_NO_KEY)
-            : partner.apiKeyCreatedAt
-              ? formatKeyMade(partner.apiKeyCreatedAt, t, f)
-              : t('partners.apiKey.none')}
+          {keyStateText(partner, t, f)}
         </p>
         <p className="text-muted-foreground">{t('partners.apiKey.explainer')}</p>
         <div className="flex flex-wrap gap-2">

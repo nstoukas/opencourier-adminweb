@@ -89,6 +89,12 @@ export interface PartnerAdminDto {
      */
     apiKeyCreatedAt: Date | null;
     /**
+     * When the restaurant's own password reset by email switched its key off; null otherwise (row 162, hand edited).
+     * @type {Date}
+     * @memberof PartnerAdminDto
+     */
+    apiKeyRemovedByResetAt?: Date | null;
+    /**
      * 
      * @type {LocationAdminDto}
      * @memberof PartnerAdminDto
@@ -140,6 +146,7 @@ export function PartnerAdminDtoFromJSONTyped(json: any, ignoreDiscriminator: boo
         'userId': !exists(json, 'userId') ? null : json['userId'],
         'email': !exists(json, 'email') ? null : json['email'],
         'apiKeyCreatedAt': !exists(json, 'apiKeyCreatedAt') || json['apiKeyCreatedAt'] === null ? null : new Date(json['apiKeyCreatedAt']),
+        'apiKeyRemovedByResetAt': !exists(json, 'apiKeyRemovedByResetAt') || json['apiKeyRemovedByResetAt'] === null ? null : new Date(json['apiKeyRemovedByResetAt']),
         'pickupAddress': !exists(json, 'pickupAddress') || json['pickupAddress'] === null ? null : LocationAdminDtoFromJSON(json['pickupAddress']),
         'createdAt': (new Date(json['createdAt'])),
         'updatedAt': (new Date(json['updatedAt'])),
@@ -164,6 +171,7 @@ export function PartnerAdminDtoToJSON(value?: PartnerAdminDto | null): any {
         'email': value.email,
         // `?.` and `?? null`: a fixture or an older answer may leave the field out (the SDK's types are unreliable).
         'apiKeyCreatedAt': value.apiKeyCreatedAt?.toISOString() ?? null,
+        'apiKeyRemovedByResetAt': value.apiKeyRemovedByResetAt?.toISOString() ?? null,
         'pickupAddress': LocationAdminDtoToJSON(value.pickupAddress),
         'createdAt': (value.createdAt.toISOString()),
         'updatedAt': (value.updatedAt.toISOString()),

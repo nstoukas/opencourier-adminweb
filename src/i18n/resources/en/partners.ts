@@ -243,6 +243,8 @@ export const partners = {
     noLogin: 'No login, so no API key.',
     keyMade: 'Key made {{date}}',
     none: 'No API key.',
+    // Row 162: the restaurant's own reset by email removed the key (the backend keeps when).
+    removedByReset: "No API key. The restaurant's own password reset removed it on {{date}}.",
     explainer:
       "A key lets the restaurant's own system send orders without signing in. Most restaurants use the request app and need none.",
     newKey: 'New API key',
