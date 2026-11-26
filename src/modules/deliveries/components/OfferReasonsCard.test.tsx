@@ -597,7 +597,7 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
         />
       );
 
-      expect(screen.getByText(/Fixed courier \(testing\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Fixed test rider/)).toBeInTheDocument();
       expect(
         screen.getByText("The fixed courier set for testing")
       ).toBeInTheDocument();

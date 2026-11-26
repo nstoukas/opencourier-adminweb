@@ -25,6 +25,7 @@ import {
   type SettingsForm,
 } from '../settingsDiff'
 import { createI18n } from '@/i18n/createI18n'
+import { enumLabel } from '@/i18n/enumLabel'
 
 const t = createI18n('en').t
 const blockers = (changes: any[], form: SettingsForm) => rawBlockers(t, changes, form)
@@ -2263,7 +2264,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       ).toBeInTheDocument()
       expect(
         screen.getByText(
-          /Never while the matcher is Fixed courier \(the override\)\./
+          /Never while the matcher is Fixed test rider\./
         )
       ).toBeInTheDocument()
       expect(
@@ -2478,6 +2479,124 @@ describe('SettingsCards components (row 87 review fixes)', () => {
 
       fireEvent.change(input, { target: { value: '65' } })
       expect(mockSet).toHaveBeenCalledWith('stackPairBlockMinutes', '65')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Row 179: One true label for the STATIC matcher (scope row 179)
+  // ---------------------------------------------------------------------------
+  describe('MatchingCard: STATIC matcher honest copy and one true label (row 179)', () => {
+    const optionsWithStatic = {
+      ...dummyOptions,
+      courierMatcherType: ['NEAREST_COURIER', 'COURIER_SENIORITY', 'STATIC', 'FAIRNESS'],
+    }
+
+    it('renders the STATIC option with honest copy describing backend test rider behavior in English', () => {
+      const i18nEn = createI18n('en')
+      render(
+        <I18nextProvider i18n={i18nEn}>
+          <MatchingCard
+            form={{ ...dummyForm, courierMatcherType: 'STATIC' }}
+            set={jest.fn()}
+            options={optionsWithStatic}
+            loaded={true}
+          />
+        </I18nextProvider>
+      )
+
+      // Clause 1 & Clause 2: The enum label and matcher card title describe backend behavior: "Fixed test rider"
+      const enumLabelText = enumLabel(i18nEn.t, 'courierMatcherType', 'STATIC')
+      const cardTitleText = optionLabel(i18nEn.t, 'courierMatcherType', 'STATIC')
+      expect(enumLabelText).toBe('Fixed test rider')
+      expect(cardTitleText).toBe('Fixed test rider')
+      // One true label: enum label and card title are the exact same string
+      expect(enumLabelText).toBe(cardTitleText)
+      // Enum label no longer says "Static courier id"
+      expect(enumLabelText).not.toContain('Static courier id')
+
+      // Card title and description in document
+      expect(screen.getByText('Fixed test rider')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Every delivery is offered to one test rider set in the code, free or not. Testing only.'
+        )
+      ).toBeInTheDocument()
+
+      // Find the card container for matcher-STATIC
+      const staticInput = screen.getByLabelText(/Fixed test rider/i)
+      const staticLabel = staticInput.closest('label')
+      expect(staticLabel).not.toBeNull()
+      const labelText = staticLabel?.textContent ?? ''
+
+      // Clause 2: Must not claim assignment by hand or "the override"
+      expect(labelText.toLowerCase()).not.toContain('by hand')
+      expect(labelText.toLowerCase()).not.toContain('override')
+
+      // Clause 2: Must say what the matcher does (a test rider, testing)
+      expect(labelText.toLowerCase()).toContain('test rider')
+      expect(labelText.toLowerCase()).toContain('testing')
+    })
+
+    it('renders the STATIC option with honest copy describing backend test rider behavior in Greek', () => {
+      const i18nEl = createI18n('el')
+      render(
+        <I18nextProvider i18n={i18nEl}>
+          <MatchingCard
+            form={{ ...dummyForm, courierMatcherType: 'STATIC' }}
+            set={jest.fn()}
+            options={optionsWithStatic}
+            loaded={true}
+          />
+        </I18nextProvider>
+      )
+
+      // Clause 1 & Clause 2: The enum label and matcher card title describe backend behavior: "Διανομέας δοκιμών"
+      const enumLabelText = enumLabel(i18nEl.t, 'courierMatcherType', 'STATIC')
+      const cardTitleText = optionLabel(i18nEl.t, 'courierMatcherType', 'STATIC')
+      expect(enumLabelText).toBe('Διανομέας δοκιμών')
+      expect(cardTitleText).toBe('Διανομέας δοκιμών')
+      // One true label: enum label and card title are the exact same string
+      expect(enumLabelText).toBe(cardTitleText)
+      // Enum label no longer says "Σταθερός διανομέας" or "Static courier id"
+      expect(enumLabelText).not.toContain('Σταθερός διανομέας')
+      expect(enumLabelText).not.toContain('Static courier id')
+
+      // Card title and description in document
+      expect(screen.getByText('Διανομέας δοκιμών')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Κάθε παραγγελία πάει σε έναν διανομέα δοκιμών ορισμένο στον κώδικα, ελεύθερο ή όχι. Μόνο για δοκιμές.'
+        )
+      ).toBeInTheDocument()
+
+      // Find the card container for matcher-STATIC
+      const staticInput = screen.getByLabelText(/Διανομέας δοκιμών/i)
+      const staticLabel = staticInput.closest('label')
+      expect(staticLabel).not.toBeNull()
+      const labelText = staticLabel?.textContent ?? ''
+
+      // Clause 2: Must not claim assignment by hand or "the override"
+      expect(labelText).not.toContain('με το χέρι')
+      expect(labelText).not.toContain('παράκαμψη')
+
+      // Clause 2: Must say what the matcher does (διανομέα δοκιμών, δοκιμές)
+      expect(labelText).toContain('διανομέα δοκιμών')
+      expect(labelText).toContain('δοκιμές')
+    })
+
+    it('uses the one true label in add-on offers help and offer reasons strategy in both languages', () => {
+      const i18nEn = createI18n('en')
+      const i18nEl = createI18n('el')
+
+      // Add-on help refers to Fixed test rider / Διανομέας δοκιμών
+      expect(i18nEn.t('settings.twoOrders.addOnHelp')).toContain('Never while the matcher is Fixed test rider.')
+      expect(i18nEn.t('settings.twoOrders.addOnHelp')).not.toContain('Fixed courier (the override)')
+      expect(i18nEl.t('settings.twoOrders.addOnHelp')).toContain('Ποτέ όσο η ανάθεση είναι Διανομέας δοκιμών.')
+      expect(i18nEl.t('settings.twoOrders.addOnHelp')).not.toContain('Σταθερός διανομέας (η παράκαμψη)')
+
+      // Offer reasons strategy
+      expect(i18nEn.t('deliveries.offerReasons.strategy.STATIC')).toBe('Fixed test rider')
+      expect(i18nEl.t('deliveries.offerReasons.strategy.STATIC')).toBe('Διανομέας δοκιμών')
     })
   })
 })

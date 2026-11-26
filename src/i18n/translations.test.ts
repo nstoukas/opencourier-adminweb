@@ -511,6 +511,50 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     })
   })
 
+  describe('Row 179: One true label for the STATIC matcher', () => {
+    it('defines honest matcher copy and enum label in English (row 179)', () => {
+      expect(en.enums.courierMatcherType.STATIC).toBe('Fixed test rider')
+      expect(en.settings.matcher.STATIC.title).toBe('Fixed test rider')
+      expect(en.settings.matcher.STATIC.description).toBe(
+        'Every delivery is offered to one test rider set in the code, free or not. Testing only.'
+      )
+      // One true label: enum label and card title match
+      expect(en.enums.courierMatcherType.STATIC).toBe(en.settings.matcher.STATIC.title)
+      // Must not claim assignment by hand or the override
+      expect(en.settings.matcher.STATIC.description.toLowerCase()).not.toContain('by hand')
+      expect(en.settings.matcher.STATIC.description.toLowerCase()).not.toContain('override')
+      // Must state what it does (test rider, testing)
+      expect(en.settings.matcher.STATIC.description.toLowerCase()).toContain('test rider')
+      expect(en.settings.matcher.STATIC.description.toLowerCase()).toContain('testing')
+    })
+
+    it('defines honest matcher copy and enum label in Greek (row 179)', () => {
+      expect(el.enums.courierMatcherType.STATIC).toBe('Διανομέας δοκιμών')
+      expect(el.settings.matcher.STATIC.title).toBe('Διανομέας δοκιμών')
+      expect(el.settings.matcher.STATIC.description).toBe(
+        'Κάθε παραγγελία πάει σε έναν διανομέα δοκιμών ορισμένο στον κώδικα, ελεύθερο ή όχι. Μόνο για δοκιμές.'
+      )
+      // One true label: enum label and card title match
+      expect(el.enums.courierMatcherType.STATIC).toBe(el.settings.matcher.STATIC.title)
+      // Must not claim assignment by hand or the override
+      expect(el.settings.matcher.STATIC.description).not.toContain('με το χέρι')
+      expect(el.settings.matcher.STATIC.description).not.toContain('παράκαμψη')
+      // Must state what it does (διανομέα δοκιμών, δοκιμές)
+      expect(el.settings.matcher.STATIC.description).toContain('διανομέα δοκιμών')
+      expect(el.settings.matcher.STATIC.description).toContain('δοκιμές')
+    })
+
+    it('uses the one true label in add-on offers help and offer reasons strategy in both languages', () => {
+      expect(en.settings.twoOrders.addOnHelp).toContain('Never while the matcher is Fixed test rider.')
+      expect(en.settings.twoOrders.addOnHelp).not.toContain('Fixed courier (the override)')
+      expect(el.settings.twoOrders.addOnHelp).toContain('Ποτέ όσο η ανάθεση είναι Διανομέας δοκιμών.')
+      expect(el.settings.twoOrders.addOnHelp).not.toContain('Σταθερός διανομέας (η παράκαμψη)')
+
+      expect(en.deliveries.offerReasons.strategy.STATIC).toBe('Fixed test rider')
+      expect(el.deliveries.offerReasons.strategy.STATIC).toBe('Διανομέας δοκιμών')
+    })
+  })
+
   describe('Backend path resolution and skip guard', () => {
     it('skips when default backend dir is absent and no override is set', () => {
       const paths = getBackendPaths({
