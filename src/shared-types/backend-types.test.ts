@@ -1414,15 +1414,15 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
 
         // Backend-only exports with no adminweb copy in src/shared-types/
         DELIVERY_ONGOING_STATUSES:
-          'Backend-only list of ongoing statuses with hand mirrors outside src/shared-types (src/modules/deliveries/components/ReassignCourierDialog.tsx, src/modules/deliveries/utils/cancellationDisplay.ts), not compared here (a Deferred item)',
+          'Backend-only list of ongoing statuses with hand mirrors outside src/shared-types (src/modules/deliveries/components/ReassignCourierDialog.tsx, src/modules/deliveries/utils/cancellationDisplay.ts), compared in src/modules/deliveries/utils/cancellationDisplay.mirrors.test.ts (row 175)',
         DELIVERY_PICKED_UP_STATUSES:
-          'Backend-only list of picked-up statuses with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), not compared here (a Deferred item)',
+          'Backend-only list of picked-up statuses with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), compared in src/modules/deliveries/utils/cancellationDisplay.mirrors.test.ts (row 175)',
         ORDER_ITEM_KINDS: 'Backend-only order item kinds list with no adminweb copy',
         FALLBACK_REASSIGNMENT_PAYOUT_POLICIES: 'Backend-only fallback reassignment payout policies config with no adminweb copy',
         FALLBACK_REASSIGNMENT_PAYOUT_DEFAULT_POLICY: 'Backend-only fallback default policy with no adminweb copy',
         FALLBACK_CANCELLATION_PAYOUT_POLICY: 'Backend-only fallback cancellation policy with no adminweb copy',
         EnumCancelledBy:
-          'Backend-only cancellation actor enum with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), not compared here (a Deferred item)',
+          'Backend-only cancellation actor enum with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), compared in src/modules/deliveries/utils/cancellationDisplay.mirrors.test.ts (row 175)',
         EnumStripeAccountStatus: 'Backend-only Stripe account status enum with no adminweb copy',
         EnumRefundReason: 'Backend-only Stripe refund reason enum with no adminweb copy',
         EnumRefundStatus: 'Backend-only Stripe refund status enum with no adminweb copy',
