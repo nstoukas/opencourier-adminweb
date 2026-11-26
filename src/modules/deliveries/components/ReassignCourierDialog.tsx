@@ -44,7 +44,7 @@ const ONGOING_DELIVERY_STATUSES: string[] = [
   'COURIER_ARRIVED_AT_DROPOFF_LOCATION',
 ]
 
-// Mirrors DELIVERY_ONGOING_STATUSES in opencourier-backend/src/shared-types/stateMachine.ts:98.
+// Mirrors DELIVERY_ONGOING_STATUSES in opencourier-backend/src/shared-types/stateMachine.ts (row 175 compares them).
 // ASSIGNING_COURIER is deliberately absent — AssignCourierCell already covers that state.
 export function canReassignDelivery(delivery: DeliveryAdminDto): boolean {
   if (!delivery.courierId) {
