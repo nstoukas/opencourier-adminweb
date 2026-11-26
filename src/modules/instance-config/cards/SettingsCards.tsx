@@ -343,7 +343,7 @@ export function PricingCard({ form, set, options, loaded }: CardProps) {
 }
 
 // The matcher options are worded in the co-op's words under settings.matcher (spec 0010, AC-7). None is
-// "recommended": the assembly chooses, the app does not steer. Fixed test rider (STATIC) offers every delivery
+// "recommended": the assembly chooses, the app does not steer. Fixed test courier (STATIC) offers every delivery
 // to one rider id set in the backend's code, a testing tool, not a way to assign by hand (row 179).
 // FAIRNESS (spec 0044) is the co-op's weighted matcher; its weights are in the Fairness card.
 export function MatchingCard({ form, set, options, loaded }: CardProps) {

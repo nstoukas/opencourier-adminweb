@@ -356,7 +356,7 @@ export const deliveries = {
       FAIRNESS: 'Fairness (co-op weights)',
       NEAREST_COURIER: 'Nearest free courier',
       COURIER_SENIORITY: 'Most senior courier',
-      STATIC: 'Fixed test rider',
+      STATIC: 'Fixed test courier',
       ADMIN: 'Chosen by an admin',
     },
     duration: {
@@ -381,7 +381,7 @@ export const deliveries = {
     memberSince: 'Member since {{date}}',
     adminUser: 'Admin user {{id}}',
     noAdmin: 'No admin recorded',
-    staticCourier: 'The fixed courier set for testing',
+    staticCourier: 'Fixed test courier, set in the code',
     offeredTogether: 'Offered together with delivery {{id}}',
     stopPickUp: '{{number}} pick up {{id}}',
     stopDropOff: '{{number}} drop off {{id}}',

@@ -255,7 +255,7 @@ describe('InstanceConfigurationPage (Co-op settings redesign, spec 0010, row 87)
       expect(screen.getByText('The closest rider who is free.')).toBeInTheDocument()
       expect(screen.getByText('Most senior courier')).toBeInTheDocument()
       expect(screen.getByText('Members who joined first are offered first.')).toBeInTheDocument()
-      expect(screen.getByText('Fixed test rider')).toBeInTheDocument()
+      expect(screen.getByText('Fixed test courier')).toBeInTheDocument()
       expect(
         screen.getByText(
           'Every delivery is offered to one test rider set in the code, free or not. Testing only.'

@@ -2264,7 +2264,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       ).toBeInTheDocument()
       expect(
         screen.getByText(
-          /Never while the matcher is Fixed test rider\./
+          /Never while the matcher is "Fixed test courier"\./
         )
       ).toBeInTheDocument()
       expect(
@@ -2504,18 +2504,18 @@ describe('SettingsCards components (row 87 review fixes)', () => {
         </I18nextProvider>
       )
 
-      // Clause 1 & Clause 2: The enum label and matcher card title describe backend behavior: "Fixed test rider"
+      // Clause 1 & Clause 2: The enum label and matcher card title describe backend behavior: "Fixed test courier"
       const enumLabelText = enumLabel(i18nEn.t, 'courierMatcherType', 'STATIC')
       const cardTitleText = optionLabel(i18nEn.t, 'courierMatcherType', 'STATIC')
-      expect(enumLabelText).toBe('Fixed test rider')
-      expect(cardTitleText).toBe('Fixed test rider')
+      expect(enumLabelText).toBe('Fixed test courier')
+      expect(cardTitleText).toBe('Fixed test courier')
       // One true label: enum label and card title are the exact same string
       expect(enumLabelText).toBe(cardTitleText)
       // Enum label no longer says "Static courier id"
       expect(enumLabelText).not.toContain('Static courier id')
 
       // Card title and description in document
-      expect(screen.getByText('Fixed test rider')).toBeInTheDocument()
+      expect(screen.getByText('Fixed test courier')).toBeInTheDocument()
       expect(
         screen.getByText(
           'Every delivery is offered to one test rider set in the code, free or not. Testing only.'
@@ -2523,7 +2523,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       ).toBeInTheDocument()
 
       // Find the card container for matcher-STATIC
-      const staticInput = screen.getByLabelText(/Fixed test rider/i)
+      const staticInput = screen.getByLabelText(/Fixed test courier/i)
       const staticLabel = staticInput.closest('label')
       expect(staticLabel).not.toBeNull()
       const labelText = staticLabel?.textContent ?? ''
@@ -2565,7 +2565,7 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(screen.getByText('Διανομέας δοκιμών')).toBeInTheDocument()
       expect(
         screen.getByText(
-          'Κάθε παραγγελία πάει σε έναν διανομέα δοκιμών ορισμένο στον κώδικα, ελεύθερο ή όχι. Μόνο για δοκιμές.'
+          'Κάθε παραγγελία προτείνεται σε έναν διανομέα δοκιμών ορισμένο στον κώδικα, ελεύθερο ή όχι. Μόνο για δοκιμές.'
         )
       ).toBeInTheDocument()
 
@@ -2588,14 +2588,14 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       const i18nEn = createI18n('en')
       const i18nEl = createI18n('el')
 
-      // Add-on help refers to Fixed test rider / Διανομέας δοκιμών
-      expect(i18nEn.t('settings.twoOrders.addOnHelp')).toContain('Never while the matcher is Fixed test rider.')
+      // Add-on help refers to Fixed test courier / Διανομέας δοκιμών
+      expect(i18nEn.t('settings.twoOrders.addOnHelp')).toContain('Never while the matcher is "Fixed test courier".')
       expect(i18nEn.t('settings.twoOrders.addOnHelp')).not.toContain('Fixed courier (the override)')
-      expect(i18nEl.t('settings.twoOrders.addOnHelp')).toContain('Ποτέ όσο η ανάθεση είναι Διανομέας δοκιμών.')
+      expect(i18nEl.t('settings.twoOrders.addOnHelp')).toContain('Ποτέ όσο η ανάθεση είναι «Διανομέας δοκιμών».')
       expect(i18nEl.t('settings.twoOrders.addOnHelp')).not.toContain('Σταθερός διανομέας (η παράκαμψη)')
 
       // Offer reasons strategy
-      expect(i18nEn.t('deliveries.offerReasons.strategy.STATIC')).toBe('Fixed test rider')
+      expect(i18nEn.t('deliveries.offerReasons.strategy.STATIC')).toBe('Fixed test courier')
       expect(i18nEl.t('deliveries.offerReasons.strategy.STATIC')).toBe('Διανομέας δοκιμών')
     })
   })

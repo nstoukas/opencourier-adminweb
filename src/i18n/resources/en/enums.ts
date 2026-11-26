@@ -57,7 +57,7 @@ export const enums = {
   courierMatcherType: {
     NEAREST_COURIER: 'Nearest courier',
     COURIER_SENIORITY: 'Courier seniority',
-    STATIC: 'Fixed test rider',
+    STATIC: 'Fixed test courier',
     FAIRNESS: 'Fairness (co-op weights)',
   },
   courierCompensationType: {

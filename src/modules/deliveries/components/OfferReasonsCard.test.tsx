@@ -300,7 +300,7 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
       expect(lines).toEqual(["No admin recorded"]);
     });
 
-    it('produces "The fixed courier set for testing" for STATIC', () => {
+    it('produces "Fixed test courier, set in the code" for STATIC', () => {
       const staticReason: OfferReasonAdmin = {
         id: "reason-static",
         deliveryEventId: "evt-static",
@@ -316,7 +316,7 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
         createdAt: "2026-11-20T10:00:00.000Z",
       };
       expect(reasonLines(staticReason)).toEqual([
-        "The fixed courier set for testing",
+        "Fixed test courier, set in the code",
       ]);
     });
 
@@ -574,7 +574,7 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
       expect(screen.queryByRole("table")).toBeNull();
     });
 
-    it('renders STATIC reason showing "The fixed courier set for testing"', () => {
+    it('renders STATIC reason showing "Fixed test courier, set in the code"', () => {
       const staticReason: OfferReasonAdmin = {
         id: "reason-static-render",
         deliveryEventId: "evt-static-render",
@@ -597,9 +597,9 @@ describe("OfferReasonsCard and formatting helpers (spec 0044, AC-6, AC-8)", () =
         />
       );
 
-      expect(screen.getByText(/Fixed test rider/)).toBeInTheDocument();
+      expect(screen.getByText(/· Fixed test courier$/)).toBeInTheDocument();
       expect(
-        screen.getByText("The fixed courier set for testing")
+        screen.getByText("Fixed test courier, set in the code")
       ).toBeInTheDocument();
       expect(screen.queryByRole("table")).toBeNull();
     });

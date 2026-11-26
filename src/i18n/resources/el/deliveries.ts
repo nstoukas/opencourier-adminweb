@@ -363,7 +363,7 @@ export const deliveries: Translations['deliveries'] = {
     memberSince: 'Μέλος από {{date}}',
     adminUser: 'Διαχειριστής {{id}}',
     noAdmin: 'Δεν καταγράφηκε διαχειριστής',
-    staticCourier: 'Ο σταθερός διανομέας που ορίστηκε για δοκιμές',
+    staticCourier: 'Διανομέας δοκιμών, ορισμένος στον κώδικα',
     offeredTogether: 'Προτάθηκε μαζί με την παραγγελία {{id}}',
     stopPickUp: '{{number}} παραλαβή {{id}}',
     stopDropOff: '{{number}} παράδοση {{id}}',

@@ -513,8 +513,8 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
   describe('Row 179: One true label for the STATIC matcher', () => {
     it('defines honest matcher copy and enum label in English (row 179)', () => {
-      expect(en.enums.courierMatcherType.STATIC).toBe('Fixed test rider')
-      expect(en.settings.matcher.STATIC.title).toBe('Fixed test rider')
+      expect(en.enums.courierMatcherType.STATIC).toBe('Fixed test courier')
+      expect(en.settings.matcher.STATIC.title).toBe('Fixed test courier')
       expect(en.settings.matcher.STATIC.description).toBe(
         'Every delivery is offered to one test rider set in the code, free or not. Testing only.'
       )
@@ -532,7 +532,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
       expect(el.enums.courierMatcherType.STATIC).toBe('Διανομέας δοκιμών')
       expect(el.settings.matcher.STATIC.title).toBe('Διανομέας δοκιμών')
       expect(el.settings.matcher.STATIC.description).toBe(
-        'Κάθε παραγγελία πάει σε έναν διανομέα δοκιμών ορισμένο στον κώδικα, ελεύθερο ή όχι. Μόνο για δοκιμές.'
+        'Κάθε παραγγελία προτείνεται σε έναν διανομέα δοκιμών ορισμένο στον κώδικα, ελεύθερο ή όχι. Μόνο για δοκιμές.'
       )
       // One true label: enum label and card title match
       expect(el.enums.courierMatcherType.STATIC).toBe(el.settings.matcher.STATIC.title)
@@ -545,12 +545,12 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     })
 
     it('uses the one true label in add-on offers help and offer reasons strategy in both languages', () => {
-      expect(en.settings.twoOrders.addOnHelp).toContain('Never while the matcher is Fixed test rider.')
+      expect(en.settings.twoOrders.addOnHelp).toContain('Never while the matcher is "Fixed test courier".')
       expect(en.settings.twoOrders.addOnHelp).not.toContain('Fixed courier (the override)')
-      expect(el.settings.twoOrders.addOnHelp).toContain('Ποτέ όσο η ανάθεση είναι Διανομέας δοκιμών.')
+      expect(el.settings.twoOrders.addOnHelp).toContain('Ποτέ όσο η ανάθεση είναι «Διανομέας δοκιμών».')
       expect(el.settings.twoOrders.addOnHelp).not.toContain('Σταθερός διανομέας (η παράκαμψη)')
 
-      expect(en.deliveries.offerReasons.strategy.STATIC).toBe('Fixed test rider')
+      expect(en.deliveries.offerReasons.strategy.STATIC).toBe('Fixed test courier')
       expect(el.deliveries.offerReasons.strategy.STATIC).toBe('Διανομέας δοκιμών')
     })
   })
