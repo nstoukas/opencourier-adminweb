@@ -346,19 +346,20 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       )
 
       const select = screen.getByLabelText(/^Quote calculation/i) as HTMLSelectElement
-      expect(select).toBeInTheDocument()
 
       const customOption = select.querySelector<HTMLOptionElement>('option[value="CUSTOM"]')
       expect(customOption).not.toBeNull()
-      // English label must state that it randomises courier pay (not full string equality, per spec)
+      // English label must state that it randomises courier pay and is development only
       expect(customOption?.textContent).toMatch(/randomises courier pay/i)
+      expect(customOption?.textContent).toMatch(/DEVELOPMENT ONLY/)
       expect(optionLabel(i18nEn.t, 'quoteCalculationType', 'CUSTOM')).toMatch(/randomises courier pay/i)
+      expect(optionLabel(i18nEn.t, 'quoteCalculationType', 'CUSTOM')).toMatch(/DEVELOPMENT ONLY/)
 
       // Querying by accessible role matches the option
       expect(within(select).getByRole('option', { name: /randomises courier pay/i })).toBe(customOption)
     })
 
-    it('renders the CUSTOM quoteCalculationType option with warning that rider pay becomes random in Greek', () => {
+    it('renders the CUSTOM quoteCalculationType option with warning that courier pay becomes random in Greek', () => {
       const i18nEl = createI18n('el')
       render(
         <I18nextProvider i18n={i18nEl}>
@@ -372,13 +373,14 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       )
 
       const select = screen.getByLabelText(/^Υπολογισμός τιμής/i) as HTMLSelectElement
-      expect(select).toBeInTheDocument()
 
       const customOption = select.querySelector<HTMLOptionElement>('option[value="CUSTOM"]')
       expect(customOption).not.toBeNull()
-      // Greek label must state that courier pay becomes random (η αμοιβή του διανομέα γίνεται τυχαία)
+      // Greek label must state that courier pay becomes random (η αμοιβή του διανομέα γίνεται τυχαία) and ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ
       expect(customOption?.textContent).toMatch(/η αμοιβή του διανομέα γίνεται τυχαία/i)
+      expect(customOption?.textContent).toMatch(/ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ/)
       expect(optionLabel(i18nEl.t, 'quoteCalculationType', 'CUSTOM')).toMatch(/η αμοιβή του διανομέα γίνεται τυχαία/i)
+      expect(optionLabel(i18nEl.t, 'quoteCalculationType', 'CUSTOM')).toMatch(/ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ/)
 
       // Querying by accessible role matches the option
       expect(within(select).getByRole('option', { name: /η αμοιβή του διανομέα γίνεται τυχαία/i })).toBe(customOption)
@@ -427,6 +429,120 @@ describe('SettingsCards components (row 87 review fixes)', () => {
     it('falls back to raw option code when quoteCalculationType is unknown', () => {
       const i18nEn = createI18n('en')
       expect(optionLabel(i18nEn.t, 'quoteCalculationType', 'NON_EXISTENT_CALC')).toBe('NON_EXISTENT_CALC')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // MatchingCard: geoCalculationType random distances warning (row 173)
+  // ---------------------------------------------------------------------------
+  describe('MatchingCard geoCalculationType random distances warning (row 173)', () => {
+    const optionsWithRandom = {
+      ...dummyOptions,
+      geoCalculationType: ['HAVERSINE', 'GOOGLE_MATRIX_API', 'RANDOM', 'OSRM'],
+    }
+
+    it('renders the RANDOM geoCalculationType option with warning that it randomises courier pay in English', () => {
+      const i18nEn = createI18n('en')
+      render(
+        <I18nextProvider i18n={i18nEn}>
+          <MatchingCard
+            form={{ ...dummyForm, geoCalculationType: 'HAVERSINE' }}
+            set={jest.fn()}
+            options={optionsWithRandom}
+            loaded={true}
+          />
+        </I18nextProvider>
+      )
+
+      const select = screen.getByLabelText(/^Measure distance by/i) as HTMLSelectElement
+
+      const randomOption = select.querySelector<HTMLOptionElement>('option[value="RANDOM"]')
+      expect(randomOption).not.toBeNull()
+      // English label must state that it randomises courier pay and is development only
+      expect(randomOption?.textContent).toMatch(/randomises prices and courier pay/i)
+      expect(randomOption?.textContent).toMatch(/courier pay/i)
+      expect(randomOption?.textContent).toMatch(/DEVELOPMENT ONLY/)
+      expect(optionLabel(i18nEn.t, 'geoCalculationType', 'RANDOM')).toMatch(/randomises prices and courier pay/i)
+      expect(optionLabel(i18nEn.t, 'geoCalculationType', 'RANDOM')).toMatch(/DEVELOPMENT ONLY/)
+
+      // Querying by accessible role matches the option
+      expect(within(select).getByRole('option', { name: /courier pay/i })).toBe(randomOption)
+    })
+
+    it('renders the RANDOM geoCalculationType option with warning that courier pay becomes random in Greek', () => {
+      const i18nEl = createI18n('el')
+      render(
+        <I18nextProvider i18n={i18nEl}>
+          <MatchingCard
+            form={{ ...dummyForm, geoCalculationType: 'HAVERSINE' }}
+            set={jest.fn()}
+            options={optionsWithRandom}
+            loaded={true}
+          />
+        </I18nextProvider>
+      )
+
+      const select = screen.getByLabelText(/^Μέτρηση απόστασης με/i) as HTMLSelectElement
+
+      const randomOption = select.querySelector<HTMLOptionElement>('option[value="RANDOM"]')
+      expect(randomOption).not.toBeNull()
+      // Greek label must state that courier pay becomes random (η τιμή και η αμοιβή του διανομέα γίνονται τυχαίες) and ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ
+      expect(randomOption?.textContent).toMatch(/η τιμή και η αμοιβή του διανομέα γίνονται τυχαίες/i)
+      expect(randomOption?.textContent).toMatch(/αμοιβή του διανομέα/i)
+      expect(randomOption?.textContent).toMatch(/ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ/)
+      expect(optionLabel(i18nEl.t, 'geoCalculationType', 'RANDOM')).toMatch(/η τιμή και η αμοιβή του διανομέα γίνονται τυχαίες/i)
+      expect(optionLabel(i18nEl.t, 'geoCalculationType', 'RANDOM')).toMatch(/αμοιβή του διανομέα/i)
+      expect(optionLabel(i18nEl.t, 'geoCalculationType', 'RANDOM')).toMatch(/ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ/)
+
+      // Querying by accessible role matches the option
+      expect(within(select).getByRole('option', { name: /αμοιβή του διανομέα/i })).toBe(randomOption)
+    })
+
+    it('does not render the RANDOM option when RANDOM is absent from options', () => {
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, geoCalculationType: 'HAVERSINE' }}
+          set={jest.fn()}
+          options={{ ...dummyOptions, geoCalculationType: ['HAVERSINE', 'OSRM'] }}
+          loaded={true}
+        />
+      )
+
+      const select = screen.getByLabelText(/^Measure distance by/i) as HTMLSelectElement
+      expect(select.querySelector('option[value="RANDOM"]')).toBeNull()
+      expect(within(select).queryByRole('option', { name: /courier pay/i })).toBeNull()
+    })
+
+    it('allows selecting the RANDOM warning option and calls set with RANDOM', () => {
+      const mockSet = jest.fn()
+      render(
+        <MatchingCard
+          form={{ ...dummyForm, geoCalculationType: 'HAVERSINE' }}
+          set={mockSet}
+          options={optionsWithRandom}
+          loaded={true}
+        />
+      )
+
+      const select = screen.getByLabelText(/^Measure distance by/i) as HTMLSelectElement
+      fireEvent.change(select, { target: { value: 'RANDOM' } })
+      expect(mockSet).toHaveBeenCalledWith('geoCalculationType', 'RANDOM')
+    })
+
+    it('standard geo calculation options (HAVERSINE, GOOGLE_MATRIX_API, OSRM) do not warn about randomising courier pay', () => {
+      const i18nEn = createI18n('en')
+      const haversineLabel = optionLabel(i18nEn.t, 'geoCalculationType', 'HAVERSINE')
+      const googleLabel = optionLabel(i18nEn.t, 'geoCalculationType', 'GOOGLE_MATRIX_API')
+      const osrmLabel = optionLabel(i18nEn.t, 'geoCalculationType', 'OSRM')
+
+      expect(haversineLabel).not.toMatch(/randomise|randomize|random/i)
+      expect(googleLabel).not.toMatch(/randomise|randomize|random/i)
+      expect(osrmLabel).not.toMatch(/randomise|randomize|random/i)
+    })
+
+    it('falls back to raw option code when geoCalculationType is unknown', () => {
+      const i18nEn = createI18n('en')
+      expect(optionLabel(i18nEn.t, 'geoCalculationType', 'NON_EXISTENT_GEO')).toBe('NON_EXISTENT_GEO')
     })
   })
 
