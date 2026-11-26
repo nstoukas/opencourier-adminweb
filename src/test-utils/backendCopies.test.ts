@@ -4,6 +4,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import {
+  DEFAULT_BACKEND_DIR,
   assertBackendFilesExist,
   compareSets,
   findBrokenComparedElsewhere,
@@ -29,10 +30,24 @@ function withScratchFile(name: string, code: string, check: (filePath: string) =
 }
 
 describe('backendCopies: skip rules (rows 163 and 170)', () => {
+  // Row 181 review: this expected folder is found a different way from DEFAULT_BACKEND_DIR's own
+  // expression (walking up to adminweb's package.json, not counting '../'), so moving backendCopies.ts
+  // and this test together cannot make both wrong at once and quietly skip all five copy checks.
   it('defaults to the backend repo beside this one', () => {
+    let adminwebRoot = process.cwd()
+    while (!fs.existsSync(path.join(adminwebRoot, 'package.json'))) {
+      const parent = path.dirname(adminwebRoot)
+      if (parent === adminwebRoot) throw new Error(`No package.json above ${process.cwd()}`)
+      adminwebRoot = parent
+    }
+    const packageName = JSON.parse(fs.readFileSync(path.join(adminwebRoot, 'package.json'), 'utf-8')).name
+    expect(packageName).toBe('admin-web')
+    const expectedDir = path.join(path.dirname(adminwebRoot), 'opencourier-backend')
+
+    expect(DEFAULT_BACKEND_DIR).toBe(expectedDir)
     const paths = getBackendPaths({ env: {} })
-    expect(paths.backendDir).toBe(path.resolve(__dirname, '../../../opencourier-backend'))
-    expect(paths.backendSchemaPath).toBe(path.join(paths.backendDir, 'prisma/schema.prisma'))
+    expect(paths.backendDir).toBe(expectedDir)
+    expect(paths.backendSchemaPath).toBe(path.join(expectedDir, 'prisma/schema.prisma'))
   })
 
   it('skips when default backend dir is absent and no override is set', () => {

@@ -25,7 +25,6 @@ import {
   PrismaEnums,
   assertBackendFilesExist,
   compareSets,
-  findBrokenComparedElsewhere,
   getBackendPaths,
   loadBackendSharedFile,
   parsePrismaEnums,
@@ -36,15 +35,15 @@ import {
 } from './backendCopies'
 
 // adminweb's src folder: every path in MIRRORS is relative to it.
-export const SRC = path.resolve(__dirname, '..')
+const SRC = path.resolve(__dirname, '..')
 
 // Where a backend list comes from: an enum in the Prisma schema, or an exported enum in a backend
 // shared-types file.
-export type BackendSource =
+type BackendSource =
   | { prismaEnum: string }
   | { sharedTypesFile: string; exportName: string }
 
-export interface Mirror {
+interface Mirror {
   // The copy's name, as the test title shows it.
   name: string
   // The adminweb file holding it, relative to src.
@@ -64,7 +63,7 @@ const inlineUnions = (propName: string) => (filePath: string) => readPropertyUni
 
 const SETTINGS_CARDS = 'modules/instance-config/cards/SettingsCards.tsx'
 
-export const MIRRORS: Mirror[] = [
+const MIRRORS: Mirror[] = [
   // Matching settings (spec 0048): what the co-op may choose for two orders and add ons.
   {
     name: 'TWO_ORDER_POLICIES',
@@ -204,7 +203,7 @@ export const MIRRORS: Mirror[] = [
 ]
 
 // The object at a dotted path in a language's texts ('settings.twoOrderPolicy'), or undefined.
-export function textsAt(resources: unknown, dottedPath: string): Record<string, unknown> | undefined {
+function textsAt(resources: unknown, dottedPath: string): Record<string, unknown> | undefined {
   let node: unknown = resources
   for (const part of dottedPath.split('.')) {
     if (node === null || typeof node !== 'object') return undefined
@@ -214,7 +213,7 @@ export function textsAt(resources: unknown, dottedPath: string): Record<string, 
 }
 
 // Reads backend values for a backend source (Prisma enum or shared-types file).
-export function getBackendValues(
+function getBackendValues(
   source: BackendSource,
   paths: ReturnType<typeof getBackendPaths> = getBackendPaths(),
   cachedPrismaEnums?: PrismaEnums
@@ -237,7 +236,7 @@ export function getBackendValues(
 }
 
 // Compares a mirror against expected backend values and reports diffs both ways, stale allowances, etc.
-export function compareMirror(
+function compareMirror(
   mirror: Mirror,
   filePath: string,
   backend: string[]
@@ -267,7 +266,7 @@ export function compareMirror(
 }
 
 // Asserts that a mirror matches expected backend values both ways.
-export function assertMirrorMatches(
+function assertMirrorMatches(
   mirror: Mirror,
   filePath: string,
   backend: string[]
@@ -291,7 +290,7 @@ export function assertMirrorMatches(
 }
 
 // Checks English and Greek labels for a mirror.
-export function checkMirrorLabels(
+function checkMirrorLabels(
   labelsPath: string,
   expected: string[],
   resources: { en: unknown; el: unknown } = { en, el }
@@ -373,7 +372,7 @@ describe('Hand mirrors parity (row 181: the other adminweb hand mirrors checked 
 //     shared-types folder (EnumTwoOrderPolicy in stacking.ts) with added backend value fails.
 // (c) Stale allowances: left out sender backend no longer has, or filter without ALL, fails.
 // (d) Labels check: backend value with missing or blank English or Greek translation fails.
-// (e) COMPARED_ELSEWHERE guard: entry pointing at non-existent file or file not naming export fails.
+// The COMPARED_ELSEWHERE guard's own negative test is in src/test-utils/backendCopies.test.ts.
 // ===================================================================================================
 
 // Helper to run a test with a temporary scratch file and ensure cleanup in finally.
@@ -712,31 +711,6 @@ describe('Negative tests: hand mirror parity checks fail when either side change
 
       expect(enCheck.withoutWords).toEqual([])
       expect(elCheck.withoutWords).toEqual([target])
-    })
-  })
-
-  // (e) Guard in backend-types.test.ts: COMPARED_ELSEWHERE pointing at a file that does not name
-  //     the export fails.
-  describe('(e) COMPARED_ELSEWHERE guard predicate fails on missing file or missing export name', () => {
-    it('detects missing test files and test files that do not name the export', () => {
-      withScratchFile('valid.test.ts', 'export const EnumTwoOrderPolicy = 1\n', (filePath) => {
-        const dir = path.dirname(filePath)
-
-        // Non-existent file fails
-        expect(
-          findBrokenComparedElsewhere({ EnumTwoOrderPolicy: 'does-not-exist.test.ts' }, dir)
-        ).toEqual([['EnumTwoOrderPolicy', 'does-not-exist.test.ts']])
-
-        // Existing file without export name fails
-        expect(
-          findBrokenComparedElsewhere({ EnumOtherExport: 'valid.test.ts' }, dir)
-        ).toEqual([['EnumOtherExport', 'valid.test.ts']])
-
-        // Existing file naming export passes
-        expect(
-          findBrokenComparedElsewhere({ EnumTwoOrderPolicy: 'valid.test.ts' }, dir)
-        ).toEqual([])
-      })
     })
   })
 })

@@ -226,6 +226,8 @@ export function compareSets(
 }
 
 // Finds entries in a COMPARED_ELSEWHERE map where the test file is missing or does not name the export.
+// It checks a mention only: the name anywhere in the file (a comment too) passes, so it does not prove
+// the file compares the export (row 181 review).
 export function findBrokenComparedElsewhere(
   comparedElsewhere: Record<string, string>,
   srcDir: string

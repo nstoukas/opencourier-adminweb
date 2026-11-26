@@ -6,7 +6,6 @@
 // Honours OPENCOURIER_BACKEND_DIR and REQUIRE_BACKEND=1 (the skip rules: src/test-utils/backendCopies.ts,
 // tested once in src/test-utils/backendCopies.test.ts).
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import ts from 'typescript'
 
@@ -1186,7 +1185,8 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
 
       // Backend exports with no copy in src/shared-types but hand copies elsewhere in adminweb, compared
       // in another test file (row 181: NOT_COMPARED used to call the two matching settings uncopied).
-      // Each value is that test file, relative to src; a guard below checks it exists and names the export.
+      // Each value is that test file, relative to src; a guard below checks it exists and mentions the export
+      // by name. A comment naming it is enough to pass, so the guard does not prove the file compares it.
       const COMPARED_ELSEWHERE: Record<string, string> = {
         DELIVERY_ONGOING_STATUSES: 'modules/deliveries/utils/cancellationDisplay.mirrors.test.ts',
         DELIVERY_PICKED_UP_STATUSES: 'modules/deliveries/utils/cancellationDisplay.mirrors.test.ts',
@@ -1344,31 +1344,10 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         }
       )
 
-      itRow170('ensures each export compared elsewhere names a test file that exists and compares it', () => {
+      itRow170('ensures each export compared elsewhere names a test file that exists and mentions it (a mention, not proof of a comparison)', () => {
         const srcDir = path.resolve(__dirname, '..')
         const broken = findBrokenComparedElsewhere(COMPARED_ELSEWHERE, srcDir)
         expect(broken).toEqual([])
-      })
-
-      it('fails when COMPARED_ELSEWHERE points at a file that does not name the export or does not exist', () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-compared-elsewhere-'))
-        try {
-          fs.writeFileSync(path.join(tempDir, 'valid.test.ts'), 'export const EnumTwoOrderPolicy = 1\n')
-          // Non-existent test file fails
-          expect(
-            findBrokenComparedElsewhere({ EnumTwoOrderPolicy: 'missing.test.ts' }, tempDir)
-          ).toEqual([['EnumTwoOrderPolicy', 'missing.test.ts']])
-          // Existing test file without the export name fails
-          expect(
-            findBrokenComparedElsewhere({ EnumUnreferenced: 'valid.test.ts' }, tempDir)
-          ).toEqual([['EnumUnreferenced', 'valid.test.ts']])
-          // Existing test file with the export name passes
-          expect(
-            findBrokenComparedElsewhere({ EnumTwoOrderPolicy: 'valid.test.ts' }, tempDir)
-          ).toEqual([])
-        } finally {
-          fs.rmSync(tempDir, { recursive: true, force: true })
-        }
       })
     })
   })
