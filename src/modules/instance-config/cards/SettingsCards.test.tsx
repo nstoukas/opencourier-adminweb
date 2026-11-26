@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, within } from '@testing-library/react'
+import { I18nextProvider } from 'react-i18next'
 import {
   PricingCard,
   MatchingCard,
@@ -319,6 +320,113 @@ describe('SettingsCards components (row 87 review fixes)', () => {
       expect(within(select).queryByRole('option', { name: 'Not set' })).toBeNull()
       const eurOption = within(select).getByRole('option', { name: 'EUR (Euro)' }) as HTMLOptionElement
       expect(eurOption.selected).toBe(true)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // PricingCard: quoteCalculationType random prices warning (row 173)
+  // ---------------------------------------------------------------------------
+  describe('PricingCard quoteCalculationType random prices warning (row 173)', () => {
+    const optionsWithCustom = {
+      ...dummyOptions,
+      quoteCalculationType: ['BY_DISTANCE', 'SURGE', 'CUSTOM'],
+    }
+
+    it('renders the CUSTOM quoteCalculationType option with warning that it randomises courier pay in English', () => {
+      const i18nEn = createI18n('en')
+      render(
+        <I18nextProvider i18n={i18nEn}>
+          <PricingCard
+            form={{ ...dummyForm, quoteCalculationType: 'BY_DISTANCE' }}
+            set={jest.fn()}
+            options={optionsWithCustom}
+            loaded={true}
+          />
+        </I18nextProvider>
+      )
+
+      const select = screen.getByLabelText(/^Quote calculation/i) as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+
+      const customOption = select.querySelector<HTMLOptionElement>('option[value="CUSTOM"]')
+      expect(customOption).not.toBeNull()
+      // English label must state that it randomises courier pay (not full string equality, per spec)
+      expect(customOption?.textContent).toMatch(/randomises courier pay/i)
+      expect(optionLabel(i18nEn.t, 'quoteCalculationType', 'CUSTOM')).toMatch(/randomises courier pay/i)
+
+      // Querying by accessible role matches the option
+      expect(within(select).getByRole('option', { name: /randomises courier pay/i })).toBe(customOption)
+    })
+
+    it('renders the CUSTOM quoteCalculationType option with warning that rider pay becomes random in Greek', () => {
+      const i18nEl = createI18n('el')
+      render(
+        <I18nextProvider i18n={i18nEl}>
+          <PricingCard
+            form={{ ...dummyForm, quoteCalculationType: 'BY_DISTANCE' }}
+            set={jest.fn()}
+            options={optionsWithCustom}
+            loaded={true}
+          />
+        </I18nextProvider>
+      )
+
+      const select = screen.getByLabelText(/^Υπολογισμός τιμής/i) as HTMLSelectElement
+      expect(select).toBeInTheDocument()
+
+      const customOption = select.querySelector<HTMLOptionElement>('option[value="CUSTOM"]')
+      expect(customOption).not.toBeNull()
+      // Greek label must state that courier pay becomes random (η αμοιβή του διανομέα γίνεται τυχαία)
+      expect(customOption?.textContent).toMatch(/η αμοιβή του διανομέα γίνεται τυχαία/i)
+      expect(optionLabel(i18nEl.t, 'quoteCalculationType', 'CUSTOM')).toMatch(/η αμοιβή του διανομέα γίνεται τυχαία/i)
+
+      // Querying by accessible role matches the option
+      expect(within(select).getByRole('option', { name: /η αμοιβή του διανομέα γίνεται τυχαία/i })).toBe(customOption)
+    })
+
+    it('does not render the CUSTOM option when CUSTOM is absent from options', () => {
+      render(
+        <PricingCard
+          form={{ ...dummyForm, quoteCalculationType: 'BY_DISTANCE' }}
+          set={jest.fn()}
+          options={{ ...dummyOptions, quoteCalculationType: ['BY_DISTANCE', 'SURGE'] }}
+          loaded={true}
+        />
+      )
+
+      const select = screen.getByLabelText(/^Quote calculation/i) as HTMLSelectElement
+      expect(select.querySelector('option[value="CUSTOM"]')).toBeNull()
+      expect(within(select).queryByRole('option', { name: /randomises courier pay/i })).toBeNull()
+    })
+
+    it('allows selecting the CUSTOM warning option and calls set with CUSTOM', () => {
+      const mockSet = jest.fn()
+      render(
+        <PricingCard
+          form={{ ...dummyForm, quoteCalculationType: 'BY_DISTANCE' }}
+          set={mockSet}
+          options={optionsWithCustom}
+          loaded={true}
+        />
+      )
+
+      const select = screen.getByLabelText(/^Quote calculation/i) as HTMLSelectElement
+      fireEvent.change(select, { target: { value: 'CUSTOM' } })
+      expect(mockSet).toHaveBeenCalledWith('quoteCalculationType', 'CUSTOM')
+    })
+
+    it('standard quote calculation options (BY_DISTANCE, SURGE) do not warn about randomising courier pay', () => {
+      const i18nEn = createI18n('en')
+      const byDistanceLabel = optionLabel(i18nEn.t, 'quoteCalculationType', 'BY_DISTANCE')
+      const surgeLabel = optionLabel(i18nEn.t, 'quoteCalculationType', 'SURGE')
+
+      expect(byDistanceLabel).not.toMatch(/randomise|randomize|random/i)
+      expect(surgeLabel).not.toMatch(/randomise|randomize|random/i)
+    })
+
+    it('falls back to raw option code when quoteCalculationType is unknown', () => {
+      const i18nEn = createI18n('en')
+      expect(optionLabel(i18nEn.t, 'quoteCalculationType', 'NON_EXISTENT_CALC')).toBe('NON_EXISTENT_CALC')
     })
   })
 
