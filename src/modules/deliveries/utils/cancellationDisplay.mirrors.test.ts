@@ -15,183 +15,26 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import vm from 'vm'
 import ts from 'typescript'
 import { foodOutcomeText } from './cancellationDisplay'
 import { createI18n } from '@/i18n/createI18n'
 import { deliveries as enDeliveries } from '@/i18n/resources/en/deliveries'
 import { deliveries as elDeliveries } from '@/i18n/resources/el/deliveries'
 
-interface BackendPathsOptions {
-  defaultDir?: string
-  env?: Record<string, string | undefined>
-}
-
-// Resolves backend file locations with support for overrides (e.g. scratch copies in tests).
-export function getBackendPaths(options?: BackendPathsOptions) {
-  const env = options?.env ?? process.env
-  const defaultDir =
-    options?.defaultDir ?? path.resolve(__dirname, '../../../../../opencourier-backend')
-
-  const hasOverride = Boolean(
-    env.OPENCOURIER_BACKEND_DIR ||
-      env.BACKEND_SCHEMA_PATH ||
-      env.BACKEND_SHARED_TYPES_DIR
-  )
-
-  const allFilesOverridden = Boolean(
-    env.BACKEND_SCHEMA_PATH && env.BACKEND_SHARED_TYPES_DIR
-  )
-
-  const backendDir = env.OPENCOURIER_BACKEND_DIR || defaultDir
-  const backendSharedTypesDir =
-    env.BACKEND_SHARED_TYPES_DIR || path.join(backendDir, 'src/shared-types')
-  const backendSchemaPath =
-    env.BACKEND_SCHEMA_PATH || path.join(backendDir, 'prisma/schema.prisma')
-
-  const dirExists = fs.existsSync(backendDir)
-  const requireBackend = env.REQUIRE_BACKEND === '1'
-
-  // Skip only when the backend folder itself is absent and no override is set.
-  // When REQUIRE_BACKEND=1, never skip (it turns the absence into a failure).
-  const shouldSkip = !hasOverride && !dirExists && !requireBackend
-
-  return {
-    backendDir,
-    backendSharedTypesDir,
-    backendSchemaPath,
-    hasOverride,
-    allFilesOverridden,
-    dirExists,
-    requireBackend,
-    shouldSkip,
-  }
-}
-
-// Verifies required backend files exist; only checks directory existence when paths are derived from it.
-export function assertBackendFilesExist(paths: ReturnType<typeof getBackendPaths>) {
-  if (paths.requireBackend && !paths.dirExists && !paths.allFilesOverridden) {
-    throw new Error(
-      `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
-    )
-  }
-  if (!paths.dirExists && !paths.allFilesOverridden) {
-    throw new Error(`Backend directory was not found under ${paths.backendDir}`)
-  }
-  if (!fs.existsSync(paths.backendSchemaPath)) {
-    throw new Error(
-      `Backend Prisma schema missing: checked ${paths.backendSchemaPath}`
-    )
-  }
-  if (!fs.existsSync(paths.backendSharedTypesDir)) {
-    throw new Error(
-      `Backend shared-types dir missing: checked ${paths.backendSharedTypesDir}`
-    )
-  }
-}
-
-let loggedSkipWarning = false
-export function warnBackendAbsentOnce(backendDir: string) {
-  if (!loggedSkipWarning) {
-    loggedSkipWarning = true
-    console.warn(
-      '\n=================================================================================\n' +
-        `WARNING: Backend directory not found under ${backendDir}.\n` +
-        'Skipping hand mirror parity checks because backend repo is absent.\n' +
-        '=================================================================================\n'
-    )
-  }
-}
-
-// Parses Prisma schema enums into string-record dictionaries.
-export function parsePrismaEnums(schemaPath: string): Record<string, Record<string, string>> {
-  if (!fs.existsSync(schemaPath)) {
-    throw new Error(`Prisma schema file missing: ${schemaPath}`)
-  }
-  const schemaContent = fs.readFileSync(schemaPath, 'utf-8')
-  const enums: Record<string, Record<string, string>> = {}
-  for (const match of Array.from(schemaContent.matchAll(/enum\s+(\w+)\s+\{([^}]+)\}/g))) {
-    const enumName = match[1]
-    const body = match[2]
-    if (!enumName || !body) continue
-    const members = body
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line && !line.startsWith('//'))
-      .map((line: string) => line.split(/\s+/)[0])
-      .filter(Boolean)
-    enums[enumName] = Object.fromEntries(members.map((m: string) => [m, m]))
-  }
-  return enums
-}
-
-// Loads a backend TypeScript file by transpiling to CommonJS and executing in a vm context.
-// Passes Prisma enums when `@prisma/types` is imported, and resolves relative imports within shared-types.
-export function loadBackendSharedFile<T = Record<string, unknown>>(
-  filePath: string,
-  prismaEnums: Record<string, Record<string, string>>
-): T {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Backend file not found: ${filePath}`)
-  }
-  const code = fs.readFileSync(filePath, 'utf-8')
-  const js = ts.transpileModule(code, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-    },
-  }).outputText
-
-  const exportsObj: Record<string, unknown> = {}
-  const moduleObj = { exports: exportsObj }
-
-  const customRequire = (id: string): unknown => {
-    if (id === '@prisma/types' || id.endsWith('prisma/schema.prisma')) {
-      return prismaEnums
-    }
-    if (id.startsWith('.')) {
-      const dir = path.dirname(filePath)
-      let target = path.resolve(dir, id)
-      if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
-        target = path.join(target, 'index')
-      }
-      if (!fs.existsSync(target) && fs.existsSync(target + '.ts')) target = target + '.ts'
-      if (!fs.existsSync(target) && fs.existsSync(target + '.d.ts')) return {}
-      if (fs.existsSync(target)) {
-        return loadBackendSharedFile(target, prismaEnums)
-      }
-    }
-    throw new Error(
-      `Evaluating ${filePath} attempted to call require('${id}'). ` +
-        'This loader runs the co-op plain data files and does not support value imports.'
-    )
-  }
-
-  const context = vm.createContext({
-    exports: exportsObj,
-    module: moduleObj,
-    require: customRequire,
-  })
-
-  try {
-    vm.runInContext(js, context)
-  } catch (err: unknown) {
-    if (
-      err instanceof Error &&
-      err.message.includes('attempted to call require')
-    ) {
-      throw err
-    }
-    const message = err instanceof Error ? err.message : String(err)
-    throw new Error(`Failed to evaluate ${filePath}: ${message}`)
-  }
-
-  return moduleObj.exports as T
-}
+// The skip rules, the backend loader, the Prisma reader and compareSets are shared by every copy check
+// (row 181); the skip rules are tested once, in src/test-utils/backendCopies.test.ts.
+import {
+  assertBackendFilesExist,
+  compareSets,
+  getBackendPaths,
+  loadBackendSharedFile,
+  parsePrismaEnums,
+  warnBackendAbsentOnce,
+} from '@/test-utils/backendCopies'
 
 // Uses the TypeScript compiler API to extract hand mirrors from cancellationDisplay.ts.
 // Throws naming the constant and file if not found, not an array literal or union, or holds unreadable elements.
-export function readCancellationDisplayMirrors(filePath: string) {
+function readCancellationDisplayMirrors(filePath: string) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`)
   }
@@ -297,7 +140,7 @@ export function readCancellationDisplayMirrors(filePath: string) {
 
 // Uses the TypeScript compiler API to extract ONGOING_DELIVERY_STATUSES from ReassignCourierDialog.tsx.
 // Throws naming the constant and file if not found, not an array literal, or holds unreadable elements.
-export function readReassignCourierDialogMirrors(filePath: string) {
+function readReassignCourierDialogMirrors(filePath: string) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`)
   }
@@ -340,7 +183,7 @@ export function readReassignCourierDialogMirrors(filePath: string) {
 
 // Uses the TypeScript compiler API to extract CHOICES from CancelDeliveryDialog.tsx.
 // Throws naming the constant and file if not found, not an array literal, or holds unreadable elements.
-export function readCancelDeliveryDialogChoices(filePath: string) {
+function readCancelDeliveryDialogChoices(filePath: string) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`)
   }
@@ -381,7 +224,7 @@ export function readCancelDeliveryDialogChoices(filePath: string) {
 
 // Uses the TypeScript compiler API to extract cancelledBy union members from submitDeliveryEvent in deliveriesApi.ts.
 // Throws naming the constant and file if not found, not a union, or holds unreadable members.
-export function readDeliveriesApiCancelledBy(filePath: string) {
+function readDeliveriesApiCancelledBy(filePath: string) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`)
   }
@@ -428,7 +271,7 @@ export function readDeliveriesApiCancelledBy(filePath: string) {
 
 // Uses the TypeScript compiler API to extract keys of deliveries.cancelledBy from an i18n file.
 // Throws naming the constant and file if not found, not an object literal, or holds unreadable properties.
-export function readI18nCancelledByKeys(filePath: string): string[] {
+function readI18nCancelledByKeys(filePath: string): string[] {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`)
   }
@@ -474,7 +317,7 @@ export function readI18nCancelledByKeys(filePath: string): string[] {
 }
 
 // Uses the TypeScript compiler API to extract literals compared against foodOutcome in foodOutcomeText.
-export function readFoodOutcomeLiterals(filePath: string): string[] {
+function readFoodOutcomeLiterals(filePath: string): string[] {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`)
   }
@@ -535,122 +378,8 @@ export function readFoodOutcomeLiterals(filePath: string): string[] {
   return literals
 }
 
-// Compares two lists as sets both ways: detects items missing in app, extra in app.
-// Order does not matter.
-export function compareSets(
-  adminItems: string[],
-  backendItems: string[]
-): {
-  missingInApp: string[]
-  extraInApp: string[]
-} {
-  const adminSet = new Set(adminItems)
-  const backendSet = new Set(backendItems)
-
-  const missingInApp = backendItems.filter((item) => !adminSet.has(item))
-  const extraInApp = adminItems.filter((item) => !backendSet.has(item))
-
-  return { missingInApp, extraInApp }
-}
-
 describe('Hand mirrors parity (row 175: adminweb mirrors checked against backend)', () => {
-  describe('Backend path resolution and skip guard', () => {
-    it('skips when default backend dir is absent and no override is set', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../../../nonexistent-backend-for-test'),
-        env: {},
-      })
-      expect(paths.shouldSkip).toBe(true)
-      expect(paths.dirExists).toBe(false)
-    })
-
-    it('turns skip into failure when REQUIRE_BACKEND=1 even if backend dir is absent', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../../../nonexistent-backend-for-test'),
-        env: { REQUIRE_BACKEND: '1' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.requireBackend).toBe(true)
-      expect(paths.dirExists).toBe(false)
-      expect(() => assertBackendFilesExist(paths)).toThrow(
-        `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
-      )
-    })
-
-    it('does not skip when an override path is set, even if the directory does not exist', () => {
-      const paths = getBackendPaths({
-        env: { OPENCOURIER_BACKEND_DIR: '/nonexistent/override/dir' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.hasOverride).toBe(true)
-      expect(paths.dirExists).toBe(false)
-      expect(() => assertBackendFilesExist(paths)).toThrow(
-        `Backend directory was not found under ${paths.backendDir}`
-      )
-    })
-
-    it('detects missing required file in present directory', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-scratch-backend-'))
-      try {
-        const paths = getBackendPaths({
-          env: { OPENCOURIER_BACKEND_DIR: tempDir },
-        })
-        expect(paths.shouldSkip).toBe(false)
-        expect(paths.dirExists).toBe(true)
-        expect(() => assertBackendFilesExist(paths)).toThrow(
-          `Backend Prisma schema missing: checked ${paths.backendSchemaPath}`
-        )
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
-    })
-
-    it('does not fail existence check when all per target overrides exist even if default dir is absent', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-scratch-overrides-'))
-      try {
-        const schemaPath = path.join(tempDir, 'schema.prisma')
-        const sharedTypesDir = path.join(tempDir, 'shared-types')
-        fs.writeFileSync(schemaPath, 'enum Test { A }')
-        fs.mkdirSync(sharedTypesDir)
-
-        const paths = getBackendPaths({
-          defaultDir: path.resolve(__dirname, '../../../../../nonexistent-backend-for-test'),
-          env: {
-            BACKEND_SCHEMA_PATH: schemaPath,
-            BACKEND_SHARED_TYPES_DIR: sharedTypesDir,
-          },
-        })
-        expect(paths.shouldSkip).toBe(false)
-        expect(paths.allFilesOverridden).toBe(true)
-        expect(paths.dirExists).toBe(false)
-        expect(fs.existsSync(paths.backendSchemaPath)).toBe(true)
-        expect(fs.existsSync(paths.backendSharedTypesDir)).toBe(true)
-
-        expect(() => assertBackendFilesExist(paths)).not.toThrow()
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
-    })
-  })
-
-  describe('compareSets and AST extraction helpers (Minor 1 error guards)', () => {
-    it('detects missing and extra items correctly as sets', () => {
-      const admin = ['A', 'B']
-      const backend = ['B', 'C']
-      const diff = compareSets(admin, backend)
-      expect(diff.missingInApp).toEqual(['C'])
-      expect(diff.extraInApp).toEqual(['A'])
-    })
-
-    it('considers sets equal regardless of element order', () => {
-      const admin = ['A', 'B', 'C']
-      const backend = ['C', 'A', 'B']
-      const diff = compareSets(admin, backend)
-      expect(diff.missingInApp).toEqual([])
-      expect(diff.extraInApp).toEqual([])
-      expect(new Set(admin)).toEqual(new Set(backend))
-    })
-
+  describe('AST extraction helpers (Minor 1 error guards)', () => {
     it('throws when AST extractor is given a nonexistent file', () => {
       expect(() => readCancellationDisplayMirrors('/nonexistent/path.ts')).toThrow(
         'File not found: /nonexistent/path.ts'
@@ -789,7 +518,7 @@ describe('Hand mirrors parity (row 175: adminweb mirrors checked against backend
     const backendPaths = getBackendPaths()
 
     if (backendPaths.shouldSkip) {
-      warnBackendAbsentOnce(backendPaths.backendDir)
+      warnBackendAbsentOnce(backendPaths.backendDir, 'hand mirror parity checks')
     }
 
     const itRow175 = backendPaths.shouldSkip ? it.skip : it

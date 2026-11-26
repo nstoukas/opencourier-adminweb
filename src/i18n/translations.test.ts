@@ -4,10 +4,12 @@
 // Row 146: ADD_ON_JOINED copy consistency check against backend.
 // Row 163: checks every copied server sentence and event code against the backend word for word.
 import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import vm from 'vm'
-import ts from 'typescript'
+import {
+  assertBackendFilesExist,
+  getBackendPaths,
+  loadBackendSharedFile,
+  warnBackendAbsentOnce,
+} from '@/test-utils/backendCopies'
 import { EVENT_MESSAGE_CODES, EVENT_PART_CODES } from '@/shared-types/event-messages'
 import { EnumDeliveryStatus } from '@/shared-types/delivery-events'
 import { en } from './resources/en'
@@ -53,95 +55,9 @@ const nestedKeys = (text: string): string[] => {
   return matches
 }
 
-// Runs the transpiled file in a bare context (no require): this executes the co-op's own backend file
-// and is not a security boundary. It is fine while the backend's files are plain data; if the evaluated
-// file calls require (a value import), the test fails with a clear message naming the file, not a bare
-// ReferenceError. Preserves exact multi-line formatting, escaped quotes and {{template}} placeholders.
-function loadTypeScriptFile<T = Record<string, unknown>>(filePath: string): T {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Backend file not found: ${filePath}`)
-  }
-  const code = fs.readFileSync(filePath, 'utf-8')
-  // Transpile TypeScript source down to CommonJS JavaScript
-  const js = ts.transpileModule(code, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-    },
-  }).outputText
-  const exportsObj: Record<string, unknown> = {}
-  const moduleObj = { exports: exportsObj }
-  const customRequire = (id: string) => {
-    throw new Error(
-      `Evaluating ${filePath} attempted to call require('${id}'). ` +
-        'This loader runs the co-op plain data files and does not support value imports.'
-    )
-  }
-  const context = vm.createContext({
-    exports: exportsObj,
-    module: moduleObj,
-    require: customRequire,
-  })
-  try {
-    vm.runInContext(js, context)
-  } catch (err: unknown) {
-    if (
-      err instanceof Error &&
-      err.message.includes('attempted to call require')
-    ) {
-      throw err
-    }
-    const message = err instanceof Error ? err.message : String(err)
-    throw new Error(`Failed to evaluate ${filePath}: ${message}`)
-  }
-  return moduleObj.exports as T
-}
-
-interface BackendPathsOptions {
-  defaultDir?: string
-  env?: Record<string, string | undefined>
-}
-
-// Resolves backend file locations with support for overrides (e.g. scratch copies in tests).
-function getBackendPaths(options?: BackendPathsOptions) {
-  const env = options?.env ?? process.env
-  const defaultDir =
-    options?.defaultDir ?? path.resolve(__dirname, '../../../opencourier-backend')
-
-  const hasOverride = Boolean(
-    env.OPENCOURIER_BACKEND_DIR ||
-      env.BACKEND_EN_PATH ||
-      env.BACKEND_EL_PATH ||
-      env.BACKEND_MESSAGES_PATH
-  )
-
-  const backendDir = env.OPENCOURIER_BACKEND_DIR || defaultDir
-  const backendEnPath =
-    env.BACKEND_EN_PATH || path.join(backendDir, 'src/localization/en.ts')
-  const backendElPath =
-    env.BACKEND_EL_PATH || path.join(backendDir, 'src/localization/el.ts')
-  const backendMessagesPath =
-    env.BACKEND_MESSAGES_PATH ||
-    path.join(backendDir, 'src/shared-types/event-messages.ts')
-
-  const dirExists = fs.existsSync(backendDir)
-  const requireBackend = env.REQUIRE_BACKEND === '1'
-
-  // Skip only when the backend folder itself is absent and no override is set.
-  // When REQUIRE_BACKEND=1, never skip (it turns the absence into a failure).
-  const shouldSkip = !hasOverride && !dirExists && !requireBackend
-
-  return {
-    backendDir,
-    backendEnPath,
-    backendElPath,
-    backendMessagesPath,
-    hasOverride,
-    dirExists,
-    requireBackend,
-    shouldSkip,
-  }
-}
+// The skip rules and the backend loader are shared by every copy check (row 181); the skip rules are
+// tested once, in src/test-utils/backendCopies.test.ts. The loader runs the backend's plain data files and
+// fails naming the file if one makes a value import.
 
 describe('Translations completeness (spec 0054, AC-8)', () => {
   const english = leaves(en)
@@ -346,42 +262,17 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     const backendPaths = getBackendPaths()
 
     if (backendPaths.shouldSkip) {
-      console.warn(
-        '\n=================================================================================\n' +
-          `WARNING: Backend localization files not found under ${backendPaths.backendDir}.\n` +
-          'Skipping ADD_ON_JOINED backend copy consistency check because backend repo is absent.\n' +
-          '=================================================================================\n'
-      )
+      warnBackendAbsentOnce(backendPaths.backendDir, 'ADD_ON_JOINED backend copy consistency check')
     }
 
     const itBackendCopy = backendPaths.shouldSkip ? it.skip : it
 
     itBackendCopy('verifies copies stay identical to the backend when backend repo is present (row 146 copy check)', () => {
-      if (backendPaths.requireBackend && !backendPaths.dirExists) {
-        throw new Error(
-          `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${backendPaths.backendDir}`
-        )
-      }
-      if (!backendPaths.dirExists) {
-        throw new Error(
-          `Backend directory was not found under ${backendPaths.backendDir}`
-        )
-      }
-      if (!fs.existsSync(backendPaths.backendEnPath)) {
-        throw new Error(
-          `Backend localization file missing: en.ts (checked ${backendPaths.backendEnPath})`
-        )
-      }
-      if (!fs.existsSync(backendPaths.backendElPath)) {
-        throw new Error(
-          `Backend localization file missing: el.ts (checked ${backendPaths.backendElPath})`
-        )
-      }
-      if (!fs.existsSync(backendPaths.backendMessagesPath)) {
-        throw new Error(
-          `Backend localization file missing: event-messages.ts (checked ${backendPaths.backendMessagesPath})`
-        )
-      }
+      assertBackendFilesExist(backendPaths, {
+        'localization file en.ts': backendPaths.backendEnPath,
+        'localization file el.ts': backendPaths.backendElPath,
+        'event messages file': backendPaths.backendMessagesPath,
+      })
 
       const backendEnContent = fs.readFileSync(backendPaths.backendEnPath, 'utf-8')
       const backendElContent = fs.readFileSync(backendPaths.backendElPath, 'utf-8')
@@ -555,108 +446,27 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     })
   })
 
-  describe('Backend path resolution and skip guard', () => {
-    it('skips when default backend dir is absent and no override is set', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../nonexistent-backend-for-test'),
-        env: {},
-      })
-      expect(paths.shouldSkip).toBe(true)
-      expect(paths.dirExists).toBe(false)
-    })
-
-    it('turns skip into failure when REQUIRE_BACKEND=1 even if backend dir is absent', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../nonexistent-backend-for-test'),
-        env: { REQUIRE_BACKEND: '1' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.requireBackend).toBe(true)
-      expect(paths.dirExists).toBe(false)
-    })
-
-    it('does not skip when an override path is set, even if the directory does not exist', () => {
-      const paths = getBackendPaths({
-        env: { OPENCOURIER_BACKEND_DIR: '/nonexistent/override/dir' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.hasOverride).toBe(true)
-      expect(paths.dirExists).toBe(false)
-    })
-
-    it('detects missing required file in present directory', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-scratch-backend-'))
-      try {
-        const paths = getBackendPaths({
-          env: { OPENCOURIER_BACKEND_DIR: tempDir },
-        })
-        expect(paths.shouldSkip).toBe(false)
-        expect(paths.dirExists).toBe(true)
-        expect(fs.existsSync(paths.backendEnPath)).toBe(false)
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
-    })
-  })
-
   describe('Row 163: Every copied server sentence is checked against the backend', () => {
     const backendPaths = getBackendPaths()
 
     if (backendPaths.shouldSkip) {
-      console.warn(
-        '\n=================================================================================\n' +
-          `WARNING: Backend localization files not found under ${backendPaths.backendDir}.\n` +
-          'Skipping server sentence copy consistency checks because backend repo is absent.\n' +
-          '=================================================================================\n'
-      )
+      warnBackendAbsentOnce(backendPaths.backendDir, 'server sentence copy consistency checks')
     }
 
     const itRow163 = backendPaths.shouldSkip ? it.skip : it
 
     itRow163('ensures backend directory and localization files exist', () => {
-      if (backendPaths.requireBackend && !backendPaths.dirExists) {
-        throw new Error(
-          `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${backendPaths.backendDir}`
-        )
-      }
-      if (!backendPaths.dirExists) {
-        throw new Error(
-          `Backend directory was not found under ${backendPaths.backendDir}`
-        )
-      }
-      for (const [name, filePath] of [
-        ['en.ts', backendPaths.backendEnPath],
-        ['el.ts', backendPaths.backendElPath],
-        ['event-messages.ts', backendPaths.backendMessagesPath],
-      ] as const) {
-        if (!fs.existsSync(filePath)) {
-          throw new Error(
-            `Backend localization file missing: ${name} (checked ${filePath})`
-          )
-        }
-      }
-    })
-
-    it('fails with a clear message naming the file if an evaluated file calls require', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-adminweb-require-'))
-      const scratchRequireFile = path.join(tempDir, 'scratch-require.ts')
-      fs.writeFileSync(
-        scratchRequireFile,
-        'const crypto = require("crypto"); export const data = { crypto };'
-      )
-      try {
-        expect(() => loadTypeScriptFile(scratchRequireFile)).toThrow(
-          `Evaluating ${scratchRequireFile} attempted to call require('crypto')`
-        )
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
+      assertBackendFilesExist(backendPaths, {
+        'localization file en.ts': backendPaths.backendEnPath,
+        'localization file el.ts': backendPaths.backendElPath,
+        'event messages file': backendPaths.backendMessagesPath,
+      })
     })
 
     itRow163('ensures backend and app define the exact same set of server groups', () => {
       const { backendEnPath, backendElPath } = getBackendPaths()
-      const backendEnModule = loadTypeScriptFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
-      const backendElModule = loadTypeScriptFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
+      const backendEnModule = loadBackendSharedFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
+      const backendElModule = loadBackendSharedFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
 
       const expectedEnGroups = Object.keys(backendEnModule.en.server).sort()
       const expectedElGroups = Object.keys(backendElModule.el.server).sort()
@@ -667,7 +477,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
     itRow163('compares every copied English server sentence with the backend word for word', () => {
       const { backendEnPath } = getBackendPaths()
-      const backendEnModule = loadTypeScriptFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
+      const backendEnModule = loadBackendSharedFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
       const backendServer = backendEnModule.en.server
 
       const backendLeaves = leaves(backendServer)
@@ -697,7 +507,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
     itRow163('compares every copied Greek server sentence with the backend word for word', () => {
       const { backendElPath } = getBackendPaths()
-      const backendElModule = loadTypeScriptFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
+      const backendElModule = loadBackendSharedFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
       const backendServer = backendElModule.el.server
 
       const backendLeaves = leaves(backendServer)
@@ -730,7 +540,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
     for (const group of copiedGroups) {
       itRow163(`matches English server.${group} sentences word for word with backend`, () => {
         const { backendEnPath } = getBackendPaths()
-        const backendEnModule = loadTypeScriptFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
+        const backendEnModule = loadBackendSharedFile<{ en: { server: Record<string, unknown> } }>(backendEnPath)
         const backendGroup = backendEnModule.en.server[group]
         const appGroup = (en.server as Record<string, unknown>)[group]
 
@@ -758,7 +568,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
       itRow163(`matches Greek server.${group} sentences word for word with backend`, () => {
         const { backendElPath } = getBackendPaths()
-        const backendElModule = loadTypeScriptFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
+        const backendElModule = loadBackendSharedFile<{ el: { server: Record<string, unknown> } }>(backendElPath)
         const backendGroup = backendElModule.el.server[group]
         const appGroup = (el.server as Record<string, unknown>)[group]
 
@@ -787,7 +597,7 @@ describe('Translations completeness (spec 0054, AC-8)', () => {
 
     itRow163('ensures EVENT_MESSAGE_CODES and EVENT_PART_CODES match the backend exactly', () => {
       const { backendMessagesPath } = getBackendPaths()
-      const backendMsgModule = loadTypeScriptFile<{
+      const backendMsgModule = loadBackendSharedFile<{
         EVENT_MESSAGE_CODES: Record<string, readonly string[]>
         EVENT_PART_CODES: Record<string, readonly string[]>
       }>(backendMessagesPath)

@@ -1,8 +1,9 @@
 import fs from 'fs'
-import path from 'path'
 import { EnumDeliveryEventType, EnumDeliveryStatus } from '../../../shared-types'
 import { STATE_MACHINE } from '../../../shared-types/state-machine'
 import { adminEventsForStatus, courierIdForAdminEvent, ADMIN_PATH_EVENTS } from './adminEvents'
+// The skip rules are shared by every copy check (row 181) and tested once, in backendCopies.test.ts.
+import { assertBackendFilesExist, getBackendPaths, warnBackendAbsentOnce } from '@/test-utils/backendCopies'
 
 describe('adminEvents utility functions', () => {
   describe('adminEventsForStatus', () => {
@@ -211,107 +212,19 @@ describe('adminEvents utility functions', () => {
   })
 
   describe('ADMIN_PATH_EVENTS backend parity (Pin 3, row 176)', () => {
-    interface BackendPathsOptions {
-      defaultDir?: string
-      env?: Record<string, string | undefined>
-    }
-
-    // Resolves backend file locations with support for overrides (row 170 rules).
-    function getBackendPaths(options?: BackendPathsOptions) {
-      const env = options?.env ?? process.env
-      const defaultDir =
-        options?.defaultDir ?? path.resolve(__dirname, '../../../../../opencourier-backend')
-
-      const hasOverride = Boolean(env.OPENCOURIER_BACKEND_DIR)
-      const backendDir = env.OPENCOURIER_BACKEND_DIR || defaultDir
-      const backendServicePath = path.join(
-        backendDir,
-        'src/domains/delivery/delivery.domain.service.ts'
-      )
-
-      const dirExists = fs.existsSync(backendDir)
-      const requireBackend = env.REQUIRE_BACKEND === '1'
-
-      // Skip only when the backend folder itself is absent and no override is set.
-      // When REQUIRE_BACKEND=1, never skip (it turns the absence into a failure).
-      const shouldSkip = !hasOverride && !dirExists && !requireBackend
-
-      return {
-        backendDir,
-        backendServicePath,
-        hasOverride,
-        dirExists,
-        requireBackend,
-        shouldSkip,
-      }
-    }
-
-    // Verifies required backend files exist; fails if directory does not exist or delivery service is missing.
-    function assertBackendFilesExist(paths: ReturnType<typeof getBackendPaths>) {
-      if (paths.requireBackend && !paths.dirExists) {
-        throw new Error(
-          `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
-        )
-      }
-      if (!paths.dirExists) {
-        throw new Error(`Backend directory was not found under ${paths.backendDir}`)
-      }
-      if (!fs.existsSync(paths.backendServicePath)) {
-        throw new Error(
-          `Backend delivery service file not found under ${paths.backendServicePath}`
-        )
-      }
-    }
-
-    let loggedSkipWarning = false
-    function warnBackendAbsentOnce(backendDir: string) {
-      if (!loggedSkipWarning) {
-        loggedSkipWarning = true
-        console.warn(
-          '\n=================================================================================\n' +
-            `WARNING: Backend directory not found under ${backendDir}.\n` +
-            'Skipping ADMIN_PATH_EVENTS backend parity check because backend repo is absent.\n' +
-            '=================================================================================\n'
-        )
-      }
-    }
-
-    it('turns skip into failure when REQUIRE_BACKEND=1 even if backend dir is absent', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../../../nonexistent-backend-for-test'),
-        env: { REQUIRE_BACKEND: '1' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.requireBackend).toBe(true)
-      expect(paths.dirExists).toBe(false)
-      expect(() => assertBackendFilesExist(paths)).toThrow(
-        `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
-      )
-    })
-
-    it('does not skip when an override path is set, even if the directory does not exist', () => {
-      const paths = getBackendPaths({
-        env: { OPENCOURIER_BACKEND_DIR: '/nonexistent/override/dir' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.hasOverride).toBe(true)
-      expect(paths.dirExists).toBe(false)
-      expect(() => assertBackendFilesExist(paths)).toThrow(
-        `Backend directory was not found under ${paths.backendDir}`
-      )
-    })
-
     const backendPaths = getBackendPaths()
     if (backendPaths.shouldSkip) {
-      warnBackendAbsentOnce(backendPaths.backendDir)
+      warnBackendAbsentOnce(backendPaths.backendDir, 'ADMIN_PATH_EVENTS backend parity check')
     }
 
     const itBackend = backendPaths.shouldSkip ? it.skip : it
 
     itBackend('matches submitDeliveryEvent switch cases in delivery.domain.service.ts both ways', () => {
-      assertBackendFilesExist(backendPaths)
+      assertBackendFilesExist(backendPaths, {
+        'delivery service file': backendPaths.backendDeliveryServicePath,
+      })
 
-      const content = fs.readFileSync(backendPaths.backendServicePath, 'utf8')
+      const content = fs.readFileSync(backendPaths.backendDeliveryServicePath, 'utf8')
 
       const submitIndex = content.indexOf('async submitDeliveryEvent')
       expect(submitIndex).toBeGreaterThan(-1)

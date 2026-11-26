@@ -3,11 +3,10 @@
 // Compares private copies of backend types under src/shared-types/ with the backend originals
 // (under ../opencourier-backend/src/shared-types/ and ../opencourier-backend/prisma/schema.prisma).
 // Tests both directions: missing in app, extra in app, and value mismatches.
-// Honours OPENCOURIER_BACKEND_DIR and REQUIRE_BACKEND=1.
+// Honours OPENCOURIER_BACKEND_DIR and REQUIRE_BACKEND=1 (the skip rules: src/test-utils/backendCopies.ts,
+// tested once in src/test-utils/backendCopies.test.ts).
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
-import vm from 'vm'
 import ts from 'typescript'
 
 // Adminweb shared types under test
@@ -31,172 +30,14 @@ import * as removalRequestsTypes from './removal-requests'
 import * as stateMachineTypes from './state-machine'
 import * as stripeTypes from './stripe'
 
-interface BackendPathsOptions {
-  defaultDir?: string
-  env?: Record<string, string | undefined>
-}
-
-// Resolves backend file locations with support for overrides (e.g. scratch copies in tests).
-function getBackendPaths(options?: BackendPathsOptions) {
-  const env = options?.env ?? process.env
-  const defaultDir =
-    options?.defaultDir ?? path.resolve(__dirname, '../../../opencourier-backend')
-
-  const hasOverride = Boolean(
-    env.OPENCOURIER_BACKEND_DIR ||
-      env.BACKEND_SCHEMA_PATH ||
-      env.BACKEND_SHARED_TYPES_DIR
-  )
-
-  const allFilesOverridden = Boolean(
-    env.BACKEND_SCHEMA_PATH && env.BACKEND_SHARED_TYPES_DIR
-  )
-
-  const backendDir = env.OPENCOURIER_BACKEND_DIR || defaultDir
-  const backendSharedTypesDir =
-    env.BACKEND_SHARED_TYPES_DIR || path.join(backendDir, 'src/shared-types')
-  const backendSchemaPath =
-    env.BACKEND_SCHEMA_PATH || path.join(backendDir, 'prisma/schema.prisma')
-
-  const dirExists = fs.existsSync(backendDir)
-  const requireBackend = env.REQUIRE_BACKEND === '1'
-
-  // Skip only when the backend folder itself is absent and no override is set.
-  // When REQUIRE_BACKEND=1, never skip (it turns the absence into a failure).
-  const shouldSkip = !hasOverride && !dirExists && !requireBackend
-
-  return {
-    backendDir,
-    backendSharedTypesDir,
-    backendSchemaPath,
-    hasOverride,
-    allFilesOverridden,
-    dirExists,
-    requireBackend,
-    shouldSkip,
-  }
-}
-
-// Verifies required backend files exist; only checks directory existence when paths are derived from it.
-function assertBackendFilesExist(paths: ReturnType<typeof getBackendPaths>) {
-  if (paths.requireBackend && !paths.dirExists && !paths.allFilesOverridden) {
-    throw new Error(
-      `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
-    )
-  }
-  if (!paths.dirExists && !paths.allFilesOverridden) {
-    throw new Error(`Backend directory was not found under ${paths.backendDir}`)
-  }
-  if (!fs.existsSync(paths.backendSchemaPath)) {
-    throw new Error(
-      `Backend Prisma schema missing: checked ${paths.backendSchemaPath}`
-    )
-  }
-  if (!fs.existsSync(paths.backendSharedTypesDir)) {
-    throw new Error(
-      `Backend shared-types dir missing: checked ${paths.backendSharedTypesDir}`
-    )
-  }
-}
-
-let loggedSkipWarning = false
-function warnBackendAbsentOnce(backendDir: string) {
-  if (!loggedSkipWarning) {
-    loggedSkipWarning = true
-    console.warn(
-      '\n=================================================================================\n' +
-        `WARNING: Backend directory not found under ${backendDir}.\n` +
-        'Skipping shared type copy consistency checks because backend repo is absent.\n' +
-        '=================================================================================\n'
-    )
-  }
-}
-
-// Parses Prisma schema enums into string-record dictionaries.
-function parsePrismaEnums(schemaPath: string): Record<string, Record<string, string>> {
-  if (!fs.existsSync(schemaPath)) {
-    throw new Error(`Prisma schema file missing: ${schemaPath}`)
-  }
-  const schemaContent = fs.readFileSync(schemaPath, 'utf-8')
-  const enums: Record<string, Record<string, string>> = {}
-  for (const match of Array.from(schemaContent.matchAll(/enum\s+(\w+)\s+\{([^}]+)\}/g))) {
-    const enumName = match[1]
-    const body = match[2]
-    if (!enumName || !body) continue
-    const members = body
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line && !line.startsWith('//'))
-      .map((line: string) => line.split(/\s+/)[0])
-      .filter(Boolean)
-    enums[enumName] = Object.fromEntries(members.map((m: string) => [m, m]))
-  }
-  return enums
-}
-
-// Loads a backend TypeScript file by transpiling to CommonJS and executing in a vm context.
-// Passes Prisma enums when `@prisma/types` is imported, and resolves relative imports within shared-types.
-function loadBackendSharedFile<T = Record<string, unknown>>(
-  filePath: string,
-  prismaEnums: Record<string, Record<string, string>>
-): T {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Backend file not found: ${filePath}`)
-  }
-  const code = fs.readFileSync(filePath, 'utf-8')
-  const js = ts.transpileModule(code, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-    },
-  }).outputText
-
-  const exportsObj: Record<string, unknown> = {}
-  const moduleObj = { exports: exportsObj }
-
-  const customRequire = (id: string): unknown => {
-    if (id === '@prisma/types' || id.endsWith('prisma/schema.prisma')) {
-      return prismaEnums
-    }
-    if (id.startsWith('.')) {
-      const dir = path.dirname(filePath)
-      let target = path.resolve(dir, id)
-      if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
-        target = path.join(target, 'index')
-      }
-      if (!fs.existsSync(target) && fs.existsSync(target + '.ts')) target = target + '.ts'
-      if (!fs.existsSync(target) && fs.existsSync(target + '.d.ts')) return {}
-      if (fs.existsSync(target)) {
-        return loadBackendSharedFile(target, prismaEnums)
-      }
-    }
-    throw new Error(
-      `Evaluating ${filePath} attempted to call require('${id}'). ` +
-        'This loader runs the co-op plain data files and does not support value imports.'
-    )
-  }
-
-  const context = vm.createContext({
-    exports: exportsObj,
-    module: moduleObj,
-    require: customRequire,
-  })
-
-  try {
-    vm.runInContext(js, context)
-  } catch (err: unknown) {
-    if (
-      err instanceof Error &&
-      err.message.includes('attempted to call require')
-    ) {
-      throw err
-    }
-    const message = err instanceof Error ? err.message : String(err)
-    throw new Error(`Failed to evaluate ${filePath}: ${message}`)
-  }
-
-  return moduleObj.exports as T
-}
+// The skip rules, the backend loader and the Prisma reader are shared by every copy check (row 181).
+import {
+  assertBackendFilesExist,
+  getBackendPaths,
+  loadBackendSharedFile,
+  parsePrismaEnums,
+  warnBackendAbsentOnce,
+} from '@/test-utils/backendCopies'
 
 interface PropertyDetail {
   name: string
@@ -268,106 +109,11 @@ function compareDictionaries(
 }
 
 describe('Shared types parity (row 170: adminweb copies checked against backend)', () => {
-  describe('Backend path resolution and skip guard', () => {
-    it('skips when default backend dir is absent and no override is set', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../nonexistent-backend-for-test'),
-        env: {},
-      })
-      expect(paths.shouldSkip).toBe(true)
-      expect(paths.dirExists).toBe(false)
-    })
-
-    it('turns skip into failure when REQUIRE_BACKEND=1 even if backend dir is absent', () => {
-      const paths = getBackendPaths({
-        defaultDir: path.resolve(__dirname, '../../../nonexistent-backend-for-test'),
-        env: { REQUIRE_BACKEND: '1' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.requireBackend).toBe(true)
-      expect(paths.dirExists).toBe(false)
-      expect(() => assertBackendFilesExist(paths)).toThrow(
-        `REQUIRE_BACKEND=1 is set, but backend directory was not found under ${paths.backendDir}`
-      )
-    })
-
-    it('does not skip when an override path is set, even if the directory does not exist', () => {
-      const paths = getBackendPaths({
-        env: { OPENCOURIER_BACKEND_DIR: '/nonexistent/override/dir' },
-      })
-      expect(paths.shouldSkip).toBe(false)
-      expect(paths.hasOverride).toBe(true)
-      expect(paths.dirExists).toBe(false)
-      expect(() => assertBackendFilesExist(paths)).toThrow(
-        `Backend directory was not found under ${paths.backendDir}`
-      )
-    })
-
-    it('detects missing required file in present directory', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-scratch-backend-'))
-      try {
-        const paths = getBackendPaths({
-          env: { OPENCOURIER_BACKEND_DIR: tempDir },
-        })
-        expect(paths.shouldSkip).toBe(false)
-        expect(paths.dirExists).toBe(true)
-        expect(() => assertBackendFilesExist(paths)).toThrow(
-          `Backend Prisma schema missing: checked ${paths.backendSchemaPath}`
-        )
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
-    })
-
-    it('does not fail existence check when all per target overrides exist even if default dir is absent', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-scratch-overrides-'))
-      try {
-        const schemaPath = path.join(tempDir, 'schema.prisma')
-        const sharedTypesDir = path.join(tempDir, 'shared-types')
-        fs.writeFileSync(schemaPath, 'enum Test { A }')
-        fs.mkdirSync(sharedTypesDir)
-
-        const paths = getBackendPaths({
-          defaultDir: path.resolve(__dirname, '../../../nonexistent-backend-for-test'),
-          env: {
-            BACKEND_SCHEMA_PATH: schemaPath,
-            BACKEND_SHARED_TYPES_DIR: sharedTypesDir,
-          },
-        })
-        expect(paths.shouldSkip).toBe(false)
-        expect(paths.allFilesOverridden).toBe(true)
-        expect(paths.dirExists).toBe(false)
-        expect(fs.existsSync(paths.backendSchemaPath)).toBe(true)
-        expect(fs.existsSync(paths.backendSharedTypesDir)).toBe(true)
-
-        expect(() => assertBackendFilesExist(paths)).not.toThrow()
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
-    })
-
-    it('fails with a clear message naming the file if an evaluated file calls require', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-adminweb-require-'))
-      const scratchRequireFile = path.join(tempDir, 'scratch-require.ts')
-      fs.writeFileSync(
-        scratchRequireFile,
-        'const crypto = require("crypto"); export const data = { crypto };'
-      )
-      try {
-        expect(() => loadBackendSharedFile(scratchRequireFile, {})).toThrow(
-          `Evaluating ${scratchRequireFile} attempted to call require('crypto')`
-        )
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      }
-    })
-  })
-
   describe('Row 170: Copied backend type values compared with backend originals', () => {
     const backendPaths = getBackendPaths()
 
     if (backendPaths.shouldSkip) {
-      warnBackendAbsentOnce(backendPaths.backendDir)
+      warnBackendAbsentOnce(backendPaths.backendDir, 'shared type copy consistency checks')
     }
 
     const itRow170 = backendPaths.shouldSkip ? it.skip : it
@@ -1413,21 +1159,13 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         EVENT_PART_CODES: 'Event part template codes compared word-for-word by row 163 in translations.test.ts',
 
         // Backend-only exports with no adminweb copy in src/shared-types/
-        DELIVERY_ONGOING_STATUSES:
-          'Backend-only list of ongoing statuses with hand mirrors outside src/shared-types (src/modules/deliveries/components/ReassignCourierDialog.tsx, src/modules/deliveries/utils/cancellationDisplay.ts), compared in src/modules/deliveries/utils/cancellationDisplay.mirrors.test.ts (row 175)',
-        DELIVERY_PICKED_UP_STATUSES:
-          'Backend-only list of picked-up statuses with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), compared in src/modules/deliveries/utils/cancellationDisplay.mirrors.test.ts (row 175)',
         ORDER_ITEM_KINDS: 'Backend-only order item kinds list with no adminweb copy',
         FALLBACK_REASSIGNMENT_PAYOUT_POLICIES: 'Backend-only fallback reassignment payout policies config with no adminweb copy',
         FALLBACK_REASSIGNMENT_PAYOUT_DEFAULT_POLICY: 'Backend-only fallback default policy with no adminweb copy',
         FALLBACK_CANCELLATION_PAYOUT_POLICY: 'Backend-only fallback cancellation policy with no adminweb copy',
-        EnumCancelledBy:
-          'Backend-only cancellation actor enum with hand mirror outside src/shared-types (src/modules/deliveries/utils/cancellationDisplay.ts), compared in src/modules/deliveries/utils/cancellationDisplay.mirrors.test.ts (row 175)',
         EnumStripeAccountStatus: 'Backend-only Stripe account status enum with no adminweb copy',
         EnumRefundReason: 'Backend-only Stripe refund reason enum with no adminweb copy',
         EnumRefundStatus: 'Backend-only Stripe refund status enum with no adminweb copy',
-        EnumTwoOrderPolicy: 'Backend-only two-order policy enum in stacking.ts with no adminweb copy',
-        EnumAddOnMoment: 'Backend-only add-on moment enum in stacking.ts with no adminweb copy',
         POLICY_NAMES_EL: 'Backend-only Greek rider-facing policy names map with no adminweb copy',
         formatCentsEl: 'Backend-only Greek rider-facing cents formatter function with no adminweb copy',
         distanceUnitNameEl: 'Backend-only Greek rider-facing distance unit name function with no adminweb copy',
@@ -1443,6 +1181,21 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
         RIDER_FACING_SETTINGS: 'Backend-only rider-facing settings map with no adminweb copy',
         RIDER_FACING_SETTING_KEYS: 'Backend-only rider-facing setting keys list with no adminweb copy',
       }
+
+      // Backend exports with no copy in src/shared-types but hand copies elsewhere in adminweb, compared
+      // in another test file (row 181: NOT_COMPARED used to call the two matching settings uncopied).
+      // Each value is that test file, relative to src; a guard below checks it exists and names the export.
+      const COMPARED_ELSEWHERE: Record<string, string> = {
+        DELIVERY_ONGOING_STATUSES: 'modules/deliveries/utils/cancellationDisplay.mirrors.test.ts',
+        DELIVERY_PICKED_UP_STATUSES: 'modules/deliveries/utils/cancellationDisplay.mirrors.test.ts',
+        EnumCancelledBy: 'modules/deliveries/utils/cancellationDisplay.mirrors.test.ts',
+        EnumTwoOrderPolicy: 'test-utils/handMirrors.test.ts',
+        EnumAddOnMoment: 'test-utils/handMirrors.test.ts',
+      }
+
+      // Whether an export is accounted for: compared here, compared elsewhere, or named with a reason.
+      const isAccountedFor = (name: string) =>
+        COMPARED_EXPORTS.has(name) || Boolean(COMPARED_ELSEWHERE[name]) || Boolean(NOT_COMPARED[name])
 
       // Expected non-test TypeScript files in shared-types folders
       const KNOWN_ADMINWEB_FILES = new Set([
@@ -1533,7 +1286,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
       )
 
       itRow170(
-        'ensures every runtime export in adminweb shared-types is compared or named in NOT_COMPARED',
+        'ensures every runtime export in adminweb shared-types is compared, compared elsewhere or named in NOT_COMPARED',
         () => {
           const adminSharedTypesDir = path.resolve(__dirname)
           const adminFiles = fs.readdirSync(adminSharedTypesDir).filter((f) => {
@@ -1541,15 +1294,19 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
             return !fs.statSync(p).isDirectory() && f.endsWith('.ts') && !f.endsWith('.test.ts')
           })
 
-          const overlap = Object.keys(NOT_COMPARED).filter((k) => COMPARED_EXPORTS.has(k))
+          const overlap = Object.keys(NOT_COMPARED).filter(
+            (k) => COMPARED_EXPORTS.has(k) || Boolean(COMPARED_ELSEWHERE[k])
+          )
           expect(overlap).toEqual([])
+          const elsewhereOverlap = Object.keys(COMPARED_ELSEWHERE).filter((k) => COMPARED_EXPORTS.has(k))
+          expect(elsewhereOverlap).toEqual([])
 
           const unhandledAdminExports: { file: string; exportName: string }[] = []
           for (const file of adminFiles) {
             const filePath = path.join(adminSharedTypesDir, file)
             const mod = loadBackendSharedFile<Record<string, unknown>>(filePath, prismaEnums)
             for (const exp of Object.keys(mod)) {
-              if (!COMPARED_EXPORTS.has(exp) && !NOT_COMPARED[exp]) {
+              if (!isAccountedFor(exp)) {
                 unhandledAdminExports.push({ file, exportName: exp })
               }
             }
@@ -1559,7 +1316,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
       )
 
       itRow170(
-        'ensures every runtime export in backend shared-types is compared or named in NOT_COMPARED',
+        'ensures every runtime export in backend shared-types is compared, compared elsewhere or named in NOT_COMPARED',
         () => {
           const backendFiles = fs.readdirSync(backendPaths.backendSharedTypesDir).filter((f) => {
             const p = path.join(backendPaths.backendSharedTypesDir, f)
@@ -1576,7 +1333,7 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
             const filePath = path.join(backendPaths.backendSharedTypesDir, file)
             const mod = loadBackendSharedFile<Record<string, unknown>>(filePath, prismaEnums)
             for (const exp of Object.keys(mod)) {
-              if (!COMPARED_EXPORTS.has(exp) && !NOT_COMPARED[exp]) {
+              if (!isAccountedFor(exp)) {
                 unhandledBackendExports.push({ file, exportName: exp })
               }
             }
@@ -1584,6 +1341,15 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
           expect(unhandledBackendExports).toEqual([])
         }
       )
+
+      itRow170('ensures each export compared elsewhere names a test file that exists and compares it', () => {
+        const srcDir = path.resolve(__dirname, '..')
+        const broken = Object.entries(COMPARED_ELSEWHERE).filter(([exportName, testFile]) => {
+          const filePath = path.join(srcDir, testFile)
+          return !fs.existsSync(filePath) || !fs.readFileSync(filePath, 'utf-8').includes(exportName)
+        })
+        expect(broken).toEqual([])
+      })
     })
   })
 })

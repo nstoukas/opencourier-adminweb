@@ -23,6 +23,10 @@ import { useServerText } from '@/i18n/useServerText'
 import { useAppDispatch } from '@/ui-shared-utils'
 import { REVIEW_ANSWER_MAX, outcomeText, parseCorrectionCents } from './reviewDisplay'
 
+// The answer's outcomes, in the order the dialog offers them: a copy of the backend's EnumReviewOutcome,
+// named so src/test-utils/handMirrors.test.ts can compare it with the backend (row 181).
+const REVIEW_OUTCOMES: ReviewOutcome[] = ['STANDS', 'CHANGED']
+
 function isConflict(err: unknown): boolean {
   return (err as { statusCode?: number } | undefined)?.statusCode === 409
 }
@@ -160,7 +164,7 @@ export function AnswerReviewButton({
               <blockquote className="whitespace-pre-wrap rounded-md border bg-muted p-3 text-sm">{request.note}</blockquote>
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">{t('reviews.answer.outcome')}</legend>
-                {(['STANDS', 'CHANGED'] as ReviewOutcome[]).map((value) => (
+                {REVIEW_OUTCOMES.map((value) => (
                   <label key={value} className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
