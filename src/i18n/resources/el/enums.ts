@@ -78,13 +78,14 @@ export const enums: Translations['enums'] = {
   geoCalculationType: {
     HAVERSINE: 'Απόσταση Haversine (σε ευθεία)',
     GOOGLE_MATRIX_API: 'Google Matrix API',
-    RANDOM: 'Τυχαία απόσταση (για δοκιμές)',
+    // Row 173 (Fable's review): a random distance feeds the per km fee, so it randomises courier pay too.
+    RANDOM: '⚠ Τυχαίες αποστάσεις, ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ (η τιμή και η αμοιβή του διανομέα γίνονται τυχαίες)',
     OSRM: 'Οδική διαδρομή OSRM (προφίλ μοτοποδηλάτου)',
   },
   quoteCalculationType: {
     BY_DISTANCE: 'Με βάση την απόσταση',
     SURGE: 'Δυναμική τιμολόγηση',
-    // Row 173: η προειδοποίηση του backend· αυτή η επιλογή κάνει τυχαία την αμοιβή του διανομέα.
+    // Row 173: the backend's own warning (src/shared-types/quote-calculation.ts): this mode randomises rider pay.
     CUSTOM: '⚠ Τυχαίες τιμές, ΜΟΝΟ ΓΙΑ ΔΟΚΙΜΕΣ (αγνοεί την απόσταση· η αμοιβή του διανομέα γίνεται τυχαία)',
   },
   quoteToDeliveryConversionType: {

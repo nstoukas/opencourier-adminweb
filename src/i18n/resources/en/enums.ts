@@ -78,7 +78,8 @@ export const enums = {
   geoCalculationType: {
     HAVERSINE: 'Haversine distance (Areal distance)',
     GOOGLE_MATRIX_API: 'Google Matrix API',
-    RANDOM: 'Random distance (For development)',
+    // Row 173 (Fable's review): a random distance feeds the per km fee, so it randomises courier pay too.
+    RANDOM: '⚠ Random distances — DEVELOPMENT ONLY (randomises prices and courier pay)',
     OSRM: 'OSRM road routing (moped profile)',
   },
   quoteCalculationType: {
