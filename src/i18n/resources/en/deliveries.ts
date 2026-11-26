@@ -356,7 +356,7 @@ export const deliveries = {
       FAIRNESS: 'Fairness (co-op weights)',
       NEAREST_COURIER: 'Nearest free courier',
       COURIER_SENIORITY: 'Most senior courier',
-      STATIC: 'Fixed courier (testing)',
+      STATIC: 'Fixed test rider',
       ADMIN: 'Chosen by an admin',
     },
     duration: {

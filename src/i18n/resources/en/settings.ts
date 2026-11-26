@@ -160,7 +160,11 @@ export const settings = {
   matcher: {
     NEAREST_COURIER: { title: 'Nearest free courier', description: 'The closest rider who is free.' },
     COURIER_SENIORITY: { title: 'Most senior courier', description: 'Members who joined first are offered first.' },
-    STATIC: { title: 'Fixed courier', description: 'The admin assigns each delivery by hand (the override).' },
+    // Row 179: what the backend's StaticCourierMatcherService does, one rider id set in its code, never checked.
+    STATIC: {
+      title: 'Fixed test rider',
+      description: 'Every delivery is offered to one test rider set in the code, free or not. Testing only.',
+    },
     FAIRNESS: {
       title: 'Fairness',
       description:
@@ -203,7 +207,7 @@ export const settings = {
     delayHelp:
       "Whole minutes, 0 to 30. Neither customer's food may arrive more than this later than on a single trip by the same rider; 0 allows only pairs that delay nobody.",
     addOnHelp:
-      'On: a rider on a job may be offered one more order on the way, showing the km and minutes it adds. Declining is free and changes nothing about the job, and the phone never accepts it by itself. It pays in full from its own quote, and the limits above apply. It always ends after Seconds before an unanswered offer ends (under Offers), even with Offer expiry off, and goes back to matching. While the rider carries food it never rings insistently and gets twice that time. Under "Whenever the two orders fit" it goes before a free rider. Never while the matcher is Fixed courier (the override). Off: no rider on a job is offered anything.',
+      'On: a rider on a job may be offered one more order on the way, showing the km and minutes it adds. Declining is free and changes nothing about the job, and the phone never accepts it by itself. It pays in full from its own quote, and the limits above apply. It always ends after Seconds before an unanswered offer ends (under Offers), even with Offer expiry off, and goes back to matching. While the rider carries food it never rings insistently and gets twice that time. Under "Whenever the two orders fit" it goes before a free rider. Never while the matcher is Fixed test rider. Off: no rider on a job is offered anything.',
     addOnMomentHelp: 'Used only while One more order offered while on a job is on.',
   },
   // When a pair may be offered, in plain words (spec 0048).

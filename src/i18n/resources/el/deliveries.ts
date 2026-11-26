@@ -340,7 +340,7 @@ export const deliveries: Translations['deliveries'] = {
       FAIRNESS: 'Δικαιοσύνη (βάρη του συνεταιρισμού)',
       NEAREST_COURIER: 'Πλησιέστερος ελεύθερος διανομέας',
       COURIER_SENIORITY: 'Αρχαιότερος διανομέας',
-      STATIC: 'Σταθερός διανομέας (δοκιμές)',
+      STATIC: 'Διανομέας δοκιμών',
       ADMIN: 'Επιλογή διαχειριστή',
     },
     duration: {

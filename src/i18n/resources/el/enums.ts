@@ -57,7 +57,7 @@ export const enums: Translations['enums'] = {
   courierMatcherType: {
     NEAREST_COURIER: 'Πλησιέστερος διανομέας',
     COURIER_SENIORITY: 'Αρχαιότητα διανομέα',
-    STATIC: 'Σταθερός διανομέας (για δοκιμές)',
+    STATIC: 'Διανομέας δοκιμών',
     FAIRNESS: 'Δικαιοσύνη (βάρη του συνεταιρισμού)',
   },
   courierCompensationType: {
