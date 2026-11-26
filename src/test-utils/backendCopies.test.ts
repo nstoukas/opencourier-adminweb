@@ -6,6 +6,7 @@ import path from 'path'
 import {
   assertBackendFilesExist,
   compareSets,
+  findBrokenComparedElsewhere,
   getBackendPaths,
   loadBackendSharedFile,
   readPropertyUnions,
@@ -202,5 +203,27 @@ describe('backendCopies: the hand mirror readers (row 181)', () => {
         expect(() => readPropertyUnions(file, 'size')).toThrow(`Property 'size' not found in ${file}`)
       }
     )
+  })
+})
+
+describe('backendCopies: findBrokenComparedElsewhere (guard in backend-types.test.ts)', () => {
+  it('detects missing files and missing export names in files', () => {
+    withScratchFile('sample.test.ts', 'export const ExportA = 1\nconst ExportB = 2\n', (filePath) => {
+      const dir = path.dirname(filePath)
+      const baseName = path.basename(filePath)
+
+      // Both exports present in file -> no broken entries
+      expect(findBrokenComparedElsewhere({ ExportA: baseName, ExportB: baseName }, dir)).toEqual([])
+
+      // Export not in file -> reported as broken
+      expect(findBrokenComparedElsewhere({ MissingExport: baseName }, dir)).toEqual([
+        ['MissingExport', baseName],
+      ])
+
+      // File does not exist -> reported as broken
+      expect(findBrokenComparedElsewhere({ ExportA: 'nonexistent.test.ts' }, dir)).toEqual([
+        ['ExportA', 'nonexistent.test.ts'],
+      ])
+    })
   })
 })

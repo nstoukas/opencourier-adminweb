@@ -225,6 +225,17 @@ export function compareSets(
   return { missingInApp, extraInApp }
 }
 
+// Finds entries in a COMPARED_ELSEWHERE map where the test file is missing or does not name the export.
+export function findBrokenComparedElsewhere(
+  comparedElsewhere: Record<string, string>,
+  srcDir: string
+): [string, string][] {
+  return Object.entries(comparedElsewhere).filter(([exportName, testFile]) => {
+    const filePath = path.join(srcDir, testFile)
+    return !fs.existsSync(filePath) || !fs.readFileSync(filePath, 'utf-8').includes(exportName)
+  })
+}
+
 // ---------------------------------------------------------------------------------------------------
 // Readers for hand mirrors (row 181). A hand mirror is often a private constant, so instead of importing
 // it the test reads the source file with the TypeScript compiler API (`ts.createSourceFile` turns the

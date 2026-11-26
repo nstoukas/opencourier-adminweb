@@ -6,6 +6,7 @@
 // Honours OPENCOURIER_BACKEND_DIR and REQUIRE_BACKEND=1 (the skip rules: src/test-utils/backendCopies.ts,
 // tested once in src/test-utils/backendCopies.test.ts).
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import ts from 'typescript'
 
@@ -33,6 +34,7 @@ import * as stripeTypes from './stripe'
 // The skip rules, the backend loader and the Prisma reader are shared by every copy check (row 181).
 import {
   assertBackendFilesExist,
+  findBrokenComparedElsewhere,
   getBackendPaths,
   loadBackendSharedFile,
   parsePrismaEnums,
@@ -1344,11 +1346,29 @@ describe('Shared types parity (row 170: adminweb copies checked against backend)
 
       itRow170('ensures each export compared elsewhere names a test file that exists and compares it', () => {
         const srcDir = path.resolve(__dirname, '..')
-        const broken = Object.entries(COMPARED_ELSEWHERE).filter(([exportName, testFile]) => {
-          const filePath = path.join(srcDir, testFile)
-          return !fs.existsSync(filePath) || !fs.readFileSync(filePath, 'utf-8').includes(exportName)
-        })
+        const broken = findBrokenComparedElsewhere(COMPARED_ELSEWHERE, srcDir)
         expect(broken).toEqual([])
+      })
+
+      it('fails when COMPARED_ELSEWHERE points at a file that does not name the export or does not exist', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-compared-elsewhere-'))
+        try {
+          fs.writeFileSync(path.join(tempDir, 'valid.test.ts'), 'export const EnumTwoOrderPolicy = 1\n')
+          // Non-existent test file fails
+          expect(
+            findBrokenComparedElsewhere({ EnumTwoOrderPolicy: 'missing.test.ts' }, tempDir)
+          ).toEqual([['EnumTwoOrderPolicy', 'missing.test.ts']])
+          // Existing test file without the export name fails
+          expect(
+            findBrokenComparedElsewhere({ EnumUnreferenced: 'valid.test.ts' }, tempDir)
+          ).toEqual([['EnumUnreferenced', 'valid.test.ts']])
+          // Existing test file with the export name passes
+          expect(
+            findBrokenComparedElsewhere({ EnumTwoOrderPolicy: 'valid.test.ts' }, tempDir)
+          ).toEqual([])
+        } finally {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
       })
     })
   })
